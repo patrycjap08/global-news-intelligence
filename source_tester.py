@@ -341,6 +341,20 @@ def _json_ld_value(values: list[dict[str, Any]], key: str) -> str:
     return ""
 
 
+GENERIC_HEADLINES = {
+    "redakcja poleca",
+    "polecane",
+    "czytaj także",
+    "czytaj rownież",
+    "czytaj również",
+}
+
+
+def is_generic_headline(value: str) -> bool:
+    normalized = clean_text(value).casefold().strip(" :–—-\t")
+    return normalized in GENERIC_HEADLINES
+
+
 def _structured_html_extract(text: str) -> dict[str, Any] | None:
     """Extract article content from semantic HTML containers.
 
@@ -355,7 +369,17 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
     soup = BeautifulSoup(text, "html.parser")
     json_ld = _json_ld_values(soup)
     title_node = soup.select_one("h1, [data-testid='headline'], .ods-m-labeled-h1__text")
-    title = clean_text(title_node.get_text(" ", strip=True)) if title_node else _json_ld_value(json_ld, "headline")
+    title_candidates = []
+    if title_node:
+        title_candidates.append(clean_text(title_node.get_text(" ", strip=True)))
+    title_candidates.extend([
+        _json_ld_value(json_ld, "headline"),
+        clean_text((soup.select_one("meta[property='og:title']") or {}).get("content", "")),
+        clean_text((soup.select_one("meta[name='twitter:title']") or {}).get("content", "")),
+    ])
+    title = next((candidate for candidate in title_candidates if candidate and not is_generic_headline(candidate)), "")
+    if not title:
+        title = next((candidate for candidate in title_candidates if candidate), "")
     description = _json_ld_value(json_ld, "description")
     if not description:
         meta = soup.select_one('meta[name="description"], meta[property="og:description"]')

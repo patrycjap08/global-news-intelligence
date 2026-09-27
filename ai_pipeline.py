@@ -25,6 +25,7 @@ PROMPT_VERSION = "ai-prompts-v3-excerpt-and-relevance"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
+MIN_ARTICLE_WORDS = 100
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
@@ -141,7 +142,8 @@ def local_articles(conn: sqlite3.Connection, article_ids: list[str] | None = Non
     if article_ids is None:
         rows = conn.execute(
             "SELECT * FROM articles WHERE content_status IN ('COMPLETE','EXCERPT') "
-            "AND word_count >= 200 ORDER BY fetched_at, article_id"
+            "AND word_count >= ? ORDER BY fetched_at, article_id",
+            (MIN_ARTICLE_WORDS,),
         ).fetchall()
     else:
         if not article_ids:

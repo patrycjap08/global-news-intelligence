@@ -33,9 +33,11 @@ except ImportError as exc:  # pragma: no cover
 IGNORED_PATH_PARTS = (
     "/tag/", "/tags/", "/author/", "/authors/", "/category/",
     "/categories/", "/search", "/newsletter", "/podcast", "/video/",
+    "/wideo/", "/live/", "/na-zywo/", "/transmisja/", "/transmisje/",
+    "/gallery/", "/galeria/", "/slideshow/",
 )
 HTML_ASSET_SUFFIXES = st.NON_ARTICLE_EXTENSIONS | {".xml", ".json", ".txt"}
-MIN_ARTICLE_WORDS = 200
+MIN_ARTICLE_WORDS = 100
 
 
 def utc_now() -> str:
@@ -762,7 +764,12 @@ def harvest_source(
         canonical = st.canonicalize(url, source["homepage"]) or url
         existing = existing_article(conn, source_id, canonical)
         rejection = existing_rejection(conn, source_id, canonical)
-        if existing is None and rejection is not None and not args.retry_rejected:
+        rejection_is_still_below_threshold = bool(
+            rejection is not None
+            and str(rejection["reason"]) == "TOO_SHORT"
+            and int(rejection["word_count"] or 0) < MIN_ARTICLE_WORDS
+        )
+        if existing is None and rejection is not None and not args.retry_rejected and rejection_is_still_below_threshold:
             conn.execute(
                 "UPDATE rejected_candidates SET last_seen_at = ? "
                 "WHERE source_id = ? AND canonical_url = ?",
