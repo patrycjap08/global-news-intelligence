@@ -745,9 +745,12 @@ def harvest_source(
     homepage_result, candidates, notes = discover_candidates(
         client, source, defaults, args, page_obj
     )
+    candidate_pool = candidates
+    next_candidate_index = len(candidate_pool)
     if args.top_articles_per_source > 0:
-        discovered_before_window = len(candidates)
-        candidates = candidates[:args.top_articles_per_source]
+        discovered_before_window = len(candidate_pool)
+        candidates = candidate_pool[:args.top_articles_per_source]
+        next_candidate_index = len(candidates)
         notes.append(f"top_window={args.top_articles_per_source}")
         if discovered_before_window > len(candidates):
             notes.append(f"candidates_trimmed={discovered_before_window - len(candidates)}")
@@ -759,7 +762,22 @@ def harvest_source(
         "discovered": len(candidates), "fetched": 0, "skipped": 0,
         "valid": 0, "failed": 0, "duplicates": 0, "rejected_short": 0,
     }
-    for candidate in candidates:
+
+    short_followups = 0
+
+    def queue_short_followup() -> None:
+        nonlocal next_candidate_index, short_followups
+        if args.top_articles_per_source <= 0 or next_candidate_index >= len(candidate_pool):
+            return
+        candidates.append(candidate_pool[next_candidate_index])
+        next_candidate_index += 1
+        counts["discovered"] += 1
+        short_followups += 1
+
+    candidate_index = 0
+    while candidate_index < len(candidates):
+        candidate = candidates[candidate_index]
+        candidate_index += 1
         url = candidate["url"]
         canonical = st.canonicalize(url, source["homepage"]) or url
         existing = existing_article(conn, source_id, canonical)
@@ -776,6 +794,8 @@ def harvest_source(
                 (now, source_id, canonical),
             )
             counts["skipped"] += 1
+            counts["rejected_short"] += 1
+            queue_short_followup()
             continue
         should_fetch = existing is None or (
             args.retry_failed and existing["content_status"] in {"FAILED", "BLOCKED", "CAPTCHA"}
@@ -804,9 +824,10 @@ def harvest_source(
             counts["fetched"] += 1
             counts["valid"] += int(valid and inserted)
             counts["duplicates"] += int(outcome == "duplicate")
-            counts["rejected_short"] += int(
-                outcome == "rejected" and classify_item(extracted)[1] == "TOO_SHORT"
-            )
+            is_short = outcome == "rejected" and classify_item(extracted)[1] == "TOO_SHORT"
+            counts["rejected_short"] += int(is_short)
+            if is_short:
+                queue_short_followup()
         except Exception as exc:
             failed = {
                 "url": url, "status": None, "title": candidate.get("title_hint", ""),
@@ -815,6 +836,8 @@ def harvest_source(
             save_article(conn, run_id, source, url, failed, "ERROR", now, candidate.get("title_hint", ""))
             counts["fetched"] += 1
             counts["failed"] += 1
+    if short_followups:
+        notes.append(f"short_followups={short_followups}")
     conn.execute(
         """
         INSERT OR REPLACE INTO source_run_results
