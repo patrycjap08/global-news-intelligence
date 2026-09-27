@@ -9,6 +9,7 @@ finishes. Full article bodies therefore live in Supabase, not in git history.
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -25,7 +26,7 @@ ARTICLE_COLUMNS = (
 )
 
 
-def chunks(rows: list[dict[str, Any]], size: int = 100) -> Iterable[list[dict[str, Any]]]:
+def chunks(rows: list[dict[str, Any]], size: int = 25) -> Iterable[list[dict[str, Any]]]:
     for index in range(0, len(rows), size):
         yield rows[index:index + size]
 
@@ -131,8 +132,15 @@ def pull_state(db_path: Path, client: SupabaseRestClient) -> dict[str, int]:
         conn.close()
 
 
-def _push_table(client: SupabaseRestClient, table: str, rows: list[dict[str, Any]], conflict: str) -> int:
-    for batch in chunks(rows):
+def _push_table(
+    client: SupabaseRestClient,
+    table: str,
+    rows: list[dict[str, Any]],
+    conflict: str,
+    *,
+    batch_size: int = 25,
+) -> int:
+    for batch in chunks(rows, size=batch_size):
         client.upsert(table, batch, on_conflict=conflict)
     return len(rows)
 
@@ -160,7 +168,12 @@ def push_run(db_path: Path, run_id: str, client: SupabaseRestClient) -> dict[str
                 (run_id,),
             ).fetchall()
         ]
-        counts["articles"] = _push_table(client, "articles", articles, "article_id")
+        # Article bodies are the largest payload. Small, idempotent batches keep
+        # PostgREST requests below the network timeout and are safe to retry.
+        article_batch_size = max(1, int(os.environ.get("SUPABASE_ARTICLE_BATCH_SIZE", "10")))
+        counts["articles"] = _push_table(
+            client, "articles", articles, "article_id", batch_size=article_batch_size
+        )
 
         run_articles = [_row_dict(row) for row in conn.execute(
             "SELECT * FROM run_articles WHERE run_id = ?", (run_id,)
