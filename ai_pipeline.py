@@ -282,7 +282,10 @@ def _analyze_pending_batch(
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomione.")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    stats = {"pending_articles": 0, "groups": 0, "summaries": 0, "skipped_summaries": 0, "excluded": 0}
+    stats = {
+        "pending_articles": 0, "groups": 0, "summaries": 0,
+        "skipped_summaries": 0, "skipped_single_article": 0, "excluded": 0,
+    }
     try:
         stats["pending_articles"] = len(articles)
         if not articles:
@@ -384,6 +387,9 @@ def _analyze_pending_batch(
             topic_id = group["topic_id"]
             title = group["title"]
             all_ids = group["all_ids"]
+            if len(set(all_ids)) < 2:
+                stats["skipped_single_article"] += 1
+                continue
             new_rows = local_articles(conn, group["new_ids"])
             all_rows = local_articles(conn, all_ids)
             if not new_rows or not all_rows:
@@ -461,7 +467,8 @@ def analyze_run(
 
     stats = {
         "pending_articles": len(articles), "groups": 0,
-        "summaries": 0, "skipped_summaries": 0, "excluded": 0,
+        "summaries": 0, "skipped_summaries": 0,
+        "skipped_single_article": 0, "excluded": 0,
     }
     if not articles:
         return stats
@@ -477,7 +484,7 @@ def analyze_run(
         batch_stats = _analyze_pending_batch(
             db_path, run_id, client, batch, model=model, batch_index=batch_index
         )
-        for key in ("groups", "summaries", "skipped_summaries", "excluded"):
+        for key in ("groups", "summaries", "skipped_summaries", "skipped_single_article", "excluded"):
             stats[key] += batch_stats[key]
     return stats
 
