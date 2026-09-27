@@ -37,8 +37,14 @@ def main() -> int:
     parser.add_argument(
         "--daily-max-articles-per-source",
         type=int,
-        default=int(os.environ.get("HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE", "50")),
+        default=int(os.environ.get("HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE", "30")),
         help="Maximum number of new fetch attempts per source during one UTC day.",
+    )
+    parser.add_argument(
+        "--top-articles-per-source",
+        type=int,
+        default=int(os.environ.get("HARVEST_TOP_ARTICLES_PER_SOURCE_PER_RUN", "10")),
+        help="Only inspect the first N discovered articles per source in this run.",
     )
     parser.add_argument("--discovery-limit-per-source", type=int, default=500)
     parser.add_argument("--max-sitemap-probes", type=int, default=6)
@@ -61,6 +67,7 @@ def main() -> int:
         "--db", str(args.db), "--output-dir", str(args.output_dir),
         "--runtime-config", "source_runtime.yaml",
         "--daily-max-articles-per-source", str(args.daily_max_articles_per_source),
+        "--top-articles-per-source", str(args.top_articles_per_source),
         "--discovery-limit-per-source", str(args.discovery_limit_per_source),
         "--max-sitemap-probes", str(args.max_sitemap_probes),
         "--max-sitemap-children", str(args.max_sitemap_children),

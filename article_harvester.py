@@ -743,6 +743,12 @@ def harvest_source(
     homepage_result, candidates, notes = discover_candidates(
         client, source, defaults, args, page_obj
     )
+    if args.top_articles_per_source > 0:
+        discovered_before_window = len(candidates)
+        candidates = candidates[:args.top_articles_per_source]
+        notes.append(f"top_window={args.top_articles_per_source}")
+        if discovered_before_window > len(candidates):
+            notes.append(f"candidates_trimmed={discovered_before_window - len(candidates)}")
     attempts_today = daily_fetched_attempts(conn, source_id, now)
     remaining_daily = max(0, args.daily_max_articles_per_source - attempts_today) if args.daily_max_articles_per_source > 0 else None
     if remaining_daily == 0:
@@ -889,6 +895,10 @@ def main() -> int:
     parser.add_argument("--db", type=Path, default=Path("article_harvest/articles.sqlite3"))
     parser.add_argument("--output-dir", type=Path, default=Path("article_harvest"))
     parser.add_argument("--daily-max-articles-per-source", type=int, default=50)
+    parser.add_argument(
+        "--top-articles-per-source", type=int, default=10,
+        help="Only inspect the first N discovered articles per source in this run; do not fill from older links.",
+    )
     parser.add_argument("--max-articles-per-source", type=int, default=None, help=argparse.SUPPRESS)
     parser.add_argument("--discovery-limit-per-source", type=int, default=500)
     parser.add_argument("--max-sitemap-probes", type=int, default=6)
