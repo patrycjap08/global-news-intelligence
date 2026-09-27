@@ -200,13 +200,14 @@ def stable_topic_id(article_ids: list[str], title: str) -> str:
     return "topic_" + digest({"article_ids": sorted(article_ids), "title": title})[:24]
 
 
-def analyze_run(
+def _analyze_pending_batch(
     db_path: Path,
     run_id: str,
     client: SupabaseRestClient,
+    articles: list[dict[str, Any]],
     *,
     model: str = DEFAULT_MODEL,
-    max_articles: int = 100,
+    batch_index: int = 1,
 ) -> dict[str, int]:
     if not os.environ.get("OPENAI_API_KEY"):
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomione.")
@@ -214,7 +215,6 @@ def analyze_run(
     conn.row_factory = sqlite3.Row
     stats = {"pending_articles": 0, "groups": 0, "summaries": 0, "skipped_summaries": 0}
     try:
-        articles = pending_articles(conn, client, max_articles)
         stats["pending_articles"] = len(articles)
         if not articles:
             return stats
@@ -225,7 +225,9 @@ def analyze_run(
             "topic_memory_window_days": TOPIC_LOOKBACK_DAYS,
         }
         grouping_hash = digest(grouping_input)
-        grouping_topic_run_id = "topicrun_" + digest({"run": run_id, "stage": "GROUPING", "input": grouping_hash})[:24]
+        grouping_topic_run_id = "topicrun_" + digest({
+            "run": run_id, "stage": "GROUPING", "batch": batch_index, "input": grouping_hash,
+        })[:24]
         try:
             grouping = call_openai(GROUPING_INSTRUCTIONS, grouping_input, model)
             client.upsert("topic_runs", [{
@@ -350,15 +352,64 @@ def analyze_run(
         conn.close()
 
 
+def analyze_run(
+    db_path: Path,
+    run_id: str,
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+    max_articles: int = 0,
+    batch_size: int = 100,
+) -> dict[str, int]:
+    """Process the whole pending queue in context-safe AI batches.
+
+    ``max_articles=0`` means all pending articles. Batches are deliberately
+    processed in one workflow, and each next batch reloads active topics so it
+    can attach follow-up articles to topics created by the previous batch.
+    """
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
+    batch_size = max(1, batch_size)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        articles = pending_articles(conn, client, max_articles)
+    finally:
+        conn.close()
+
+    stats = {"pending_articles": len(articles), "groups": 0, "summaries": 0, "skipped_summaries": 0}
+    if not articles:
+        return stats
+
+    total_batches = (len(articles) + batch_size - 1) // batch_size
+    for offset in range(0, len(articles), batch_size):
+        batch_index = offset // batch_size + 1
+        batch = articles[offset:offset + batch_size]
+        print(
+            f"[AI] Paczka {batch_index}/{total_batches}: {len(batch)} artykułów...",
+            flush=True,
+        )
+        batch_stats = _analyze_pending_batch(
+            db_path, run_id, client, batch, model=model, batch_index=batch_index
+        )
+        for key in ("groups", "summaries", "skipped_summaries"):
+            stats[key] += batch_stats[key]
+    return stats
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the two OpenAI analysis stages for pending articles.")
     parser.add_argument("--db", type=Path, default=Path("article_harvest/articles.sqlite3"))
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "100")))
+    parser.add_argument("--max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
+    parser.add_argument("--batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args()
     client = SupabaseRestClient()
-    print(json.dumps(analyze_run(args.db, args.run_id, client, model=args.model, max_articles=args.max_articles), ensure_ascii=False))
+    print(json.dumps(analyze_run(
+        args.db, args.run_id, client, model=args.model,
+        max_articles=args.max_articles, batch_size=args.batch_size,
+    ), ensure_ascii=False))
     return 0
 
 

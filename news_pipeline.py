@@ -47,7 +47,8 @@ def main() -> int:
     parser.add_argument("--retry-failed", action="store_true")
     parser.add_argument("--retry-rejected", action="store_true")
     parser.add_argument("--skip-ai", action="store_true")
-    parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "100")))
+    parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
+    parser.add_argument("--ai-batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
     args = parser.parse_args()
 
     client = SupabaseRestClient()
@@ -81,7 +82,11 @@ def main() -> int:
         print("[4/4] AI pominięte przez --skip-ai.", flush=True)
     else:
         print("[4/4] Grupuję tematy i tworzę opracowania AI...", flush=True)
-        result = analyze_run(args.db, run_id, client, max_articles=args.ai_max_articles)
+        result = analyze_run(
+            args.db, run_id, client,
+            max_articles=args.ai_max_articles,
+            batch_size=args.ai_batch_size,
+        )
         print(json.dumps(result, ensure_ascii=False), flush=True)
     return 0
 
