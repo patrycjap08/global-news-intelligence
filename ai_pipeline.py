@@ -9,7 +9,7 @@ citation-free model narrative.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -21,7 +21,8 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v1"
+PROMPT_VERSION = "ai-prompts-v2-three-day-topic-memory"
+TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
 GROUPING_INSTRUCTIONS = """
@@ -33,14 +34,22 @@ tematyczne nie wystarcza. Treść ma pierwszeństwo przed nagłówkiem.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"groups":[{"group_id":"new_group_001","existing_topic_id":"",
+"topic_action":"NEW_TOPIC|DEVELOPMENT|BACKGROUND_OR_CONTEXT",
 "working_title_pl":"neutralna nazwa wydarzenia","article_ids":["..."],
 "confidence":0.0,"needs_review":false,"grouping_reason":"..."}],
 "unassigned_article_ids":[],"possible_merges":[]}
 
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie albo w
-unassigned_article_ids. Nie wymyślaj faktów. Jeśli dopasowanie do istniejącego
-tematu jest niepewne, zostaw existing_topic_id puste i ustaw needs_review.
-Profil źródła służy wyłącznie do opisu perspektywy, nie do łączenia artykułów.
+unassigned_article_ids. Najpierw sprawdź active_topics z ostatnich trzech dni.
+Jeżeli artykuł jest dalszym ciągiem istniejącego tematu, wpisz jego topic_id i
+topic_action=DEVELOPMENT. Jeżeli tylko uzupełnia kontekst lub wcześniejszą
+agregację, wpisz topic_action=BACKGROUND_OR_CONTEXT. Nowe wydarzenie ma
+topic_action=NEW_TOPIC i pusty existing_topic_id.
+
+Nie twórz nowego tematu tylko dlatego, że artykuł pojawił się w kolejnym
+uruchomieniu tego samego dnia. Jeśli dopasowanie do istniejącego tematu jest
+niepewne, zostaw existing_topic_id puste i ustaw needs_review. Profil źródła
+służy wyłącznie do opisu perspektywy, nie do łączenia artykułów.
 """.strip()
 
 SUMMARY_INSTRUCTIONS = """
@@ -56,6 +65,14 @@ sprawdzenia: wartościujący język, brak kontekstu, nagłówek mocniejszy niż
 treść, niezweryfikowane twierdzenie albo konflikt z innym materiałem. Nie
 wymyślaj cytatów ani informacji spoza artykułów. Kontekst ogólny wpisz tylko
 do background_context i oznacz needs_verification=true.
+
+Jeżeli wejście zawiera previous_aggregation, potraktuj ją jako poprzednią
+wersję roboczą tego samego tematu. Zachowaj nadal prawidłowe fakty, dodaj nowe
+informacje, pokaż korekty i konflikty. Nie twórz drugiego tematu dla dalszego
+ciągu tej samej historii. Dla nowych tematów previous_aggregation będzie null.
+Pole new_articles zawiera materiały z bieżącego uruchomienia. Pole
+all_articles jest obecne przy pierwszym opracowaniu tematu; przy aktualizacji
+starsze materiały są reprezentowane przez previous_aggregation i ich article_id.
 
 Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 {"topic":{"headline_pl":"","what_happened_one_sentence_pl":"",
@@ -134,22 +151,42 @@ def article_for_ai(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def active_topic_payload(client: SupabaseRestClient) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
-    topics = client.select_all("topics", filters=[("status", "eq.ACTIVE")])
+def active_topic_payload(
+    client: SupabaseRestClient,
+) -> tuple[list[dict[str, Any]], dict[str, list[str]], dict[str, dict[str, Any]]]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=TOPIC_LOOKBACK_DAYS)).isoformat()
+    topics = client.select_all(
+        "topics",
+        filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
+    )
+    summaries = client.select_all("topic_summaries", columns="topic_id,summary")
+    summary_by_topic = {str(row["topic_id"]): row.get("summary") for row in summaries}
     links = client.select_all("topic_articles", columns="topic_id,article_id")
     link_map: dict[str, list[str]] = {}
     for row in links:
         link_map.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
-    payload = [
-        {
-            "topic_id": row["topic_id"],
+
+    payload: list[dict[str, Any]] = []
+    topic_context: dict[str, dict[str, Any]] = {}
+    for row in topics:
+        topic_id = str(row["topic_id"])
+        previous = summary_by_topic.get(topic_id)
+        if not isinstance(previous, dict):
+            previous = {}
+        previous_topic = previous.get("topic") if isinstance(previous.get("topic"), dict) else {}
+        context = {
+            "topic_id": topic_id,
             "representative_title_pl": row.get("headline_pl", ""),
             "last_seen_at": row.get("last_seen_at", ""),
+            "first_seen_at": row.get("first_seen_at", ""),
             "article_count": row.get("article_count", 0),
+            "previous_headline_pl": previous_topic.get("headline_pl", ""),
+            "previous_one_sentence_pl": previous_topic.get("what_happened_one_sentence_pl", ""),
+            "previous_summary_pl": str(previous.get("summary_pl", ""))[:4000],
         }
-        for row in topics
-    ]
-    return payload, link_map
+        payload.append(context)
+        topic_context[topic_id] = context
+    return payload, link_map, topic_context
 
 
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
@@ -181,10 +218,11 @@ def analyze_run(
         stats["pending_articles"] = len(articles)
         if not articles:
             return stats
-        active_topics, topic_links = active_topic_payload(client)
+        active_topics, topic_links, topic_context = active_topic_payload(client)
         grouping_input = {
             "new_articles": [article_for_ai(row) for row in articles],
             "active_topics": active_topics,
+            "topic_memory_window_days": TOPIC_LOOKBACK_DAYS,
         }
         grouping_hash = digest(grouping_input)
         grouping_topic_run_id = "topicrun_" + digest({"run": run_id, "stage": "GROUPING", "input": grouping_hash})[:24]
@@ -211,8 +249,8 @@ def analyze_run(
         topic_rows: list[dict[str, Any]] = []
         link_rows: list[dict[str, Any]] = []
         assignment_rows: list[dict[str, Any]] = []
-        group_data: list[tuple[str, str, list[str], bool]] = []
-        for index, group in enumerate(groups, 1):
+        group_data: list[dict[str, Any]] = []
+        for group in groups:
             if not isinstance(group, dict):
                 continue
             ids = [str(value) for value in group.get("article_ids", []) if str(value) in input_by_id and str(value) not in assigned_ids]
@@ -221,14 +259,20 @@ def analyze_run(
             assigned_ids.update(ids)
             title = str(group.get("working_title_pl") or "Temat bez tytułu").strip()[:300]
             topic_id = str(group.get("existing_topic_id") or "").strip() or stable_topic_id(ids, title)
+            topic_action = str(group.get("topic_action") or ("DEVELOPMENT" if group.get("existing_topic_id") else "NEW_TOPIC")).strip()
+            if topic_action not in {"NEW_TOPIC", "DEVELOPMENT", "BACKGROUND_OR_CONTEXT"}:
+                topic_action = "DEVELOPMENT" if group.get("existing_topic_id") else "NEW_TOPIC"
             confidence = float(group.get("confidence") or 0)
             needs_review = bool(group.get("needs_review", False))
             existing_ids = topic_links.get(topic_id, [])
             all_ids = list(dict.fromkeys(existing_ids + ids))
-            source_ids = {input_by_id[article_id]["source_id"] for article_id in ids}
+            all_rows = local_articles(conn, all_ids)
+            source_ids = {row["source_id"] for row in all_rows}
+            existing_context = topic_context.get(topic_id, {})
             topic_rows.append({
                 "topic_id": topic_id, "headline_pl": title, "status": "ACTIVE",
-                "first_seen_at": now(), "last_seen_at": now(), "article_count": len(all_ids),
+                "first_seen_at": existing_context.get("first_seen_at") or now(),
+                "last_seen_at": now(), "article_count": len(all_ids),
                 "source_count": len(source_ids), "needs_review": needs_review, "updated_at": now(),
             })
             link_rows.extend({"topic_id": topic_id, "article_id": article_id, "confidence": confidence} for article_id in ids)
@@ -238,23 +282,43 @@ def analyze_run(
                 "grouping_reason": str(group.get("grouping_reason") or "")[:1000],
                 "prompt_version": PROMPT_VERSION,
             } for article_id in ids)
-            group_data.append((topic_id, title, all_ids, needs_review))
+            group_data.append({
+                "topic_id": topic_id,
+                "title": title,
+                "all_ids": all_ids,
+                "new_ids": ids,
+                "needs_review": needs_review,
+                "topic_action": topic_action,
+            })
 
         client.upsert("topics", topic_rows, on_conflict="topic_id")
         client.upsert("topic_articles", link_rows, on_conflict="topic_id,article_id")
         client.upsert("article_topic_assignments", assignment_rows, on_conflict="run_id,article_id")
         stats["groups"] = len(group_data)
 
-        for topic_id, title, all_ids, needs_review in group_data:
-            rows = local_articles(conn, all_ids)
-            if not rows:
+        for group in group_data:
+            topic_id = group["topic_id"]
+            title = group["title"]
+            all_ids = group["all_ids"]
+            new_rows = local_articles(conn, group["new_ids"])
+            all_rows = local_articles(conn, all_ids)
+            if not new_rows or not all_rows:
                 continue
-            summary_input = {
-                "topic": {"topic_id": topic_id, "working_title_pl": title},
-                "articles": [article_for_ai(row) for row in rows],
-            }
-            summary_hash = digest(summary_input)
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)
+            previous_aggregation = old[0].get("summary") if old else None
+            summary_input = {
+                "topic": {
+                    "topic_id": topic_id,
+                    "working_title_pl": title,
+                    "topic_action": group["topic_action"],
+                },
+                "previous_aggregation": previous_aggregation,
+                "new_articles": [article_for_ai(row) for row in new_rows],
+                "all_article_ids_in_topic": all_ids,
+            }
+            if previous_aggregation is None:
+                summary_input["all_articles"] = [article_for_ai(row) for row in all_rows]
+            summary_hash = digest(summary_input)
             if old and old[0].get("input_hash") == summary_hash:
                 stats["skipped_summaries"] += 1
                 continue

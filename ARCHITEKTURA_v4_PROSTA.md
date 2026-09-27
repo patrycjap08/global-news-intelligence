@@ -24,7 +24,7 @@ Uruchomienia są trzy razy dziennie, np. rano, w południe i wieczorem. Dokładn
 7. Materiał krótszy niż 200 słów jest odrzucany i nie trafia do tabeli artykułów ani do pliku dla AI. Jego adres może trafić wyłącznie do tabeli technicznej odrzuceń, aby nie pobierać go ponownie.
 8. Gdy nie ma nowych artykułów, uruchomienie kończy się bez wywołań AI.
 9. Gdy pojawiły się nowe artykuły, uruchamiany jest etap AI 1 — grupowanie po tytułach i treści.
-10. Dla każdej grupy uruchamiany jest etap AI 2 — przygotowanie polskiego opracowania.
+10. Dla każdej grupy uruchamiany jest etap AI 2 — przygotowanie lub aktualizacja polskiego opracowania.
 11. Dopiero po zapisaniu wszystkich wyników aplikacja pokazuje nowe tematy jako gotowe.
 
 ## Reguła niepobierania drugi raz
@@ -134,14 +134,20 @@ Wynik AI 2:
 AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 
 - nowe artykuły wykryte w bieżącym uruchomieniu;
-- aktywne tematy z ostatnich kilku dni;
-- po jednym lub kilku reprezentatywnych tytułach istniejących tematów.
+- aktywne tematy z ostatnich 3 dni;
+- poprzedni skrót agregacji każdego z tych tematów.
 
 Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do istniejącego tematu, zamiast tworzyć drugi prawie identyczny temat.
 
 Temat nie powinien być rozumiany jako „wszystko o tej samej osobie”. Grupa oznacza to samo konkretne wydarzenie, decyzję, wypowiedź albo rozwój tej samej sprawy. Osobny materiał o tej samej osobie, ale o innym wydarzeniu, pozostaje osobnym tematem.
 
 Jeżeli AI nie ma wystarczającej pewności, tworzy osobną grupę z oznaczeniem needs_review, zamiast wymuszać połączenie.
+
+AI 1 rozróżnia nowy temat, dalszy ciąg istniejącego tematu oraz materiał
+uzupełniający. Przy dalszym ciągu AI 2 dostaje poprzednią agregację i nowe
+artykuły, a nie tworzy drugiego niezależnego opracowania. Pierwsze opracowanie
+tematu powstaje z pełnych artykułów należących do grupy; kolejne wersje są
+aktualizowane przyrostowo i zachowują historię wersji.
 
 ## UX na telefonie
 

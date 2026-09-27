@@ -1,5 +1,21 @@
 # Dwa zapytania do AI — wersja 1
 
+## Aktualizacja procesu — pamięć tematów z 3 dni
+
+Przed AI 1 pobieramy również aktywne tematy z ostatnich 3 dni. Każdy temat
+zawiera `topic_id`, tytuł, czas ostatniej aktualizacji oraz skrót poprzedniej
+agregacji. AI 1 musi zwrócić także `topic_action`:
+
+- `NEW_TOPIC` — nowy temat;
+- `DEVELOPMENT` — dalszy ciąg istniejącego tematu;
+- `BACKGROUND_OR_CONTEXT` — materiał uzupełniający wcześniejszą historię.
+
+Jeżeli artykuł pasuje do istniejącego tematu, AI 1 zwraca jego `existing_topic_id`.
+AI 2 dostaje wtedy poprzednią agregację (`previous_aggregation`) i nowe artykuły
+(`new_articles`), a następnie zapisuje zaktualizowaną wersję tego samego tematu.
+Nie tworzymy drugiej historii tylko dlatego, że artykuł pojawił się w kolejnym
+odpytaniu tego samego dnia.
+
 ## Zasada wspólna
 
 AI nie ma podejmować decyzji na podstawie samego profilu politycznego źródła. Profil służy wyłącznie do pokazania różnic w sposobie przedstawiania tematu.
