@@ -1,0 +1,4 @@
+beautifulsoup4>=4.12,<5
+openai>=1.84,<2
+playwright>=1.50,<2
+PyYAML>=6.0,<7

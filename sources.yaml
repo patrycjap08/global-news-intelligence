@@ -1,0 +1,224 @@
+# Seed catalog for ETAP 1.  Technical discovery is automatic; policy fields are
+# deliberately conservative until they are reviewed by a human.
+defaults:
+  timeout_seconds: 15
+  min_delay_ms: 500
+  max_retries: 1
+  lookback_hours: 18
+  policy_status: REVIEW_REQUIRED
+  ai_usage_policy: NONE
+  retention_policy: METADATA_ONLY
+  display_policy: LINK_ONLY
+
+sources:
+  - id: pap
+    name: PAP
+    region: Poland
+    homepage: https://pap.pl
+    section_urls:
+      - https://pap.pl/aktualnosci
+      - https://pap.pl/kraj
+      - https://pap.pl/swiat
+      - https://pap.pl/gospodarka
+  - {id: tvn24, name: TVN24, region: Poland, homepage: https://tvn24.pl}
+  - id: tvp_info
+    name: TVP Info
+    region: Poland
+    homepage: https://tvp.info
+    section_urls:
+      - https://tvp.info/informacje
+      - https://tvp.info/polska
+      - https://tvp.info/swiat
+      - https://tvp.info/gospodarka
+    browser_close_selectors:
+      - ".snrs-popup .snrs-close-btn"
+      - ".snrs-popup button[aria-label='Zamknij']"
+      - ".snrs-popup button[aria-label='Close']"
+    browser_wait_after_load_seconds: 8
+  - {id: polsat_news, name: Polsat News, region: Poland, homepage: https://www.polsatnews.pl}
+  - id: onet
+    name: Onet
+    region: Poland
+    homepage: https://www.onet.pl
+    section_urls:
+      - https://wiadomosci.onet.pl
+      - https://wiadomosci.onet.pl/swiat
+      - https://wiadomosci.onet.pl/kraj
+      - https://wiadomosci.onet.pl/gospodarka
+    browser_click_texts:
+      - "Przejdź do serwisu"
+    browser_wait_after_click_seconds: 2
+  - {id: wp, name: WP, region: Poland, homepage: https://wiadomosci.wp.pl}
+  - {id: rzeczpospolita, name: Rzeczpospolita, region: Poland, homepage: https://www.rp.pl}
+  - id: wyborcza
+    name: Gazeta Wyborcza
+    region: Poland
+    homepage: https://wyborcza.pl
+    enabled: false
+    policy_notes: "Wyłączone na życzenie użytkowniczki — źródło wymaga płatnego dostępu."
+  - {id: dg_p, name: Dziennik Gazeta Prawna, region: Poland, homepage: https://www.gazetaprawna.pl}
+  - {id: business_insider_pl, name: Business Insider Polska, region: Poland, homepage: https://businessinsider.com.pl}
+  - {id: bankier, name: Bankier, region: Poland, homepage: https://www.bankier.pl}
+  - {id: parkiet, name: Parkiet, region: Poland, homepage: https://www.parkiet.com}
+  - {id: do_rzeczy, name: Do Rzeczy, region: Poland, homepage: https://dorzeczy.pl}
+  - id: wpolityce
+    name: wPolityce
+    region: Poland
+    homepage: https://wpolityce.pl
+    enabled: false
+    policy_notes: "Wyłączone na życzenie użytkowniczki — strona nie otwiera się lokalnie."
+  - {id: niezalezna, name: Niezależna, region: Poland, homepage: https://niezalezna.pl}
+  - {id: krytyka_polityczna, name: Krytyka Polityczna, region: Poland, homepage: https://krytykapolityczna.pl}
+
+  - id: reuters
+    name: Reuters
+    region: USA
+    homepage: https://www.reuters.com
+    browser_accept_selectors:
+      - "#onetrust-accept-btn-handler"
+  - id: ap
+    name: Associated Press
+    region: USA
+    homepage: https://apnews.com
+    browser_accept_selectors:
+      - "#onetrust-accept-btn-handler"
+    browser_article_patterns:
+      - "/article/"
+  - {id: new_york_times, name: New York Times, region: USA, homepage: https://www.nytimes.com}
+  - id: washington_post
+    name: Washington Post
+    region: USA
+    homepage: https://www.washingtonpost.com
+    rss_urls:
+      - https://feeds.washingtonpost.com/rss/politics
+      - https://feeds.washingtonpost.com/rss/national
+      - https://feeds.washingtonpost.com/rss/world
+      - https://feeds.washingtonpost.com/rss/business
+      - https://feeds.washingtonpost.com/rss/business/technology
+    terms_url: https://www.washingtonpost.com/information/2026/05/21/washington-post-rss-feeds/
+    browser_accept_selectors:
+      - "#onetrust-accept-btn-handler"
+  - {id: wall_street_journal, name: Wall Street Journal, region: USA, homepage: https://www.wsj.com}
+  - id: bloomberg
+    name: Bloomberg
+    region: USA
+    homepage: https://www.bloomberg.com/europe
+    browser_accept_selectors:
+      - "button[title='Accept All']"
+      - "button[aria-label='Accept All']"
+    browser_article_patterns:
+      - "/news/articles/"
+  - {id: cnn, name: CNN, region: USA, homepage: https://www.cnn.com}
+  - {id: fox_news, name: Fox News, region: USA, homepage: https://www.foxnews.com}
+  - {id: nbc_news, name: NBC News, region: USA, homepage: https://www.nbcnews.com}
+  - id: abc_news
+    name: ABC News
+    region: USA
+    homepage: https://abcnews.com
+    browser_close_selectors:
+      - "button.ab-close-button.v-close"
+      - "button[aria-label='Close']"
+  - {id: cbs_news, name: CBS News, region: USA, homepage: https://www.cbsnews.com}
+  - {id: npr, name: NPR, region: USA, homepage: https://www.npr.org}
+  - id: politico
+    name: Politico
+    region: USA
+    homepage: https://www.politico.com
+  - {id: axios, name: Axios, region: USA, homepage: https://www.axios.com}
+  - {id: vox, name: Vox, region: USA, homepage: https://www.vox.com}
+  - {id: huffpost, name: HuffPost, region: USA, homepage: https://www.huffpost.com}
+  - id: national_review
+    name: National Review
+    region: USA
+    homepage: https://www.nationalreview.com
+    browser_accept_selectors:
+      - "button[title='Zaakceptować']"
+      - "button[aria-label='Zaakceptować']"
+  - {id: washington_examiner, name: Washington Examiner, region: USA, homepage: https://www.washingtonexaminer.com}
+  - {id: new_york_post, name: New York Post, region: USA, homepage: https://nypost.com}
+  - {id: mother_jones, name: Mother Jones, region: USA, homepage: https://www.motherjones.com}
+
+  - {id: bbc, name: BBC, region: United Kingdom, homepage: https://www.bbc.com}
+  - id: financial_times
+    name: Financial Times
+    region: United Kingdom
+    homepage: https://www.ft.com
+    browser_accept_selectors:
+      - "button[title='Accept']"
+      - "button[aria-label='Accept']"
+  - {id: guardian, name: Guardian, region: United Kingdom, homepage: https://www.theguardian.com}
+  - id: telegraph
+    name: Telegraph
+    region: United Kingdom
+    homepage: https://www.telegraph.co.uk
+    enabled: false
+    policy_notes: "Wyłączone na życzenie użytkowniczki — strona wykrywa ruchy automatyzacji/bota; nie obchodzimy tej kontroli."
+  - id: times
+    name: Times
+    region: United Kingdom
+    homepage: https://www.thetimes.co.uk
+    browser_accept_selectors:
+      - "button[title='I Agree']"
+      - "button[aria-label='I Agree']"
+  - id: economist
+    name: Economist
+    region: United Kingdom
+    homepage: https://www.economist.com
+    browser_accept_selectors:
+      - "button[title='Accept all']"
+      - "button[aria-label='Accept all']"
+    browser_article_patterns:
+      - "/20[0-9]{2}/"
+  - {id: sky_news, name: Sky News, region: United Kingdom, homepage: https://news.sky.com}
+  - id: independent
+    name: Independent
+    region: United Kingdom
+    homepage: https://www.independent.co.uk
+    browser_accept_selectors:
+      - "button[title='I ACCEPT']"
+      - "button[aria-label='I ACCEPT']"
+    browser_close_selectors:
+      - "button.mos-pn-template__close[aria-label='Close modal']"
+      - "button.mos-pn-template__close[aria-label='Close']"
+
+  - {id: politico_europe, name: Politico Europe, region: Europe, homepage: https://www.politico.eu}
+  - {id: euronews, name: Euronews, region: Europe, homepage: https://www.euronews.com}
+
+  - {id: deutsche_welle, name: Deutsche Welle, region: Germany, homepage: https://www.dw.com}
+  - {id: der_spiegel, name: Der Spiegel, region: Germany, homepage: https://www.spiegel.de}
+  - {id: faz, name: FAZ, region: Germany, homepage: https://www.faz.net}
+  - {id: die_zeit, name: Die Zeit, region: Germany, homepage: https://www.zeit.de}
+  - {id: bild, name: Bild, region: Germany, homepage: https://www.bild.de}
+
+  - {id: france_24, name: France 24, region: France, homepage: https://www.france24.com}
+  - {id: le_monde, name: Le Monde, region: France, homepage: https://www.lemonde.fr}
+  - {id: le_figaro, name: Le Figaro, region: France, homepage: https://www.lefigaro.fr}
+  - {id: liberation, name: Libération, region: France, homepage: https://www.liberation.fr}
+
+  - {id: ansa, name: ANSA, region: Italy, homepage: https://www.ansa.it}
+  - {id: corriere, name: Corriere della Sera, region: Italy, homepage: https://www.corriere.it}
+  - {id: la_repubblica, name: La Repubblica, region: Italy, homepage: https://www.repubblica.it}
+
+  - {id: efe, name: EFE, region: Spain, homepage: https://efe.com}
+  - {id: el_pais, name: El País, region: Spain, homepage: https://elpais.com}
+  - {id: el_mundo, name: El Mundo, region: Spain, homepage: https://www.elmundo.es}
+
+  - {id: xinhua, name: Xinhua, region: China, homepage: https://english.news.cn}
+  - {id: cgtn, name: CGTN, region: China, homepage: https://www.cgtn.com}
+  - {id: china_daily, name: China Daily, region: China, homepage: https://www.chinadaily.com.cn}
+  - {id: global_times, name: Global Times, region: China, homepage: https://www.globaltimes.cn}
+  - {id: caixin, name: Caixin, region: China, homepage: https://www.caixinglobal.com}
+  - {id: south_china_morning_post, name: South China Morning Post, region: China, homepage: https://www.scmp.com}
+
+  - {id: tass, name: TASS, region: Russia, homepage: https://tass.com}
+  - {id: ria, name: RIA Novosti, region: Russia, homepage: https://ria.ru}
+  - {id: rt, name: RT, region: Russia, homepage: https://www.rt.com}
+  - {id: kommersant, name: Kommersant, region: Russia, homepage: https://www.kommersant.ru}
+  - {id: meduza, name: Meduza, region: Russia, homepage: https://meduza.io}
+  - {id: moscow_times, name: Moscow Times, region: Russia, homepage: https://www.themoscowtimes.com}
+
+  - {id: ukrinform, name: Ukrinform, region: Ukraine, homepage: https://www.ukrinform.net}
+  - {id: suspilne, name: Suspilne, region: Ukraine, homepage: https://suspilne.media}
+  - {id: kyiv_independent, name: Kyiv Independent, region: Ukraine, homepage: https://kyivindependent.com}
+  - {id: kyiv_post, name: Kyiv Post, region: Ukraine, homepage: https://www.kyivpost.com}
+  - {id: interfax_ukraine, name: Interfax-Ukraine, region: Ukraine, homepage: https://interfax.com.ua}

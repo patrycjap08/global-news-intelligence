@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+
+# Local harvest/database output. The canonical archive lives in Supabase.
+article_harvest/*.sqlite3
+article_harvest/*.sqlite3-*
+article_harvest/articles.jsonl
+article_harvest/articles_review.html
+article_harvest/harvest_summary.json
+
+# Local source-tester reports can be regenerated.
+report.csv
+report.json
+report.html
