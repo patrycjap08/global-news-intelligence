@@ -21,9 +21,10 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v2-three-day-topic-memory"
+PROMPT_VERSION = "ai-prompts-v3-excerpt-and-relevance"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
@@ -32,15 +33,28 @@ gdy dotyczą tego samego konkretnego wydarzenia, decyzji, wypowiedzi albo
 rozwoju tej samej sprawy. Sama wspólna osoba, państwo, partia lub słowo
 tematyczne nie wystarcza. Treść ma pierwszeństwo przed nagłówkiem.
 
+Najpierw odrzuć materiały wyraźnie niezwiązane z głównym zakresem aplikacji:
+sport, celebryci, rozrywka, lifestyle, przepisy, zwykłe treści konsumenckie i
+inne materiały bez znaczenia dla polityki, gospodarki, bezpieczeństwa,
+dyplomacji, konfliktów, prawa publicznego lub istotnych wydarzeń społecznych.
+Jeżeli związek jest niepewny, nie odrzucaj materiału — zostaw go w grupie lub
+unassigned_article_ids i ustaw needs_review.
+
+Treść artykułu w tym etapie jest tylko krótkim wyciągiem pierwszych około 100
+słów, więc nie dopowiadaj faktów, których nie ma w wyciągu.
+
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"groups":[{"group_id":"new_group_001","existing_topic_id":"",
 "topic_action":"NEW_TOPIC|DEVELOPMENT|BACKGROUND_OR_CONTEXT",
 "working_title_pl":"neutralna nazwa wydarzenia","article_ids":["..."],
 "confidence":0.0,"needs_review":false,"grouping_reason":"..."}],
-"unassigned_article_ids":[],"possible_merges":[]}
+"unassigned_article_ids":[],"excluded_articles":[{"article_id":"...",
+"category":"SPORT|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
+"reason":"krótkie uzasadnienie"}],"possible_merges":[]}
 
-Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie albo w
-unassigned_article_ids. Najpierw sprawdź active_topics z ostatnich trzech dni.
+Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
+unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
+z ostatnich trzech dni.
 Jeżeli artykuł jest dalszym ciągiem istniejącego tematu, wpisz jego topic_id i
 topic_action=DEVELOPMENT. Jeżeli tylko uzupełnia kontekst lub wcześniejszą
 agregację, wpisz topic_action=BACKGROUND_OR_CONTEXT. Nowe wydarzenie ma
@@ -137,11 +151,19 @@ def local_articles(conn: sqlite3.Connection, article_ids: list[str] | None = Non
     return [dict(row) for row in rows]
 
 
-def article_for_ai(row: dict[str, Any]) -> dict[str, Any]:
-    return {
+def first_words(text: str, limit: int) -> str:
+    words = (text or "").split()
+    return " ".join(words[:limit])
+
+
+def article_for_ai(
+    row: dict[str, Any],
+    *,
+    excerpt_words_limit: int | None = None,
+) -> dict[str, Any]:
+    payload = {
         "article_id": row["article_id"],
         "title_original": row["title"],
-        "body_original": row["body"],
         "source_id": row["source_id"],
         "source_name": row["source_name"],
         "source_profile": row.get("source_profile") or "UNCLASSIFIED",
@@ -149,6 +171,12 @@ def article_for_ai(row: dict[str, Any]) -> dict[str, Any]:
         "published_at": row.get("published_at") or "",
         "canonical_url": row["canonical_url"],
     }
+    if excerpt_words_limit is None:
+        payload["body_original"] = row["body"]
+    else:
+        payload["body_excerpt_original"] = first_words(row.get("body") or "", excerpt_words_limit)
+        payload["excerpt_word_limit"] = excerpt_words_limit
+    return payload
 
 
 def active_topic_payload(
@@ -192,8 +220,47 @@ def active_topic_payload(
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
     assigned_rows = client.select_all("article_topic_assignments", columns="article_id")
     assigned = {str(row["article_id"]) for row in assigned_rows}
-    articles = [row for row in local_articles(conn) if row["article_id"] not in assigned]
+    articles = [
+        row for row in local_articles(conn)
+        if row["article_id"] not in assigned
+        and not str(row.get("topic_hint") or "").startswith("AI_EXCLUDED:")
+    ]
     return articles[:limit] if limit > 0 else articles
+
+
+def mark_excluded_articles(
+    conn: sqlite3.Connection,
+    client: SupabaseRestClient,
+    articles: list[dict[str, Any]],
+    excluded: list[Any],
+) -> set[str]:
+    """Persist AI exclusions locally and in Supabase without creating topics."""
+    input_ids = {str(row["article_id"]) for row in articles}
+    grouped: dict[str, list[str]] = {}
+    excluded_ids: set[str] = set()
+    for item in excluded:
+        if not isinstance(item, dict):
+            continue
+        article_id = str(item.get("article_id") or "")
+        if article_id not in input_ids:
+            continue
+        category = str(item.get("category") or "OTHER_NON_CORE").upper()
+        category = re.sub(r"[^A-Z0-9_]+", "_", category)[:40] or "OTHER_NON_CORE"
+        reason = re.sub(r"\s+", " ", str(item.get("reason") or ""))[:180]
+        marker = f"AI_EXCLUDED:{category}" + (f":{reason}" if reason else "")
+        conn.execute("UPDATE articles SET topic_hint = ? WHERE article_id = ?", (marker, article_id))
+        grouped.setdefault(marker, []).append(article_id)
+        excluded_ids.add(article_id)
+    conn.commit()
+    for marker, article_ids in grouped.items():
+        for offset in range(0, len(article_ids), 100):
+            ids = article_ids[offset:offset + 100]
+            client.update(
+                "articles",
+                {"topic_hint": marker},
+                filters=[("article_id", f"in.({','.join(ids)})")],
+            )
+    return excluded_ids
 
 
 def stable_topic_id(article_ids: list[str], title: str) -> str:
@@ -213,14 +280,17 @@ def _analyze_pending_batch(
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomione.")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    stats = {"pending_articles": 0, "groups": 0, "summaries": 0, "skipped_summaries": 0}
+    stats = {"pending_articles": 0, "groups": 0, "summaries": 0, "skipped_summaries": 0, "excluded": 0}
     try:
         stats["pending_articles"] = len(articles)
         if not articles:
             return stats
         active_topics, topic_links, topic_context = active_topic_payload(client)
         grouping_input = {
-            "new_articles": [article_for_ai(row) for row in articles],
+            "new_articles": [
+                article_for_ai(row, excerpt_words_limit=GROUPING_EXCERPT_WORDS)
+                for row in articles
+            ],
             "active_topics": active_topics,
             "topic_memory_window_days": TOPIC_LOOKBACK_DAYS,
         }
@@ -246,6 +316,11 @@ def _analyze_pending_batch(
             raise
 
         input_by_id = {row["article_id"]: row for row in articles}
+        excluded_ids = mark_excluded_articles(
+            conn, client, articles,
+            grouping.get("excluded_articles") if isinstance(grouping.get("excluded_articles"), list) else [],
+        )
+        stats["excluded"] = len(excluded_ids)
         groups = grouping.get("groups") if isinstance(grouping.get("groups"), list) else []
         assigned_ids: set[str] = set()
         topic_rows: list[dict[str, Any]] = []
@@ -255,7 +330,12 @@ def _analyze_pending_batch(
         for group in groups:
             if not isinstance(group, dict):
                 continue
-            ids = [str(value) for value in group.get("article_ids", []) if str(value) in input_by_id and str(value) not in assigned_ids]
+            ids = [
+                str(value) for value in group.get("article_ids", [])
+                if str(value) in input_by_id
+                and str(value) not in excluded_ids
+                and str(value) not in assigned_ids
+            ]
             if not ids:
                 continue
             assigned_ids.update(ids)
@@ -377,7 +457,10 @@ def analyze_run(
     finally:
         conn.close()
 
-    stats = {"pending_articles": len(articles), "groups": 0, "summaries": 0, "skipped_summaries": 0}
+    stats = {
+        "pending_articles": len(articles), "groups": 0,
+        "summaries": 0, "skipped_summaries": 0, "excluded": 0,
+    }
     if not articles:
         return stats
 
@@ -392,7 +475,7 @@ def analyze_run(
         batch_stats = _analyze_pending_batch(
             db_path, run_id, client, batch, model=model, batch_index=batch_index
         )
-        for key in ("groups", "summaries", "skipped_summaries"):
+        for key in ("groups", "summaries", "skipped_summaries", "excluded"):
             stats[key] += batch_stats[key]
     return stats
 

@@ -114,5 +114,20 @@ class SupabaseRestClient:
             prefer="resolution=merge-duplicates,return=minimal",
         )
 
+    def update(
+        self,
+        table: str,
+        values: dict[str, Any],
+        *,
+        filters: Iterable[tuple[str, str]],
+    ) -> None:
+        self.request(
+            "PATCH",
+            table,
+            params=list(filters),
+            payload=values,
+            prefer="return=minimal",
+        )
+
     def delete(self, table: str, *, filters: Iterable[tuple[str, str]]) -> None:
         self.request("DELETE", table, params=list(filters), prefer="return=minimal")
