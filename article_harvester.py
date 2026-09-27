@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Persistent first-pass article harvester.
 
-Homepage -> article links -> article title/body -> SQLite + JSONL/HTML export.
+RSS/Atom/news sitemap/sitemap/sections/homepage -> article links -> article
+title/body -> SQLite + JSONL/HTML export.
 
 Existing canonical URLs are never fetched again by default. Use
 --retry-failed only when a previous attempt did not obtain an article.
@@ -481,6 +482,249 @@ def fetch_one(
     return extracted, method
 
 
+def _same_site_non_asset(url: str, homepage: str) -> bool:
+    parsed = urllib.parse.urlsplit(url)
+    if not st.same_site(url, homepage):
+        return False
+    if any(parsed.path.lower().endswith(suffix) for suffix in HTML_ASSET_SUFFIXES):
+        return False
+    return bool(parsed.netloc)
+
+
+def _listing_rows(client: st.HttpClient, source: dict[str, Any]) -> tuple[list[dict[str, str]], st.FetchResult, list[str]]:
+    """Read the homepage and configured sections, preserving feed metadata."""
+    homepage = str(source["homepage"])
+    homepage_result = client.get(homepage)
+    endpoints = [homepage]
+    endpoints.extend(source.get("section_urls", [])[:5])
+    rows: list[dict[str, str]] = []
+    notes: list[str] = []
+    seen: set[str] = set()
+    for endpoint in endpoints:
+        absolute_endpoint = st.canonicalize(endpoint, homepage)
+        if not absolute_endpoint or not st.same_site(absolute_endpoint, homepage):
+            continue
+        result = homepage_result if absolute_endpoint == st.canonicalize(homepage, homepage) else client.get(absolute_endpoint)
+        parser = st.PageParser()
+        try:
+            parser.feed(result.text)
+        except Exception:
+            continue
+        for raw in parser.links:
+            url = st.canonicalize(raw.get("href", ""), absolute_endpoint)
+            rel = raw.get("rel", "").lower()
+            link_type = raw.get("type", "").lower()
+            is_feed_link = "alternate" in rel and (
+                "rss" in link_type or "atom" in link_type or "feed" in link_type
+            )
+            if not url or url in seen or (not _same_site_non_asset(url, homepage) and not is_feed_link):
+                continue
+            seen.add(url)
+            rows.append({
+                "url": url,
+                "title": st.clean_text(raw.get("text", ""))[:500],
+                "rel": raw.get("rel", ""),
+                "type": raw.get("type", ""),
+            })
+    if len(endpoints) > 1:
+        notes.append(f"sections={len(endpoints) - 1}")
+    return rows, homepage_result, notes
+
+
+def _feed_candidates(
+    client: st.HttpClient,
+    source: dict[str, Any],
+    listing_rows: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[str]]:
+    homepage = str(source["homepage"])
+    feeds: list[tuple[str, str]] = []
+    for row in listing_rows:
+        rel = row.get("rel", "").lower()
+        kind = row.get("type", "").lower()
+        if "alternate" in rel and ("rss" in kind or "atom" in kind or "feed" in kind):
+            feeds.append(("ATOM" if "atom" in kind else "RSS", row["url"]))
+    feeds.extend(("RSS", st.canonicalize(url, homepage) or url) for url in source.get("rss_urls", []))
+    feeds.extend(("ATOM", st.canonicalize(url, homepage) or url) for url in source.get("atom_urls", []))
+    rows: list[dict[str, str]] = []
+    notes: list[str] = []
+    seen_feeds: set[str] = set()
+    for kind, endpoint in feeds:
+        if not endpoint or endpoint in seen_feeds:
+            continue
+        seen_feeds.add(endpoint)
+        result = client.get(endpoint, accept="application/rss+xml,application/atom+xml,application/xml,text/xml,*/*;q=0.1")
+        parsed = st.parse_feed(result.text, endpoint) if result.status and result.status < 400 else []
+        if parsed:
+            notes.append(f"{kind.lower()}={len(parsed)}")
+            for item in parsed:
+                url = st.canonicalize(item.get("url", ""), homepage)
+                if url and _same_site_non_asset(url, homepage):
+                    rows.append({"url": url, "title": st.clean_text(item.get("title", ""))[:500]})
+    return rows, notes
+
+
+def _sitemap_candidates(
+    client: st.HttpClient,
+    source: dict[str, Any],
+    defaults: dict[str, Any],
+    max_probes: int,
+    max_children: int,
+) -> tuple[list[dict[str, str]], list[str]]:
+    homepage = str(source["homepage"])
+    root = urllib.parse.urlsplit(homepage)
+    root_url = f"{root.scheme}://{root.netloc}"
+    robots_url = urllib.parse.urljoin(homepage, "/robots.txt")
+    robots = client.get(robots_url, accept="text/plain,*/*;q=0.1")
+    robots_sitemaps = [st.canonicalize(value, homepage) or value for value in re.findall(r"(?im)^\s*sitemap:\s*(\S+)", robots.text)]
+    configured = [st.canonicalize(url, homepage) for url in source.get("sitemap_urls", [])]
+    endpoints = list(dict.fromkeys(
+        robots_sitemaps + [url for url in configured if url] + [
+            f"{root_url}/news-sitemap.xml", f"{root_url}/sitemap-news.xml",
+            f"{root_url}/sitemap.xml", f"{root_url}/sitemap_index.xml",
+            f"{root_url}/sitemap-index.xml",
+        ]
+    ))
+    news_urls: list[str] = []
+    sitemap_urls: list[str] = []
+    child_urls: list[str] = []
+    notes: list[str] = []
+    for endpoint in endpoints[:max(1, max_probes)]:
+        result = client.get(endpoint, accept="application/xml,text/xml,*/*;q=0.1")
+        if not result.text or (result.status and result.status >= 400):
+            continue
+        urls, is_news, is_index = st.parse_sitemap(result.text, endpoint)
+        if is_news:
+            news_urls.extend(urls)
+            notes.append(f"news_sitemap={len(urls)}")
+        elif is_index:
+            child_urls.extend(urls)
+        elif urls:
+            sitemap_urls.extend(urls)
+            notes.append(f"sitemap={len(urls)}")
+    for child in child_urls[:max(1, max_children)]:
+        result = client.get(child, accept="application/xml,text/xml,*/*;q=0.1")
+        urls, is_news, _ = st.parse_sitemap(result.text, child) if result.text else ([], False, False)
+        if is_news:
+            news_urls.extend(urls)
+        else:
+            sitemap_urls.extend(urls)
+    rows = [{"url": url, "title": ""} for url in news_urls + sitemap_urls if _same_site_non_asset(url, homepage)]
+    return rows, notes
+
+
+def _browser_listing_rows(page_obj: Any, source: dict[str, Any], timeout_ms: int) -> list[dict[str, str]]:
+    homepage = str(source["homepage"])
+    endpoints = [homepage, *source.get("section_urls", [])[:5]]
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for endpoint in endpoints:
+        absolute_endpoint = st.canonicalize(endpoint, homepage)
+        if not absolute_endpoint or not st.same_site(absolute_endpoint, homepage):
+            continue
+        try:
+            st.browser_navigate(page_obj, absolute_endpoint, timeout_ms)
+            st.browser_prepare_page(page_obj, source)
+            parser = st.PageParser()
+            parser.feed(page_obj.content())
+        except Exception:
+            continue
+        for raw in parser.links:
+            url = st.canonicalize(raw.get("href", ""), absolute_endpoint)
+            if not url or url in seen or not _same_site_non_asset(url, homepage):
+                continue
+            if not st.ARTICLE_HINTS.search(url) and len(st.clean_text(raw.get("text", ""))) < 30:
+                continue
+            seen.add(url)
+            rows.append({"url": url, "title": st.clean_text(raw.get("text", ""))[:500]})
+    return rows
+
+
+def discover_candidates(
+    client: st.HttpClient,
+    source: dict[str, Any],
+    defaults: dict[str, Any],
+    args: argparse.Namespace,
+    page_obj: Any,
+) -> tuple[st.FetchResult, list[dict[str, str]], list[str]]:
+    """Use the same discovery families as the source tester, then deduplicate."""
+    listing_rows, homepage_result, notes = _listing_rows(client, source)
+    feed_rows, feed_notes = _feed_candidates(client, source, listing_rows)
+    sitemap_rows, sitemap_notes = _sitemap_candidates(
+        client, source, defaults, args.max_sitemap_probes, args.max_sitemap_children
+    )
+    section_rows = [
+        {"url": row["url"], "title": row.get("title", "")}
+        for row in listing_rows
+        if st.ARTICLE_HINTS.search(row["url"]) or len(row.get("title", "")) >= 30
+    ]
+    discovery_method = str(source.get("discovery_method", "")).upper()
+    ordered: list[dict[str, str]] = []
+    if discovery_method in {"RSS", "ATOM"}:
+        ordered.extend(feed_rows)
+        ordered.extend(sitemap_rows)
+        ordered.extend(section_rows)
+    elif discovery_method in {"NEWS_SITEMAP", "SITEMAP"}:
+        ordered.extend(sitemap_rows)
+        ordered.extend(feed_rows)
+        ordered.extend(section_rows)
+    elif discovery_method == "SECTION_HTML":
+        ordered.extend(section_rows)
+        ordered.extend(feed_rows)
+        ordered.extend(sitemap_rows)
+    else:
+        ordered.extend(feed_rows)
+        ordered.extend(sitemap_rows)
+        ordered.extend(section_rows)
+
+    needs_browser = bool(
+        args.browser and (
+            not ordered
+            or discovery_method == "BROWSER"
+            or source.get("browser_accept_selectors")
+            or source.get("browser_close_selectors")
+            or source.get("browser_click_texts")
+        )
+    )
+    if needs_browser and page_obj is not None:
+        try:
+            browser_rows = _browser_listing_rows(
+                page_obj, source, int(float(source.get("timeout_seconds", defaults.get("timeout_seconds", 15))) * 1000)
+            )
+            ordered = browser_rows + ordered
+            notes.append(f"browser_discovery={len(browser_rows)}")
+        except Exception as exc:
+            notes.append(f"browser_discovery_error:{str(exc)[:160]}")
+
+    unique: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in ordered:
+        url = st.canonicalize(row.get("url", ""), source["homepage"])
+        if not url or url in seen or not _same_site_non_asset(url, source["homepage"]):
+            continue
+        seen.add(url)
+        unique.append({"url": url, "title_hint": row.get("title", "")})
+        if args.discovery_limit_per_source > 0 and len(unique) >= args.discovery_limit_per_source:
+            break
+    notes.extend(feed_notes)
+    notes.extend(sitemap_notes)
+    if homepage_result.status and homepage_result.status >= 400:
+        notes.append(f"homepage_status={homepage_result.status}")
+    if not unique:
+        notes.append("no_candidates")
+    return homepage_result, unique, notes
+
+
+def daily_fetched_attempts(conn: sqlite3.Connection, source_id: str, now: str) -> int:
+    day = now[:10]
+    row = conn.execute(
+        "SELECT COALESCE(SUM(result.fetched_count), 0) "
+        "FROM source_run_results result JOIN harvest_runs run ON run.run_id = result.run_id "
+        "WHERE result.source_id = ? AND substr(run.started_at, 1, 10) = ?",
+        (source_id, day),
+    ).fetchone()
+    return int(row[0] or 0)
+
+
 def harvest_source(
     conn: sqlite3.Connection,
     run_id: str,
@@ -496,36 +740,13 @@ def harvest_source(
         int(source.get("max_retries", defaults.get("max_retries", 1))),
     )
     now = utc_now()
-    homepage_result = client.get(source["homepage"])
-    candidates = homepage_candidates(
-        homepage_result.text, source["homepage"], args.max_articles_per_source
+    homepage_result, candidates, notes = discover_candidates(
+        client, source, defaults, args, page_obj
     )
-    notes: list[str] = []
-    if args.browser and page_obj is not None:
-        needs_browser = not candidates or bool(
-            source.get("browser_accept_selectors")
-            or source.get("browser_close_selectors")
-            or source.get("browser_click_texts")
-        )
-        if needs_browser:
-            try:
-                st.browser_navigate(
-                    page_obj, source["homepage"],
-                    int(float(source.get("timeout_seconds", 15)) * 1000)
-                )
-                st.browser_prepare_page(page_obj, source)
-                browser_candidates = homepage_candidates(
-                    page_obj.content(), source["homepage"], args.max_articles_per_source
-                )
-                merged = {row["url"]: row for row in candidates}
-                for row in browser_candidates:
-                    merged.setdefault(row["url"], row)
-                candidates = list(merged.values())
-                if args.max_articles_per_source > 0:
-                    candidates = candidates[:args.max_articles_per_source]
-                notes.append("browser_homepage")
-            except Exception as exc:
-                notes.append(f"browser_homepage_error:{str(exc)[:160]}")
+    attempts_today = daily_fetched_attempts(conn, source_id, now)
+    remaining_daily = max(0, args.daily_max_articles_per_source - attempts_today) if args.daily_max_articles_per_source > 0 else None
+    if remaining_daily == 0:
+        notes.append(f"daily_limit_reached={args.daily_max_articles_per_source}")
     counts = {
         "discovered": len(candidates), "fetched": 0, "skipped": 0,
         "valid": 0, "failed": 0, "duplicates": 0, "rejected_short": 0,
@@ -559,6 +780,9 @@ def harvest_source(
             )
             counts["skipped"] += 1
             continue
+        if remaining_daily is not None and counts["fetched"] >= remaining_daily:
+            notes.append("daily_limit_stop")
+            break
         try:
             extracted, method = fetch_one(client, page_obj, source, url, args.browser)
             _, inserted, valid, outcome = save_article(
@@ -594,7 +818,11 @@ def harvest_source(
         ),
     )
     conn.commit()
-    return counts | {"source_id": source_id, "source": source.get("name", source_id)}
+    return counts | {
+        "source_id": source_id,
+        "source": source.get("name", source_id),
+        "notes": "; ".join(notes),
+    }
 
 
 def export_files(conn: sqlite3.Connection, output_dir: Path, run_id: str) -> None:
@@ -655,20 +883,33 @@ def export_files(conn: sqlite3.Connection, output_dir: Path, run_id: str) -> Non
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Persist articles found on active source homepages.")
+    parser = argparse.ArgumentParser(description="Discover and persist new articles from configured source feeds, sitemaps and listings.")
     parser.add_argument("--config", type=Path, default=Path("sources.yaml"))
+    parser.add_argument("--runtime-config", type=Path, default=Path("source_runtime.yaml"))
     parser.add_argument("--db", type=Path, default=Path("article_harvest/articles.sqlite3"))
     parser.add_argument("--output-dir", type=Path, default=Path("article_harvest"))
-    parser.add_argument(
-        "--max-articles-per-source", type=int, default=50,
-        help="0 means no local cap; use a safety cap for the first run.",
-    )
+    parser.add_argument("--daily-max-articles-per-source", type=int, default=50)
+    parser.add_argument("--max-articles-per-source", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--discovery-limit-per-source", type=int, default=500)
+    parser.add_argument("--max-sitemap-probes", type=int, default=6)
+    parser.add_argument("--max-sitemap-children", type=int, default=3)
     parser.add_argument("--browser", action="store_true")
     parser.add_argument("--retry-failed", action="store_true")
     parser.add_argument("--retry-rejected", action="store_true")
     parser.add_argument("--source", action="append")
     args = parser.parse_args()
+    if args.max_articles_per_source is not None:
+        # Backward-compatible alias. Its meaning is now the daily cap.
+        args.daily_max_articles_per_source = args.max_articles_per_source
     defaults, sources = st.load_config(args.config)
+    if args.runtime_config.exists():
+        runtime_data = yaml.safe_load(args.runtime_config.read_text(encoding="utf-8")) or {}
+        runtime_by_id = {str(row.get("id")): row for row in runtime_data.get("sources", [])}
+        for source in sources:
+            runtime = runtime_by_id.get(str(source.get("id")), {})
+            for key in ("discovery_method", "content_method", "technical_status"):
+                if runtime.get(key):
+                    source[key] = runtime[key]
     sources = [source for source in sources if source.get("enabled", True)]
     selected = set(args.source or [])
     if selected:
@@ -719,7 +960,7 @@ def main() -> int:
                 counts = {
                     "source_id": source["id"], "source": source.get("name", source["id"]),
                     "discovered": 0, "fetched": 0, "skipped": 0, "valid": 0, "failed": 1,
-                    "duplicates": 0, "rejected_short": 0,
+                    "duplicates": 0, "rejected_short": 0, "notes": f"source_error:{str(exc)[:300]}",
                 }
                 conn.execute(
                     "INSERT OR REPLACE INTO source_run_results (run_id, source_id, notes) VALUES (?, ?, ?)",
@@ -730,7 +971,8 @@ def main() -> int:
                 f"  discovered={counts['discovered']} fetched={counts['fetched']} "
                 f"skipped={counts['skipped']} valid={counts['valid']} "
                 f"duplicates={counts['duplicates']} short={counts['rejected_short']} "
-                f"failed={counts['failed']}",
+                f"failed={counts['failed']}"
+                + (f" notes={counts['notes']}" if counts.get("notes") else ""),
                 flush=True,
             )
             for key in totals:

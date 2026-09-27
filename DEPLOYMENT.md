@@ -26,8 +26,9 @@ Opcjonalnie w `Settings -> Secrets and variables -> Actions -> Variables` można
 dodać:
 
 - `OPENAI_MODEL`, domyślnie `gpt-4o-mini`;
-- `HARVEST_MAX_ARTICLES_PER_SOURCE`, domyślnie `50`; wartość `0` oznacza brak
-  lokalnego limitu;
+- `HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE`, domyślnie `50`; jest to limit
+  nowych prób pobrania na źródło w całym dniu UTC, wspólny dla trzech
+  uruchomień. Wartość `0` oznacza brak limitu i nie jest zalecana;
 - `AI_MAX_ARTICLES_PER_RUN`, domyślnie `100`. Pozostałe nieprzypisane artykuły
   czekają w Supabase na następne uruchomienia, żeby pierwszy cykl nie zużył
   niekontrolowanej liczby wywołań API.

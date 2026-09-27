@@ -24,7 +24,8 @@ jobs:
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       # Reserved for the future PWA; the server worker never needs it.
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-      HARVEST_MAX_ARTICLES_PER_SOURCE: ${{ vars.HARVEST_MAX_ARTICLES_PER_SOURCE || '50' }}
+      # This is a daily quota shared by the three scheduled runs.
+      HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE: ${{ vars.HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE || '50' }}
       AI_MAX_ARTICLES_PER_RUN: ${{ vars.AI_MAX_ARTICLES_PER_RUN || '100' }}
 
     steps:
@@ -46,5 +47,5 @@ jobs:
         run: >-
           python news_pipeline.py
           --browser
-          --max-articles-per-source "$HARVEST_MAX_ARTICLES_PER_SOURCE"
+          --daily-max-articles-per-source "$HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE"
           --ai-max-articles "$AI_MAX_ARTICLES_PER_RUN"

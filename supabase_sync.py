@@ -41,7 +41,10 @@ def _bool(value: Any) -> bool:
 def pull_state(db_path: Path, client: SupabaseRestClient) -> dict[str, int]:
     """Pull remote rows needed for local URL/title/opening de-duplication."""
     conn = open_db(db_path)
-    counts = {"sources": 0, "articles": 0, "aliases": 0, "rejected": 0}
+    counts = {
+        "sources": 0, "harvest_runs": 0, "source_run_results": 0,
+        "articles": 0, "aliases": 0, "rejected": 0,
+    }
     try:
         source_rows = client.select_all("sources")
         for row in source_rows:
@@ -57,6 +60,38 @@ def pull_state(db_path: Path, client: SupabaseRestClient) -> dict[str, int]:
                 ),
             )
         counts["sources"] = len(source_rows)
+
+        harvest_rows = client.select_all(
+            "harvest_runs",
+            columns="run_id,started_at,finished_at,status,source_count,discovered_count,fetched_count,skipped_existing_count,valid_article_count,failed_count",
+        )
+        for row in harvest_rows:
+            conn.execute(
+                "INSERT OR REPLACE INTO harvest_runs "
+                "(run_id,started_at,finished_at,status,source_count,discovered_count,fetched_count,"
+                "skipped_existing_count,valid_article_count,failed_count) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                tuple(row.get(column) for column in (
+                    "run_id", "started_at", "finished_at", "status", "source_count",
+                    "discovered_count", "fetched_count", "skipped_existing_count",
+                    "valid_article_count", "failed_count",
+                )),
+            )
+        counts["harvest_runs"] = len(harvest_rows)
+
+        result_rows = client.select_all("source_run_results")
+        for row in result_rows:
+            conn.execute(
+                "INSERT OR REPLACE INTO source_run_results "
+                "(run_id,source_id,homepage_status,discovered_count,fetched_count,"
+                "skipped_existing_count,valid_article_count,failed_count,duplicate_count,"
+                "rejected_short_count,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                tuple(row.get(column) for column in (
+                    "run_id", "source_id", "homepage_status", "discovered_count",
+                    "fetched_count", "skipped_existing_count", "valid_article_count",
+                    "failed_count", "duplicate_count", "rejected_short_count", "notes",
+                )),
+            )
+        counts["source_run_results"] = len(result_rows)
 
         article_rows = client.select_all("articles", columns=ARTICLE_COLUMNS)
         placeholders = ",".join("?" for _ in ARTICLE_COLUMNS.split(","))

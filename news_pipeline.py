@@ -34,7 +34,15 @@ def main() -> int:
     parser.add_argument("--config", type=Path, default=Path("sources.yaml"))
     parser.add_argument("--db", type=Path, default=Path("article_harvest/articles.sqlite3"))
     parser.add_argument("--output-dir", type=Path, default=Path("article_harvest"))
-    parser.add_argument("--max-articles-per-source", type=int, default=50)
+    parser.add_argument(
+        "--daily-max-articles-per-source",
+        type=int,
+        default=int(os.environ.get("HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE", "50")),
+        help="Maximum number of new fetch attempts per source during one UTC day.",
+    )
+    parser.add_argument("--discovery-limit-per-source", type=int, default=500)
+    parser.add_argument("--max-sitemap-probes", type=int, default=6)
+    parser.add_argument("--max-sitemap-children", type=int, default=3)
     parser.add_argument("--browser", action="store_true")
     parser.add_argument("--retry-failed", action="store_true")
     parser.add_argument("--retry-rejected", action="store_true")
@@ -50,7 +58,11 @@ def main() -> int:
     command = [
         sys.executable, "article_harvester.py", "--config", str(args.config),
         "--db", str(args.db), "--output-dir", str(args.output_dir),
-        "--max-articles-per-source", str(args.max_articles_per_source),
+        "--runtime-config", "source_runtime.yaml",
+        "--daily-max-articles-per-source", str(args.daily_max_articles_per_source),
+        "--discovery-limit-per-source", str(args.discovery_limit_per_source),
+        "--max-sitemap-probes", str(args.max_sitemap_probes),
+        "--max-sitemap-children", str(args.max_sitemap_children),
     ]
     if args.browser:
         command.append("--browser")

@@ -15,13 +15,13 @@ GitHub pozostaje miejscem dla kodu, konfiguracji i workflow. Nie zapisujemy cał
 
 Uruchomienia są trzy razy dziennie, np. rano, w południe i wieczorem. Dokładne godziny mogą być ustawione w UTC w workflow GitHub.
 
-1. Harvester pobiera strony tytułowe wszystkich aktywnych źródeł.
-2. Z każdej strony wyciąga linki do artykułów.
+1. Harvester sprawdza skonfigurowane RSS/Atom, news sitemapę, sitemapę i sekcje HTML; strona główna jest fallbackiem, gdy wcześniejsza metoda nie zwróci linków.
+2. Z tych metod zbiera linki do artykułów i deduplikuje je przed pobraniem.
 3. Dla każdego linku normalizuje adres URL.
 4. Sprawdza w bazie unikalny klucz: source_id + canonical_url.
 5. Jeśli artykuł już istnieje, nie otwiera go ponownie. Aktualizuje tylko informację, że ponownie pojawił się na stronie głównej.
 6. Jeśli artykuł jest nowy, pobiera jego tytuł i treść w oryginalnym języku.
-7. Materiał krótszy niż 200 słów jest odrzucany i nie trafia do tabeli artykułów ani do pliku dla AI. Jego adres może trafić wyłącznie do tabeli technicznej odrzuceń, aby nie pobierać go ponownie.
+7. W jednym dniu UTC harvester wykonuje maksymalnie 50 nowych prób pobrania na źródło, wspólnie dla trzech uruchomień. Materiał krótszy niż 200 słów jest odrzucany i nie trafia do tabeli artykułów ani do pliku dla AI. Jego adres może trafić wyłącznie do tabeli technicznej odrzuceń, aby nie pobierać go ponownie.
 8. Gdy nie ma nowych artykułów, uruchomienie kończy się bez wywołań AI.
 9. Gdy pojawiły się nowe artykuły, uruchamiany jest etap AI 1 — grupowanie po tytułach i treści.
 10. Dla każdej grupy uruchamiany jest etap AI 2 — przygotowanie lub aktualizacja polskiego opracowania.

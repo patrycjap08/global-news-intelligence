@@ -12,8 +12,8 @@ GitHub przechowuje kod i workflow — nie pełne archiwum artykułów.
 
 Szczegółowa instrukcja znajduje się w [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Pipeline wykonuje kolejno: pobranie stanu deduplikacji z Supabase, odwiedzenie
-stron głównych, zapis tylko nowych artykułów, synchronizację z Supabase,
+Pipeline wykonuje kolejno: pobranie stanu deduplikacji z Supabase, odkrywanie
+artykułów przez RSS/sitemapy/sekcje oraz stronę główną jako fallback, zapis tylko nowych artykułów, synchronizację z Supabase,
 grupowanie AI 1 i opracowania AI 2. Klucze nie są wpisane do kodu.
 
 ## Uruchomienie
@@ -64,11 +64,12 @@ zapisywane w raportach — próbki zawierają metadata i hash treści.
 
 ## Trwały pierwszy zbiór artykułów
 
-Harvester pobiera linki wyłącznie ze stron głównych aktywnych źródeł i zapisuje
-artykuły do SQLite oraz eksportu JSONL/HTML:
+Harvester zbiera linki z RSS/Atom, news sitemap, sitemap, skonfigurowanych
+sekcji i strony głównej jako fallbacku. Zapisuje artykuły do SQLite oraz
+eksportu JSONL/HTML:
 
 ```bash
-python3 article_harvester.py --browser --max-articles-per-source 50
+python3 article_harvester.py --browser --daily-max-articles-per-source 50
 ```
 
 Treść krótsza niż 200 słów nie trafia do eksportu ani do tabeli artykułów.
