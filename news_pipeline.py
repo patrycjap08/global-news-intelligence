@@ -16,6 +16,7 @@ from ai_pipeline import analyze_run
 from article_harvester import open_db
 from supabase_client import SupabaseRestClient
 from supabase_sync import pull_state, push_run
+from x_pipeline import analyze_x_posts, fetch_x_posts
 
 
 def latest_run_id(db_path: Path) -> str:
@@ -108,6 +109,10 @@ def main() -> int:
         print(f"[3/4] Zapisuję run {run_id} w Supabase...", flush=True)
         print(json.dumps(push_run(args.db, run_id, client), ensure_ascii=False), flush=True)
 
+        if os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":
+            print("[X] Pobieram wpisy z ostatnich 24 godzin...", flush=True)
+            print(json.dumps(fetch_x_posts(run_id, client), ensure_ascii=False), flush=True)
+
     if args.skip_ai:
         print("[4/4] AI pominięte przez --skip-ai.", flush=True)
     else:
@@ -123,6 +128,9 @@ def main() -> int:
             rebuild_max_topics=args.rebuild_max_topics,
         )
         print(json.dumps(result, ensure_ascii=False), flush=True)
+        if not args.ai_only and os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":
+            print("[X] Dopasowuję wpisy do aktywnych historii...", flush=True)
+            print(json.dumps(analyze_x_posts(run_id, client), ensure_ascii=False), flush=True)
     return 0
 
 

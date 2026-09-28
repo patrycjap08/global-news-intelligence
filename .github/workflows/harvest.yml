@@ -12,6 +12,11 @@ on:
           - full
           - ai-only
           - rebuild-summaries
+      include_x:
+        description: "Pobierz też wpisy z X (ostatnie 24 h)"
+        required: false
+        default: false
+        type: boolean
   schedule:
     # Times are Europe/Warsaw; minute 17 avoids the busiest exact-hour slot.
     - cron: "17 7 * * *"
@@ -36,6 +41,8 @@ jobs:
       RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+      X_FETCH_ENABLED: ${{ (github.event_name == 'schedule' && github.event.schedule == '17 16 * * *') || (github.event_name == 'workflow_dispatch' && inputs.include_x) }}
       # Reserved for the future PWA; the server worker never needs it.
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       # This is a daily quota shared by the three scheduled runs.

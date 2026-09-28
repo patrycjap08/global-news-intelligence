@@ -6,6 +6,8 @@ const state = {
   topics: [],
   articles: [],
   links: [],
+  xPosts: [],
+  xLinks: [],
   summaries: new Map(),
   history: new Map(),
   view: 'current',
@@ -129,13 +131,17 @@ function topicCountLabel(count) {
 
 function humanProfile(profile) { return PROFILE_LABELS[profile] || PROFILE_LABELS.UNCLASSIFIED; }
 function articleMap() { return new Map(state.articles.map((article) => [article.article_id, article])); }
+function xPostMap() { return new Map(state.xPosts.map((post) => [post.post_id, post])); }
 function updateText(summary) {
   const update = summary?.update || {};
   return String(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
 function topicArticleIds(model) {
-  return model.articles.map((article) => String(article.article_id)).sort();
+  return [
+    ...model.articles.map((article) => `article:${article.article_id}`),
+    ...model.xPosts.map((post) => `x:${post.post_id}`),
+  ].sort();
 }
 
 function topicIsCurrent(topic) {
@@ -166,7 +172,11 @@ function isTopicRead(model) {
   if (!record) return false;
   if (Array.isArray(record.article_ids)) {
     const readArticles = new Set(record.article_ids.map(String));
-    return topicArticleIds(model).every((articleId) => readArticles.has(articleId));
+    return topicArticleIds(model).every((evidenceId) => {
+      if (readArticles.has(evidenceId)) return true;
+      // Compatibility with the previous format, which stored bare article IDs.
+      return evidenceId.startsWith('article:') && readArticles.has(evidenceId.slice(8));
+    });
   }
   // Compatibility with the earlier local format, which stored only a version.
   return Number(record.version || 0) >= Number(model.summaryVersion || 1);
@@ -185,6 +195,11 @@ function topicModel(topic) {
   const articlesById = articleMap();
   const topicLinks = state.links.filter((link) => link.topic_id === topic.topic_id);
   const articles = topicLinks.map((link) => articlesById.get(link.article_id)).filter(Boolean);
+  const postsById = xPostMap();
+  const xPosts = state.xLinks
+    .filter((link) => link.topic_id === topic.topic_id)
+    .map((link) => postsById.get(link.post_id))
+    .filter(Boolean);
   const summaryRow = state.summaries.get(topic.topic_id) || {};
   const storedSummary = summaryRow.summary || summaryRow;
   const summary = storedSummary.base_summary || storedSummary;
@@ -209,6 +224,7 @@ function topicModel(topic) {
   return {
     ...topic,
     articles,
+    xPosts,
     sources: [...sources],
     sourceCount,
     hasAggregation,
@@ -244,6 +260,18 @@ async function loadLiveData() {
   state.links = links;
   state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary]));
   try {
+    const [xPosts, xLinks] = await Promise.all([
+      fetchTable('app_x_posts', '?select=post_id,username,display_name,category,editorial_profile,text,posted_at,url'),
+      fetchTable('app_topic_x_posts', '?select=topic_id,post_id,confidence,assigned_at'),
+    ]);
+    state.xPosts = xPosts;
+    state.xLinks = xLinks;
+  } catch (error) {
+    state.xPosts = [];
+    state.xLinks = [];
+    console.warn('Wpisy z X nie są jeszcze dostępne.', error);
+  }
+  try {
     const latestRuns = await fetchTable('app_latest_harvest', '?select=run_id,started_at&limit=1');
     state.latestHarvestStartedAt = latestRuns[0]?.started_at || null;
   } catch (error) {
@@ -272,6 +300,8 @@ function loadDemoData(message) {
   state.links = DEMO.links;
   state.summaries = new Map(DEMO.summaries);
   state.history = new Map();
+  state.xPosts = [];
+  state.xLinks = [];
   state.demo = true;
   if (message) showToast(message);
 }
@@ -383,6 +413,10 @@ function dialogHtml(model) {
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
   const update = model.latestUpdate || {};
+  const newXPostIds = Array.isArray(update.new_x_post_ids) ? update.new_x_post_ids.map(String) : [];
+  const xPostIdSet = new Set(newXPostIds);
+  const xPostSources = [...new Set(model.xPosts.filter((post) => xPostIdSet.has(String(post.post_id))).map((post) => `@${post.username}`))];
+  const xMaterials = model.xPosts.map((post) => `<div class="evidence-item social-evidence"><strong>${escapeHtml(post.display_name)} · X</strong><span><a href="${escapeHtml(post.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(post.text)}</a><br /><small>@${escapeHtml(post.username)}${post.posted_at ? ` · ${formatDate(post.posted_at)}` : ''} · wypowiedź autora, nie niezależne źródło prasowe</small></span></div>`).join('');
   const latestVersion = model.history[model.history.length - 1];
   const newArticleIds = Array.isArray(update.new_article_ids) && update.new_article_ids.length ? update.new_article_ids : (latestVersion?.new_article_ids || []);
   const newArticleIdSet = new Set(newArticleIds.map(String));
@@ -401,7 +435,7 @@ function dialogHtml(model) {
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
-    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>` : ''}
+    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>` : ''}
     ${readerContextHtml(summary.reader_context)}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
@@ -411,6 +445,7 @@ function dialogHtml(model) {
     ${section('Kontekst i niewiadome', summary.background_context)}
     ${previousVersions ? `<section class="dialog-section"><h3>Poprzednie wersje opracowania</h3>${previousVersions}</section>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
+    ${xMaterials ? `<section class="dialog-section"><h3>Powiązane wypowiedzi na X</h3><div class="evidence-list">${xMaterials}</div></section>` : ''}
   </div>`;
 }
 
