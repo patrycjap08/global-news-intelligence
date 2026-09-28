@@ -258,6 +258,25 @@ def same_site(url: str, homepage: str) -> bool:
     return a == b or a.endswith("." + b) or b.endswith("." + a)
 
 
+def candidate_allowed(source: dict[str, Any], url: str, title: str = "") -> bool:
+    """Apply optional source-specific URL/host/title discovery filters."""
+    parsed = urllib.parse.urlsplit(url)
+    host = parsed.netloc.lower()
+    path = parsed.path
+    include_hosts = source.get("candidate_include_host_patterns", [])
+    if include_hosts and not any(re.search(pattern, host, re.I) for pattern in include_hosts):
+        return False
+    include_patterns = source.get("candidate_include_url_patterns", [])
+    if include_patterns and not any(re.search(pattern, path, re.I) for pattern in include_patterns):
+        return False
+    if any(re.search(pattern, path, re.I) for pattern in source.get("candidate_exclude_url_patterns", [])):
+        return False
+    searchable_title = clean_text(title)
+    if any(re.search(pattern, searchable_title, re.I) for pattern in source.get("candidate_exclude_title_patterns", [])):
+        return False
+    return True
+
+
 def xml_local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1].lower()
 
@@ -355,12 +374,13 @@ def is_generic_headline(value: str) -> bool:
     return normalized in GENERIC_HEADLINES
 
 
-def _structured_html_extract(text: str) -> dict[str, Any] | None:
+def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] | None:
     """Extract article content from semantic HTML containers.
 
     BBC exposes an article root with paragraph components. Polsat News exposes
     `main > article.news.news--target > .news__content`. PAP exposes
-    `article#article`, while TVP Info exposes `section.article`. These
+    `article#article`, TVN24 exposes a semantic `main` article root, while TVP
+    Info exposes `section.article`. These
     selectors are intentionally based on semantic/visible structure, not
     anti-bot behavior.
     """
@@ -368,7 +388,15 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
         return None
     soup = BeautifulSoup(text, "html.parser")
     json_ld = _json_ld_values(soup)
-    title_node = soup.select_one("h1, [data-testid='headline'], .ods-m-labeled-h1__text")
+    tvn24_main = None
+    if source_id == "tvn24":
+        candidate_main = soup.select_one("main")
+        if candidate_main is not None and candidate_main.select_one("h1"):
+            tvn24_main = candidate_main
+    title_node = (
+        tvn24_main.select_one("header h1, h1") if tvn24_main is not None
+        else soup.select_one("h1, [data-testid='headline'], .ods-m-labeled-h1__text")
+    )
     title_candidates = []
     if title_node:
         title_candidates.append(clean_text(title_node.get_text(" ", strip=True)))
@@ -385,6 +413,15 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
         meta = soup.select_one('meta[name="description"], meta[property="og:description"]')
         description = clean_text(meta.get("content", "")) if meta else ""
     author = _json_ld_value(json_ld, "author")
+    if tvn24_main is not None:
+        author = next(
+            (
+                clean_text(node.get_text(" ", strip=True))
+                for node in tvn24_main.select("a[href*='/autorzy/']")
+                if clean_text(node.get_text(" ", strip=True))
+            ),
+            author,
+        )
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -396,9 +433,13 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
     canonical = canonical_node.get("href", "") if canonical_node else _json_ld_value(json_ld, "url")
 
     source_kind = "generic"
-    content_root = soup.select_one("article.news.news--target .news__content")
+    content_root = tvn24_main
     if content_root is not None:
-        source_kind = "polsat"
+        source_kind = "tvn24"
+    if content_root is None:
+        content_root = soup.select_one("article.news.news--target .news__content")
+        if content_root is not None:
+            source_kind = "polsat"
     if content_root is None:
         content_root = soup.select_one("article#article")
         if content_root is not None:
@@ -451,7 +492,13 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
         return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": "", "structured": False, "source_kind": source_kind}
 
     unwanted = "script, style, noscript, template, svg, canvas, nav, aside, footer, [aria-hidden=\"true\"], [data-testid=\"ad-unit\"], [data-component=\"advertisement-block\"], .ad, .ad__holder, .ad__slot, .videoPlayer, .news__author, .tags, .app-ad"
-    if source_kind == "pap":
+    if source_kind == "tvn24":
+        unwanted += ", header, figure, .ad-ph, [class*='action-buttons'], [class*='article-attribution'], [class*='article-footer'], [data-scope='main-multimedium-video'], yen-vod-embed"
+        for node in content_root.select("div, section"):
+            label = clean_text(node.get_text(" ", strip=True)).casefold()
+            if label.startswith(("dowiedz się więcej", "zobacz także", "czytaj także")):
+                node.decompose()
+    elif source_kind == "pap":
         unwanted += ", .articleSprawdzamtoHeader, .articleInfo, .socialList, .imageWrapper, .advertisement-block, .embedded-entity, .readMore"
     elif source_kind == "tvp":
         unwanted += ", .article__right-box, .article-recommend, .module-banner-ad, .article-tags, .article-right, .article__see-more, .mb-box, .news-box"
@@ -470,6 +517,11 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
     for node in content_root.select(unwanted):
         node.decompose()
     text_nodes = content_root.select("p, h2, h3, li")
+    if source_kind == "tvn24":
+        text_nodes = [
+            node for node in content_root.find_all(["strong", "p", "h2", "h3", "li"])
+            if node.name != "strong" or node.parent is content_root
+        ]
     if source_kind == "reuters":
         text_nodes.extend(content_root.select("[data-testid^='paragraph-']"))
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
@@ -477,7 +529,12 @@ def _structured_html_extract(text: str) -> dict[str, Any] | None:
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
 
 
-def extract_article(result: FetchResult, base_url: str, include_body: bool = False) -> dict[str, Any]:
+def extract_article(
+    result: FetchResult,
+    base_url: str,
+    include_body: bool = False,
+    source_id: str = "",
+) -> dict[str, Any]:
     text = result.text
     paywall, captcha = detect_policy_flags(text, result.status)
     if not text or result.status is None:
@@ -487,13 +544,20 @@ def extract_article(result: FetchResult, base_url: str, include_body: bool = Fal
         parser.feed(text)
     except Exception as exc:
         return {"url": result.final_url or result.url, "status": result.status, "body_success": False, "paywall": paywall, "captcha": captcha, "error": f"parse:{exc}"}
-    structured = _structured_html_extract(text) or {}
+    structured = _structured_html_extract(text, source_id=source_id) or {}
     title = structured.get("title") or parser.meta.get("og:title") or parser.meta.get("twitter:title") or clean_text(" ".join(parser.title_parts))
+    if source_id == "tvn24" and is_generic_headline(title):
+        title = ""
     description = structured.get("description") or parser.meta.get("description") or parser.meta.get("og:description") or parser.meta.get("twitter:description")
     author = structured.get("author") or parser.meta.get("author") or parser.meta.get("article:author")
     published = structured.get("published_at") or parser.meta.get("article:published_time") or parser.meta.get("date") or parser.meta.get("publishdate")
     canonical = structured.get("canonical") or parser.meta.get("canonical") or result.final_url or result.url
-    body = structured.get("body") or clean_text(" ".join(parser.text_parts))
+    if source_id == "tvn24":
+        # A TVN24 candidate without the semantic article root is usually a
+        # shell, listing, or error page; never turn its global text into body.
+        body = structured.get("body", "")
+    else:
+        body = structured.get("body") or clean_text(" ".join(parser.text_parts))
     # Keep extraction deliberately conservative: title and a reasonable body are
     # required; metadata-only pages remain visible in the report.
     body_words = len(body.split())
@@ -659,7 +723,7 @@ def browser_discover_article_urls(page_obj: Any, source: dict[str, Any], homepag
                 is_article = any(re.search(pattern, url, re.I) for pattern in configured_patterns)
             else:
                 is_article = ARTICLE_HINTS.search(url) or "/aktualnosci/" in path or re.search(r"/\d{6,}(?:/|$)", path)
-            if is_article:
+            if is_article and candidate_allowed(source, url, link.get("text", "")):
                 seen.add(url)
                 discovered.append(url)
                 if len(discovered) >= 5:
@@ -718,8 +782,14 @@ def test_source(source: dict[str, Any], defaults: dict[str, Any], args: argparse
         url = link.get("href", "")
         if url:
             discovered_links.append({"url": url, "title": link.get("text", "")})
-    section_rows = [row for row in discovered_links if same_site(row["url"], homepage) and (ARTICLE_HINTS.search(row["url"]) or len(row.get("title", "")) >= 30)]
-    section_rows = section_rows or discovered_links
+    section_rows = [
+        row for row in discovered_links
+        if same_site(row["url"], homepage)
+        and candidate_allowed(source, row["url"], row.get("title", ""))
+        and (ARTICLE_HINTS.search(row["url"]) or len(row.get("title", "")) >= 30)
+    ]
+    if not section_rows and not source.get("candidate_include_url_patterns"):
+        section_rows = discovered_links
     method_results["SECTION_HTML"] = {"status": "OK" if section_rows else "FAILED", "endpoint": ",".join(listing_endpoints), "items_found": len(section_rows), "notes": "configured section/homepage link scan"}
     all_items.extend(section_rows)
 
@@ -792,9 +862,15 @@ def test_source(source: dict[str, Any], defaults: dict[str, Any], args: argparse
     # can expose a perfectly healthy HTML listing whose first links are category
     # pages; those must not be reported as article samples.
     feed_and_sitemap_items = [row for row in all_items if row not in section_rows]
-    candidate_urls = unique_urls(feed_and_sitemap_items, homepage, args.max_article_probes)
+    candidate_urls = [
+        url for url in unique_urls(feed_and_sitemap_items, homepage, args.max_article_probes)
+        if candidate_allowed(source, url)
+    ]
     if not candidate_urls:
-        candidate_urls = unique_urls(section_rows, homepage, args.max_article_probes)
+        candidate_urls = [
+            url for url in unique_urls(section_rows, homepage, args.max_article_probes)
+            if candidate_allowed(source, url)
+        ]
     article_rows: list[dict[str, Any]] = []
     pdf_urls: list[str] = []
     for url in candidate_urls:
@@ -802,7 +878,7 @@ def test_source(source: dict[str, Any], defaults: dict[str, Any], args: argparse
             pdf_urls.append(url)
             continue
         result = client.get(url)
-        extracted = extract_article(result, homepage)
+        extracted = extract_article(result, homepage, source_id=str(source.get("id", "")))
         extracted["source_item_url"] = url
         article_rows.append(extracted)
         paywall = paywall or bool(extracted.get("paywall"))
@@ -817,7 +893,11 @@ def test_source(source: dict[str, Any], defaults: dict[str, Any], args: argparse
     browser_captcha = False
     if args.browser:
         browser_limit = max(1, min(args.max_article_probes, 5))
-        if http_success >= browser_limit:
+        browser_preferred = (
+            str(source.get("id", "")) == "tvn24"
+            and str(source.get("content_method", "")).upper() == "BROWSER"
+        )
+        if http_success >= browser_limit and not browser_preferred:
             browser_status = "NOT_NEEDED"
             browser_notes = f"HTTP extraction already supplied {http_success} body samples."
         else:
@@ -843,7 +923,17 @@ def test_source(source: dict[str, Any], defaults: dict[str, Any], args: argparse
                             response = browser_navigate(page_obj, url, timeout_ms)
                             browser_prepare_page(page_obj, source)
                             content = page_obj.content()
-                            extracted = extract_article(FetchResult(url, response.status if response else None, page_obj.url, "text/html", content.encode("utf-8")), homepage)
+                            extracted = extract_article(
+                                FetchResult(
+                                    url,
+                                    response.status if response else None,
+                                    page_obj.url,
+                                    "text/html",
+                                    content.encode("utf-8"),
+                                ),
+                                homepage,
+                                source_id=str(source.get("id", "")),
+                            )
                             extracted["source_item_url"] = url
                             article_rows.append(extracted)
                             browser_attempts += 1

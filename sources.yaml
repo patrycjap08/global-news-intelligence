@@ -29,7 +29,30 @@ sources:
       - "\\b(kultura|film|serial|aktor|aktorka|muzyka|koncert|festiwal)\\b"
       - "\\b(prognoza pogody|pogoda na|IMGW)\\b"
       - "\\b(materiał promocyjny|artykuł sponsorowany|partner materiału|patronat medialny)\\b"
-  - {id: tvn24, name: TVN24, region: Poland, homepage: https://tvn24.pl}
+  - id: tvn24
+    name: TVN24
+    region: Poland
+    homepage: https://tvn24.pl
+    content_method: BROWSER
+    discover_homepage: false
+    section_urls:
+      - https://tvn24.pl/swiat
+      - https://tvn24.pl/polska
+    top_articles_per_section: 10
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^tvn24\.pl$'
+      - '^www\.tvn24\.pl$'
+    candidate_include_url_patterns:
+      - '^/(?:[^/]+/)+[^/]+-st[0-9]+/?$'
+    candidate_exclude_url_patterns:
+      - '/(?:sport|eurosport|tvnmeteo|meteo|plus|programy|podcast|quiz|tagi|autorzy|kontakt24)(?:/|$)'
+    candidate_exclude_title_patterns:
+      - '\b(sport|mecz|mecze|liga|piłka|piłkarz|piłkarka|kolarstwo|tenis|siatkówka|koszykówka|skoki narciarskie|F1|eurosport)\b'
+      - '\b(pogoda|IMGW|meteo|huragan|burza|opady|silny wiatr|upał|temperatura|smog)\b'
+    browser_article_patterns:
+      - '^https://(?:www\.)?tvn24\.pl/(?:[^/]+/)+[^/?#]+-st[0-9]+/?$'
+    browser_wait_after_load_seconds: 2
   - id: tvp_info
     name: TVP Info
     region: Poland

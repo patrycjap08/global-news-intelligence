@@ -466,9 +466,15 @@ def fetch_one(
     browser_enabled: bool,
 ) -> tuple[dict[str, Any], str]:
     result = client.get(url)
-    extracted = st.extract_article(result, source["homepage"], include_body=True)
+    extracted = st.extract_article(
+        result, source["homepage"], include_body=True, source_id=str(source.get("id", ""))
+    )
     method = "HTTP_HTML"
-    if browser_enabled and page_obj is not None and not extracted.get("body_success"):
+    browser_preferred = (
+        str(source.get("id", "")) == "tvn24"
+        and str(source.get("content_method", "")).upper() == "BROWSER"
+    )
+    if browser_enabled and page_obj is not None and (browser_preferred or not extracted.get("body_success")):
         try:
             response = st.browser_navigate(
                 page_obj, url, int(float(source.get("timeout_seconds", 15)) * 1000)
@@ -483,7 +489,10 @@ def fetch_one(
                 body=content.encode("utf-8"),
             )
             browser_extracted = st.extract_article(
-                browser_result, source["homepage"], include_body=True
+                browser_result,
+                source["homepage"],
+                include_body=True,
+                source_id=str(source.get("id", "")),
             )
             if browser_extracted.get("body_success") or not extracted.get("title"):
                 extracted = browser_extracted
@@ -504,16 +513,7 @@ def _same_site_non_asset(url: str, homepage: str) -> bool:
 
 def _candidate_allowed(source: dict[str, Any], url: str, title: str) -> bool:
     """Apply optional, source-specific discovery filters before fetching a page."""
-    path = urllib.parse.urlsplit(url).path
-    include_patterns = source.get("candidate_include_url_patterns", [])
-    if include_patterns and not any(re.search(pattern, path, re.I) for pattern in include_patterns):
-        return False
-    if any(re.search(pattern, path, re.I) for pattern in source.get("candidate_exclude_url_patterns", [])):
-        return False
-    searchable_title = st.clean_text(title)
-    if any(re.search(pattern, searchable_title, re.I) for pattern in source.get("candidate_exclude_title_patterns", [])):
-        return False
-    return True
+    return st.candidate_allowed(source, url, title)
 
 
 def _listing_rows(client: st.HttpClient, source: dict[str, Any]) -> tuple[list[dict[str, str]], st.FetchResult, list[str]]:

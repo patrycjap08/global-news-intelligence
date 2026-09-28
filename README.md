@@ -49,6 +49,9 @@ pobranie HTML artykułów, linki PDF oraz opcjonalny fallback Playwright. Wpis w
 popupu) oraz `browser_wait_after_load_seconds` (oczekiwanie na zakończenie
 ładowania/reklamy). PAP korzysta z selektorów struktury `article#article`, a TVP
 z `section.article`; popup TVP jest zamykany przez `.snrs-popup .snrs-close-btn`.
+TVN24 korzysta z jawnie skonfigurowanych sekcji `/swiat` i `/polska`; kandydatami
+są wyłącznie artykuły tego serwisu z końcówką URL `-st<id>`, z pominięciem
+poddomeny Eurosportu oraz materiałów sportowych i pogodowych.
 Zgody cookies można skonfigurować przez `browser_accept_selectors`, a przejścia
 typu Onet przez `browser_click_texts`. Wpis z `enabled: false` pozostaje w
 katalogu, ale jest pomijany podczas testu. W katalogu są skonfigurowane zgody
