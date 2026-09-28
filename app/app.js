@@ -1,4 +1,5 @@
 const config = window.GNI_CONFIG || {};
+const READ_STATE_KEY = 'gni.topic-read-state.v1';
 
 const state = {
   topics: [],
@@ -9,6 +10,7 @@ const state = {
   view: 'all',
   profile: 'ALL',
   search: '',
+  readTopics: loadReadTopics(),
   demo: false,
 };
 
@@ -60,6 +62,24 @@ const DEMO = {
 
 const $ = (selector) => document.querySelector(selector);
 
+function loadReadTopics() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(READ_STATE_KEY) || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch (error) {
+    console.warn('Nie udało się odczytać lokalnego statusu przeczytania tematów.', error);
+    return {};
+  }
+}
+
+function saveReadTopics() {
+  try {
+    window.localStorage.setItem(READ_STATE_KEY, JSON.stringify(state.readTopics));
+  } catch (error) {
+    console.warn('Nie udało się zapisać lokalnego statusu przeczytania tematów.', error);
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
@@ -76,6 +96,18 @@ function articleMap() { return new Map(state.articles.map((article) => [article.
 function updateText(summary) {
   const update = summary?.update || {};
   return String(update.new_information_pl || update.what_changed_pl || '').trim();
+}
+
+function isTopicRead(model) {
+  const readVersion = Number(state.readTopics[model.topic_id] || 0);
+  return readVersion >= Number(model.summaryVersion || 1);
+}
+
+function markTopicRead(model) {
+  const version = Number(model.summaryVersion || 1);
+  if (Number(state.readTopics[model.topic_id] || 0) >= version) return;
+  state.readTopics[model.topic_id] = version;
+  saveReadTopics();
 }
 
 function topicModel(topic) {
@@ -192,8 +224,9 @@ function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
   const badge = model.articles.length > 1 ? `${model.articles.length} artykuły · ${model.sources.length} źródła` : 'Jedno źródło';
   const hasUpdate = Boolean(updateText(model.summary));
+  const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
-  return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="Otwórz opracowanie: ${escapeHtml(model.title)}">
+  return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
     <div class="card-meta"><span class="card-badge">${hasUpdate ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
@@ -256,10 +289,12 @@ function dialogHtml(model) {
 function openTopic(topicId) {
   const model = state.topics.map(topicModel).find((topic) => topic.topic_id === topicId);
   if (!model) return;
+  markTopicRead(model);
   $('#dialog-content').innerHTML = dialogHtml(model);
   const dialog = $('#story-dialog');
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
+  render();
 }
 
 function filteredModels() {

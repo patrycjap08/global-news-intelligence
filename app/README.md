@@ -19,6 +19,11 @@ Przed pierwszym uruchomieniem aplikacji wykonaj w Supabase SQL Editorze kolejno:
 
 Widoki nie udostępniają aplikacji pełnego tekstu artykułów.
 
+Status przeczytania tematów jest zapisywany lokalnie w przeglądarce (`localStorage`).
+Każdy użytkownik ma własny status na swoim urządzeniu. Otworzenie tematu zapisuje
+odczytaną wersję; gdy pojawi się kolejna wersja opracowania, temat ponownie staje
+się nieprzeczytany.
+
 Następnie uruchom z katalogu repozytorium:
 
 ```bash

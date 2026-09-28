@@ -120,6 +120,8 @@ button { color: inherit; }
 .card-badge { color: var(--red); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .topic-card h4 { max-width: 780px; margin: 0 0 11px; font-family: var(--serif); font-size: clamp(19px, 2.3vw, 29px); font-weight: 400; letter-spacing: -.045em; line-height: 1.15; }
 .topic-card:not(.featured) h4 { font-size: 20px; }
+.topic-card.is-read h4, .topic-card.is-read .card-dek { color: var(--muted); opacity: .68; }
+.topic-card.is-read .card-badge { color: var(--muted); }
 .card-dek { display: -webkit-box; margin: 0; overflow: hidden; color: #514b43; font-size: 13px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .card-footer { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 18px; }
 .perspective-dots { display: flex; gap: 4px; }
