@@ -262,9 +262,7 @@ function setStatus() {
 }
 
 function renderStats(models) {
-  const multi = models.filter((topic) => topic.sourceCount >= 2).length;
   $('#stat-topics').textContent = models.length;
-  $('#stat-multi').textContent = multi;
   $('#stat-articles').textContent = new Set(models.flatMap((topic) => topic.articles.map((article) => article.article_id))).size;
   $('#stat-sources').textContent = new Set(models.flatMap((topic) => topic.articles.map((article) => article.source_name))).size;
 }
@@ -470,7 +468,11 @@ document.addEventListener('click', (event) => {
 
 $('#search-input').addEventListener('input', (event) => { state.search = event.target.value; render(); });
 $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; render(); });
-$('#hide-read').addEventListener('change', (event) => { state.hideRead = event.target.checked; render(); });
+$('#hide-read').addEventListener('change', (event) => {
+  state.hideRead = event.target.checked;
+  event.target.closest('.read-toggle')?.classList.toggle('is-active', state.hideRead);
+  render();
+});
 $('#dialog-close').addEventListener('click', () => $('#story-dialog').close());
 $('#refresh-button').addEventListener('click', async () => { if (state.demo) return showToast('Podgląd nie jest jeszcze połączony z Supabase.'); $('#refresh-button').textContent = 'Odświeżam…'; try { await loadLiveData(); setStatus(); render(); showToast('Dane zostały odświeżone.'); } catch (error) { showToast('Nie udało się odświeżyć danych.'); console.warn(error); } finally { $('#refresh-button').textContent = 'Odśwież dane'; } });
 
