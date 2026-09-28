@@ -423,14 +423,6 @@ function dialogHtml(model) {
   const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
   const updateCopy = updateText(update);
   const isUpdate = Boolean(updateCopy);
-  const previousVersions = model.history.slice(0, -1).reverse().map((version) => {
-    const storedVersion = version.summary || {};
-    const previousBase = storedVersion.base_summary || storedVersion;
-    const previousSummary = previousBase.summary_pl || 'Brak tekstu poprzedniej wersji.';
-    const previousUpdate = storedVersion.latest_update || storedVersion.update || {};
-    const previousUpdateText = updateText(previousUpdate);
-    return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p>${previousUpdateText ? `<small>${escapeHtml(previousUpdateText)}</small>` : ''}</details>`;
-  }).join('');
   return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
@@ -443,7 +435,6 @@ function dialogHtml(model) {
     ${section('Sposób przedstawienia i ton', summary.framing_and_tone)}
     ${section('Sygnały języka lub możliwej manipulacji', summary.potential_manipulation_signals)}
     ${section('Kontekst i niewiadome', summary.background_context)}
-    ${previousVersions ? `<section class="dialog-section"><h3>Poprzednie wersje opracowania</h3>${previousVersions}</section>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
     ${xMaterials ? `<section class="dialog-section"><h3>Powiązane wypowiedzi na X</h3><div class="evidence-list">${xMaterials}</div></section>` : ''}
   </div>`;
