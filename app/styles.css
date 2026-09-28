@@ -96,6 +96,7 @@ button { color: inherit; }
 .side-block + .side-block { margin-top: 30px; }
 .side-label { color: var(--muted); font-size: 9px; }
 .filter-list { display: grid; gap: 3px; margin-top: 12px; }
+.side-help { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .filter-button { display: flex; align-items: center; justify-content: space-between; border: 0; padding: 6px 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; text-align: left; }
 .filter-button:hover, .filter-button.is-active { color: var(--red); }
 .filter-button span:last-child { min-width: 20px; color: var(--line-dark); font-size: 10px; text-align: right; }

@@ -230,26 +230,50 @@ function renderStats(models) {
 
 function renderProfiles(models) {
   const counts = {};
-  models.flatMap((topic) => topic.articles).forEach((article) => {
-    const profile = article.source_profile || 'UNCLASSIFIED';
-    counts[profile] = (counts[profile] || 0) + 1;
+  models.forEach((topic) => {
+    const profiles = new Set(topic.articles.map((article) => article.source_profile || 'UNCLASSIFIED'));
+    profiles.forEach((profile) => {
+      counts[profile] = (counts[profile] || 0) + 1;
+    });
   });
-  const total = Object.values(counts).reduce((sum, count) => sum + count, 0) || 1;
-  const rows = [['ALL', 'Wszystkie', models.flatMap((topic) => topic.articles).length], ...Object.entries(PROFILE_LABELS).map(([key, label]) => [key, label, counts[key] || 0]).filter(([, , count]) => count > 0)];
+  const rows = [
+    ['ALL', 'Wszystkie tematy', models.length],
+    ...Object.entries(PROFILE_LABELS)
+      .map(([key, label]) => [key, label, counts[key] || 0])
+      .filter(([, , count]) => count > 0),
+  ];
   $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${state.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button"><span>${label}</span><span>${count}</span></button>`).join('');
   $('#profile-filters').querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => {
     state.profile = button.dataset.profile;
     render();
   }));
-  return total;
 }
 
 function renderSources(models) {
   const counts = {};
-  models.flatMap((topic) => topic.articles).forEach((article) => { counts[article.source_name] = (counts[article.source_name] || 0) + 1; });
-  const topSources = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const max = topSources[0]?.[1] || 1;
-  $('#source-list').innerHTML = topSources.length ? topSources.map(([source, count]) => `<div class="source-row"><span>${escapeHtml(source)}</span><strong>${count}</strong><small>${Math.round(count / max * 100)}% udziału w widoku</small><div class="source-bar"><i style="width:${count / max * 100}%"></i></div></div>`).join('') : '<span class="muted">Brak danych</span>';
+  models.forEach((topic) => {
+    const topicSources = new Set();
+    topic.articles.forEach((article) => {
+      const source = article.source_name || 'Nieznane źródło';
+      const entry = counts[source] || { topics: 0, articles: 0 };
+      entry.articles += 1;
+      counts[source] = entry;
+      topicSources.add(source);
+    });
+    topicSources.forEach((source) => {
+      counts[source].topics += 1;
+    });
+  });
+  const totalTopics = models.length || 1;
+  const topSources = Object.entries(counts)
+    .sort(([, a], [, b]) => (b.topics - a.topics) || (b.articles - a.articles))
+    .slice(0, 5);
+  $('#source-list').innerHTML = topSources.length ? topSources.map(([source, count]) => {
+    const percent = Math.round(count.topics / totalTopics * 100);
+    const topicLabel = count.topics === 1 ? 'temat' : (count.topics < 5 ? 'tematy' : 'tematów');
+    const articleLabel = count.articles === 1 ? 'artykuł' : (count.articles < 5 ? 'artykuły' : 'artykułów');
+    return `<div class="source-row"><span>${escapeHtml(source)}</span><strong>${count.topics}</strong><small>${count.topics} z ${models.length} ${topicLabel} · ${count.articles} ${articleLabel} · ${percent}% obecności</small><div class="source-bar"><i style="width:${percent}%"></i></div></div>`;
+  }).join('') : '<span class="muted">Brak danych</span>';
 }
 
 function cardHtml(model, index) {
