@@ -15,11 +15,20 @@ sources:
     name: PAP
     region: Poland
     homepage: https://pap.pl
+    discover_homepage: false
+    top_articles_per_section: 10
+    candidate_pool_per_section: 30
     section_urls:
-      - https://pap.pl/aktualnosci
       - https://pap.pl/kraj
       - https://pap.pl/swiat
       - https://pap.pl/gospodarka
+    candidate_include_url_patterns:
+      - "^/aktualnosci/[^/]+/?$"
+    candidate_exclude_title_patterns:
+      - "\\b(sport|mecz|liga|piłkarz|piłkarka|piłkarski|turniej|tenis|siatkówka|koszykówka)\\b"
+      - "\\b(kultura|film|serial|aktor|aktorka|muzyka|koncert|festiwal)\\b"
+      - "\\b(prognoza pogody|pogoda na|IMGW)\\b"
+      - "\\b(materiał promocyjny|artykuł sponsorowany|partner materiału|patronat medialny)\\b"
   - {id: tvn24, name: TVN24, region: Poland, homepage: https://tvn24.pl}
   - id: tvp_info
     name: TVP Info

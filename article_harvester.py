@@ -493,25 +493,44 @@ def _same_site_non_asset(url: str, homepage: str) -> bool:
     return bool(parsed.netloc)
 
 
+def _candidate_allowed(source: dict[str, Any], url: str, title: str) -> bool:
+    """Apply optional, source-specific discovery filters before fetching a page."""
+    path = urllib.parse.urlsplit(url).path
+    include_patterns = source.get("candidate_include_url_patterns", [])
+    if include_patterns and not any(re.search(pattern, path, re.I) for pattern in include_patterns):
+        return False
+    if any(re.search(pattern, path, re.I) for pattern in source.get("candidate_exclude_url_patterns", [])):
+        return False
+    searchable_title = st.clean_text(title)
+    if any(re.search(pattern, searchable_title, re.I) for pattern in source.get("candidate_exclude_title_patterns", [])):
+        return False
+    return True
+
+
 def _listing_rows(client: st.HttpClient, source: dict[str, Any]) -> tuple[list[dict[str, str]], st.FetchResult, list[str]]:
     """Read the homepage and configured sections, preserving feed metadata."""
     homepage = str(source["homepage"])
-    homepage_result = client.get(homepage)
-    endpoints = [homepage]
+    endpoints = [homepage] if source.get("discover_homepage", True) else []
     endpoints.extend(source.get("section_urls", [])[:5])
+    if not endpoints:
+        endpoints = [homepage]
+    first_endpoint = st.canonicalize(endpoints[0], homepage) or homepage
+    homepage_result = client.get(first_endpoint)
     rows: list[dict[str, str]] = []
     notes: list[str] = []
     seen: set[str] = set()
+    per_endpoint_limit = int(source.get("candidate_pool_per_section", 50) or 0)
     for endpoint in endpoints:
         absolute_endpoint = st.canonicalize(endpoint, homepage)
         if not absolute_endpoint or not st.same_site(absolute_endpoint, homepage):
             continue
-        result = homepage_result if absolute_endpoint == st.canonicalize(homepage, homepage) else client.get(absolute_endpoint)
+        result = homepage_result if absolute_endpoint == first_endpoint else client.get(absolute_endpoint)
         parser = st.PageParser()
         try:
             parser.feed(result.text)
         except Exception:
             continue
+        endpoint_count = 0
         for raw in parser.links:
             url = st.canonicalize(raw.get("href", ""), absolute_endpoint)
             rel = raw.get("rel", "").lower()
@@ -521,15 +540,23 @@ def _listing_rows(client: st.HttpClient, source: dict[str, Any]) -> tuple[list[d
             )
             if not url or url in seen or (not _same_site_non_asset(url, homepage) and not is_feed_link):
                 continue
+            if not is_feed_link and not _candidate_allowed(source, url, raw.get("text", "")):
+                continue
             seen.add(url)
             rows.append({
                 "url": url,
                 "title": st.clean_text(raw.get("text", ""))[:500],
                 "rel": raw.get("rel", ""),
                 "type": raw.get("type", ""),
+                "section_key": absolute_endpoint,
             })
-    if len(endpoints) > 1:
-        notes.append(f"sections={len(endpoints) - 1}")
+            if not is_feed_link:
+                endpoint_count += 1
+                if per_endpoint_limit > 0 and endpoint_count >= per_endpoint_limit:
+                    break
+    section_count = len(source.get("section_urls", [])[:5])
+    if section_count:
+        notes.append(f"sections={section_count}")
     return rows, homepage_result, notes
 
 
@@ -614,11 +641,15 @@ def _sitemap_candidates(
     return rows, notes
 
 
-def _browser_listing_rows(page_obj: Any, source: dict[str, Any], timeout_ms: int) -> list[dict[str, str]]:
+def _browser_listing_rows(page_obj: Any, source: dict[str, Any], timeout_ms: int) -> tuple[list[dict[str, str]], int]:
     homepage = str(source["homepage"])
-    endpoints = [homepage, *source.get("section_urls", [])[:5]]
+    endpoints = ([homepage] if source.get("discover_homepage", True) else []) + source.get("section_urls", [])[:5]
+    if not endpoints:
+        endpoints = [homepage]
+    per_endpoint_limit = int(source.get("candidate_pool_per_section", 50) or 0)
     rows: list[dict[str, str]] = []
     seen: set[str] = set()
+    filtered = 0
     for endpoint in endpoints:
         absolute_endpoint = st.canonicalize(endpoint, homepage)
         if not absolute_endpoint or not st.same_site(absolute_endpoint, homepage):
@@ -630,15 +661,22 @@ def _browser_listing_rows(page_obj: Any, source: dict[str, Any], timeout_ms: int
             parser.feed(page_obj.content())
         except Exception:
             continue
+        endpoint_count = 0
         for raw in parser.links:
             url = st.canonicalize(raw.get("href", ""), absolute_endpoint)
             if not url or url in seen or not _same_site_non_asset(url, homepage):
                 continue
             if not st.ARTICLE_HINTS.search(url) and len(st.clean_text(raw.get("text", ""))) < 30:
                 continue
+            if not _candidate_allowed(source, url, raw.get("text", "")):
+                filtered += 1
+                continue
             seen.add(url)
-            rows.append({"url": url, "title": st.clean_text(raw.get("text", ""))[:500]})
-    return rows
+            rows.append({"url": url, "title": st.clean_text(raw.get("text", ""))[:500], "section_key": absolute_endpoint})
+            endpoint_count += 1
+            if per_endpoint_limit > 0 and endpoint_count >= per_endpoint_limit:
+                break
+    return rows, filtered
 
 
 def discover_candidates(
@@ -655,7 +693,7 @@ def discover_candidates(
         client, source, defaults, args.max_sitemap_probes, args.max_sitemap_children
     )
     section_rows = [
-        {"url": row["url"], "title": row.get("title", "")}
+        {"url": row["url"], "title": row.get("title", ""), "section_key": row.get("section_key", "")}
         for row in listing_rows
         if st.ARTICLE_HINTS.search(row["url"]) or len(row.get("title", "")) >= 30
     ]
@@ -689,11 +727,13 @@ def discover_candidates(
     )
     if needs_browser and page_obj is not None:
         try:
-            browser_rows = _browser_listing_rows(
+            browser_rows, browser_filtered = _browser_listing_rows(
                 page_obj, source, int(float(source.get("timeout_seconds", defaults.get("timeout_seconds", 15))) * 1000)
             )
             ordered = browser_rows + ordered
             notes.append(f"browser_discovery={len(browser_rows)}")
+            if browser_filtered:
+                notes.append(f"browser_filtered={browser_filtered}")
         except Exception as exc:
             notes.append(f"browser_discovery_error:{str(exc)[:160]}")
 
@@ -703,8 +743,10 @@ def discover_candidates(
         url = st.canonicalize(row.get("url", ""), source["homepage"])
         if not url or url in seen or not _same_site_non_asset(url, source["homepage"]):
             continue
+        if not _candidate_allowed(source, url, row.get("title", "")):
+            continue
         seen.add(url)
-        unique.append({"url": url, "title_hint": row.get("title", "")})
+        unique.append({"url": url, "title_hint": row.get("title", ""), "section_key": row.get("section_key", "")})
         if args.discovery_limit_per_source > 0 and len(unique) >= args.discovery_limit_per_source:
             break
     notes.extend(feed_notes)
@@ -747,11 +789,28 @@ def harvest_source(
     )
     candidate_pool = candidates
     next_candidate_index = len(candidate_pool)
-    if args.top_articles_per_source > 0:
+    top_articles_per_section = int(source.get("top_articles_per_section", 0) or 0)
+    section_followups: dict[str, list[dict[str, str]]] = {}
+    if top_articles_per_section > 0:
+        selected_by_section: dict[str, int] = {}
+        selected: list[dict[str, str]] = []
+        for candidate in candidate_pool:
+            section_key = candidate.get("section_key", "")
+            if not section_key:
+                continue
+            if selected_by_section.get(section_key, 0) < top_articles_per_section:
+                selected.append(candidate)
+                selected_by_section[section_key] = selected_by_section.get(section_key, 0) + 1
+            else:
+                section_followups.setdefault(section_key, []).append(candidate)
+        candidates = selected
+        notes.append(f"section_window={top_articles_per_section}x{len(selected_by_section)}")
+    top_articles_per_source = int(source.get("top_articles_per_source", args.top_articles_per_source) or 0)
+    if top_articles_per_source > 0 and top_articles_per_section <= 0:
         discovered_before_window = len(candidate_pool)
-        candidates = candidate_pool[:args.top_articles_per_source]
+        candidates = candidate_pool[:top_articles_per_source]
         next_candidate_index = len(candidates)
-        notes.append(f"top_window={args.top_articles_per_source}")
+        notes.append(f"top_window={top_articles_per_source}")
         if discovered_before_window > len(candidates):
             notes.append(f"candidates_trimmed={discovered_before_window - len(candidates)}")
     attempts_today = daily_fetched_attempts(conn, source_id, now)
@@ -765,9 +824,17 @@ def harvest_source(
 
     short_followups = 0
 
-    def queue_short_followup() -> None:
+    def queue_short_followup(candidate: dict[str, str]) -> None:
         nonlocal next_candidate_index, short_followups
-        if args.top_articles_per_source <= 0 or next_candidate_index >= len(candidate_pool):
+        if top_articles_per_section > 0:
+            section_queue = section_followups.get(candidate.get("section_key", ""), [])
+            if not section_queue:
+                return
+            candidates.append(section_queue.pop(0))
+            counts["discovered"] += 1
+            short_followups += 1
+            return
+        if top_articles_per_source <= 0 or next_candidate_index >= len(candidate_pool):
             return
         candidates.append(candidate_pool[next_candidate_index])
         next_candidate_index += 1
@@ -795,7 +862,7 @@ def harvest_source(
             )
             counts["skipped"] += 1
             counts["rejected_short"] += 1
-            queue_short_followup()
+            queue_short_followup(candidate)
             continue
         should_fetch = existing is None or (
             args.retry_failed and existing["content_status"] in {"FAILED", "BLOCKED", "CAPTCHA"}
@@ -827,7 +894,7 @@ def harvest_source(
             is_short = outcome == "rejected" and classify_item(extracted)[1] == "TOO_SHORT"
             counts["rejected_short"] += int(is_short)
             if is_short:
-                queue_short_followup()
+                queue_short_followup(candidate)
         except Exception as exc:
             failed = {
                 "url": url, "status": None, "title": candidate.get("title_hint", ""),
