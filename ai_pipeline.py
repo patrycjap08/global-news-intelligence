@@ -1083,10 +1083,25 @@ def normalize_topic_titles(
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
     assigned_rows = client.select_all("article_topic_assignments", columns="article_id")
     assigned = {str(row["article_id"]) for row in assigned_rows}
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)
+
+    def still_fresh(row: dict[str, Any]) -> bool:
+        raw = str(row.get("fetched_at") or row.get("first_seen_at") or "").strip()
+        if not raw:
+            return False
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed >= cutoff
+        except ValueError:
+            return False
+
     articles = [
         row for row in local_articles(conn)
         if row["article_id"] not in assigned
         and not str(row.get("topic_hint") or "").startswith("AI_EXCLUDED:")
+        and still_fresh(row)
     ]
     return articles[:limit] if limit > 0 else articles
 
