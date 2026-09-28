@@ -14,6 +14,7 @@ const state = {
   profile: 'ALL',
   search: '',
   readTopics: loadReadTopics(),
+  latestHarvestStartedAt: null,
   demo: false,
 };
 
@@ -92,6 +93,19 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
   return new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' }).format(date).replace('.', '');
+}
+
+function formatDateTime(value) {
+  if (!value) return 'brak danych';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'brak danych';
+  return new Intl.DateTimeFormat('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function polishCount(count, one, few, many) {
@@ -230,6 +244,13 @@ async function loadLiveData() {
   state.links = links;
   state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary]));
   try {
+    const latestRuns = await fetchTable('app_latest_harvest', '?select=run_id,started_at&limit=1');
+    state.latestHarvestStartedAt = latestRuns[0]?.started_at || null;
+  } catch (error) {
+    state.latestHarvestStartedAt = null;
+    console.warn('Data ostatniego pobrania nie jest jeszcze dostępna.', error);
+  }
+  try {
     const versions = await fetchTable('app_topic_summary_versions', '?select=topic_id,version,summary,new_article_ids,generated_at&order=version.asc');
     state.history = new Map();
     versions.forEach((version) => {
@@ -258,6 +279,7 @@ function loadDemoData(message) {
 function setStatus() {
   const status = $('#data-status');
   status.textContent = state.demo ? 'Podgląd interfejsu' : `Połączono · ${formatDate(new Date())}`;
+  $('#harvest-time').textContent = state.demo ? 'Dane demonstracyjne' : `Dane z: ${formatDateTime(state.latestHarvestStartedAt)}`;
   $('#footer-updated').textContent = state.demo ? 'Tryb podglądu — skonfiguruj app/config.js, aby zobaczyć dane z Supabase.' : `Ostatnie odświeżenie: ${new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`;
 }
 

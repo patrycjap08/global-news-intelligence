@@ -75,9 +75,20 @@ select
     fetched_at
 from public.articles;
 
+create or replace view public.app_latest_harvest as
+select
+    run_id,
+    started_at,
+    finished_at,
+    status
+from public.harvest_runs
+order by started_at desc
+limit 1;
+
 -- Widoki zawierają wyłącznie dane przeznaczone do prezentacji w aplikacji.
 grant select on public.app_topics to anon, authenticated;
 grant select on public.app_topic_articles to anon, authenticated;
 grant select on public.app_topic_summaries to anon, authenticated;
 grant select on public.app_topic_summary_versions to anon, authenticated;
 grant select on public.app_articles to anon, authenticated;
+grant select on public.app_latest_harvest to anon, authenticated;
