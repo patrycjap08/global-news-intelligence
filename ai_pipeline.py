@@ -23,6 +23,9 @@ from supabase_client import SupabaseRestClient
 
 PROMPT_VERSION = "ai-prompts-v16-strict-topic-cohesion"
 TOPIC_LOOKBACK_HOURS = 55
+UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
+    1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
+)
 TOPIC_MERGE_MIN_CONFIDENCE = 0.90
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -1083,7 +1086,7 @@ def normalize_topic_titles(
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
     assigned_rows = client.select_all("article_topic_assignments", columns="article_id")
     assigned = {str(row["article_id"]) for row in assigned_rows}
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=UNASSIGNED_ARTICLE_LOOKBACK_HOURS)
 
     def still_fresh(row: dict[str, Any]) -> bool:
         raw = str(row.get("fetched_at") or row.get("first_seen_at") or "").strip()

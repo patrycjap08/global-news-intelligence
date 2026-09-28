@@ -1,6 +1,6 @@
 -- Usuwa wyłącznie warstwę AI sześciu wskazanych tematów.
 -- Artykuły pozostają w public.articles i po usunięciu przypisań wracają do
--- kolejki trybu ai-only, o ile od ich pobrania nie minęło 55 godzin.
+-- kolejki trybu ai-only, o ile od ich pobrania nie minęły 24 godziny.
 
 begin;
 
