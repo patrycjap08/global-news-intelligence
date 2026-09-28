@@ -132,8 +132,11 @@ function topicCountLabel(count) {
 function humanProfile(profile) { return PROFILE_LABELS[profile] || PROFILE_LABELS.UNCLASSIFIED; }
 function articleMap() { return new Map(state.articles.map((article) => [article.article_id, article])); }
 function xPostMap() { return new Map(state.xPosts.map((post) => [post.post_id, post])); }
-function updateText(summary) {
-  const update = summary?.update || {};
+function updateText(summaryOrUpdate) {
+  const nestedUpdate = summaryOrUpdate?.update;
+  const update = nestedUpdate && typeof nestedUpdate === 'object'
+    ? nestedUpdate
+    : (summaryOrUpdate || {});
   return String(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
