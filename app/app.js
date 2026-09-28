@@ -73,6 +73,10 @@ function formatDate(value) {
 
 function humanProfile(profile) { return PROFILE_LABELS[profile] || PROFILE_LABELS.UNCLASSIFIED; }
 function articleMap() { return new Map(state.articles.map((article) => [article.article_id, article])); }
+function updateText(summary) {
+  const update = summary?.update || {};
+  return String(update.new_information_pl || update.what_changed_pl || '').trim();
+}
 
 function topicModel(topic) {
   const articlesById = articleMap();
@@ -187,7 +191,7 @@ function renderSources(models) {
 function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
   const badge = model.articles.length > 1 ? `${model.articles.length} artykuły · ${model.sources.length} źródła` : 'Jedno źródło';
-  const hasUpdate = Boolean(model.summary.update?.is_update) || model.summaryVersion > 1 || model.history.length > 1;
+  const hasUpdate = Boolean(updateText(model.summary));
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="Otwórz opracowanie: ${escapeHtml(model.title)}">
     <div class="card-meta"><span class="card-badge">${hasUpdate ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
@@ -221,8 +225,8 @@ function dialogHtml(model) {
   const update = summary.update || {};
   const latestVersion = model.history[model.history.length - 1];
   const newArticleIds = Array.isArray(update.new_article_ids) && update.new_article_ids.length ? update.new_article_ids : (latestVersion?.new_article_ids || []);
-  const isUpdate = Boolean(update.is_update) || model.summaryVersion > 1 || model.history.length > 1;
-  const updateText = update.new_information_pl || update.what_changed_pl || (isUpdate ? 'Do tego tematu dodano nowe materiały i przygotowano kolejną wersję opracowania.' : '');
+  const updateCopy = updateText(summary);
+  const isUpdate = Boolean(updateCopy);
   const previousVersions = model.history.slice(0, -1).reverse().map((version) => {
     const previousSummary = version.summary?.summary_pl || 'Brak tekstu poprzedniej wersji.';
     return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p></details>`;
@@ -231,7 +235,7 @@ function dialogHtml(model) {
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
-    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateText)}</p>${newArticleIds.length ? `<small>Dodano ${newArticleIds.length} nowych materiałów do tego wątku.</small>` : ''}</section>` : ''}
+    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Dodano ${newArticleIds.length} nowych materiałów do tego wątku.</small>` : ''}</section>` : ''}
     ${readerContextHtml(summary.reader_context)}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
