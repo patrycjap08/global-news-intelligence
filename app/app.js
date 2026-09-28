@@ -11,7 +11,7 @@ const state = {
   summaries: new Map(),
   history: new Map(),
   view: 'current',
-  sort: 'newest',
+  sort: 'articles',
   hideRead: false,
   profile: 'ALL',
   search: '',
