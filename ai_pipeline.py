@@ -126,10 +126,22 @@ def extract_json(text: str) -> dict[str, Any]:
     return value
 
 
+def openai_api_key() -> str:
+    """Read the key safely and explain pasted line breaks clearly."""
+    value = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    if not value:
+        raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomione.")
+    if "\r" in value or "\n" in value:
+        raise RuntimeError(
+            "OPENAI_API_KEY zawiera znak nowej linii. Zapisz w GitHub Secret sam klucz, bez Entera, cudzysłowów i spacji."
+        )
+    return value
+
+
 def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[str, Any]:
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    client = OpenAI(api_key=openai_api_key())
     response = client.responses.create(
         model=model,
         instructions=instructions,
@@ -278,8 +290,7 @@ def _analyze_pending_batch(
     model: str = DEFAULT_MODEL,
     batch_index: int = 1,
 ) -> dict[str, int]:
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomione.")
+    openai_api_key()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     stats = {
@@ -455,7 +466,7 @@ def analyze_run(
     processed in one workflow, and each next batch reloads active topics so it
     can attach follow-up articles to topics created by the previous batch.
     """
-    if not os.environ.get("OPENAI_API_KEY"):
+    if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
     batch_size = max(1, batch_size)
     conn = sqlite3.connect(db_path)
