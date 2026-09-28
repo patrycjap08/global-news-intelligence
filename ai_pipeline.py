@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v5-json-extraction-logging"
+PROMPT_VERSION = "ai-prompts-v6-broader-summaries-json-extraction-logging"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -83,6 +83,15 @@ sprawdzenia: wartościujący język, brak kontekstu, nagłówek mocniejszy niż
 treść, niezweryfikowane twierdzenie albo konflikt z innym materiałem. Nie
 wymyślaj cytatów ani informacji spoza artykułów. Kontekst ogólny wpisz tylko
 do background_context i oznacz needs_verification=true.
+
+summary_pl ma być pełniejszą, ale zwartą syntezą: napisz 3–5 krótkich
+akapitów. Przy co najmniej 4 artykułach celuj w około 250–450 słów, a przy
+2–3 artykułach w około 180–300 słów. Uwzględnij kolejno: co się wydarzyło,
+najważniejsze potwierdzone szczegóły, rozwój lub kontekst sprawy oraz to, co
+pozostaje niepewne albo różni się między źródłami. Nie powtarzaj tych samych
+zdań w różnych akapitach i nie wydłużaj tekstu sztucznie, jeśli materiały są
+krótkie. Istotne twierdzenia nadal muszą mieć oparcie w article_ids w
+pozostałych polach struktury.
 
 Jeżeli wejście zawiera previous_aggregation, potraktuj ją jako poprzednią
 wersję roboczą tego samego tematu. Zachowaj nadal prawidłowe fakty, dodaj nowe

@@ -147,7 +147,7 @@ button { color: inherit; }
 .dialog-rule { height: 1px; margin: 22px 0; background: var(--line-dark); }
 .dialog-section { padding: 18px 0; border-bottom: 1px solid var(--line); }
 .dialog-section h3 { margin: 0 0 10px; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.dialog-section p { margin: 0; color: #514b43; font-size: 14px; }
+.dialog-section p { margin: 0; color: #514b43; font-size: 14px; line-height: 1.65; white-space: pre-line; }
 .dialog-section ul { margin: 0; padding-left: 20px; color: #514b43; font-size: 13px; }
 .dialog-section li + li { margin-top: 8px; }
 .evidence-list { display: grid; gap: 10px; }

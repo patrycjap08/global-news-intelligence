@@ -99,7 +99,7 @@ function topicModel(topic) {
 
 async function fetchTable(table, query = '') {
   const url = `${String(config.supabaseUrl).replace(/\/$/, '')}/rest/v1/${table}${query}`;
-  const response = await fetch(url, { headers: { apikey: config.supabasePublishableKey, Authorization: `Bearer ${config.supabasePublishableKey}` } });
+  const response = await fetch(url, { cache: 'no-store', headers: { apikey: config.supabasePublishableKey, Authorization: `Bearer ${config.supabasePublishableKey}` } });
   if (!response.ok) throw new Error(`${table}: HTTP ${response.status}`);
   return response.json();
 }
@@ -179,12 +179,12 @@ function cardHtml(model, index) {
 
 function listValue(value) {
   if (!Array.isArray(value)) return '';
-  return value.map((item) => `<li>${escapeHtml(typeof item === 'string' ? item : item.text || item.claim || item.description || JSON.stringify(item))}</li>`).join('');
+  return value.map((item) => `<li>${escapeHtml(typeof item === 'string' ? item : item.text_pl || item.text || item.claim || item.description || item.headline_pl || JSON.stringify(item))}</li>`).join('');
 }
 
 function dialogHtml(model) {
   const summary = model.summary || {};
-  const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów</small></span></div>`).join('');
+  const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
   return `<div class="dialog-content"><p class="dialog-kicker">${model.articles.length > 1 ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'POJEDYNCZY MATERIAŁ'} <span class="coverage-pill">${model.articles.length} artykuł${model.articles.length === 1 ? '' : 'y'}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
@@ -194,6 +194,7 @@ function dialogHtml(model) {
     ${section('Co łączy źródła', summary.agreement)}
     ${section('Różnice i sprzeczności', summary.differences)}
     ${section('Oś wydarzeń', summary.timeline)}
+    ${section('Sposób przedstawienia i ton', summary.framing_and_tone)}
     ${section('Sygnały języka lub możliwej manipulacji', summary.potential_manipulation_signals)}
     ${section('Kontekst i niewiadome', summary.background_context)}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
