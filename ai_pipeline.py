@@ -1010,7 +1010,7 @@ def retry_incomplete_summaries(
     *,
     model: str = DEFAULT_MODEL,
 ) -> dict[str, int]:
-    """Retry summaries for multi-article topics left incomplete by a failed run."""
+    """Finalize one summary/update per topic after all batches and merges."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     stats = {"summaries": 0, "failed_summaries": 0}
@@ -1057,6 +1057,8 @@ def retry_incomplete_summaries(
             new_rows = local_articles(conn, new_ids)
             all_rows = local_articles(conn, all_ids)
             if len(new_rows) == 0 or len(all_rows) < 2:
+                continue
+            if len(distinct_source_keys(all_rows)) < 2:
                 continue
             previous_aggregation = stored_base_summary(previous_row.get("summary")) if previous_row else None
             summary_input = {
@@ -1535,6 +1537,11 @@ def analyze_run(
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
+        print(
+            f"[AI] Etap 1/3: grupowanie {len(articles)} artykułów w {total_batches} paczkach. "
+            "Syntezy powstaną dopiero po przetworzeniu wszystkich paczek.",
+            flush=True,
+        )
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
             for key in (
@@ -1570,10 +1577,15 @@ def analyze_run(
             batch_index = offset // batch_size + 1
             process_batch(articles[offset:offset + batch_size], str(batch_index))
 
+    print("[AI] Etap 2/3: scalanie podobnych tematów z całego przebiegu...", flush=True)
     merge_stats = merge_active_topics(db_path, run_id, client, model=model)
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]
+    print(
+        "[AI] Etap 3/3: jedna końcowa synteza lub aktualizacja na temat za cały przebieg...",
+        flush=True,
+    )
     recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
     stats["summaries"] += recovery_stats["summaries"]
     stats["failed_summaries"] += recovery_stats["failed_summaries"]
