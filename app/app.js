@@ -279,7 +279,6 @@ function dialogHtml(model) {
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
     ${section('Różnice i sprzeczności', summary.differences)}
-    ${section('Oś wydarzeń', summary.timeline)}
     ${section('Sposób przedstawienia i ton', summary.framing_and_tone)}
     ${section('Sygnały języka lub możliwej manipulacji', summary.potential_manipulation_signals)}
     ${section('Kontekst i niewiadome', summary.background_context)}

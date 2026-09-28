@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v7-reader-context-and-foreign-entities"
+PROMPT_VERSION = "ai-prompts-v8-no-redundant-timeline"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -116,6 +116,10 @@ osoba lub organizacja, napisz to wprost zamiast zgadywać. Nie twórz słownika
 ze wszystkich nazw własnych: reader_context ma zawierać maksymalnie około
 8–12 objaśnień naprawdę potrzebnych do zrozumienia tematu.
 
+Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli data
+jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo
+differences przy odpowiednim fakcie. W przeciwnym razie pomiń ją.
+
 Jeżeli previous_aggregation nie jest null, wypełnij też pole update. Ma ono
 opisywać wyłącznie to, co wniósł bieżący zestaw new_articles: nowe fakty,
 zmiany, korekty albo nowe rozbieżności. Nie kopiuj do niego całej poprzedniej
@@ -133,7 +137,7 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 {"topic":{"headline_pl":"","what_happened_one_sentence_pl":"",
 "status":"ONGOING","time_scope":""},
 "update":{"is_update":false,"new_information_pl":"",
-"what_changed_pl":"","new_article_ids":[]},"summary_pl":"","timeline":[],
+"what_changed_pl":"","new_article_ids":[]},"summary_pl":"",
 "facts":[],"agreement":[],"differences":[],"framing_and_tone":[],
 "potential_manipulation_signals":[],"contradictions":[],
 "background_context":[],"reader_context":[{"type":"COUNTRY|REGION|PERSON|ORGANIZATION|PLACE|ABBREVIATION|TERM",
