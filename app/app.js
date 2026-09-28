@@ -428,13 +428,13 @@ function dialogHtml(model) {
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
     ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>` : ''}
-    ${readerContextHtml(summary.reader_context)}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
     ${section('Różnice i sprzeczności', summary.differences)}
     ${section('Sposób przedstawienia i ton', summary.framing_and_tone)}
     ${section('Sygnały języka lub możliwej manipulacji', summary.potential_manipulation_signals)}
     ${section('Kontekst i niewiadome', summary.background_context)}
+    ${readerContextHtml(summary.reader_context)}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
     ${xMaterials ? `<section class="dialog-section"><h3>Powiązane wypowiedzi na X</h3><div class="evidence-list">${xMaterials}</div></section>` : ''}
   </div>`;
