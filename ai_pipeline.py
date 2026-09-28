@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v14-comprehensive-updates"
+PROMPT_VERSION = "ai-prompts-v16-strict-topic-cohesion"
 TOPIC_LOOKBACK_HOURS = 55
 TOPIC_MERGE_MIN_CONFIDENCE = 0.90
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
@@ -29,6 +29,73 @@ GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS",
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
+GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.82"))
+
+TITLE_PREFIX_RE = re.compile(r"^\[([^\]\r\n]{2,80})\]\s+(\S.*)$")
+PLACEHOLDER_TOPIC_TITLES = {
+    "neutralna nazwa wydarzenia",
+    "neutralny wspólny tytuł",
+    "temat bez tytułu",
+    "połączony temat",
+    "konkretny tytuł",
+    "konkretny tytuł wydarzenia",
+}
+
+
+def _title_key(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip()).casefold().rstrip(".!?")
+
+
+def is_placeholder_topic_title(value: Any) -> bool:
+    """Reject prompt examples and code fallbacks as published topic titles."""
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    if not text:
+        return True
+    match = TITLE_PREFIX_RE.match(text)
+    core = match.group(2).strip() if match else text
+    key = _title_key(core)
+    return (
+        key in PLACEHOLDER_TOPIC_TITLES
+        or key.startswith("neutralna nazwa")
+        or key.startswith("neutralny wspólny")
+        or key.startswith("temat bez tytułu")
+        or key.startswith("połączony temat")
+    )
+
+
+def is_usable_topic_title(value: Any) -> bool:
+    text = str(value or "").strip()
+    return bool(TITLE_PREFIX_RE.match(text)) and not is_placeholder_topic_title(text)
+
+
+def format_topic_title_candidate(candidate: Any, current_title: Any = "") -> str:
+    """Give a real title a prefix when the model forgot the required format."""
+    text = re.sub(r"\s+", " ", str(candidate or "").strip())[:300]
+    if not text or is_placeholder_topic_title(text):
+        return ""
+    if TITLE_PREFIX_RE.match(text):
+        return text
+    if text.startswith("["):
+        return ""
+    current_match = TITLE_PREFIX_RE.match(str(current_title or "").strip())
+    prefix = f"[{current_match.group(1)}]" if current_match else "[Świat]"
+    return f"{prefix} {text}"[:300]
+
+
+def fallback_topic_title(
+    current_title: Any,
+    one_sentence: Any,
+    article_titles: list[str],
+) -> str:
+    """Build a non-placeholder title from evidence already attached to a topic."""
+    for candidate in [current_title, one_sentence, *article_titles]:
+        formatted = format_topic_title_candidate(candidate, current_title)
+        if is_usable_topic_title(formatted):
+            return formatted
+    raise RuntimeError(
+        "Nie można nadać tematowi konkretnego tytułu: brak tytułu artykułu "
+        "i brak jednozdaniowego opisu do użycia jako fallback."
+    )
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
@@ -50,8 +117,9 @@ słów, więc nie dopowiadaj faktów, których nie ma w wyciągu.
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"groups":[{"group_id":"new_group_001","existing_topic_id":"",
 "topic_action":"NEW_TOPIC|DEVELOPMENT|BACKGROUND_OR_CONTEXT",
-"working_title_pl":"neutralna nazwa wydarzenia","article_ids":["..."],
-"confidence":0.0,"needs_review":false,"grouping_reason":"..."}],
+"working_title_pl":"[Kraj] Konkretny tytuł wydarzenia","article_ids":["..."],
+"confidence":0.0,"needs_review":false,"grouping_reason":"...",
+"article_relevance":[{"article_id":"...","why_same_event":"..."}]}],
 "unassigned_article_ids":[],"excluded_articles":[{"article_id":"...",
 "category":"SPORT|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
 "reason":"krótkie uzasadnienie"}],"possible_merges":[]}
@@ -59,6 +127,23 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
 unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
 z ostatnich 55 godzin.
+Każda grupa ma oznaczać JEDNO konkretne wydarzenie lub jeden bezpośredni ciąg
+wydarzeń. Przed zwróceniem wyniku wykonaj test: tytuł grupy musi trafnie
+opisywać każdy artykuł z article_ids bez używania ogólnika typu „geopolityka”,
+„gospodarka”, „sytuacja międzynarodowa” lub „polityka światowa”. Jeżeli dla
+któregokolwiek artykułu trzeba dopisać „a ponadto zupełnie inna sprawa”, rozbij
+grupę. Wspólny kraj, polityk, organizacja, branża, wojna albo wzmianka o USA,
+Rosji, Chinach, NATO czy UE nie oznacza jeszcze tego samego wydarzenia.
+Preferuj kilka małych grup, w tym grupy jednoartykułowe, zamiast jednej szerokiej
+i pozornie kompletnej grupy. Nie przypisuj artykułu do istniejącego tematu tylko
+po to, aby uniknąć utworzenia nowego tematu.
+
+Dla każdego article_id w grupie dodaj dokładnie jeden wpis article_relevance.
+why_same_event ma wskazywać konkretny wspólny fakt, decyzję, wypowiedź lub
+zdarzenie, a nie tylko wspólne słowo, osobę albo państwo. Jeśli nie potrafisz
+takiego związku wskazać, artykuł musi znaleźć się w osobnej grupie albo w
+unassigned_article_ids. confidence oceniaj dla najsłabiej pasującego artykułu,
+nie dla większości grupy.
 Jeżeli artykuł jest dalszym ciągiem istniejącego tematu, wpisz jego topic_id i
 topic_action=DEVELOPMENT. Jeżeli tylko uzupełnia kontekst lub wcześniejszą
 agregację, wpisz topic_action=BACKGROUND_OR_CONTEXT. Nowe wydarzenie ma
@@ -86,6 +171,9 @@ globalnych albo obejmujących wiele państw użyj `[Świat]`. Używaj
 `[Wielka Brytania]`, chyba że wydarzenie dotyczy konkretnie tylko Anglii.
 Nie wpisuj w prefiksie miasta, kontynentu ani ogólnika typu `[Zagranica]`.
 grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
+Nigdy nie wpisuj tekstu przykładowego „neutralna nazwa wydarzenia”, „Temat bez
+tytułu” ani żadnego innego placeholdera. Każda grupa musi mieć konkretny tytuł
+wynikający z przekazanych artykułów.
 """.strip()
 
 TOPIC_MERGE_INSTRUCTIONS = """
@@ -109,7 +197,7 @@ państw i `[Świat]` dla wydarzeń obejmujących wiele krajów.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"merge_groups":[{"topic_ids":["topic_a","topic_b"],
-"merged_title_pl":"neutralny wspólny tytuł","confidence":0.0,
+"merged_title_pl":"[Kraj] Konkretny wspólny tytuł wydarzenia","confidence":0.0,
 "reason":"krótkie wyjaśnienie, dlaczego to to samo wydarzenie"}],
 "keep_separate_topic_ids":[]}
 
@@ -129,6 +217,8 @@ zaangażowanych państw połącz nazwy przez „i” (przy trzech użyj przecink
 „i”); dla spraw globalnych lub obejmujących wiele państw użyj `[Świat]`.
 Używaj `[Wielka Brytania]`, chyba że sprawa dotyczy wyłącznie Anglii.
 Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu.
+Nie używaj placeholderów typu „neutralna nazwa wydarzenia”, „neutralny wspólny
+tytuł” ani „Temat bez tytułu”.
 
 Zwróć WYŁĄCZNIE JSON:
 {"titles":[{"topic_id":"","title_pl":"[Kraj] Konkretny tytuł"}]}
@@ -165,6 +255,14 @@ znaczenie i aktualny stan sprawy; (5) rozbieżności oraz informacje
 niepotwierdzone. Zbieraj w tekście konkretne fakty z artykułów, zamiast
 referować ich istnienie. Nie dopisuj faktów tylko po to, żeby osiągnąć limit
 słów.
+
+Nie wolno ignorować dostarczonego artykułu. Każdy artykuł należący do tematu
+ma wnieść do opracowania konkretną informację albo zostać jawnie opisany jako
+materiał powtarzający informacje już obecne. Tablica sources musi łącznie
+zawierać wszystkie article_id z wejścia; w description_pl krótko napisz, co
+dany materiał wniósł albo że nie wniósł nowego ustalenia. Jeśli artykułu nie da
+się logicznie wykorzystać w tym temacie, zaznacz ten problem w
+quality.limitations_pl zamiast tworzyć sztuczne połączenie faktów.
 
 Nie powtarzaj tej samej informacji w kilku zdaniach ani w kilku sekcjach.
 summary_pl ma być pełnym głównym opisem wydarzenia, natomiast facts, agreement,
@@ -812,11 +910,17 @@ def merge_active_topics(
                 for topic_id in group_ids
             ]
             title = str(raw_group.get("merged_title_pl") or "").strip()
-            if not title:
-                title = max(
-                    (str(topic_by_id[topic_id].get("headline_pl") or "") for topic_id in group_ids),
-                    key=len,
-                    default="Połączony temat",
+            if not is_usable_topic_title(title):
+                title = fallback_topic_title(
+                    title,
+                    "",
+                    [
+                        str(row.get("title") or "")
+                        for row in article_rows
+                    ] + [
+                        str(topic_by_id[topic_id].get("headline_pl") or "")
+                        for topic_id in group_ids
+                    ],
                 )
             canonical_id = stable_merged_topic_id(group_ids)
             if len(article_ids) == 1:
@@ -897,16 +1001,22 @@ def normalize_topic_titles(
         columns="topic_id,headline_pl,status",
         filters=[("status", "neq.MERGED")],
     )
-    missing = [
-        row for row in topics
-        if not re.match(r"^\[[^\]]+\]\s+\S", str(row.get("headline_pl") or ""))
-    ]
-    if not missing:
-        return 0
     summaries = {
         str(row["topic_id"]): stored_base_summary(row.get("summary"))
         for row in client.select_all("topic_summaries", columns="topic_id,summary")
     }
+    links_by_topic: dict[str, list[str]] = {}
+    for row in client.select_all("topic_articles", columns="topic_id,article_id"):
+        links_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+    article_titles = {
+        str(row["article_id"]): str(row.get("title") or "").strip()
+        for row in client.select_all("articles", columns="article_id,title")
+    }
+    titles_by_topic = {
+        topic_id: [article_titles[article_id] for article_id in article_ids if article_titles.get(article_id)]
+        for topic_id, article_ids in links_by_topic.items()
+    }
+    missing = [row for row in topics if not is_usable_topic_title(row.get("headline_pl"))]
     changed = 0
     for offset in range(0, len(missing), 100):
         batch = missing[offset:offset + 100]
@@ -917,22 +1027,56 @@ def normalize_topic_titles(
                 (summaries.get(str(row["topic_id"]), {}).get("topic") or {})
                 .get("what_happened_one_sentence_pl", "")
             ),
+            "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:5],
         } for row in batch]}
         result = call_openai(TITLE_NORMALIZATION_INSTRUCTIONS, payload, model)
         allowed = {str(row["topic_id"]) for row in batch}
+        by_id = {str(row["topic_id"]): row for row in batch}
+        candidate_titles: dict[str, str] = {}
         for item in result.get("titles") or []:
             if not isinstance(item, dict):
                 continue
             topic_id = str(item.get("topic_id") or "")
-            title = str(item.get("title_pl") or "").strip()[:300]
-            if topic_id not in allowed or not re.match(r"^\[[^\]]+\]\s+\S", title):
+            if topic_id not in allowed:
                 continue
+            row = by_id[topic_id]
+            title = format_topic_title_candidate(item.get("title_pl"), row.get("headline_pl"))
+            if not is_usable_topic_title(title):
+                continue
+            candidate_titles[topic_id] = title
+
+        for row in batch:
+            topic_id = str(row["topic_id"])
+            title = candidate_titles.get(topic_id)
+            if not title:
+                summary = summaries.get(topic_id, {})
+                topic_summary = summary.get("topic") if isinstance(summary.get("topic"), dict) else {}
+                title = fallback_topic_title(
+                    row.get("headline_pl"),
+                    topic_summary.get("what_happened_one_sentence_pl", ""),
+                    titles_by_topic.get(topic_id, []),
+                )
             client.update(
                 "topics",
                 {"headline_pl": title, "updated_at": now()},
                 filters=[("topic_id", f"eq.{topic_id}")],
             )
             changed += 1
+
+    remaining = [
+        row for row in client.select_all(
+            "topics",
+            columns="topic_id,headline_pl,status",
+            filters=[("status", "neq.MERGED")],
+        )
+        if not is_usable_topic_title(row.get("headline_pl"))
+    ]
+    if remaining:
+        bad_ids = ", ".join(str(row.get("topic_id")) for row in remaining[:10])
+        raise RuntimeError(
+            "Quality gate tytułów nie przepuścił tematów bez konkretnego tytułu: "
+            f"{bad_ids}"
+        )
     return changed
 
 
@@ -1189,7 +1333,7 @@ def retry_incomplete_summaries(
             summary_input = {
                 "topic": {
                     "topic_id": topic_id,
-                    "working_title_pl": str(topic.get("headline_pl") or "Temat bez tytułu"),
+                    "working_title_pl": str(topic.get("headline_pl") or ""),
                     "topic_action": "DEVELOPMENT" if previous_aggregation else "NEW_TOPIC",
                 },
                 "previous_aggregation": previous_aggregation,
@@ -1312,7 +1456,7 @@ def rebuild_summaries(
                 "mode": "FULL_REBUILD",
                 "topic": {
                     "topic_id": topic_id,
-                    "working_title_pl": str(topic.get("headline_pl") or "Temat bez tytułu"),
+                    "working_title_pl": str(topic.get("headline_pl") or ""),
                     "topic_action": "REBUILD",
                 },
                 "previous_aggregation": None,
@@ -1444,6 +1588,7 @@ def _analyze_pending_batch(
         assignment_rows: list[dict[str, Any]] = []
         group_data_by_topic: dict[str, dict[str, Any]] = {}
         duplicate_topic_ids: set[str] = set()
+        quality_gate_singletons: set[str] = set()
         for group in groups:
             if not isinstance(group, dict):
                 continue
@@ -1461,14 +1606,39 @@ def _analyze_pending_batch(
                     group_seen_ids.add(article_id)
             if not ids:
                 continue
+            try:
+                confidence = float(group.get("confidence") or 0)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            needs_review = bool(group.get("needs_review", False))
+            relevance_ids = {
+                str(item.get("article_id") or "")
+                for item in (group.get("article_relevance") or [])
+                if isinstance(item, dict)
+                and len(str(item.get("why_same_event") or "").strip()) >= 12
+            }
+            existing_topic_id = str(group.get("existing_topic_id") or "").strip()
+            requires_cohesion_gate = len(ids) > 1 or bool(existing_topic_id)
+            if requires_cohesion_gate and (
+                confidence < GROUPING_MIN_CONFIDENCE
+                or needs_review
+                or not set(ids).issubset(relevance_ids)
+            ):
+                quality_gate_singletons.update(ids)
+                continue
+
             assigned_ids.update(ids)
-            title = str(group.get("working_title_pl") or "Temat bez tytułu").strip()[:300]
-            topic_id = str(group.get("existing_topic_id") or "").strip() or stable_topic_id(ids, title)
+            title = str(group.get("working_title_pl") or "").strip()[:300]
+            if not is_usable_topic_title(title):
+                title = fallback_topic_title(
+                    title,
+                    "",
+                    [str(input_by_id[article_id].get("title") or "") for article_id in ids],
+                )
+            topic_id = existing_topic_id or stable_topic_id(ids, title)
             topic_action = str(group.get("topic_action") or ("DEVELOPMENT" if group.get("existing_topic_id") else "NEW_TOPIC")).strip()
             if topic_action not in {"NEW_TOPIC", "DEVELOPMENT", "BACKGROUND_OR_CONTEXT"}:
                 topic_action = "DEVELOPMENT" if group.get("existing_topic_id") else "NEW_TOPIC"
-            confidence = float(group.get("confidence") or 0)
-            needs_review = bool(group.get("needs_review", False))
             existing_ids = topic_links.get(topic_id, [])
             all_ids = list(dict.fromkeys(existing_ids + ids))
             link_rows.extend({"topic_id": topic_id, "article_id": article_id, "confidence": confidence} for article_id in ids)
@@ -1501,6 +1671,41 @@ def _analyze_pending_batch(
                     existing_group["topic_action"] = "DEVELOPMENT"
                 elif topic_action == "BACKGROUND_OR_CONTEXT":
                     existing_group["topic_action"] = "BACKGROUND_OR_CONTEXT"
+
+        # Never discard a core article merely because the model was uncertain
+        # or returned an incoherent group. Keep it as a hidden singleton topic;
+        # a later article from another source can still attach to it.
+        remaining_ids = [
+            article_id for article_id in input_by_id
+            if article_id not in excluded_ids and article_id not in assigned_ids
+        ]
+        for article_id in remaining_ids:
+            row = input_by_id[article_id]
+            title = fallback_topic_title("", "", [str(row.get("title") or "")])
+            topic_id = stable_topic_id([article_id], title)
+            assigned_ids.add(article_id)
+            link_rows.append({"topic_id": topic_id, "article_id": article_id, "confidence": 1.0})
+            assignment_rows.append({
+                "run_id": run_id,
+                "article_id": article_id,
+                "topic_id": topic_id,
+                "confidence": 0.0,
+                "needs_review": True,
+                "grouping_reason": (
+                    "Artykuł zachowany osobno: grupa nie przeszła kontroli spójności."
+                    if article_id in quality_gate_singletons
+                    else "Artykuł zachowany osobno: AI nie przypisało go pewnie do wspólnego wydarzenia."
+                ),
+                "prompt_version": PROMPT_VERSION,
+            })
+            group_data_by_topic[topic_id] = {
+                "topic_id": topic_id,
+                "title": title,
+                "all_ids": [article_id],
+                "new_ids": [article_id],
+                "needs_review": True,
+                "topic_action": "NEW_TOPIC",
+            }
 
         group_data = list(group_data_by_topic.values())
         if duplicate_topic_ids:
