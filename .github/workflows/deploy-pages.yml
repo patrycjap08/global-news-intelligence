@@ -1,0 +1,64 @@
+name: Deploy GNI app to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare static site
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+          mkdir -p _site
+          cp -R app/. _site/
+          touch _site/.nojekyll
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          config = """// Generated during deployment. Do not commit this file.
+          window.GNI_CONFIG = {
+            supabaseUrl: %r,
+            supabasePublishableKey: %r,
+          };
+          """ % (os.environ["SUPABASE_URL"], os.environ["SUPABASE_PUBLISHABLE_KEY"])
+          Path("_site/config.js").write_text(config, encoding="utf-8")
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
