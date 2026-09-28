@@ -483,12 +483,19 @@ def _analyze_pending_batch(
             all_ids = list(dict.fromkeys(existing_ids + ids))
             all_rows = local_articles(conn, all_ids)
             source_ids = {row["source_id"] for row in all_rows}
+            if len(all_ids) == 1:
+                coverage_status = "SINGLE_ARTICLE"
+            elif len(source_ids) == 1:
+                coverage_status = "SINGLE_SOURCE"
+            else:
+                coverage_status = "MULTI_SOURCE"
             existing_context = topic_context.get(topic_id, {})
             topic_rows.append({
                 "topic_id": topic_id, "headline_pl": title, "status": "ACTIVE",
                 "first_seen_at": existing_context.get("first_seen_at") or now(),
                 "last_seen_at": now(), "article_count": len(all_ids),
-                "source_count": len(source_ids), "needs_review": needs_review, "updated_at": now(),
+                "source_count": len(source_ids), "coverage_status": coverage_status,
+                "needs_review": needs_review, "updated_at": now(),
             })
             link_rows.extend({"topic_id": topic_id, "article_id": article_id, "confidence": confidence} for article_id in ids)
             assignment_rows.extend({

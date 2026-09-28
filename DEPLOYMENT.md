@@ -10,6 +10,10 @@ To tworzy tabele artykułów, deduplikacji, uruchomień, tematów i podsumowań.
 Worker używa `SUPABASE_SECRET_KEY`, który może zapisywać dane mimo RLS. Nie
 umieszczaj tego klucza w aplikacji telefonu.
 
+Po wdrożeniu klasyfikacji pokrycia tematów uruchom jednorazowo w SQL Editor
+plik `supabase_migration_topic_coverage.sql`. Doda on `topics.coverage_status`
+oraz widok `source_topic_coverage` do porównywania źródeł.
+
 ## Sekrety repozytorium
 
 W GitHubie wejdź w `Settings -> Secrets and variables -> Actions` i upewnij się,

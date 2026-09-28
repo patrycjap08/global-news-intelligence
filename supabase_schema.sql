@@ -125,9 +125,13 @@ create table if not exists public.topics (
     last_seen_at timestamptz not null default now(),
     article_count integer not null default 0,
     source_count integer not null default 0,
+    coverage_status text not null default 'SINGLE_ARTICLE',
     needs_review boolean not null default false,
     updated_at timestamptz not null default now()
 );
+
+alter table public.topics
+    add column if not exists coverage_status text not null default 'SINGLE_ARTICLE';
 
 create table if not exists public.topic_articles (
     topic_id text not null references public.topics(topic_id),
@@ -177,6 +181,47 @@ create index if not exists articles_source_published_idx on public.articles(sour
 create index if not exists articles_content_hash_idx on public.articles(content_hash);
 create index if not exists topics_last_seen_idx on public.topics(status, last_seen_at desc);
 create index if not exists topic_articles_article_idx on public.topic_articles(article_id);
+
+-- Recalculate coverage for topics created before coverage_status was added.
+with coverage as (
+    select
+        ta.topic_id,
+        count(distinct ta.article_id)::integer as article_count,
+        count(distinct a.source_id)::integer as source_count
+    from public.topic_articles ta
+    join public.articles a on a.article_id = ta.article_id
+    group by ta.topic_id
+)
+update public.topics t
+set article_count = coverage.article_count,
+    source_count = coverage.source_count,
+    coverage_status = case
+        when coverage.article_count = 1 then 'SINGLE_ARTICLE'
+        when coverage.source_count = 1 then 'SINGLE_SOURCE'
+        else 'MULTI_SOURCE'
+    end,
+    updated_at = now()
+from coverage
+where t.topic_id = coverage.topic_id;
+
+create or replace view public.source_topic_coverage as
+select
+    a.source_id,
+    max(a.source_name) as source_name,
+    count(distinct t.topic_id) as total_topic_count,
+    count(distinct t.topic_id) filter (where t.coverage_status = 'SINGLE_ARTICLE')
+        as single_article_topic_count,
+    count(distinct t.topic_id) filter (where t.coverage_status = 'SINGLE_SOURCE')
+        as single_source_topic_count,
+    count(distinct t.topic_id) filter (where t.coverage_status = 'MULTI_SOURCE')
+        as multi_source_topic_count,
+    count(distinct t.topic_id) filter (where ts.topic_id is not null)
+        as summarized_topic_count
+from public.topic_articles ta
+join public.topics t on t.topic_id = ta.topic_id
+join public.articles a on a.article_id = ta.article_id
+left join public.topic_summaries ts on ts.topic_id = t.topic_id
+group by a.source_id;
 
 -- The publishable key is safe to use from a frontend only together with RLS.
 alter table public.sources enable row level security;
