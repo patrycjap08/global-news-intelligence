@@ -106,10 +106,10 @@ async function fetchTable(table, query = '') {
 
 async function loadLiveData() {
   const [topics, articles, links, summaries] = await Promise.all([
-    fetchTable('topics', '?select=*&status=eq.ACTIVE&order=last_seen_at.desc'),
-    fetchTable('articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,word_count,description&order=published_at.desc'),
-    fetchTable('topic_articles', '?select=topic_id,article_id,confidence'),
-    fetchTable('topic_summaries', '?select=topic_id,version,summary,updated_at'),
+    fetchTable('app_topics', '?select=*&order=last_seen_at.desc'),
+    fetchTable('app_articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,word_count,description&order=published_at.desc'),
+    fetchTable('app_topic_articles', '?select=topic_id,article_id,confidence'),
+    fetchTable('app_topic_summaries', '?select=topic_id,version,summary,updated_at'),
   ]);
   state.topics = topics;
   state.articles = articles;
