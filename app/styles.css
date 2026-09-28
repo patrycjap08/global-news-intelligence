@@ -89,8 +89,20 @@ button { color: inherit; }
 .view-tab { border: 1px solid transparent; border-radius: 999px; padding: 8px 13px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
 .view-tab:hover, .view-tab.is-active { border-color: var(--ink); color: var(--ink); background: var(--paper-deep); }
 .toolbar-options { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.sort-control { display: inline-flex; align-items: center; gap: 5px; }
-.sort-control select { border: 0; border-bottom: 1px solid var(--line-dark); padding: 6px 2px; background: transparent; color: var(--ink); font: inherit; outline: 0; }
+.sort-control { display: inline-flex; align-items: center; gap: 7px; }
+.sort-control select {
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  padding: 7px 30px 7px 12px;
+  background-color: var(--paper-deep);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  outline: 0;
+}
+.sort-control select:hover, .sort-control select:focus { border-color: var(--ink); }
+.sort-control select option { background: var(--paper); color: var(--ink); }
 .read-toggle { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: 999px; padding: 8px 13px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
 .read-toggle:hover, .read-toggle.is-active { border-color: var(--ink); background: var(--paper-deep); color: var(--ink); }
 .read-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
