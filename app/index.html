@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#e9e0d1" />
+    <meta name="description" content="Global News Intelligence — niezależny przegląd najważniejszych tematów dnia." />
+    <title>GNI — dzisiejszy przegląd</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="config.js" onerror="this.remove()"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="masthead">
+        <div class="topline">
+          <span id="edition-date">WYDANIE PORANNE</span>
+          <span class="topline-rule"></span>
+          <span>GLOBAL NEWS INTELLIGENCE</span>
+          <span class="topline-rule"></span>
+          <button class="text-button" id="refresh-button" type="button">Odśwież dane</button>
+        </div>
+        <div class="masthead-row">
+          <div>
+            <p class="eyebrow">PRZEGLĄD INFORMACYJNY</p>
+            <h1>GNI<span class="period">.</span></h1>
+          </div>
+          <div class="masthead-note">
+            <span class="live-dot"></span>
+            <span id="data-status">Łączenie z bazą…</span>
+          </div>
+        </div>
+        <div class="masthead-bottom">
+          <p>Najważniejsze historie, wiele perspektyw, mniej szumu.</p>
+          <p class="edition-mark">POLITYKA · ŚWIAT · GOSPODARKA</p>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro-row">
+          <div>
+            <p class="section-kicker">DZISIAJ W SKRÓCIE</p>
+            <h2>Co naprawdę<br /><em>dzieje się teraz?</em></h2>
+          </div>
+          <p class="intro-copy">
+            Tematy są łączone na podstawie treści artykułów, a nie tylko nagłówków.
+            Przy każdym opracowaniu widać, które źródła mówią podobnie, a gdzie
+            pojawiają się różnice.
+          </p>
+        </section>
+
+        <section class="stats-strip" aria-label="Statystyki wydania">
+          <div class="stat-cell"><span class="stat-label">TEMATY</span><strong id="stat-topics">—</strong></div>
+          <div class="stat-cell"><span class="stat-label">WIELE ŹRÓDEŁ</span><strong id="stat-multi">—</strong></div>
+          <div class="stat-cell"><span class="stat-label">ARTYKUŁY</span><strong id="stat-articles">—</strong></div>
+          <div class="stat-cell"><span class="stat-label">ŹRÓDŁA</span><strong id="stat-sources">—</strong></div>
+        </section>
+
+        <section class="toolbar" aria-label="Filtrowanie tematów">
+          <div class="view-tabs" role="tablist" aria-label="Widok tematów">
+            <button class="view-tab is-active" data-view="all" role="tab" type="button">Wszystkie</button>
+            <button class="view-tab" data-view="multi" role="tab" type="button">Wiele źródeł</button>
+            <button class="view-tab" data-view="single" role="tab" type="button">Jedno źródło</button>
+          </div>
+          <label class="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input id="search-input" type="search" placeholder="Szukaj w tematach…" autocomplete="off" />
+          </label>
+        </section>
+
+        <div class="content-layout">
+          <aside class="sidebar">
+            <div class="side-block">
+              <p class="side-label">PERSPEKTYWA ŹRÓDEŁ</p>
+              <div class="filter-list" id="profile-filters"></div>
+            </div>
+            <div class="side-block">
+              <p class="side-label">NAJAKTYWNIEJSZE ŹRÓDŁA</p>
+              <div class="source-list" id="source-list"></div>
+            </div>
+            <div class="side-note">
+              <span class="note-mark">✳</span>
+              <p>Profil źródła opisuje jego ogólną linię redakcyjną. Nie jest oceną prawdziwości konkretnego artykułu.</p>
+            </div>
+          </aside>
+
+          <section class="news-column">
+            <div class="column-heading">
+              <div>
+                <p class="section-kicker">GŁÓWNE HISTORIE</p>
+                <h3 id="results-heading">Dzisiejsze tematy</h3>
+              </div>
+              <span class="result-count" id="result-count">—</span>
+            </div>
+            <div class="topic-grid" id="topic-grid" aria-live="polite"></div>
+            <div class="empty-state" id="empty-state" hidden>
+              <span>◌</span>
+              <h3>Nie znaleziono tematów</h3>
+              <p>Spróbuj zmienić filtr albo wyszukiwane hasło.</p>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <span>GLOBAL NEWS INTELLIGENCE</span>
+        <span id="footer-updated">Dane aktualizują się po każdym przebiegu AI.</span>
+      </footer>
+    </div>
+
+    <dialog class="story-dialog" id="story-dialog" aria-labelledby="dialog-title">
+      <button class="dialog-close" id="dialog-close" type="button" aria-label="Zamknij opracowanie">×</button>
+      <div id="dialog-content"></div>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

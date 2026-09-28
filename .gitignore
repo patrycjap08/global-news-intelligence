@@ -18,3 +18,5 @@ article_harvest/*.sql
 report.csv
 report.json
 report.html
+# Local Supabase frontend configuration; contains the publishable project key.
+app/config.js
