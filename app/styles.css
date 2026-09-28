@@ -65,12 +65,11 @@ button { color: inherit; }
 .eyebrow, .section-kicker, .side-label, .stat-label { margin: 0; color: var(--red); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
 .masthead h1 { margin: -2px 0 0; font-family: var(--serif); font-size: clamp(58px, 8vw, 112px); font-weight: 700; letter-spacing: -.1em; line-height: .82; }
 .period { color: var(--red); }
-.masthead-note { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 7px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+.masthead-meta { align-self: stretch; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
+.masthead-note { display: flex; align-items: center; justify-content: flex-end; gap: 8px; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
 .live-dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(88,105,77,.12); }
 .status-divider { color: var(--line-dark); }
-.masthead-bottom { display: flex; justify-content: space-between; gap: 16px; padding: 0 0 14px; color: var(--muted); font-family: var(--serif); font-size: 13px; font-style: italic; }
-.masthead-bottom p { margin: 0; }
-.edition-mark { margin-left: auto !important; font-family: var(--sans) !important; font-size: 10px !important; font-style: normal !important; font-weight: 700; letter-spacing: .12em; }
+.edition-mark { margin: 0; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
 
 .intro-row { padding: 46px 0 36px; }
 .intro-row h2 { max-width: 680px; margin: 8px 0 0; font-family: var(--serif); font-size: clamp(32px, 4.5vw, 64px); font-weight: 400; letter-spacing: -.055em; line-height: 1.03; }
@@ -198,7 +197,6 @@ button { color: inherit; }
   .app-shell { width: 100%; margin: 0; padding: 0 18px 24px; }
   .topline { gap: 8px; font-size: 8px; }
   .topline span:nth-of-type(2), .topline-rule { display: none; }
-  .masthead-bottom { align-items: start; flex-direction: column; gap: 4px; }
   .intro-row { grid-template-columns: 1fr; gap: 20px; padding: 34px 0 28px; }
   .intro-copy { max-width: 600px; }
   .content-layout { grid-template-columns: 1fr; gap: 22px; }
