@@ -198,7 +198,7 @@ sources:
   name: Associated Press
   region: USA
   homepage: https://apnews.com
-  enabled: true
+  enabled: false
   runtime_mode: METADATA
   discovery_method: NONE
   content_method: NONE
@@ -211,7 +211,7 @@ sources:
   name: New York Times
   region: USA
   homepage: https://www.nytimes.com
-  enabled: true
+  enabled: false
   runtime_mode: CONTENT
   discovery_method: RSS
   content_method: HTTP_HTML
@@ -237,7 +237,7 @@ sources:
   name: Wall Street Journal
   region: USA
   homepage: https://www.wsj.com
-  enabled: true
+  enabled: false
   runtime_mode: METADATA
   discovery_method: NEWS_SITEMAP
   content_method: NONE
@@ -250,7 +250,7 @@ sources:
   name: Bloomberg
   region: USA
   homepage: https://www.bloomberg.com/europe
-  enabled: true
+  enabled: false
   runtime_mode: METADATA
   discovery_method: NEWS_SITEMAP
   content_method: NONE
@@ -341,7 +341,7 @@ sources:
   name: Politico
   region: USA
   homepage: https://www.politico.com
-  enabled: true
+  enabled: false
   runtime_mode: CONTENT
   discovery_method: BROWSER
   content_method: BROWSER
@@ -497,7 +497,7 @@ sources:
   name: Economist
   region: United Kingdom
   homepage: https://www.economist.com
-  enabled: true
+  enabled: false
   runtime_mode: METADATA
   discovery_method: NONE
   content_method: NONE
@@ -601,7 +601,7 @@ sources:
   name: Die Zeit
   region: Germany
   homepage: https://www.zeit.de
-  enabled: true
+  enabled: false
   runtime_mode: CONTENT
   discovery_method: SECTION_HTML
   content_method: BROWSER
@@ -666,7 +666,7 @@ sources:
   name: Libération
   region: France
   homepage: https://www.liberation.fr
-  enabled: true
+  enabled: false
   runtime_mode: METADATA
   discovery_method: NEWS_SITEMAP
   content_method: NONE

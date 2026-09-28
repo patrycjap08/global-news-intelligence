@@ -80,11 +80,12 @@ sources:
     name: Associated Press
     region: USA
     homepage: https://apnews.com
+    enabled: false
     browser_accept_selectors:
       - "#onetrust-accept-btn-handler"
     browser_article_patterns:
       - "/article/"
-  - {id: new_york_times, name: New York Times, region: USA, homepage: https://www.nytimes.com}
+  - {id: new_york_times, name: New York Times, region: USA, homepage: https://www.nytimes.com, enabled: false}
   - id: washington_post
     name: Washington Post
     region: USA
@@ -98,11 +99,12 @@ sources:
     terms_url: https://www.washingtonpost.com/information/2026/05/21/washington-post-rss-feeds/
     browser_accept_selectors:
       - "#onetrust-accept-btn-handler"
-  - {id: wall_street_journal, name: Wall Street Journal, region: USA, homepage: https://www.wsj.com}
+  - {id: wall_street_journal, name: Wall Street Journal, region: USA, homepage: https://www.wsj.com, enabled: false}
   - id: bloomberg
     name: Bloomberg
     region: USA
     homepage: https://www.bloomberg.com/europe
+    enabled: false
     browser_accept_selectors:
       - "button[title='Accept All']"
       - "button[aria-label='Accept All']"
@@ -124,6 +126,7 @@ sources:
     name: Politico
     region: USA
     homepage: https://www.politico.com
+    enabled: false
   - {id: axios, name: Axios, region: USA, homepage: https://www.axios.com}
   - {id: vox, name: Vox, region: USA, homepage: https://www.vox.com}
   - {id: huffpost, name: HuffPost, region: USA, homepage: https://www.huffpost.com}
@@ -164,6 +167,7 @@ sources:
     name: Economist
     region: United Kingdom
     homepage: https://www.economist.com
+    enabled: false
     browser_accept_selectors:
       - "button[title='Accept all']"
       - "button[aria-label='Accept all']"
@@ -187,13 +191,13 @@ sources:
   - {id: deutsche_welle, name: Deutsche Welle, region: Germany, homepage: https://www.dw.com}
   - {id: der_spiegel, name: Der Spiegel, region: Germany, homepage: https://www.spiegel.de}
   - {id: faz, name: FAZ, region: Germany, homepage: https://www.faz.net}
-  - {id: die_zeit, name: Die Zeit, region: Germany, homepage: https://www.zeit.de}
+  - {id: die_zeit, name: Die Zeit, region: Germany, homepage: https://www.zeit.de, enabled: false}
   - {id: bild, name: Bild, region: Germany, homepage: https://www.bild.de}
 
   - {id: france_24, name: France 24, region: France, homepage: https://www.france24.com}
   - {id: le_monde, name: Le Monde, region: France, homepage: https://www.lemonde.fr}
   - {id: le_figaro, name: Le Figaro, region: France, homepage: https://www.lefigaro.fr}
-  - {id: liberation, name: Libération, region: France, homepage: https://www.liberation.fr}
+  - {id: liberation, name: Libération, region: France, homepage: https://www.liberation.fr, enabled: false}
 
   - {id: ansa, name: ANSA, region: Italy, homepage: https://www.ansa.it}
   - {id: corriere, name: Corriere della Sera, region: Italy, homepage: https://www.corriere.it}
