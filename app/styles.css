@@ -123,10 +123,6 @@ button { color: inherit; }
 .source-row small { grid-column: 1 / -1; color: var(--muted); font-size: 9px; }
 .source-bar { grid-column: 1 / -1; height: 3px; background: var(--paper-deep); overflow: hidden; }
 .source-bar i { display: block; height: 100%; background: var(--red); }
-.side-note { display: flex; gap: 9px; margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-family: var(--serif); font-size: 10px; font-style: italic; }
-.side-note p { margin: 0; }
-.note-mark { color: var(--red); font-family: var(--sans); font-size: 16px; font-style: normal; }
-
 .column-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .column-heading h3 { margin: 4px 0 0; font-family: var(--serif); font-size: 24px; font-weight: 400; letter-spacing: -.04em; }
 .result-count { color: var(--muted); font-size: 11px; }
@@ -202,7 +198,6 @@ button { color: inherit; }
   .content-layout { grid-template-columns: 1fr; gap: 22px; }
   .sidebar { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 20px; }
   .side-block + .side-block { margin-top: 0; }
-  .side-note { display: none; }
 }
 
 @media (max-width: 560px) {
