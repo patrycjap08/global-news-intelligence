@@ -138,12 +138,15 @@ button { color: inherit; }
 .topic-card.is-read .card-badge { color: var(--muted); }
 .card-dek { display: -webkit-box; margin: 0; overflow: hidden; color: #514b43; font-size: 13px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .card-footer { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 18px; }
-.perspective-dots { display: flex; gap: 4px; }
-.perspective-dot { width: 8px; height: 8px; border-radius: 50%; }
-.dot-left, .dot-center-left { background: var(--blue); }
-.dot-center, .dot-state { background: var(--green); }
-.dot-center-right, .dot-right { background: var(--red); }
-.dot-unclassified { background: var(--gold); }
+.perspective-dots { display: flex; gap: 6px; }
+.perspective-dot { width: 11px; height: 11px; border: 1px solid rgba(255,255,255,.75); border-radius: 50%; box-shadow: 0 0 0 1px rgba(36,34,30,.12); }
+.dot-left { background: #4f7fb5; }
+.dot-center-left { background: #86b5ca; }
+.dot-center { background: #6f936f; }
+.dot-center-right { background: #d2a94f; }
+.dot-right { background: #c75b4d; }
+.dot-state { background: #8c73b4; }
+.dot-unclassified { background: #9d978e; }
 .card-sources { color: var(--muted); font-size: 10px; text-align: right; }
 .empty-state { padding: 60px 0; color: var(--muted); text-align: center; }
 .empty-state span { display: block; color: var(--red); font-size: 32px; }
