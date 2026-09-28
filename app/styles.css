@@ -75,8 +75,8 @@ button { color: inherit; }
 .stat-cell { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 13px 16px 12px 0; border-right: 1px solid var(--line); }
 .stat-cell + .stat-cell { padding-left: 16px; }
 .stat-cell:last-child { border-right: 0; }
-.stat-label { color: var(--muted); font-size: 9px; }
-.stat-cell strong { font-family: var(--serif); font-size: 24px; font-weight: 400; }
+.stat-label { color: var(--muted); font-size: 11px; }
+.stat-cell strong { font-family: var(--serif); font-size: 27px; font-weight: 400; }
 
 .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 30px 0 20px; }
 .view-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
