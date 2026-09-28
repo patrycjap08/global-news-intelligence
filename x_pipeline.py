@@ -117,9 +117,17 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
             payload = _x_get(f"users/{user_id}/tweets", token, {
                 "start_time": start_time,
                 "max_results": "5",
-                "exclude": "replies,retweets",
-                "tweet.fields": "created_at,lang,note_tweet",
+                # Keep replies so that the author's own multi-post threads are
+                # not cut off. Replies to other accounts are filtered below.
+                "exclude": "retweets",
+                "tweet.fields": "author_id,created_at,lang,note_tweet,in_reply_to_user_id,referenced_tweets",
+                "expansions": "referenced_tweets.id",
             })
+            referenced = {
+                str(item.get("id")): item
+                for item in ((payload.get("includes") or {}).get("tweets") or [])
+                if item.get("id")
+            }
             rows = []
             for post in payload.get("data") or []:
                 post_id = str(post.get("id") or "")
@@ -127,6 +135,20 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
                 text = str(note.get("text") or post.get("text") or "").strip()
                 if not post_id or not text or post_id in existing_post_ids:
                     continue
+                reply_to_user_id = str(post.get("in_reply_to_user_id") or "")
+                if reply_to_user_id and reply_to_user_id != user_id:
+                    continue
+                quoted_parts: list[str] = []
+                for reference in post.get("referenced_tweets") or []:
+                    if not isinstance(reference, dict) or reference.get("type") != "quoted":
+                        continue
+                    quoted = referenced.get(str(reference.get("id") or ""), {})
+                    quoted_note = quoted.get("note_tweet") if isinstance(quoted.get("note_tweet"), dict) else {}
+                    quoted_text = str(quoted_note.get("text") or quoted.get("text") or "").strip()
+                    if quoted_text:
+                        quoted_parts.append(quoted_text)
+                if quoted_parts:
+                    text += "\n\n[Cytowany wpis]\n" + "\n".join(quoted_parts)
                 meaningful_text = re.sub(r"https?://\S+", "", text).strip()
                 if len(meaningful_text) < 40 or len(meaningful_text.split()) < 6:
                     stats["skipped_without_meaningful_text"] += 1
