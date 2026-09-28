@@ -140,6 +140,43 @@ function updateText(summaryOrUpdate) {
   return String(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
+function collectTopicUpdates(storedSummary, historyRows) {
+  const candidates = [];
+  const addFromStored = (stored, fallback = {}) => {
+    if (!stored || typeof stored !== 'object') return;
+    const cumulative = Array.isArray(stored.updates) ? stored.updates : [];
+    const values = cumulative.length
+      ? cumulative
+      : [stored.latest_update || stored.update].filter(Boolean);
+    values.forEach((value) => {
+      if (!value || !updateText(value)) return;
+      candidates.push({
+        ...value,
+        generated_at: value.generated_at || fallback.generated_at || null,
+        run_id: value.run_id || fallback.run_id || null,
+        version: value.version || fallback.version || null,
+      });
+    });
+  };
+  addFromStored(storedSummary);
+  (historyRows || []).forEach((row) => addFromStored(row.summary || {}, row));
+  const unique = new Map();
+  candidates.forEach((update) => {
+    const key = update.run_id || JSON.stringify({
+      text: updateText(update),
+      articles: update.new_article_ids || [],
+      posts: update.new_x_post_ids || [],
+    });
+    const previous = unique.get(key);
+    if (!previous || String(update.generated_at || '') > String(previous.generated_at || '')) {
+      unique.set(key, update);
+    }
+  });
+  return [...unique.values()].sort((a, b) =>
+    String(b.generated_at || '').localeCompare(String(a.generated_at || ''))
+  );
+}
+
 function topicArticleIds(model) {
   return [
     ...model.articles.map((article) => `article:${article.article_id}`),
@@ -206,7 +243,9 @@ function topicModel(topic) {
   const summaryRow = state.summaries.get(topic.topic_id) || {};
   const storedSummary = summaryRow.summary || summaryRow;
   const summary = storedSummary.base_summary || storedSummary;
-  const latestUpdate = storedSummary.latest_update || storedSummary.update || {};
+  const storedHistory = state.history.get(topic.topic_id) || [];
+  const updates = collectTopicUpdates(storedSummary, storedHistory);
+  const latestUpdate = updates[0] || {};
   const summaryTopic = summary.topic || {};
   const profileCounts = {};
   const sources = new Set();
@@ -223,7 +262,6 @@ function topicModel(topic) {
   const newestArticleAt = articleTimestamps.length
     ? new Date(Math.max(...articleTimestamps)).toISOString()
     : topic.last_seen_at;
-  const storedHistory = state.history.get(topic.topic_id) || [];
   return {
     ...topic,
     articles,
@@ -236,10 +274,11 @@ function topicModel(topic) {
     profileCounts,
     summary: hasAggregation ? summary : {},
     latestUpdate: hasAggregation ? latestUpdate : {},
+    updates: hasAggregation ? updates : [],
     summaryVersion: summaryRow.version || 1,
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
     history: hasAggregation ? storedHistory : [],
-    title: hasAggregation ? (summaryTopic.headline_pl || topic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
+    title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
     lead: hasAggregation ? (summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
 }
@@ -428,22 +467,23 @@ function dialogHtml(model) {
   const summary = model.summary || {};
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
-  const update = model.latestUpdate || {};
-  const newXPostIds = Array.isArray(update.new_x_post_ids) ? update.new_x_post_ids.map(String) : [];
-  const xPostIdSet = new Set(newXPostIds);
-  const xPostSources = [...new Set(model.xPosts.filter((post) => xPostIdSet.has(String(post.post_id))).map((post) => `@${post.username}`))];
   const xMaterials = model.xPosts.map((post) => `<div class="evidence-item social-evidence"><strong>${escapeHtml(post.display_name)} · X</strong><span><a href="${escapeHtml(post.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(post.text)}</a><br /><small>@${escapeHtml(post.username)}${post.posted_at ? ` · ${formatDate(post.posted_at)}` : ''} · wypowiedź autora, nie niezależne źródło prasowe</small></span></div>`).join('');
-  const latestVersion = model.history[model.history.length - 1];
-  const newArticleIds = Array.isArray(update.new_article_ids) && update.new_article_ids.length ? update.new_article_ids : (latestVersion?.new_article_ids || []);
-  const newArticleIdSet = new Set(newArticleIds.map(String));
-  const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
-  const updateCopy = updateText(update);
-  const isUpdate = Boolean(updateCopy);
+  const updatesHtml = (model.updates || []).map((update, index) => {
+    const newXPostIds = Array.isArray(update.new_x_post_ids) ? update.new_x_post_ids.map(String) : [];
+    const xPostIdSet = new Set(newXPostIds);
+    const xPostSources = [...new Set(model.xPosts.filter((post) => xPostIdSet.has(String(post.post_id))).map((post) => `@${post.username}`))];
+    const newArticleIds = Array.isArray(update.new_article_ids) ? update.new_article_ids.map(String) : [];
+    const newArticleIdSet = new Set(newArticleIds);
+    const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
+    const updateCopy = updateText(update);
+    const when = update.generated_at ? ` · ${formatDate(update.generated_at)}` : '';
+    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><p>${escapeHtml(readableEvidenceText(updateCopy))}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>`;
+  }).join('');
   return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
-    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(readableEvidenceText(updateCopy))}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>` : ''}
+    ${updatesHtml}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
     ${section('Różnice i sprzeczności', summary.differences)}

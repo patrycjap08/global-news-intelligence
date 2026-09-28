@@ -21,6 +21,7 @@ from ai_pipeline import (
     empty_update,
     now,
     stored_base_summary,
+    stored_updates,
 )
 from supabase_client import SupabaseRestClient
 
@@ -193,7 +194,18 @@ def analyze_x_posts(run_id: str, client: SupabaseRestClient, model: str = DEFAUL
     summaries = {str(row["topic_id"]): row for row in client.select_all("topic_summaries")}
     payload = {
         "posts": [{"post_id": p["post_id"], "author": p["display_name"], "username": p["username"], "text": p["text"], "posted_at": p.get("posted_at")} for p in posts],
-        "active_topics": [{"topic_id": t["topic_id"], "headline_pl": t["headline_pl"], "summary_pl": str(stored_base_summary(summaries.get(str(t["topic_id"]), {}).get("summary")).get("summary_pl") or "")[:2000]} for t in topics],
+        "active_topics": [{
+            "topic_id": t["topic_id"],
+            "headline_pl": t["headline_pl"],
+            "summary_pl": str(
+                stored_base_summary(summaries.get(str(t["topic_id"]), {}).get("summary"))
+                .get("summary_pl") or ""
+            )[:2000],
+            "prior_updates": [
+                str(item.get("new_information_pl") or item.get("what_changed_pl") or "")[:1200]
+                for item in stored_updates(summaries.get(str(t["topic_id"]), {}).get("summary"))
+            ],
+        } for t in topics],
     }
     result = call_openai(MATCH_INSTRUCTIONS, payload, model)
     valid_posts = {str(p["post_id"]): p for p in posts}
@@ -220,6 +232,7 @@ def analyze_x_posts(run_id: str, client: SupabaseRestClient, model: str = DEFAUL
             continue
         old_stored = old.get("summary") or {}
         base = stored_base_summary(old_stored)
+        updates = stored_updates(old_stored)
         material = [i for i in items if bool(i.get("is_material")) and str(i.get("update_pl") or "").strip()]
         if material:
             update_text = "\n\n".join(str(i["update_pl"]).strip() for i in material)
@@ -227,10 +240,31 @@ def analyze_x_posts(run_id: str, client: SupabaseRestClient, model: str = DEFAUL
             names = ", ".join(dict.fromkeys(str(i["post"]["display_name"]) for i in items))
             update_text = f"Dodano nowe wpisy na X ({names}), ale nie wnoszą one istotnych nowych informacji do wcześniejszej syntezy."
         post_ids = [str(i["post_id"]) for i in items]
-        latest_update = {**empty_update(), "is_update": True, "new_information_pl": update_text, "new_x_post_ids": post_ids}
-        stored = {"base_summary": base, "latest_update": latest_update}
-        version = int(old.get("version") or 0) + 1
         timestamp = now()
+        same_run = next((item for item in updates if str(item.get("run_id") or "") == run_id), None)
+        if same_run:
+            existing_text = str(same_run.get("new_information_pl") or same_run.get("what_changed_pl") or "").strip()
+            latest_update = {
+                **same_run,
+                "is_update": True,
+                "new_information_pl": "\n\n".join(part for part in (existing_text, update_text) if part),
+                "new_x_post_ids": list(dict.fromkeys([
+                    *[str(value) for value in same_run.get("new_x_post_ids", [])],
+                    *post_ids,
+                ])),
+                "run_id": run_id,
+                "generated_at": timestamp,
+            }
+            updates = [item for item in updates if item is not same_run]
+        else:
+            latest_update = {
+                **empty_update(), "is_update": True,
+                "new_information_pl": update_text, "new_x_post_ids": post_ids,
+                "run_id": run_id, "generated_at": timestamp,
+            }
+        updates.append(latest_update)
+        stored = {"base_summary": base, "updates": updates, "latest_update": latest_update}
+        version = int(old.get("version") or 0) + 1
         input_hash = digest({"topic_id": topic_id, "post_ids": post_ids})
         client.upsert("topic_summaries", [{"topic_id": topic_id, "version": version, "input_hash": input_hash, "model": model, "summary": stored, "generated_at": timestamp, "updated_at": timestamp}], on_conflict="topic_id")
         client.upsert("topic_summary_versions", [{"topic_id": topic_id, "version": version, "run_id": run_id, "model": model, "prompt_version": PROMPT_VERSION + "+x", "summary": stored, "new_article_ids": [], "generated_at": timestamp}], on_conflict="topic_id,version")

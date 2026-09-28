@@ -12,7 +12,7 @@ import sqlite3
 import subprocess
 import sys
 
-from ai_pipeline import analyze_run
+from ai_pipeline import analyze_run, normalize_topic_titles
 from article_harvester import open_db
 from supabase_client import SupabaseRestClient
 from supabase_sync import pull_state, push_run
@@ -63,6 +63,10 @@ def main() -> int:
         help="Pomiń portale i uruchom wyłącznie pobieranie oraz dopasowanie wpisów z X.",
     )
     parser.add_argument(
+        "--titles-only", action="store_true",
+        help="Pomiń harvesting i ujednolić wyłącznie prefiksy geograficzne tytułów.",
+    )
+    parser.add_argument(
         "--rebuild-summaries", action="store_true",
         help="Pomiń harvesting i grupowanie; wygeneruj od nowa syntezy istniejących tematów wieloartykułowych.",
     )
@@ -77,8 +81,10 @@ def main() -> int:
 
     if args.ai_only and args.skip_ai:
         parser.error("--ai-only nie może być użyte razem z --skip-ai.")
-    if args.x_only and (args.ai_only or args.rebuild_summaries or args.skip_ai):
+    if args.x_only and (args.ai_only or args.rebuild_summaries or args.skip_ai or args.titles_only):
         parser.error("--x-only jest osobnym trybem i nie łączy się z innymi trybami AI.")
+    if args.titles_only and (args.ai_only or args.rebuild_summaries or args.skip_ai):
+        parser.error("--titles-only jest osobnym trybem.")
     if args.rebuild_summaries and not args.ai_only:
         parser.error("--rebuild-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
 
@@ -87,6 +93,12 @@ def main() -> int:
     print("[1/4] Pobieram stan deduplikacji z Supabase...", flush=True)
     print(json.dumps(pull_state(args.db, client), ensure_ascii=False), flush=True)
 
+    if args.titles_only:
+        print("[2/4] Pobieranie portali pominięte.", flush=True)
+        print("[3/4] Synchronizacja harvestera pominięta.", flush=True)
+        print("[4/4] Ujednolicam prefiksy geograficzne tytułów...", flush=True)
+        print(json.dumps({"titles_normalized": normalize_topic_titles(client)}, ensure_ascii=False), flush=True)
+        return 0
     if args.x_only:
         run_id = latest_run_id(args.db)
         print(f"[2/4] Portale pominięte; używam run {run_id} jako punktu odniesienia...", flush=True)

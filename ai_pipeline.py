@@ -77,6 +77,14 @@ clickbaitem, sensacyjną obietnicą, pytaniem retorycznym ani ogólnikiem typu
 zapisów wielkimi literami ani ocen sugerujących, kto ma rację. Stosuj zwykłą
 polską kapitalizację tytułową i nie dodawaj informacji, których nie ma w
 artykułach. Tytuł powinien być zwięzły — zwykle około 8–16 słów.
+Każdy working_title_pl musi zaczynać się od jednego spójnego prefiksu
+geograficznego w nawiasach kwadratowych: `[Polska]`, `[Niemcy]`,
+`[USA i Iran]` albo `[Świat]`. Używaj polskich nazw państw. Dla jednego kraju
+podaj jeden kraj; dla dwóch lub trzech bezpośrednio zaangażowanych państw
+połącz nazwy przez „i” (przy trzech: przecinek oraz „i”); dla spraw naprawdę
+globalnych albo obejmujących wiele państw użyj `[Świat]`. Używaj
+`[Wielka Brytania]`, chyba że wydarzenie dotyczy konkretnie tylko Anglii.
+Nie wpisuj w prefiksie miasta, kontynentu ani ogólnika typu `[Zagranica]`.
 grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
 """.strip()
 
@@ -95,6 +103,9 @@ wątpliwości, pozostaw tematy osobno.
 merged_title_pl zachowuje te same zasady co working_title_pl: ma być konkretnym,
 informacyjnym i ciekawym tytułem w jednolitym stylu prasowym, bez clickbaitu,
 krzykliwych ocen i ogólników.
+Musi także zaczynać się od prefiksu geograficznego według zasad:
+`[Polska]`, `[Niemcy]`, `[USA i Iran]` albo `[Świat]`; używaj polskich nazw
+państw i `[Świat]` dla wydarzeń obejmujących wiele krajów.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"merge_groups":[{"topic_ids":["topic_a","topic_b"],
@@ -107,6 +118,21 @@ jednego tematu w dwóch grupach. confidence ma oznaczać pewność, że chodzi o
 to samo konkretne wydarzenie, a nie tylko podobną tematykę. Do automatycznego
 scalenia nadają się wyłącznie grupy z confidence co najmniej 0.90. Nie twórz
 grup z tematów, które są już oznaczone jako scalone.
+""".strip()
+
+TITLE_NORMALIZATION_INSTRUCTIONS = """
+Ujednolić tytuły tematów wiadomości. Nie zmieniaj znaczenia ani nie dodawaj
+faktów. Każdy title_pl musi zaczynać się od prefiksu geograficznego:
+`[Polska]`, `[Niemcy]`, `[USA i Iran]` albo `[Świat]`. Używaj polskich nazw
+państw. Dla jednego kraju podaj jeden kraj; dla dwóch lub trzech bezpośrednio
+zaangażowanych państw połącz nazwy przez „i” (przy trzech użyj przecinka i
+„i”); dla spraw globalnych lub obejmujących wiele państw użyj `[Świat]`.
+Używaj `[Wielka Brytania]`, chyba że sprawa dotyczy wyłącznie Anglii.
+Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu.
+
+Zwróć WYŁĄCZNIE JSON:
+{"titles":[{"topic_id":"","title_pl":"[Kraj] Konkretny tytuł"}]}
+Każdy wejściowy topic_id musi wystąpić dokładnie raz.
 """.strip()
 
 SUMMARY_INSTRUCTIONS = """
@@ -175,8 +201,9 @@ Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli dat
 jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo
 differences przy odpowiednim fakcie. W przeciwnym razie pomiń ją.
 
-Jeżeli previous_aggregation nie jest null, potraktuj ją jako NIEZMIENNĄ,
-opublikowaną wcześniej syntezę. Nie przepisuj jej, nie skracaj i nie aktualizuj
+Jeżeli previous_aggregation nie jest null, zawiera `base_summary` oraz
+`prior_updates`. Potraktuj oba elementy jako opublikowaną wcześniej, NIEZMIENNĄ
+historię. Nie przepisuj jej, nie skracaj i nie aktualizuj
 summary_pl, facts, agreement, differences, framing_and_tone,
 potential_manipulation_signals, background_context ani reader_context — program
 zachowa te pola z poprzedniej wersji. W takim przypadku wygeneruj wyłącznie
@@ -192,6 +219,7 @@ artykułach aktualizacja może mieć kilka rozwiniętych akapitów i około 300�
 słów, jeżeli materiał uzasadnia taką długość. Aktualizacja ma przekazywać treść
 nowych materiałów, a nie tylko informować, że pojawiły się nowe doniesienia.
 Nie powtarzaj jednak faktów już zawartych w previous_aggregation.
+Nie powtarzaj także informacji obecnych w żadnym elemencie prior_updates.
 
 Jeżeli nowe artykuły tylko powtarzają wcześniejsze informacje, nadal ustaw
 update.is_update=true i napisz
@@ -230,6 +258,12 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "quality":{"article_count":0,"source_count":0,
 "has_multiple_perspectives":false,"overall_confidence":"MEDIUM",
 "limitations_pl":""}}
+
+topic.headline_pl musi zaczynać się od identycznego, spójnego prefiksu
+geograficznego jak tytuł roboczy: np. `[Polska]`, `[Niemcy]`,
+`[Wielka Brytania i USA]`, `[USA i Iran]` lub `[Świat]`. Po prefiksie umieść
+konkretny tytuł wydarzenia. Stosuj polskie nazwy państw; `[Świat]` tylko dla
+spraw globalnych lub obejmujących wiele krajów.
 
 W elementach tablic używaj dokładnie nazw pól pokazanych powyżej. Nie używaj
 zamienników typu agreement_pl, point_pl, difference_pl, tone, signal, reason,
@@ -436,6 +470,29 @@ def stored_latest_update(value: Any) -> dict[str, Any]:
         return latest
     update = value.get("update")
     return update if isinstance(update, dict) else {}
+
+
+def stored_updates(value: Any) -> list[dict[str, Any]]:
+    """Read cumulative updates and transparently support legacy envelopes."""
+    if not isinstance(value, dict):
+        return []
+    raw_updates = value.get("updates")
+    updates = [dict(item) for item in raw_updates if isinstance(item, dict)] if isinstance(raw_updates, list) else []
+    if not updates:
+        legacy = stored_latest_update(value)
+        text = str(legacy.get("new_information_pl") or legacy.get("what_changed_pl") or "").strip()
+        if text:
+            updates = [dict(legacy)]
+    return updates
+
+
+def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        "base_summary": stored_base_summary(value),
+        "prior_updates": stored_updates(value),
+    }
 
 
 def empty_update() -> dict[str, Any]:
@@ -830,6 +887,55 @@ def merge_active_topics(
         conn.close()
 
 
+def normalize_topic_titles(
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+) -> int:
+    topics = client.select_all(
+        "topics",
+        columns="topic_id,headline_pl,status",
+        filters=[("status", "neq.MERGED")],
+    )
+    missing = [
+        row for row in topics
+        if not re.match(r"^\[[^\]]+\]\s+\S", str(row.get("headline_pl") or ""))
+    ]
+    if not missing:
+        return 0
+    summaries = {
+        str(row["topic_id"]): stored_base_summary(row.get("summary"))
+        for row in client.select_all("topic_summaries", columns="topic_id,summary")
+    }
+    changed = 0
+    for offset in range(0, len(missing), 100):
+        batch = missing[offset:offset + 100]
+        payload = {"topics": [{
+            "topic_id": row["topic_id"],
+            "current_title_pl": row.get("headline_pl") or "",
+            "one_sentence_pl": (
+                (summaries.get(str(row["topic_id"]), {}).get("topic") or {})
+                .get("what_happened_one_sentence_pl", "")
+            ),
+        } for row in batch]}
+        result = call_openai(TITLE_NORMALIZATION_INSTRUCTIONS, payload, model)
+        allowed = {str(row["topic_id"]) for row in batch}
+        for item in result.get("titles") or []:
+            if not isinstance(item, dict):
+                continue
+            topic_id = str(item.get("topic_id") or "")
+            title = str(item.get("title_pl") or "").strip()[:300]
+            if topic_id not in allowed or not re.match(r"^\[[^\]]+\]\s+\S", title):
+                continue
+            client.update(
+                "topics",
+                {"headline_pl": title, "updated_at": now()},
+                filters=[("topic_id", f"eq.{topic_id}")],
+            )
+            changed += 1
+    return changed
+
+
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
     assigned_rows = client.select_all("article_topic_assignments", columns="article_id")
     assigned = {str(row["article_id"]) for row in assigned_rows}
@@ -887,17 +993,19 @@ def persist_summary(
     previous_row: dict[str, Any] | None,
     new_article_ids: list[str],
 ) -> int:
-    """Save an immutable base summary plus only the latest delta update."""
+    """Save an immutable base and append one cumulative update per full run."""
     version = int((previous_row or {}).get("version", 0)) + 1
     timestamp = now()
     previous_stored = previous_row.get("summary") if previous_row else None
     if previous_stored:
         base_summary = stored_base_summary(previous_stored)
+        updates = stored_updates(previous_stored)
         latest_update = dict(summary.get("update") or empty_update())
         latest_update["is_update"] = True
     else:
         base_summary = dict(summary)
         base_summary["update"] = empty_update()
+        updates = []
         latest_update = empty_update()
 
     latest_update["new_article_ids"] = list(dict.fromkeys(str(article_id) for article_id in new_article_ids))
@@ -915,8 +1023,14 @@ def persist_summary(
             f"Dodano {count} nowe materiały do tego wątku, ale nie wnoszą one nowych, "
             "niezależnie potwierdzonych informacji względem wcześniejszej syntezy."
         )
+    if previous_stored:
+        latest_update["run_id"] = run_id
+        latest_update["generated_at"] = timestamp
+        updates = [item for item in updates if str(item.get("run_id") or "") != run_id]
+        updates.append(latest_update)
     stored_summary = {
         "base_summary": base_summary,
+        "updates": updates,
         "latest_update": latest_update,
     }
     client.upsert("topic_summaries", [{
@@ -967,6 +1081,7 @@ def persist_rebuilt_summary(
     base_summary["update"] = empty_update()
     stored_summary = {
         "base_summary": base_summary,
+        "updates": [],
         "latest_update": empty_update(),
     }
 
@@ -1070,7 +1185,7 @@ def retry_incomplete_summaries(
                 continue
             if len(distinct_source_keys(all_rows)) < 2:
                 continue
-            previous_aggregation = stored_base_summary(previous_row.get("summary")) if previous_row else None
+            previous_aggregation = previous_aggregation_context(previous_row.get("summary")) if previous_row else None
             summary_input = {
                 "topic": {
                     "topic_id": topic_id,
@@ -1450,7 +1565,7 @@ def _analyze_pending_batch(
                 stats["skipped_single_source"] += 1
                 continue
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)
-            previous_aggregation = stored_base_summary(old[0].get("summary")) if old else None
+            previous_aggregation = previous_aggregation_context(old[0].get("summary")) if old else None
             summary_input = {
                 "topic": {
                     "topic_id": topic_id,
@@ -1544,6 +1659,7 @@ def analyze_run(
         "summaries": 0, "skipped_summaries": 0,
         "skipped_single_source": 0, "failed_summaries": 0, "excluded": 0,
         "merge_candidates": 0, "topics_merged": 0, "merge_failed": 0,
+        "titles_normalized": 0,
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
@@ -1592,6 +1708,8 @@ def analyze_run(
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]
+    print("[AI] Ujednolicam prefiksy geograficzne tytułów...", flush=True)
+    stats["titles_normalized"] = normalize_topic_titles(client, model=model)
     print(
         "[AI] Etap 3/3: jedna końcowa synteza lub aktualizacja na temat za cały przebieg...",
         flush=True,
