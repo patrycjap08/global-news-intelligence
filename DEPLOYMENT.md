@@ -40,6 +40,10 @@ Po zapisaniu schematu kliknij w repozytorium `Actions -> Global News Intelligenc
 w logach. Zaczyna od pobrania istniejącego stanu z Supabase, więc nie powinno
 ponownie pobierać artykułów zapisanych wcześniej lokalnie.
 
+Jeżeli artykuły są już w Supabase, a chcesz ponowić tylko grupowanie i
+opracowania AI, w formularzu `Run workflow` wybierz tryb `ai-only`. Ten tryb
+nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
+
 ## Harmonogram
 
 Workflow uruchamia się trzy razy dziennie o `06:17`, `12:17` i `18:17` UTC.

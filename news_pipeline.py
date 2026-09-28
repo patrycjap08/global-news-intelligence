@@ -53,37 +53,49 @@ def main() -> int:
     parser.add_argument("--retry-failed", action="store_true")
     parser.add_argument("--retry-rejected", action="store_true")
     parser.add_argument("--skip-ai", action="store_true")
+    parser.add_argument(
+        "--ai-only", action="store_true",
+        help="Pomiń pobieranie źródeł i uruchom AI na artykułach już zapisanych w Supabase.",
+    )
     parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
     parser.add_argument("--ai-batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
     args = parser.parse_args()
+
+    if args.ai_only and args.skip_ai:
+        parser.error("--ai-only nie może być użyte razem z --skip-ai.")
 
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
     print("[1/4] Pobieram stan deduplikacji z Supabase...", flush=True)
     print(json.dumps(pull_state(args.db, client), ensure_ascii=False), flush=True)
 
-    command = [
-        sys.executable, "article_harvester.py", "--config", str(args.config),
-        "--db", str(args.db), "--output-dir", str(args.output_dir),
-        "--runtime-config", "source_runtime.yaml",
-        "--daily-max-articles-per-source", str(args.daily_max_articles_per_source),
-        "--top-articles-per-source", str(args.top_articles_per_source),
-        "--discovery-limit-per-source", str(args.discovery_limit_per_source),
-        "--max-sitemap-probes", str(args.max_sitemap_probes),
-        "--max-sitemap-children", str(args.max_sitemap_children),
-    ]
-    if args.browser:
-        command.append("--browser")
-    if args.retry_failed:
-        command.append("--retry-failed")
-    if args.retry_rejected:
-        command.append("--retry-rejected")
-    print("[2/4] Pobieram strony główne i nowe artykuły...", flush=True)
-    subprocess.run(command, check=True)
-    run_id = latest_run_id(args.db)
+    if args.ai_only:
+        run_id = latest_run_id(args.db)
+        print(f"[2/4] Pobieranie źródeł pominięte; używam run {run_id}...", flush=True)
+        print("[3/4] Synchronizacja harvestera pominięta; artykuły są już w Supabase.", flush=True)
+    else:
+        command = [
+            sys.executable, "article_harvester.py", "--config", str(args.config),
+            "--db", str(args.db), "--output-dir", str(args.output_dir),
+            "--runtime-config", "source_runtime.yaml",
+            "--daily-max-articles-per-source", str(args.daily_max_articles_per_source),
+            "--top-articles-per-source", str(args.top_articles_per_source),
+            "--discovery-limit-per-source", str(args.discovery_limit_per_source),
+            "--max-sitemap-probes", str(args.max_sitemap_probes),
+            "--max-sitemap-children", str(args.max_sitemap_children),
+        ]
+        if args.browser:
+            command.append("--browser")
+        if args.retry_failed:
+            command.append("--retry-failed")
+        if args.retry_rejected:
+            command.append("--retry-rejected")
+        print("[2/4] Pobieram strony główne i nowe artykuły...", flush=True)
+        subprocess.run(command, check=True)
+        run_id = latest_run_id(args.db)
 
-    print(f"[3/4] Zapisuję run {run_id} w Supabase...", flush=True)
-    print(json.dumps(push_run(args.db, run_id, client), ensure_ascii=False), flush=True)
+        print(f"[3/4] Zapisuję run {run_id} w Supabase...", flush=True)
+        print(json.dumps(push_run(args.db, run_id, client), ensure_ascii=False), flush=True)
 
     if args.skip_ai:
         print("[4/4] AI pominięte przez --skip-ai.", flush=True)
