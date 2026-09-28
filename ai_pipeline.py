@@ -193,10 +193,14 @@ def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[
     client = OpenAI(api_key=openai_api_key())
     last_error: ValueError | None = None
     for attempt in range(2):
+        input_text = (
+            json.dumps(payload, ensure_ascii=False)
+            + "\n\nReturn only valid JSON. Do not add any commentary outside the JSON object."
+        )
         response = client.responses.create(
             model=model,
             instructions=instructions,
-            input=json.dumps(payload, ensure_ascii=False),
+            input=input_text,
             text={"format": {"type": "json_object"}},
         )
         try:
