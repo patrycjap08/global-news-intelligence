@@ -88,7 +88,7 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
     token = (os.environ.get("X_BEARER_TOKEN") or "").strip()
     stats = {
         "accounts": len(ACCOUNTS), "checked": 0, "posts": 0,
-        "skipped_without_meaningful_text": 0, "failed": 0,
+        "skipped_without_meaningful_text": 0, "skipped_video": 0, "failed": 0,
     }
     if not token:
         print("[X] Brakuje X_BEARER_TOKEN — pomijam X.", flush=True)
@@ -116,17 +116,23 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
             }], on_conflict="username")
             payload = _x_get(f"users/{user_id}/tweets", token, {
                 "start_time": start_time,
-                "max_results": "5",
+                "max_results": "8",
                 # Keep replies so that the author's own multi-post threads are
                 # not cut off. Replies to other accounts are filtered below.
                 "exclude": "retweets",
-                "tweet.fields": "author_id,created_at,lang,note_tweet,in_reply_to_user_id,referenced_tweets",
-                "expansions": "referenced_tweets.id",
+                "tweet.fields": "attachments,author_id,created_at,lang,note_tweet,in_reply_to_user_id,referenced_tweets",
+                "expansions": "attachments.media_keys,referenced_tweets.id",
+                "media.fields": "media_key,type",
             })
             referenced = {
                 str(item.get("id")): item
                 for item in ((payload.get("includes") or {}).get("tweets") or [])
                 if item.get("id")
+            }
+            media_by_key = {
+                str(item.get("media_key")): item
+                for item in ((payload.get("includes") or {}).get("media") or [])
+                if item.get("media_key")
             }
             rows = []
             for post in payload.get("data") or []:
@@ -137,6 +143,13 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
                     continue
                 reply_to_user_id = str(post.get("in_reply_to_user_id") or "")
                 if reply_to_user_id and reply_to_user_id != user_id:
+                    continue
+                media_keys = (post.get("attachments") or {}).get("media_keys") or []
+                if any(
+                    str(media_by_key.get(str(key), {}).get("type") or "") in {"video", "animated_gif"}
+                    for key in media_keys
+                ):
+                    stats["skipped_video"] += 1
                     continue
                 quoted_parts: list[str] = []
                 for reference in post.get("referenced_tweets") or []:
@@ -150,7 +163,7 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
                 if quoted_parts:
                     text += "\n\n[Cytowany wpis]\n" + "\n".join(quoted_parts)
                 meaningful_text = re.sub(r"https?://\S+", "", text).strip()
-                if len(meaningful_text) < 40 or len(meaningful_text.split()) < 6:
+                if len(meaningful_text.split()) <= 10:
                     stats["skipped_without_meaningful_text"] += 1
                     continue
                 rows.append({
