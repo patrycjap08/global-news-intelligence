@@ -2197,6 +2197,11 @@ def regroup_singletons(
         stats["groups"] += batch_stats["groups"]
 
     def process_batch(batch: list[dict[str, Any]], label: str) -> None:
+        print(
+            f"[AI-REPAIR] Paczka {label}/{total_batches}: "
+            f"{len(batch)} singletonów...",
+            flush=True,
+        )
         try:
             batch_stats = _analyze_pending_batch(
                 db_path,
@@ -2209,8 +2214,15 @@ def regroup_singletons(
                 excluded_topic_ids=excluded_topic_ids,
             )
             merge_batch_stats(batch_stats)
-            stats["singleton_topics_merged"] += cleanup_repaired_singletons(
+            merged_singletons = cleanup_repaired_singletons(
                 run_id, client, old_topic_by_article
+            )
+            stats["singleton_topics_merged"] += merged_singletons
+            print(
+                f"[AI-REPAIR] Paczka {label}/{total_batches} zakończona: "
+                f"grupy={batch_stats['groups']}, "
+                f"singletony przeniesione={merged_singletons}.",
+                flush=True,
             )
         except ValueError as exc:
             if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
@@ -2329,6 +2341,11 @@ def analyze_run(
                     batch_index=label, summarize=False,
                 )
                 merge_batch_stats(batch_stats)
+                print(
+                    f"[AI] Paczka {label}/{total_batches} zakończona: "
+                    f"grupy={batch_stats['groups']}.",
+                    flush=True,
+                )
             except ValueError as exc:
                 if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
                     raise
