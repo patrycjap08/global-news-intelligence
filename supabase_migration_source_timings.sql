@@ -7,7 +7,7 @@ alter table public.source_run_results
 -- Najwolniejsze źródła z ostatnich 14 dni.
 select
     srr.source_id,
-    s.source_name,
+    s.name as source_name,
     count(*) as runs,
     round(avg(srr.total_duration_ms) / 1000.0, 1) as avg_total_seconds,
     round(avg(srr.discovery_duration_ms) / 1000.0, 1) as avg_discovery_seconds,
@@ -18,5 +18,5 @@ from public.source_run_results srr
 join public.sources s on s.source_id = srr.source_id
 join public.harvest_runs hr on hr.run_id = srr.run_id
 where hr.started_at >= now() - interval '14 days'
-group by srr.source_id, s.source_name
+group by srr.source_id, s.name
 order by avg(srr.total_duration_ms) desc;
