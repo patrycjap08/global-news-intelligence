@@ -98,6 +98,16 @@ function updateText(summary) {
   return String(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
+function readableEvidenceText(value) {
+  return String(value ?? '')
+    .replace(/\b[0-9a-f]{24}\b/gi, (articleId) => articleMap().get(articleId)?.source_name || '')
+    .replace(/\(\s*[,;]?\s*\)/g, '')
+    .replace(/\(\s*[,;]\s*/g, '(')
+    .replace(/\s*[,;]\s*\)/g, ')')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function isTopicRead(model) {
   const readVersion = Number(state.readTopics[model.topic_id] || 0);
   return readVersion >= Number(model.summaryVersion || 1);
@@ -237,22 +247,22 @@ function cardHtml(model, index) {
 function listValue(value) {
   if (!Array.isArray(value)) return '';
   return value.map((item) => {
-    if (typeof item === 'string') return `<li>${escapeHtml(item)}</li>`;
-    const primary = item.text_pl || item.text || item.claim || item.description_pl || item.description || item.explanation_pl || item.agreement_pl || item.agreement || item.differences_pl || item.difference || item.frame || item.tone_pl || item.signal_pl || item.signal || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || '';
+    if (typeof item === 'string') return `<li>${escapeHtml(readableEvidenceText(item))}</li>`;
+    const primary = item.text_pl || item.text || item.fact_pl || item.fact || item.claim || item.description_pl || item.description || item.explanation_pl || item.agreement_pl || item.agreement || item.point_pl || item.point || item.differences_pl || item.difference_pl || item.difference || item.frame || item.tone_pl || item.tone || item.signal_pl || item.signal || item.reason || item.context_pl || item.context || item.unknown_pl || item.unknown || item.contradiction_pl || item.contradiction || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || '';
     const notes = item.notes_pl || item.notes || '';
     const text = primary && notes && primary !== notes ? `${primary} ${notes}` : primary || notes;
     const marker = item.date || item.time || item.period || item.name || item.term || '';
     const rendered = marker && text ? `${marker} — ${text}` : text || marker || JSON.stringify(item);
-    return `<li>${escapeHtml(rendered)}</li>`;
+    return `<li>${escapeHtml(readableEvidenceText(rendered))}</li>`;
   }).join('');
 }
 
 function readerContextHtml(items) {
   if (!Array.isArray(items) || !items.length) return '';
   const rows = items.map((item) => {
-    if (typeof item === 'string') return `<div class="reader-context-item"><p>${escapeHtml(item)}</p></div>`;
+    if (typeof item === 'string') return `<div class="reader-context-item"><p>${escapeHtml(readableEvidenceText(item))}</p></div>`;
     const name = item.name || item.term || item.label || '';
-    const explanation = item.explanation_pl || item.description || item.text_pl || item.text || '';
+    const explanation = readableEvidenceText(item.explanation_pl || item.description || item.text_pl || item.text || '');
     const verification = item.needs_verification ? '<small>Wymaga dodatkowej weryfikacji.</small>' : '';
     return `<div class="reader-context-item"><strong>${escapeHtml(name)}</strong><p>${escapeHtml(explanation)}</p>${verification}</div>`;
   }).join('');

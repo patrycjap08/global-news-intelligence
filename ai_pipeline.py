@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v8-no-redundant-timeline"
+PROMPT_VERSION = "ai-prompts-v9-canonical-summary-fields"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -138,14 +138,27 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "status":"ONGOING","time_scope":""},
 "update":{"is_update":false,"new_information_pl":"",
 "what_changed_pl":"","new_article_ids":[]},"summary_pl":"",
-"facts":[],"agreement":[],"differences":[],"framing_and_tone":[],
-"potential_manipulation_signals":[],"contradictions":[],
-"background_context":[],"reader_context":[{"type":"COUNTRY|REGION|PERSON|ORGANIZATION|PLACE|ABBREVIATION|TERM",
+"facts":[{"text_pl":"","article_ids":[]}],
+"agreement":[{"text_pl":"","article_ids":[]}],
+"differences":[{"text_pl":"","article_ids":[]}],
+"framing_and_tone":[{"text_pl":"","article_ids":[]}],
+"potential_manipulation_signals":[{"text_pl":"","article_ids":[]}],
+"contradictions":[{"text_pl":"","article_ids":[]}],
+"background_context":[{"text_pl":"","article_ids":[],"needs_verification":true}],
+"reader_context":[{"type":"COUNTRY|REGION|PERSON|ORGANIZATION|PLACE|ABBREVIATION|TERM",
 "name":"","explanation_pl":"","article_ids":[],"needs_verification":false}],
-"unknowns":[],"sources":[],
+"unknowns":[{"text_pl":"","article_ids":[]}],
+"sources":[{"source_name":"","description_pl":"","article_ids":[]}],
 "quality":{"article_count":0,"source_count":0,
 "has_multiple_perspectives":false,"overall_confidence":"MEDIUM",
 "limitations_pl":""}}
+
+W elementach tablic używaj dokładnie nazw pól pokazanych powyżej. Nie używaj
+zamienników typu agreement_pl, point_pl, difference_pl, tone, signal, reason,
+context, notes ani event. Nie dodawaj innych pól. article_ids to techniczna
+lista identyfikatorów dowodowych i nie należy wstawiać jej do tekstu
+text_pl. Jeśli element nie ma oparcia w konkretnym artykule, zostaw
+article_ids jako [] i ustaw needs_verification=true tam, gdzie to pole istnieje.
 """.strip()
 
 
@@ -194,6 +207,126 @@ def extract_json(text: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise AIResponseParseError("AI zwróciło JSON inny niż obiekt.", raw_output)
     return value
+
+
+SUMMARY_ARRAY_FIELDS = (
+    "facts",
+    "agreement",
+    "differences",
+    "framing_and_tone",
+    "potential_manipulation_signals",
+    "contradictions",
+    "background_context",
+    "reader_context",
+    "unknowns",
+    "sources",
+)
+
+SUMMARY_TEXT_ALIASES = {
+    "facts": ("text_pl", "fact_pl", "fact", "claim", "description_pl", "description"),
+    "agreement": ("text_pl", "agreement_pl", "agreement", "point_pl", "point", "claim"),
+    "differences": ("text_pl", "differences_pl", "difference_pl", "difference", "point_pl", "point"),
+    "framing_and_tone": ("text_pl", "framing_pl", "frame", "tone_pl", "tone", "description_pl", "description"),
+    "potential_manipulation_signals": ("text_pl", "signal_pl", "signal", "reason", "description_pl", "description"),
+    "contradictions": ("text_pl", "contradiction_pl", "contradiction", "difference_pl", "difference", "reason"),
+    "background_context": ("text_pl", "context_pl", "context", "reason", "description_pl", "description", "notes_pl", "notes"),
+    "unknowns": ("text_pl", "unknown_pl", "unknown", "reason", "description_pl", "description", "notes_pl", "notes"),
+}
+
+
+def _as_article_ids(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if not isinstance(value, list):
+        return []
+    return list(dict.fromkeys(str(item) for item in value if item is not None and str(item)))
+
+
+def _first_text(item: dict[str, Any], aliases: tuple[str, ...]) -> str:
+    for key in aliases:
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
+    if isinstance(item, str):
+        item = {"text_pl": item}
+    if not isinstance(item, dict):
+        return None
+    article_ids = _as_article_ids(item.get("article_ids"))
+
+    if field == "reader_context":
+        name = str(item.get("name") or item.get("term") or item.get("label") or "").strip()
+        explanation = _first_text(item, ("explanation_pl", "text_pl", "description_pl", "description", "context"))
+        if not explanation:
+            return None
+        return {
+            "type": str(item.get("type") or "TERM"),
+            "name": name,
+            "explanation_pl": explanation,
+            "article_ids": article_ids,
+            "needs_verification": bool(item.get("needs_verification", False)),
+        }
+
+    if field == "sources":
+        source_name = str(item.get("source_name") or item.get("source") or "").strip()
+        description = _first_text(item, ("description_pl", "text_pl", "stance_or_focus_pl", "tone_pl", "description"))
+        if not source_name and not description:
+            return None
+        return {
+            "source_name": source_name,
+            "description_pl": description,
+            "article_ids": article_ids,
+        }
+
+    text = _first_text(item, SUMMARY_TEXT_ALIASES[field])
+    if field == "background_context" and not text:
+        name = str(item.get("name") or item.get("term") or "").strip()
+        explanation = _first_text(item, ("explanation_pl",))
+        if name and explanation:
+            text = f"{name} — {explanation}"
+    notes = _first_text(item, ("notes_pl", "notes"))
+    if field == "framing_and_tone" and text and notes and notes != text:
+        text = f"{text} {notes}"
+    if not text:
+        return None
+    normalized = {"text_pl": text, "article_ids": article_ids}
+    if field == "background_context":
+        normalized["needs_verification"] = bool(item.get("needs_verification", False))
+    return normalized
+
+
+def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
+    """Convert older/model-variant summary keys to the canonical UI schema."""
+    normalized: dict[str, Any] = {
+        "topic": response.get("topic") if isinstance(response.get("topic"), dict) else {},
+        "update": response.get("update") if isinstance(response.get("update"), dict) else {
+            "is_update": False,
+            "new_information_pl": "",
+            "what_changed_pl": "",
+            "new_article_ids": [],
+        },
+        "summary_pl": str(response.get("summary_pl") or ""),
+    }
+    for field in SUMMARY_ARRAY_FIELDS:
+        raw_items = response.get(field, [])
+        if not isinstance(raw_items, list):
+            raw_items = [raw_items] if raw_items else []
+        normalized[field] = [
+            item for raw_item in raw_items
+            if (item := _normalize_summary_item(field, raw_item)) is not None
+        ]
+    quality = response.get("quality")
+    normalized["quality"] = quality if isinstance(quality, dict) else {
+        "article_count": 0,
+        "source_count": 0,
+        "has_multiple_perspectives": False,
+        "overall_confidence": "MEDIUM",
+        "limitations_pl": "",
+    }
+    return ParsedAIResponse(normalized, getattr(response, "raw_output", ""))
 
 
 def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
@@ -503,7 +636,7 @@ def retry_incomplete_summaries(
                 "topic": topic_id, "stage": "SUMMARY", "input": summary_hash,
             })[:24]
             try:
-                summary = call_openai(SUMMARY_INSTRUCTIONS, summary_input, model)
+                summary = normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, summary_input, model))
                 persist_summary(
                     client,
                     topic_id=topic_id,
@@ -740,7 +873,7 @@ def _analyze_pending_batch(
                 continue
             summary_topic_run_id = "topicrun_" + digest({"topic": topic_id, "stage": "SUMMARY", "input": summary_hash})[:24]
             try:
-                summary = call_openai(SUMMARY_INSTRUCTIONS, summary_input, model)
+                summary = normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, summary_input, model))
                 persist_summary(
                     client,
                     topic_id=topic_id,
