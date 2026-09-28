@@ -104,6 +104,10 @@ create table if not exists public.source_run_results (
     failed_count integer not null default 0,
     duplicate_count integer not null default 0,
     rejected_short_count integer not null default 0,
+    discovery_duration_ms integer not null default 0,
+    fetch_duration_ms integer not null default 0,
+    total_duration_ms integer not null default 0,
+    average_article_fetch_ms integer not null default 0,
     notes text not null default '',
     primary key (run_id, source_id)
 );

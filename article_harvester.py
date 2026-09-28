@@ -18,6 +18,7 @@ import json
 from pathlib import Path
 import re
 import sqlite3
+import time
 from typing import Any
 import unicodedata
 import urllib.parse
@@ -159,6 +160,10 @@ def open_db(path: Path) -> sqlite3.Connection:
             failed_count INTEGER NOT NULL DEFAULT 0,
             duplicate_count INTEGER NOT NULL DEFAULT 0,
             rejected_short_count INTEGER NOT NULL DEFAULT 0,
+            discovery_duration_ms INTEGER NOT NULL DEFAULT 0,
+            fetch_duration_ms INTEGER NOT NULL DEFAULT 0,
+            total_duration_ms INTEGER NOT NULL DEFAULT 0,
+            average_article_fetch_ms INTEGER NOT NULL DEFAULT 0,
             notes TEXT NOT NULL DEFAULT '',
             PRIMARY KEY(run_id, source_id)
         );
@@ -189,6 +194,10 @@ def open_db(path: Path) -> sqlite3.Connection:
     ensure_column(conn, "articles", "opening_fingerprint", "TEXT NOT NULL DEFAULT ''")
     ensure_column(conn, "source_run_results", "duplicate_count", "INTEGER NOT NULL DEFAULT 0")
     ensure_column(conn, "source_run_results", "rejected_short_count", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "source_run_results", "discovery_duration_ms", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "source_run_results", "fetch_duration_ms", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "source_run_results", "total_duration_ms", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "source_run_results", "average_article_fetch_ms", "INTEGER NOT NULL DEFAULT 0")
     old_rows = conn.execute(
         "SELECT article_id, source_id, canonical_url, title, body, word_count, content_status "
         "FROM articles WHERE title_key = '' OR opening_fingerprint = ''"
@@ -777,6 +786,7 @@ def harvest_source(
     args: argparse.Namespace,
     page_obj: Any,
 ) -> dict[str, Any]:
+    source_started = time.monotonic()
     source_id = str(source["id"])
     client = st.HttpClient(
         float(source.get("timeout_seconds", defaults.get("timeout_seconds", 15))),
@@ -784,9 +794,11 @@ def harvest_source(
         int(source.get("max_retries", defaults.get("max_retries", 1))),
     )
     now = utc_now()
+    discovery_started = time.monotonic()
     homepage_result, candidates, notes = discover_candidates(
         client, source, defaults, args, page_obj
     )
+    discovery_duration_ms = round((time.monotonic() - discovery_started) * 1000)
     candidate_pool = candidates
     next_candidate_index = len(candidate_pool)
     top_articles_per_section = int(source.get("top_articles_per_section", 0) or 0)
@@ -823,6 +835,7 @@ def harvest_source(
     }
 
     short_followups = 0
+    fetch_duration_ms = 0
 
     def queue_short_followup(candidate: dict[str, str]) -> None:
         nonlocal next_candidate_index, short_followups
@@ -883,8 +896,12 @@ def harvest_source(
         if remaining_daily is not None and counts["fetched"] >= remaining_daily:
             notes.append("daily_limit_stop")
             break
+        fetch_started = time.monotonic()
+        fetch_measured = False
         try:
             extracted, method = fetch_one(client, page_obj, source, url, args.browser)
+            fetch_duration_ms += round((time.monotonic() - fetch_started) * 1000)
+            fetch_measured = True
             _, inserted, valid, outcome = save_article(
                 conn, run_id, source, url, extracted, method, now, candidate.get("title_hint", "")
             )
@@ -896,6 +913,8 @@ def harvest_source(
             if is_short:
                 queue_short_followup(candidate)
         except Exception as exc:
+            if not fetch_measured:
+                fetch_duration_ms += round((time.monotonic() - fetch_started) * 1000)
             failed = {
                 "url": url, "status": None, "title": candidate.get("title_hint", ""),
                 "body_success": False, "word_count": 0, "error": str(exc)[:300],
@@ -905,18 +924,23 @@ def harvest_source(
             counts["failed"] += 1
     if short_followups:
         notes.append(f"short_followups={short_followups}")
+    total_duration_ms = round((time.monotonic() - source_started) * 1000)
+    average_article_fetch_ms = round(fetch_duration_ms / counts["fetched"]) if counts["fetched"] else 0
     conn.execute(
         """
         INSERT OR REPLACE INTO source_run_results
         (run_id, source_id, homepage_status, discovered_count, fetched_count,
          skipped_existing_count, valid_article_count, failed_count,
-         duplicate_count, rejected_short_count, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         duplicate_count, rejected_short_count, discovery_duration_ms,
+         fetch_duration_ms, total_duration_ms, average_article_fetch_ms, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_id, source_id, homepage_result.status, counts["discovered"],
             counts["fetched"], counts["skipped"], counts["valid"], counts["failed"],
             counts["duplicates"], counts["rejected_short"],
+            discovery_duration_ms, fetch_duration_ms, total_duration_ms,
+            average_article_fetch_ms,
             "; ".join(notes),
         ),
     )
@@ -924,6 +948,10 @@ def harvest_source(
     return counts | {
         "source_id": source_id,
         "source": source.get("name", source_id),
+        "discovery_duration_ms": discovery_duration_ms,
+        "fetch_duration_ms": fetch_duration_ms,
+        "total_duration_ms": total_duration_ms,
+        "average_article_fetch_ms": average_article_fetch_ms,
         "notes": "; ".join(notes),
     }
 
@@ -1079,6 +1107,7 @@ def main() -> int:
                 f"skipped={counts['skipped']} valid={counts['valid']} "
                 f"duplicates={counts['duplicates']} short={counts['rejected_short']} "
                 f"failed={counts['failed']}"
+                + (f" duration={counts['total_duration_ms'] / 1000:.1f}s" if counts.get("total_duration_ms") is not None else "")
                 + (f" notes={counts['notes']}" if counts.get("notes") else ""),
                 flush=True,
             )

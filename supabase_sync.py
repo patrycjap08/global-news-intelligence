@@ -85,11 +85,14 @@ def pull_state(db_path: Path, client: SupabaseRestClient) -> dict[str, int]:
                 "INSERT OR REPLACE INTO source_run_results "
                 "(run_id,source_id,homepage_status,discovered_count,fetched_count,"
                 "skipped_existing_count,valid_article_count,failed_count,duplicate_count,"
-                "rejected_short_count,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "rejected_short_count,discovery_duration_ms,fetch_duration_ms,"
+                "total_duration_ms,average_article_fetch_ms,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 tuple(row.get(column) for column in (
                     "run_id", "source_id", "homepage_status", "discovered_count",
                     "fetched_count", "skipped_existing_count", "valid_article_count",
-                    "failed_count", "duplicate_count", "rejected_short_count", "notes",
+                    "failed_count", "duplicate_count", "rejected_short_count",
+                    "discovery_duration_ms", "fetch_duration_ms", "total_duration_ms",
+                    "average_article_fetch_ms", "notes",
                 )),
             )
         counts["source_run_results"] = len(result_rows)
