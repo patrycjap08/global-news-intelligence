@@ -238,8 +238,10 @@ function listValue(value) {
   if (!Array.isArray(value)) return '';
   return value.map((item) => {
     if (typeof item === 'string') return `<li>${escapeHtml(item)}</li>`;
-    const text = item.text_pl || item.text || item.claim || item.description_pl || item.description || item.agreement || item.difference || item.frame || item.signal || item.notes || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || '';
-    const marker = item.date || item.time || item.period || '';
+    const primary = item.text_pl || item.text || item.claim || item.description_pl || item.description || item.explanation_pl || item.agreement_pl || item.agreement || item.differences_pl || item.difference || item.frame || item.tone_pl || item.signal_pl || item.signal || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || '';
+    const notes = item.notes_pl || item.notes || '';
+    const text = primary && notes && primary !== notes ? `${primary} ${notes}` : primary || notes;
+    const marker = item.date || item.time || item.period || item.name || item.term || '';
     const rendered = marker && text ? `${marker} — ${text}` : text || marker || JSON.stringify(item);
     return `<li>${escapeHtml(rendered)}</li>`;
   }).join('');
