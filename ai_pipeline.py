@@ -26,6 +26,8 @@ TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
 MIN_ARTICLE_WORDS = 100
+MAX_GROUPING_BATCH_SIZE = 50
+MIN_GROUPING_RETRY_BATCH_SIZE = 25
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
@@ -65,6 +67,7 @@ Nie twórz nowego tematu tylko dlatego, że artykuł pojawił się w kolejnym
 uruchomieniu tego samego dnia. Jeśli dopasowanie do istniejącego tematu jest
 niepewne, zostaw existing_topic_id puste i ustaw needs_review. Profil źródła
 służy wyłącznie do opisu perspektywy, nie do łączenia artykułów.
+grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
 """.strip()
 
 SUMMARY_INSTRUCTIONS = """
@@ -401,7 +404,7 @@ def _analyze_pending_batch(
     articles: list[dict[str, Any]],
     *,
     model: str = DEFAULT_MODEL,
-    batch_index: int = 1,
+    batch_index: str | int = 1,
 ) -> dict[str, int]:
     openai_api_key()
     conn = sqlite3.connect(db_path)
@@ -582,7 +585,8 @@ def analyze_run(
     """
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
-    batch_size = max(1, batch_size)
+    requested_batch_size = max(1, batch_size)
+    batch_size = min(requested_batch_size, MAX_GROUPING_BATCH_SIZE)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -597,21 +601,39 @@ def analyze_run(
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
-        for offset in range(0, len(articles), batch_size):
-            batch_index = offset // batch_size + 1
-            batch = articles[offset:offset + batch_size]
-            print(
-                f"[AI] Paczka {batch_index}/{total_batches}: {len(batch)} artykułów...",
-                flush=True,
-            )
-            batch_stats = _analyze_pending_batch(
-                db_path, run_id, client, batch, model=model, batch_index=batch_index
-            )
+
+        def merge_batch_stats(batch_stats: dict[str, int]) -> None:
             for key in (
                 "groups", "summaries", "skipped_summaries", "skipped_single_article",
                 "failed_summaries", "excluded",
             ):
                 stats[key] += batch_stats[key]
+
+        def process_batch(batch: list[dict[str, Any]], label: str) -> None:
+            print(
+                f"[AI] Paczka {label}/{total_batches}: {len(batch)} artykułów...",
+                flush=True,
+            )
+            try:
+                batch_stats = _analyze_pending_batch(
+                    db_path, run_id, client, batch, model=model, batch_index=label
+                )
+                merge_batch_stats(batch_stats)
+            except ValueError as exc:
+                if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
+                    raise
+                midpoint = len(batch) // 2
+                print(
+                    f"[AI] Niepoprawny JSON dla paczki {label}; dzielę ją na "
+                    f"{midpoint} + {len(batch) - midpoint} artykułów. ({exc})",
+                    flush=True,
+                )
+                process_batch(batch[:midpoint], f"{label}a")
+                process_batch(batch[midpoint:], f"{label}b")
+
+        for offset in range(0, len(articles), batch_size):
+            batch_index = offset // batch_size + 1
+            process_batch(articles[offset:offset + batch_size], str(batch_index))
 
     recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
     stats["summaries"] += recovery_stats["summaries"]

@@ -32,6 +32,8 @@ dodać:
 - `AI_MAX_ARTICLES_PER_RUN`, domyślnie `100`. Pozostałe nieprzypisane artykuły
   czekają w Supabase na następne uruchomienia, żeby pierwszy cykl nie zużył
   niekontrolowanej liczby wywołań API.
+- `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
+  ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
 
 ## Pierwsze uruchomienie
 
