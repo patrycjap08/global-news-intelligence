@@ -23,14 +23,19 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v18-topic-story-balance"
+PROMPT_VERSION = "ai-prompts-v20-topic-grouping-recall"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
 )
-TOPIC_MERGE_MIN_CONFIDENCE = 0.90
+# The merge pass should recover near-duplicate stories split across grouping
+# batches.  The prompt still requires a concrete shared event/story anchor;
+# this threshold leaves room for different headlines and reporting angles.
+TOPIC_MERGE_MIN_CONFIDENCE = float(
+    os.environ.get("AI_TOPIC_MERGE_MIN_CONFIDENCE", "0.84")
+)
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
+GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "130")))
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
@@ -108,10 +113,18 @@ def fallback_topic_title(
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
-Pracujesz wyłącznie na przekazanych artykułach. Połącz materiały tylko wtedy,
-gdy dotyczą tego samego konkretnego wydarzenia, decyzji, wypowiedzi albo
-rozwoju tej samej sprawy. Sama wspólna osoba, państwo, partia lub słowo
-tematyczne nie wystarcza. Treść ma pierwszeństwo przed nagłówkiem.
+Pracujesz wyłącznie na przekazanych artykułach. Twoim celem jest pogrupować
+artykuły możliwie kompletnie według wspólnej osi konkretnej historii. Jeśli
+kilka artykułów opisuje tę samą historię, połącz je już tutaj — nie czekaj na
+etap późniejszego scalania. Preferuj wysoką czułość grupowania, ale nie łącz
+materiałów bez konkretnego wspólnego wydarzenia lub sprawy.
+
+Wspólna oś wystarcza, nawet gdy artykuły mają różne tytuły, pochodzą z różnych
+źródeł albo jeden opisuje wydarzenie, drugi reakcję, a trzeci skutki. Liczby,
+szczegóły, miejsce, czas i perspektywa mogą się różnić. Sama wspólna osoba,
+państwo, partia, firma lub słowo tematyczne nie wystarcza. Tytuł artykułu jest
+ważnym sygnałem razem z wyciągiem treści — nie odrzucaj zgodnej pary tylko
+dlatego, że pierwsze słowa tekstu nie powtarzają nazwy wydarzenia.
 
 Najpierw odrzuć materiały wyraźnie niezwiązane z głównym zakresem aplikacji:
 sport, celebryci, rozrywka, lifestyle, przepisy, zwykłe treści konsumenckie i
@@ -120,8 +133,8 @@ dyplomacji, konfliktów, prawa publicznego lub istotnych wydarzeń społecznych.
 Jeżeli związek jest niepewny, nie odrzucaj materiału — zostaw go w grupie lub
 unassigned_article_ids i ustaw needs_review.
 
-Treść artykułu w tym etapie jest tylko krótkim wyciągiem pierwszych około 100
-słów, więc nie dopowiadaj faktów, których nie ma w wyciągu.
+Treść artykułu w tym etapie jest tylko krótkim wyciągiem pierwszych około 130
+słów, więc nie dopowiadaj faktów, których nie ma w tytule ani wyciągu.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"groups":[{"group_id":"new_group_001","existing_topic_id":"",
@@ -142,8 +155,8 @@ bezpośredni ciąg aktualizacji albo jedną trwającą sprawę, negocjację, dec
 lub politykę. Artykuły mogą dodawać różne, uzupełniające informacje — nie muszą
 powtarzać tych samych faktów. Zadaj pytanie: „czy wszystkie materiały opisują
 to, co dzieje się w tej samej sprawie?”. Jeśli tak, połącz je pod jednym
-tematem i ustaw needs_review=true, gdy związek jest prawdopodobny, ale nie
-idealnie pewny.
+tematem. Jeśli wspólna oś jest wiarygodna, ale któryś artykuł ma słabszy
+związek, nadal dołącz go i ustaw needs_review=true.
 
 Przed zwróceniem wyniku wykonaj test: tytuł i topic_anchor_pl muszą trafnie
 opisywać każdy artykuł z article_ids. Jeżeli dla któregokolwiek artykułu trzeba
@@ -151,20 +164,23 @@ dopisać „a ponadto zupełnie inna sprawa”, rozbij grupę. Wspólny kraj, po
 organizacja, branża, wojna albo wzmianka o USA, Rosji, Chinach, NATO czy UE nie
 oznacza jeszcze tego samego wątku. Przykład błędny: wypowiedź Trumpa oraz wzrost
 cen zbóż w Szkocji. Przykład poprawny: różne wypowiedzi i decyzje dotyczące tej
-samej rundy negocjacji albo różne aktualizacje tego samego śledztwa.
+samej rundy negocjacji, różne aktualizacje tego samego śledztwa albo różne
+relacje o pierwszym orbitalnym locie Starshipa.
 
 Łącz artykuły opisujące tę samą historię nawet wtedy, gdy jeden przedstawia
 decyzję, drugi reakcję, a trzeci skutki. Użyj grupy jednoartykułowej dopiero
-wtedy, gdy nie da się wskazać konkretnej wspólnej osi wydarzeń.
+wtedy, gdy po porównaniu tytułu i wyciągu naprawdę nie da się wskazać
+konkretnej wspólnej osi wydarzeń — nie twórz singletona tylko dlatego, że
+artykuł ma inny kąt albo nie powtarza wszystkich słów z pozostałych tytułów.
 
 Dla każdego article_id w grupie dodaj dokładnie jeden wpis article_relevance.
 why_same_event ma wskazywać konkretny wspólny fakt, decyzję, wypowiedź, ciąg
 aktualizacji albo sprawę, a nie tylko wspólne słowo, osobę albo państwo. Jeśli
 nie potrafisz wskazać takiej osi, artykuł musi znaleźć się w osobnej grupie albo
 w unassigned_article_ids. confidence oceniaj dla najsłabiej pasującego artykułu,
-nie dla większości grupy. Dla tego samego wydarzenia użyj zwykle 0.90+, dla
-tej samej trwającej historii z różnymi aspektami zwykle 0.75–0.89, a poniżej
-0.70 nie łącz artykułów.
+nie dla większości grupy. Dla identycznego wydarzenia użyj zwykle 0.90+, ale
+dla tej samej trwającej historii z różnymi aspektami 0.70–0.89 jest prawidłowe.
+Nie rozbijaj grupy tylko dlatego, że confidence nie wynosi 0.90.
 Jeżeli artykuł jest dalszym ciągiem istniejącego tematu, wpisz jego topic_id i
 topic_action=DEVELOPMENT. Jeżeli tylko uzupełnia kontekst lub wcześniejszą
 agregację, wpisz topic_action=BACKGROUND_OR_CONTEXT. Nowe wydarzenie ma
@@ -199,15 +215,43 @@ wynikający z przekazanych artykułów.
 
 TOPIC_MERGE_INSTRUCTIONS = """
 Jesteś modułem porządkowania tematów w aplikacji Global News Intelligence.
-Otrzymujesz aktywne tematy z ostatnich kilku dni. Sprawdź, czy dwa lub więcej
-tematów dotyczy dokładnie tego samego konkretnego wydarzenia, decyzji,
-głosowania, wypowiedzi albo rozwoju tej samej sprawy.
+Otrzymujesz aktywne tematy z ostatnich kilku dni. Twoim celem jest znaleźć
+wszystkie pary i grupy opisujące tę samą konkretną historię, nawet jeśli
+wcześniejsze grupowanie rozdzieliło je na różne tematy. Rozważ każdą sensowną
+parę tematów, a nie tylko tematy z niemal identycznym tytułem.
+W tym kroku preferuj wysoką czułość: lepiej połączyć dwa bardzo podobne
+relacje o tej samej historii niż zostawić je jako duplikaty.
 
-Scalaj tylko wtedy, gdy podobieństwo wynika z tytułu i krótkiego opisu oraz
-dotyczy tego samego zdarzenia. Nie scalaj tematów tylko dlatego, że dotyczą
-tego samego państwa, osoby, partii, wojny, wyborów albo ogólnego problemu.
-Podobne słowa nie wystarczają, jeżeli chodzi o różne wydarzenia. Jeżeli masz
-wątpliwości, pozostaw tematy osobno.
+SCALAJ, gdy tematy mają wspólny rozpoznawalny punkt zaczepienia, na przykład:
+- ten sam konkretny incydent, lot, misję, operację, wypadek albo mecz;
+- tę samą decyzję, umowę, głosowanie, wypowiedź lub ogłoszenie;
+- tę samą sprawę, śledztwo, protest, negocjacje albo rozwój wcześniej opisanej
+  historii;
+- ten sam charakterystyczny obiekt i zdarzenie, nawet jeśli artykuły skupiają
+  się na innych szczegółach, skutkach lub wypowiedziach;
+- ten sam ongoing story, gdy nowszy artykuł dodaje szczegóły do wydarzenia,
+  a nie opisuje tylko ogólnej tematyki.
+
+Różne źródła, różne kąty relacji, różne liczby, szczegóły miejsca/czasu oraz
+tytuły skupione na różnych uczestnikach NIE są powodem, by zostawić tematy
+osobno, jeśli całość wskazuje na tę samą historię. Przykład: artykuły o
+pierwszym orbitalnym locie Starshipa, locie z bazy w Teksasie i osiągnięciu
+orbity przez Starship należy połączyć, nawet gdy każdy tytuł akcentuje inny
+szczegół.
+
+NIE SCALAJ tylko dlatego, że tematy dotyczą tego samego państwa, osoby,
+partii, firmy, wojny, wyborów albo ogólnego problemu. Sama wspólna osoba lub
+organizacja nie wystarcza: Trump może występować w wielu niezależnych
+wydarzeniach, a wzrost zbóż w Szkocji nie jest tą samą historią co wypowiedź
+Trumpa. Nie łącz też dwóch różnych incydentów z tą samą osobą ani dwóch
+różnych etapów tylko dlatego, że mają podobne słowa. Jeżeli nie ma żadnego
+konkretnego wspólnego wydarzenia, zostaw tematy osobno.
+
+Porównuj przede wszystkim charakterystyczne nazwy, obiekty, zdarzenia i
+relacje w `recent_article_titles`, a dopiero potem ogólne słowa. Krótkie
+podsumowanie może być nieaktualne lub niedoskonałe; nie pozwól, aby samo
+rozbieżne sformułowanie podsumowania zablokowało połączenie, gdy tytuły i
+faktyczny punkt zaczepienia są zgodne.
 
 merged_title_pl zachowuje te same zasady co working_title_pl: ma być konkretnym,
 informacyjnym i ciekawym tytułem w jednolitym stylu prasowym, bez clickbaitu,
@@ -224,9 +268,10 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 
 W każdej grupie muszą być co najmniej dwa różne topic_id. Nie umieszczaj
 jednego tematu w dwóch grupach. confidence ma oznaczać pewność, że chodzi o
-to samo konkretne wydarzenie, a nie tylko podobną tematykę. Do automatycznego
-scalenia nadają się wyłącznie grupy z confidence co najmniej 0.90. Nie twórz
-grup z tematów, które są już oznaczone jako scalone.
+ten sam konkretny incydent lub ciąg dalszy tej samej historii. Używaj wartości
+co najmniej 0.84 dla mocnych, ale niekoniecznie identycznych relacji; wartości
+poniżej 0.84 zostaw osobno. Nie twórz grup z tematów, które są już oznaczone
+jako scalone.
 """.strip()
 
 TITLE_NORMALIZATION_INSTRUCTIONS = """
