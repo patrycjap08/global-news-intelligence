@@ -129,6 +129,10 @@ button { color: inherit; }
 .topic-card.featured { grid-column: span 2; min-height: 290px; border-top-color: var(--red); background: var(--paper-deep); }
 .topic-card.is-single { border-top-color: var(--line-dark); }
 .card-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; color: var(--muted); font-size: 10px; }
+.card-meta-actions { display: inline-flex; align-items: center; gap: 9px; }
+.bookmark-button, .dialog-bookmark-button { border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
+.bookmark-button { width: 24px; height: 24px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
+.bookmark-button:hover, .bookmark-button.is-saved, .dialog-bookmark-button:hover, .dialog-bookmark-button.is-saved { border-color: var(--red-soft); color: var(--red); }
 .card-badge-group { display: grid; gap: 4px; }
 .card-badge-group small { color: var(--muted); font-size: 10px; font-weight: 500; }
 .card-badge { color: var(--red); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
@@ -161,6 +165,7 @@ button { color: inherit; }
 .dialog-close { position: sticky; z-index: 2; top: 12px; float: right; width: 32px; height: 32px; margin: 12px 12px 0 0; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); cursor: pointer; font-size: 22px; line-height: 1; }
 .dialog-content { padding: 44px 48px 52px; }
 .dialog-kicker { color: var(--red); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.dialog-bookmark-button { margin-left: 10px; padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .dialog-content h2 { max-width: 650px; margin: 8px 0 12px; font-family: var(--serif); font-size: clamp(28px, 5vw, 48px); font-weight: 400; letter-spacing: -.055em; line-height: 1.1; }
 .dialog-lead { margin: 0 0 28px; color: #514b43; font-family: var(--serif); font-size: 16px; line-height: 1.6; }
 .dialog-rule { height: 1px; margin: 22px 0; background: var(--line-dark); }

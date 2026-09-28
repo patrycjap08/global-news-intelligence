@@ -1,5 +1,6 @@
 const config = window.GNI_CONFIG || {};
 const READ_STATE_KEY = 'gni.topic-read-state.v1';
+const BOOKMARK_STATE_KEY = 'gni.topic-bookmarks.v1';
 const TOPIC_VALIDITY_HOURS = 55;
 
 const state = {
@@ -16,6 +17,7 @@ const state = {
   profile: 'ALL',
   search: '',
   readTopics: loadReadTopics(),
+  bookmarkedTopics: loadBookmarkedTopics(),
   latestHarvestStartedAt: null,
   demo: false,
 };
@@ -83,6 +85,27 @@ function saveReadTopics() {
     window.localStorage.setItem(READ_STATE_KEY, JSON.stringify(state.readTopics));
   } catch (error) {
     console.warn('Nie udało się zapisać lokalnego statusu przeczytania tematów.', error);
+  }
+}
+
+function loadBookmarkedTopics() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(BOOKMARK_STATE_KEY) || '{}');
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).filter(([, record]) => (
+      record && typeof record === 'object' && !Array.isArray(record)
+    )));
+  } catch (error) {
+    console.warn('Nie udało się odczytać zapisanych tematów.', error);
+    return {};
+  }
+}
+
+function saveBookmarkedTopics() {
+  try {
+    window.localStorage.setItem(BOOKMARK_STATE_KEY, JSON.stringify(state.bookmarkedTopics));
+  } catch (error) {
+    console.warn('Nie udało się zapisać bookmarka tematu.', error);
   }
 }
 
@@ -220,6 +243,39 @@ function isTopicRead(model) {
   }
   // Compatibility with the earlier local format, which stored only a version.
   return Number(record.version || 0) >= Number(model.summaryVersion || 1);
+}
+
+function bookmarkedKeyForTopic(model) {
+  if (state.bookmarkedTopics[model.topic_id]) return model.topic_id;
+  const evidence = new Set(topicArticleIds(model));
+  return Object.entries(state.bookmarkedTopics).find(([, record]) => {
+    const savedEvidence = Array.isArray(record.evidence_ids) ? record.evidence_ids : [];
+    return savedEvidence.some((evidenceId) => evidence.has(String(evidenceId)));
+  })?.[0] || null;
+}
+
+function isTopicBookmarked(model) {
+  return Boolean(bookmarkedKeyForTopic(model));
+}
+
+function toggleTopicBookmark(topicId) {
+  const model = state.topics.map(topicModel).find((topic) => topic.topic_id === topicId);
+  if (!model) return;
+  const existingKey = bookmarkedKeyForTopic(model);
+  if (existingKey) {
+    delete state.bookmarkedTopics[existingKey];
+    saveBookmarkedTopics();
+    showToast('Usunięto z zapisanych.');
+  } else {
+    state.bookmarkedTopics[topicId] = {
+      topic_id: topicId,
+      evidence_ids: topicArticleIds(model),
+      saved_at: new Date().toISOString(),
+    };
+    saveBookmarkedTopics();
+    showToast('Zapisano temat.');
+  }
+  render();
 }
 
 function markTopicRead(model) {
@@ -428,10 +484,11 @@ function cardHtml(model, index) {
     ? `${articleCountLabel(model.articles.length)} · ${sourceCountLabel(model.sources.length)}`
     : 'Materiał oczekujący na drugie źródło';
   const hasUpdate = Boolean(updateText(model.latestUpdate));
+  const bookmarked = isTopicBookmarked(model);
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}</span><span>${formatDate(model.newestArticleAt)}</span></div>
+    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}</span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
@@ -465,6 +522,7 @@ function readerContextHtml(items) {
 
 function dialogHtml(model) {
   const summary = model.summary || {};
+  const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
   const xMaterials = model.xPosts.map((post) => `<div class="evidence-item social-evidence"><strong>${escapeHtml(post.display_name)} · X</strong><span><a href="${escapeHtml(post.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(post.text)}</a><br /><small>@${escapeHtml(post.username)}${post.posted_at ? ` · ${formatDate(post.posted_at)}` : ''} · wypowiedź autora, nie niezależne źródło prasowe</small></span></div>`).join('');
@@ -479,7 +537,7 @@ function dialogHtml(model) {
     const when = update.generated_at ? ` · ${formatDate(update.generated_at)}` : '';
     return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><p>${escapeHtml(readableEvidenceText(updateCopy))}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>`;
   }).join('');
-  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span></p>
+  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
@@ -513,6 +571,7 @@ function filteredModels() {
     if (!topic.hasAggregation) return false;
     if (state.view === 'current' && !topic.isCurrent) return false;
     if (state.view === 'historical' && topic.isCurrent) return false;
+    if (state.view === 'saved' && !isTopicBookmarked(topic)) return false;
     if (state.hideRead && isTopicRead(topic)) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
     if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
@@ -535,12 +594,20 @@ function render() {
   renderProfiles(allModels);
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
-  $('#results-heading').textContent = state.view === 'historical' ? 'Historyczne agregacje' : 'Aktualne historie';
+  $('#results-heading').textContent = state.view === 'historical'
+    ? 'Historyczne agregacje'
+    : state.view === 'saved' ? 'Zapisane tematy' : 'Aktualne historie';
   $('#topic-grid').innerHTML = models.map(cardHtml).join('');
   $('#empty-state').hidden = models.length > 0;
   $('#topic-grid').querySelectorAll('[data-topic-id]').forEach((card) => {
-    card.addEventListener('click', () => openTopic(card.dataset.topicId));
-    card.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openTopic(card.dataset.topicId); } });
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('[data-bookmark-topic-id]')) return;
+      openTopic(card.dataset.topicId);
+    });
+    card.addEventListener('keydown', (event) => {
+      if (event.target.closest('[data-bookmark-topic-id]')) return;
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openTopic(card.dataset.topicId); }
+    });
   });
 }
 
@@ -565,6 +632,18 @@ async function init() {
 }
 
 document.addEventListener('click', (event) => {
+  const bookmarkButton = event.target.closest('[data-bookmark-topic-id]');
+  if (bookmarkButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleTopicBookmark(bookmarkButton.dataset.bookmarkTopicId);
+    const dialog = $('#story-dialog');
+    if (dialog?.open) {
+      const model = state.topics.map(topicModel).find((topic) => topic.topic_id === bookmarkButton.dataset.bookmarkTopicId);
+      if (model) $('#dialog-content').innerHTML = dialogHtml(model);
+    }
+    return;
+  }
   const viewButton = event.target.closest('[data-view]');
   if (viewButton) { state.view = viewButton.dataset.view; document.querySelectorAll('[data-view]').forEach((button) => button.classList.toggle('is-active', button === viewButton)); render(); }
   if (event.target === $('#story-dialog')) $('#story-dialog').close();
