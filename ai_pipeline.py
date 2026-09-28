@@ -508,10 +508,10 @@ def _analyze_pending_batch(
         stats["excluded"] = len(excluded_ids)
         groups = grouping.get("groups") if isinstance(grouping.get("groups"), list) else []
         assigned_ids: set[str] = set()
-        topic_rows: list[dict[str, Any]] = []
         link_rows: list[dict[str, Any]] = []
         assignment_rows: list[dict[str, Any]] = []
-        group_data: list[dict[str, Any]] = []
+        group_data_by_topic: dict[str, dict[str, Any]] = {}
+        duplicate_topic_ids: set[str] = set()
         for group in groups:
             if not isinstance(group, dict):
                 continue
@@ -533,6 +533,49 @@ def _analyze_pending_batch(
             needs_review = bool(group.get("needs_review", False))
             existing_ids = topic_links.get(topic_id, [])
             all_ids = list(dict.fromkeys(existing_ids + ids))
+            link_rows.extend({"topic_id": topic_id, "article_id": article_id, "confidence": confidence} for article_id in ids)
+            assignment_rows.extend({
+                "run_id": run_id, "article_id": article_id, "topic_id": topic_id,
+                "confidence": confidence, "needs_review": needs_review,
+                "grouping_reason": str(group.get("grouping_reason") or "")[:1000],
+                "prompt_version": PROMPT_VERSION,
+            } for article_id in ids)
+
+            existing_group = group_data_by_topic.get(topic_id)
+            if existing_group is None:
+                group_data_by_topic[topic_id] = {
+                    "topic_id": topic_id,
+                    "title": title,
+                    "all_ids": all_ids,
+                    "new_ids": ids,
+                    "needs_review": needs_review,
+                    "topic_action": topic_action,
+                }
+            else:
+                # The model can occasionally return two groups pointing to the
+                # same existing topic. PostgreSQL rejects duplicate constrained
+                # values in one upsert command, so coalesce them before writing.
+                duplicate_topic_ids.add(topic_id)
+                existing_group["all_ids"] = list(dict.fromkeys(existing_group["all_ids"] + ids))
+                existing_group["new_ids"] = list(dict.fromkeys(existing_group["new_ids"] + ids))
+                existing_group["needs_review"] = existing_group["needs_review"] or needs_review
+                if topic_action == "DEVELOPMENT" or existing_group["topic_action"] == "DEVELOPMENT":
+                    existing_group["topic_action"] = "DEVELOPMENT"
+                elif topic_action == "BACKGROUND_OR_CONTEXT":
+                    existing_group["topic_action"] = "BACKGROUND_OR_CONTEXT"
+
+        group_data = list(group_data_by_topic.values())
+        if duplicate_topic_ids:
+            print(
+                "[AI] Scalono grupy wskazujące ten sam topic_id: "
+                + ", ".join(sorted(duplicate_topic_ids)),
+                flush=True,
+            )
+
+        topic_rows: list[dict[str, Any]] = []
+        for group in group_data:
+            topic_id = group["topic_id"]
+            all_ids = group["all_ids"]
             all_rows = local_articles(conn, all_ids)
             source_ids = {row["source_id"] for row in all_rows}
             if len(all_ids) == 1:
@@ -543,26 +586,11 @@ def _analyze_pending_batch(
                 coverage_status = "MULTI_SOURCE"
             existing_context = topic_context.get(topic_id, {})
             topic_rows.append({
-                "topic_id": topic_id, "headline_pl": title, "status": "ACTIVE",
+                "topic_id": topic_id, "headline_pl": group["title"], "status": "ACTIVE",
                 "first_seen_at": existing_context.get("first_seen_at") or now(),
                 "last_seen_at": now(), "article_count": len(all_ids),
                 "source_count": len(source_ids), "coverage_status": coverage_status,
-                "needs_review": needs_review, "updated_at": now(),
-            })
-            link_rows.extend({"topic_id": topic_id, "article_id": article_id, "confidence": confidence} for article_id in ids)
-            assignment_rows.extend({
-                "run_id": run_id, "article_id": article_id, "topic_id": topic_id,
-                "confidence": confidence, "needs_review": needs_review,
-                "grouping_reason": str(group.get("grouping_reason") or "")[:1000],
-                "prompt_version": PROMPT_VERSION,
-            } for article_id in ids)
-            group_data.append({
-                "topic_id": topic_id,
-                "title": title,
-                "all_ids": all_ids,
-                "new_ids": ids,
-                "needs_review": needs_review,
-                "topic_action": topic_action,
+                "needs_review": group["needs_review"], "updated_at": now(),
             })
 
         client.upsert("topics", topic_rows, on_conflict="topic_id")
