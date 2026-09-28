@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v13-source-threshold-and-headlines"
+PROMPT_VERSION = "ai-prompts-v14-comprehensive-updates"
 TOPIC_LOOKBACK_HOURS = 55
 TOPIC_MERGE_MIN_CONFIDENCE = 0.90
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
@@ -182,9 +182,19 @@ potential_manipulation_signals, background_context ani reader_context — progra
 zachowa te pola z poprzedniej wersji. W takim przypadku wygeneruj wyłącznie
 delta-update w polu update, opisujący bieżące new_articles.
 
-Jeżeli nowe artykuły dodają istotne fakty, napisz je konkretnie w
-update.new_information_pl, najlepiej w 1–4 krótkich akapitach. Jeżeli tylko
-powtarzają wcześniejsze informacje, nadal ustaw update.is_update=true i napisz
+Jeżeli nowe artykuły dodają istotne fakty, opisz je konkretnie i wyczerpująco
+w update.new_information_pl. Nie skracaj aktualizacji na siłę do kilku zdań
+ani do z góry ustalonej liczby akapitów. Uwzględnij wszystkie istotne nowe
+ustalenia, liczby, decyzje, wypowiedzi, reakcje, skutki i rozbieżności, których
+nie było w previous_aggregation. Długość ma wynikać z ilości nowych informacji:
+przy jednym drobnym fakcie wystarczy krótki akapit, ale przy kilku obszernych
+artykułach aktualizacja może mieć kilka rozwiniętych akapitów i około 300–700
+słów, jeżeli materiał uzasadnia taką długość. Aktualizacja ma przekazywać treść
+nowych materiałów, a nie tylko informować, że pojawiły się nowe doniesienia.
+Nie powtarzaj jednak faktów już zawartych w previous_aggregation.
+
+Jeżeli nowe artykuły tylko powtarzają wcześniejsze informacje, nadal ustaw
+update.is_update=true i napisz
 wprost, że dodano określoną liczbę materiałów oraz z jakich źródeł, ale nie
 wnoszą one nowych, niezależnie potwierdzonych informacji. Nie pisz wtedy
 „kliknij”, „sprawdź artykuł” ani „źródła opisują temat” bez podania wyniku.
