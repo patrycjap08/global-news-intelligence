@@ -346,7 +346,7 @@ function cardHtml(model, index) {
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.newestArticleAt)}</span></div>
+    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}</span><span>${formatDate(model.newestArticleAt)}</span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
@@ -453,7 +453,7 @@ function render() {
   renderProfiles(allModels);
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
-  $('#results-heading').textContent = state.view === 'historical' ? 'Historyczne agregacje' : 'Aktualne agregacje';
+  $('#results-heading').textContent = state.view === 'historical' ? 'Historyczne agregacje' : 'Aktualne historie';
   $('#topic-grid').innerHTML = models.map(cardHtml).join('');
   $('#empty-state').hidden = models.length > 0;
   $('#topic-grid').querySelectorAll('[data-topic-id]').forEach((card) => {
