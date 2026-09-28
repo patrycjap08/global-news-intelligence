@@ -13,8 +13,11 @@ on:
           - ai-only
           - rebuild-summaries
   schedule:
-    # GitHub cron uses UTC.
-    - cron: "17 6,12,18 * * *"
+    # Times are Europe/Warsaw; minute 17 avoids the busiest exact-hour slot.
+    - cron: "17 7 * * *"
+      timezone: "Europe/Warsaw"
+    - cron: "17 16 * * *"
+      timezone: "Europe/Warsaw"
 
 permissions:
   contents: read

@@ -68,6 +68,7 @@ scalania podobnych aktywnych tematów, a dopiero potem generowane są syntezy.
 
 ## Harmonogram
 
-Workflow uruchamia się trzy razy dziennie o `06:17`, `12:17` i `18:17` UTC.
-GitHub Actions pokazuje czas w UTC. Harmonogram nie jest związany z laptopem —
-działa także wtedy, gdy komputer jest wyłączony.
+Workflow uruchamia się dwa razy dziennie o `07:17` i `16:17` czasu
+`Europe/Warsaw`. GitHub Actions obsługuje tę strefę i uwzględnia zmianę czasu
+letniego/zimowego. Harmonogram nie jest związany z laptopem — działa także
+wtedy, gdy komputer jest wyłączony.
