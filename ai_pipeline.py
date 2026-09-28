@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v6-broader-summaries-json-extraction-logging"
+PROMPT_VERSION = "ai-prompts-v7-reader-context-and-foreign-entities"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -93,6 +93,29 @@ zdań w różnych akapitach i nie wydłużaj tekstu sztucznie, jeśli materiały
 krótkie. Istotne twierdzenia nadal muszą mieć oparcie w article_ids w
 pozostałych polach struktury.
 
+Pisz dla polskiego czytelnika, który może nie znać lokalnego kontekstu. Jeżeli
+temat dotyczy państwa innego niż Polska, już przy pierwszej wzmiance wyjaśnij
+państwo lub region, a także miejsca i instytucje ważne dla zrozumienia sprawy.
+Nie traktuj skrótów, nazwisk, miast ani nazw urzędów jako samowyjaśniających.
+Przy pierwszym użyciu:
+- rozwiń istotny skrót i krótko wyjaśnij, czym jest, zachowując oryginalny
+  skrót w nawiasie;
+- przy osobie podaj — jeśli wynika to z materiałów — imię i nazwisko, funkcję
+  lub rolę oraz państwo albo organizację;
+- przy organizacji lub urzędzie wyjaśnij, jakiego jest rodzaju i z jakim
+  państwem albo obszarem jest związany;
+- przy mieście, bazie lub regionie podaj państwo i — gdy pomaga — szerszy
+  region;
+- przy specjalistycznym pojęciu, procedurze albo modelu sprzętu wyjaśnij jego
+  znaczenie w jednym krótkim zdaniu.
+Nie dopowiadaj biografii, funkcji, przynależności partyjnej ani znaczenia
+skrótów, którego nie da się wiarygodnie ustalić. Jeżeli informacja pochodzi
+wyłącznie z ogólnej wiedzy, umieść ją w background_context lub reader_context
+z needs_verification=true. Jeżeli materiały nie pozwalają ustalić, kim jest
+osoba lub organizacja, napisz to wprost zamiast zgadywać. Nie twórz słownika
+ze wszystkich nazw własnych: reader_context ma zawierać maksymalnie około
+8–12 objaśnień naprawdę potrzebnych do zrozumienia tematu.
+
 Jeżeli previous_aggregation nie jest null, wypełnij też pole update. Ma ono
 opisywać wyłącznie to, co wniósł bieżący zestaw new_articles: nowe fakty,
 zmiany, korekty albo nowe rozbieżności. Nie kopiuj do niego całej poprzedniej
@@ -113,7 +136,9 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "what_changed_pl":"","new_article_ids":[]},"summary_pl":"","timeline":[],
 "facts":[],"agreement":[],"differences":[],"framing_and_tone":[],
 "potential_manipulation_signals":[],"contradictions":[],
-"background_context":[],"unknowns":[],"sources":[],
+"background_context":[],"reader_context":[{"type":"COUNTRY|REGION|PERSON|ORGANIZATION|PLACE|ABBREVIATION|TERM",
+"name":"","explanation_pl":"","article_ids":[],"needs_verification":false}],
+"unknowns":[],"sources":[],
 "quality":{"article_count":0,"source_count":0,
 "has_multiple_perspectives":false,"overall_confidence":"MEDIUM",
 "limitations_pl":""}}

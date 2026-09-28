@@ -202,6 +202,18 @@ function listValue(value) {
   return value.map((item) => `<li>${escapeHtml(typeof item === 'string' ? item : item.text_pl || item.text || item.claim || item.description || item.headline_pl || JSON.stringify(item))}</li>`).join('');
 }
 
+function readerContextHtml(items) {
+  if (!Array.isArray(items) || !items.length) return '';
+  const rows = items.map((item) => {
+    if (typeof item === 'string') return `<div class="reader-context-item"><p>${escapeHtml(item)}</p></div>`;
+    const name = item.name || item.term || item.label || '';
+    const explanation = item.explanation_pl || item.description || item.text_pl || item.text || '';
+    const verification = item.needs_verification ? '<small>Wymaga dodatkowej weryfikacji.</small>' : '';
+    return `<div class="reader-context-item"><strong>${escapeHtml(name)}</strong><p>${escapeHtml(explanation)}</p>${verification}</div>`;
+  }).join('');
+  return `<section class="dialog-section reader-context"><h3>Dla czytelnika</h3><div class="reader-context-list">${rows}</div></section>`;
+}
+
 function dialogHtml(model) {
   const summary = model.summary || {};
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
@@ -220,6 +232,7 @@ function dialogHtml(model) {
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
     ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateText)}</p>${newArticleIds.length ? `<small>Dodano ${newArticleIds.length} nowych materiałów do tego wątku.</small>` : ''}</section>` : ''}
+    ${readerContextHtml(summary.reader_context)}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
     ${section('Różnice i sprzeczności', summary.differences)}
