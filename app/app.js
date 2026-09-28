@@ -144,7 +144,9 @@ function topicModel(topic) {
   const topicLinks = state.links.filter((link) => link.topic_id === topic.topic_id);
   const articles = topicLinks.map((link) => articlesById.get(link.article_id)).filter(Boolean);
   const summaryRow = state.summaries.get(topic.topic_id) || {};
-  const summary = summaryRow.summary || summaryRow;
+  const storedSummary = summaryRow.summary || summaryRow;
+  const summary = storedSummary.base_summary || storedSummary;
+  const latestUpdate = storedSummary.latest_update || storedSummary.update || {};
   const summaryTopic = summary.topic || {};
   const profileCounts = {};
   const sources = new Set();
@@ -159,6 +161,7 @@ function topicModel(topic) {
     sources: [...sources],
     profileCounts,
     summary,
+    latestUpdate,
     summaryVersion: summaryRow.version || 1,
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
     history: state.history.get(topic.topic_id) || [],
@@ -252,7 +255,7 @@ function renderSources(models) {
 function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
   const badge = model.articles.length > 1 ? `${model.articles.length} artykuły · ${model.sources.length} źródła` : 'Jedno źródło';
-  const hasUpdate = Boolean(updateText(model.summary));
+  const hasUpdate = Boolean(updateText(model.latestUpdate));
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
@@ -292,20 +295,26 @@ function dialogHtml(model) {
   const summary = model.summary || {};
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
-  const update = summary.update || {};
+  const update = model.latestUpdate || {};
   const latestVersion = model.history[model.history.length - 1];
   const newArticleIds = Array.isArray(update.new_article_ids) && update.new_article_ids.length ? update.new_article_ids : (latestVersion?.new_article_ids || []);
-  const updateCopy = updateText(summary);
+  const newArticleIdSet = new Set(newArticleIds.map(String));
+  const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
+  const updateCopy = updateText(update);
   const isUpdate = Boolean(updateCopy);
   const previousVersions = model.history.slice(0, -1).reverse().map((version) => {
-    const previousSummary = version.summary?.summary_pl || 'Brak tekstu poprzedniej wersji.';
-    return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p></details>`;
+    const storedVersion = version.summary || {};
+    const previousBase = storedVersion.base_summary || storedVersion;
+    const previousSummary = previousBase.summary_pl || 'Brak tekstu poprzedniej wersji.';
+    const previousUpdate = storedVersion.latest_update || storedVersion.update || {};
+    const previousUpdateText = updateText(previousUpdate);
+    return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p>${previousUpdateText ? `<small>${escapeHtml(previousUpdateText)}</small>` : ''}</details>`;
   }).join('');
   return `<div class="dialog-content"><p class="dialog-kicker">${model.articles.length > 1 ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'POJEDYNCZY MATERIAŁ'} <span class="coverage-pill">${model.articles.length} artykuł${model.articles.length === 1 ? '' : 'y'}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
-    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Dodano ${newArticleIds.length} nowych materiałów do tego wątku.</small>` : ''}</section>` : ''}
+    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${newArticleIds.length} ${newArticleIds.length === 1 ? 'artykuł' : 'artykuły'}</small>` : ''}</section>` : ''}
     ${readerContextHtml(summary.reader_context)}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}

@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v9-canonical-summary-fields"
+PROMPT_VERSION = "ai-prompts-v10-immutable-base-and-delta-updates"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -84,14 +84,17 @@ treść, niezweryfikowane twierdzenie albo konflikt z innym materiałem. Nie
 wymyślaj cytatów ani informacji spoza artykułów. Kontekst ogólny wpisz tylko
 do background_context i oznacz needs_verification=true.
 
-summary_pl ma być pełniejszą, ale zwartą syntezą: napisz 3–5 krótkich
-akapitów. Przy co najmniej 4 artykułach celuj w około 250–450 słów, a przy
-2–3 artykułach w około 180–300 słów. Uwzględnij kolejno: co się wydarzyło,
-najważniejsze potwierdzone szczegóły, rozwój lub kontekst sprawy oraz to, co
-pozostaje niepewne albo różni się między źródłami. Nie powtarzaj tych samych
-zdań w różnych akapitach i nie wydłużaj tekstu sztucznie, jeśli materiały są
-krótkie. Istotne twierdzenia nadal muszą mieć oparcie w article_ids w
-pozostałych polach struktury.
+summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o czym
+piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
+przedstawiają” ani „materiały dotyczą”. Zacznij od tego, co się wydarzyło.
+Przy co najmniej 4 artykułach napisz zwykle 5–8 akapitów i około 450–800 słów,
+a przy 2–3 artykułach około 300–500 słów, o ile materiały zawierają taką ilość
+konkretnych informacji. Zbierz w jednym tekście: główne wydarzenie, uczestników
+i ich działania, najważniejsze liczby i decyzje, reakcje, kolejność rozwoju
+sprawy, skutki oraz to, co jest niepewne albo różni się między źródłami.
+Nie powtarzaj tych samych zdań i nie dopisuj faktów tylko po to, żeby wydłużyć
+tekst. Informacje dodatkowe mogą zostać w osobnych sekcjach, ale summary_pl
+ma już odpowiadać na pytanie „co dokładnie się wydarzyło”.
 
 Pisz dla polskiego czytelnika, który może nie znać lokalnego kontekstu. Jeżeli
 temat dotyczy państwa innego niż Polska, już przy pierwszej wzmiance wyjaśnij
@@ -120,15 +123,28 @@ Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli dat
 jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo
 differences przy odpowiednim fakcie. W przeciwnym razie pomiń ją.
 
-Jeżeli previous_aggregation nie jest null, wypełnij też pole update. Ma ono
-opisywać wyłącznie to, co wniósł bieżący zestaw new_articles: nowe fakty,
-zmiany, korekty albo nowe rozbieżności. Nie kopiuj do niego całej poprzedniej
-syntezy. Jeżeli previous_aggregation jest null, ustaw update.is_update=false.
+Jeżeli previous_aggregation nie jest null, potraktuj ją jako NIEZMIENNĄ,
+opublikowaną wcześniej syntezę. Nie przepisuj jej, nie skracaj i nie aktualizuj
+summary_pl, facts, agreement, differences, framing_and_tone,
+potential_manipulation_signals, background_context ani reader_context — program
+zachowa te pola z poprzedniej wersji. W takim przypadku wygeneruj wyłącznie
+delta-update w polu update, opisujący bieżące new_articles.
 
-Jeżeli wejście zawiera previous_aggregation, potraktuj ją jako poprzednią
-wersję roboczą tego samego tematu. Zachowaj nadal prawidłowe fakty, dodaj nowe
-informacje, pokaż korekty i konflikty. Nie twórz drugiego tematu dla dalszego
-ciągu tej samej historii. Dla nowych tematów previous_aggregation będzie null.
+Jeżeli nowe artykuły dodają istotne fakty, napisz je konkretnie w
+update.new_information_pl, najlepiej w 1–4 krótkich akapitach. Jeżeli tylko
+powtarzają wcześniejsze informacje, nadal ustaw update.is_update=true i napisz
+wprost, że dodano określoną liczbę materiałów oraz z jakich źródeł, ale nie
+wnoszą one nowych, niezależnie potwierdzonych informacji. Nie pisz wtedy
+„kliknij”, „sprawdź artykuł” ani „źródła opisują temat” bez podania wyniku.
+new_article_ids musi zawierać wyłącznie artykuły z bieżącego zestawu.
+Jeżeli previous_aggregation jest null, utwórz pełną syntezę bazową i ustaw
+update.is_update=false.
+
+Jeżeli wejście zawiera previous_aggregation, nie twórz drugiej pełnej wersji
+tekstu i nie zastępuj wcześniejszej syntezy nową. Zachowaj ją jako bazę na
+zawsze, a nowe informacje pokaż tylko w update. Nie twórz drugiego tematu dla
+dalszego ciągu tej samej historii. Dla nowych tematów previous_aggregation
+będzie null.
 Pole new_articles zawiera materiały z bieżącego uruchomienia. Pole
 all_articles jest obecne przy pierwszym opracowaniu tematu; przy aktualizacji
 starsze materiały są reprezentowane przez previous_aggregation i ich article_id.
@@ -329,6 +345,35 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
     return ParsedAIResponse(normalized, getattr(response, "raw_output", ""))
 
 
+def stored_base_summary(value: Any) -> dict[str, Any]:
+    """Read both legacy direct summaries and the immutable-summary envelope."""
+    if not isinstance(value, dict):
+        return {}
+    base = value.get("base_summary")
+    if isinstance(base, dict):
+        return base
+    return value
+
+
+def stored_latest_update(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    latest = value.get("latest_update")
+    if isinstance(latest, dict):
+        return latest
+    update = value.get("update")
+    return update if isinstance(update, dict) else {}
+
+
+def empty_update() -> dict[str, Any]:
+    return {
+        "is_update": False,
+        "new_information_pl": "",
+        "what_changed_pl": "",
+        "new_article_ids": [],
+    }
+
+
 def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
     raw_output = getattr(response, "raw_output", None)
     if raw_output is None:
@@ -443,7 +488,10 @@ def active_topic_payload(
         filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
     )
     summaries = client.select_all("topic_summaries", columns="topic_id,summary")
-    summary_by_topic = {str(row["topic_id"]): row.get("summary") for row in summaries}
+    summary_by_topic = {
+        str(row["topic_id"]): stored_base_summary(row.get("summary"))
+        for row in summaries
+    }
     links = client.select_all("topic_articles", columns="topic_id,article_id")
     link_map: dict[str, list[str]] = {}
     for row in links:
@@ -529,15 +577,44 @@ def persist_summary(
     previous_row: dict[str, Any] | None,
     new_article_ids: list[str],
 ) -> int:
-    """Save the current summary and best-effort immutable version history."""
+    """Save an immutable base summary plus only the latest delta update."""
     version = int((previous_row or {}).get("version", 0)) + 1
     timestamp = now()
+    previous_stored = previous_row.get("summary") if previous_row else None
+    if previous_stored:
+        base_summary = stored_base_summary(previous_stored)
+        latest_update = dict(summary.get("update") or empty_update())
+        latest_update["is_update"] = True
+    else:
+        base_summary = dict(summary)
+        base_summary["update"] = empty_update()
+        latest_update = empty_update()
+
+    latest_update["new_article_ids"] = list(dict.fromkeys(str(article_id) for article_id in new_article_ids))
+    update_text = str(
+        latest_update.get("new_information_pl")
+        or latest_update.get("what_changed_pl")
+        or ""
+    ).strip()
+    if previous_stored and not update_text:
+        count = len(latest_update["new_article_ids"])
+        latest_update["new_information_pl"] = (
+            f"Dodano {count} nowy materiał do tego wątku, ale nie wnosi on nowych, "
+            "niezależnie potwierdzonych informacji względem wcześniejszej syntezy."
+            if count == 1 else
+            f"Dodano {count} nowe materiały do tego wątku, ale nie wnoszą one nowych, "
+            "niezależnie potwierdzonych informacji względem wcześniejszej syntezy."
+        )
+    stored_summary = {
+        "base_summary": base_summary,
+        "latest_update": latest_update,
+    }
     client.upsert("topic_summaries", [{
         "topic_id": topic_id,
         "version": version,
         "input_hash": summary_hash,
         "model": model,
-        "summary": summary,
+        "summary": stored_summary,
         "generated_at": timestamp,
         "updated_at": timestamp,
     }], on_conflict="topic_id")
@@ -548,8 +625,8 @@ def persist_summary(
             "run_id": run_id,
             "model": model,
             "prompt_version": PROMPT_VERSION,
-            "summary": summary,
-            "new_article_ids": new_article_ids,
+            "summary": stored_summary,
+            "new_article_ids": latest_update["new_article_ids"],
             "generated_at": timestamp,
         }], on_conflict="topic_id,version")
     except Exception as exc:
@@ -618,7 +695,7 @@ def retry_incomplete_summaries(
             all_rows = local_articles(conn, all_ids)
             if len(new_rows) == 0 or len(all_rows) < 2:
                 continue
-            previous_aggregation = previous_row.get("summary") if previous_row else None
+            previous_aggregation = stored_base_summary(previous_row.get("summary")) if previous_row else None
             summary_input = {
                 "topic": {
                     "topic_id": topic_id,
@@ -854,7 +931,7 @@ def _analyze_pending_batch(
             if not new_rows or not all_rows:
                 continue
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)
-            previous_aggregation = old[0].get("summary") if old else None
+            previous_aggregation = stored_base_summary(old[0].get("summary")) if old else None
             summary_input = {
                 "topic": {
                     "topic_id": topic_id,
