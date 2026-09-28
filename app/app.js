@@ -7,7 +7,7 @@ const state = {
   links: [],
   summaries: new Map(),
   history: new Map(),
-  view: 'all',
+  view: 'multi',
   profile: 'ALL',
   search: '',
   readTopics: loadReadTopics(),
@@ -388,7 +388,6 @@ function filteredModels() {
   const query = state.search.trim().toLowerCase();
   return state.topics.map(topicModel).filter((topic) => {
     if (state.view === 'multi' && topic.sourceCount < 2) return false;
-    if (state.view === 'single' && topic.sourceCount >= 2) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
     if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;
@@ -402,7 +401,7 @@ function render() {
   renderProfiles(allModels);
   renderSources(models);
   $('#result-count').textContent = `${models.length} ${models.length === 1 ? 'temat' : 'tematów'}`;
-  $('#results-heading').textContent = state.view === 'multi' ? 'Tematy wieloźródłowe' : state.view === 'single' ? 'Historie z jednego źródła' : 'Dzisiejsze tematy';
+  $('#results-heading').textContent = state.view === 'multi' ? 'Tematy wieloźródłowe' : 'Dzisiejsze tematy';
   $('#topic-grid').innerHTML = models.map(cardHtml).join('');
   $('#empty-state').hidden = models.length > 0;
   $('#topic-grid').querySelectorAll('[data-topic-id]').forEach((card) => {
