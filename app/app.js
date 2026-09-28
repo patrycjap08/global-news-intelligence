@@ -98,6 +98,17 @@ function updateText(summary) {
   return String(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
+function topicArticleIds(model) {
+  return model.articles.map((article) => String(article.article_id)).sort();
+}
+
+function readRecord(model) {
+  const value = state.readTopics[model.topic_id];
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (Number.isFinite(Number(value))) return { version: Number(value) };
+  return null;
+}
+
 function readableEvidenceText(value) {
   return String(value ?? '')
     .replace(/\b[0-9a-f]{24}\b/gi, (articleId) => articleMap().get(articleId)?.source_name || '')
@@ -109,14 +120,22 @@ function readableEvidenceText(value) {
 }
 
 function isTopicRead(model) {
-  const readVersion = Number(state.readTopics[model.topic_id] || 0);
-  return readVersion >= Number(model.summaryVersion || 1);
+  const record = readRecord(model);
+  if (!record) return false;
+  if (Array.isArray(record.article_ids)) {
+    const readArticles = new Set(record.article_ids.map(String));
+    return topicArticleIds(model).every((articleId) => readArticles.has(articleId));
+  }
+  // Compatibility with the earlier local format, which stored only a version.
+  return Number(record.version || 0) >= Number(model.summaryVersion || 1);
 }
 
 function markTopicRead(model) {
-  const version = Number(model.summaryVersion || 1);
-  if (Number(state.readTopics[model.topic_id] || 0) >= version) return;
-  state.readTopics[model.topic_id] = version;
+  state.readTopics[model.topic_id] = {
+    version: Number(model.summaryVersion || 1),
+    article_ids: topicArticleIds(model),
+    read_at: new Date().toISOString(),
+  };
   saveReadTopics();
 }
 
@@ -237,7 +256,7 @@ function cardHtml(model, index) {
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge">${hasUpdate ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
+    <div class="card-meta"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
