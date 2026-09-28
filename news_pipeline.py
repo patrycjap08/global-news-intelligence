@@ -70,6 +70,10 @@ def main() -> int:
         "--rebuild-summaries", action="store_true",
         help="Pomiń harvesting i grupowanie; wygeneruj od nowa syntezy istniejących tematów wieloartykułowych.",
     )
+    parser.add_argument(
+        "--regroup-singletons", action="store_true",
+        help="Przegrupuj wyłącznie singletony utworzone przez fallback kontroli spójności.",
+    )
     parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
     parser.add_argument("--ai-batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
     parser.add_argument(
@@ -81,12 +85,16 @@ def main() -> int:
 
     if args.ai_only and args.skip_ai:
         parser.error("--ai-only nie może być użyte razem z --skip-ai.")
-    if args.x_only and (args.ai_only or args.rebuild_summaries or args.skip_ai or args.titles_only):
+    if args.x_only and (args.ai_only or args.rebuild_summaries or args.regroup_singletons or args.skip_ai or args.titles_only):
         parser.error("--x-only jest osobnym trybem i nie łączy się z innymi trybami AI.")
-    if args.titles_only and (args.ai_only or args.rebuild_summaries or args.skip_ai):
+    if args.titles_only and (args.ai_only or args.rebuild_summaries or args.regroup_singletons or args.skip_ai):
         parser.error("--titles-only jest osobnym trybem.")
     if args.rebuild_summaries and not args.ai_only:
         parser.error("--rebuild-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
+    if args.regroup_singletons and not args.ai_only:
+        parser.error("--regroup-singletons wymaga także --ai-only, aby nie uruchomić harvestera.")
+    if args.regroup_singletons and args.rebuild_summaries:
+        parser.error("--regroup-singletons nie łączy się z --rebuild-summaries.")
 
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
@@ -142,7 +150,9 @@ def main() -> int:
     if args.skip_ai:
         print("[4/4] AI pominięte przez --skip-ai.", flush=True)
     else:
-        if args.rebuild_summaries:
+        if args.regroup_singletons:
+            print("[4/4] Przegrupowuję singletony utworzone przez fallback AI...", flush=True)
+        elif args.rebuild_summaries:
             print("[4/4] Przepisuję syntezy istniejących tematów AI...", flush=True)
         else:
             print("[4/4] Grupuję tematy i tworzę opracowania AI...", flush=True)
@@ -152,6 +162,7 @@ def main() -> int:
             batch_size=args.ai_batch_size,
             rebuild_summaries_mode=args.rebuild_summaries,
             rebuild_max_topics=args.rebuild_max_topics,
+            regroup_singletons_mode=args.regroup_singletons,
         )
         print(json.dumps(result, ensure_ascii=False), flush=True)
         if not args.ai_only and os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":

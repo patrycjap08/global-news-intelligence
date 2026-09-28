@@ -11,6 +11,7 @@ on:
         options:
           - full
           - ai-only
+          - regroup-singletons
           - rebuild-summaries
           - x-only
           - titles-only
@@ -84,6 +85,8 @@ jobs:
           )
           if [[ "$RUN_MODE" == "ai-only" ]]; then
             args+=(--ai-only)
+          elif [[ "$RUN_MODE" == "regroup-singletons" ]]; then
+            args+=(--ai-only --regroup-singletons)
           elif [[ "$RUN_MODE" == "x-only" ]]; then
             args+=(--x-only)
           elif [[ "$RUN_MODE" == "titles-only" ]]; then

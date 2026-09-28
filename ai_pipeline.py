@@ -23,7 +23,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v17-evidence-completeness"
+PROMPT_VERSION = "ai-prompts-v18-topic-story-balance"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
@@ -34,7 +34,7 @@ GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS",
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
-GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.82"))
+GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.70"))
 OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
 OPENAI_RETRY_BASE_SECONDS = max(
     0.5, float(os.environ.get("OPENAI_RETRY_BASE_SECONDS", "2"))
@@ -128,6 +128,7 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 "topic_action":"NEW_TOPIC|DEVELOPMENT|BACKGROUND_OR_CONTEXT",
 "working_title_pl":"[Kraj] Konkretny tytuł wydarzenia","article_ids":["..."],
 "confidence":0.0,"needs_review":false,"grouping_reason":"...",
+"topic_anchor_pl":"jednozdaniowa oś wspólnej historii",
 "article_relevance":[{"article_id":"...","why_same_event":"..."}]}],
 "unassigned_article_ids":[],"excluded_articles":[{"article_id":"...",
 "category":"SPORT|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
@@ -136,23 +137,34 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
 unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
 z ostatnich 55 godzin.
-Każda grupa ma oznaczać JEDNO konkretne wydarzenie lub jeden bezpośredni ciąg
-wydarzeń. Przed zwróceniem wyniku wykonaj test: tytuł grupy musi trafnie
-opisywać każdy artykuł z article_ids bez używania ogólnika typu „geopolityka”,
-„gospodarka”, „sytuacja międzynarodowa” lub „polityka światowa”. Jeżeli dla
-któregokolwiek artykułu trzeba dopisać „a ponadto zupełnie inna sprawa”, rozbij
-grupę. Wspólny kraj, polityk, organizacja, branża, wojna albo wzmianka o USA,
-Rosji, Chinach, NATO czy UE nie oznacza jeszcze tego samego wydarzenia.
-Preferuj kilka małych grup, w tym grupy jednoartykułowe, zamiast jednej szerokiej
-i pozornie kompletnej grupy. Nie przypisuj artykułu do istniejącego tematu tylko
-po to, aby uniknąć utworzenia nowego tematu.
+Każda grupa ma oznaczać jeden konkretny wątek redakcyjny: jedno wydarzenie,
+bezpośredni ciąg aktualizacji albo jedną trwającą sprawę, negocjację, decyzję
+lub politykę. Artykuły mogą dodawać różne, uzupełniające informacje — nie muszą
+powtarzać tych samych faktów. Zadaj pytanie: „czy wszystkie materiały opisują
+to, co dzieje się w tej samej sprawie?”. Jeśli tak, połącz je pod jednym
+tematem i ustaw needs_review=true, gdy związek jest prawdopodobny, ale nie
+idealnie pewny.
+
+Przed zwróceniem wyniku wykonaj test: tytuł i topic_anchor_pl muszą trafnie
+opisywać każdy artykuł z article_ids. Jeżeli dla któregokolwiek artykułu trzeba
+dopisać „a ponadto zupełnie inna sprawa”, rozbij grupę. Wspólny kraj, polityk,
+organizacja, branża, wojna albo wzmianka o USA, Rosji, Chinach, NATO czy UE nie
+oznacza jeszcze tego samego wątku. Przykład błędny: wypowiedź Trumpa oraz wzrost
+cen zbóż w Szkocji. Przykład poprawny: różne wypowiedzi i decyzje dotyczące tej
+samej rundy negocjacji albo różne aktualizacje tego samego śledztwa.
+
+Łącz artykuły opisujące tę samą historię nawet wtedy, gdy jeden przedstawia
+decyzję, drugi reakcję, a trzeci skutki. Użyj grupy jednoartykułowej dopiero
+wtedy, gdy nie da się wskazać konkretnej wspólnej osi wydarzeń.
 
 Dla każdego article_id w grupie dodaj dokładnie jeden wpis article_relevance.
-why_same_event ma wskazywać konkretny wspólny fakt, decyzję, wypowiedź lub
-zdarzenie, a nie tylko wspólne słowo, osobę albo państwo. Jeśli nie potrafisz
-takiego związku wskazać, artykuł musi znaleźć się w osobnej grupie albo w
-unassigned_article_ids. confidence oceniaj dla najsłabiej pasującego artykułu,
-nie dla większości grupy.
+why_same_event ma wskazywać konkretny wspólny fakt, decyzję, wypowiedź, ciąg
+aktualizacji albo sprawę, a nie tylko wspólne słowo, osobę albo państwo. Jeśli
+nie potrafisz wskazać takiej osi, artykuł musi znaleźć się w osobnej grupie albo
+w unassigned_article_ids. confidence oceniaj dla najsłabiej pasującego artykułu,
+nie dla większości grupy. Dla tego samego wydarzenia użyj zwykle 0.90+, dla
+tej samej trwającej historii z różnymi aspektami zwykle 0.75–0.89, a poniżej
+0.70 nie łącz artykułów.
 Jeżeli artykuł jest dalszym ciągiem istniejącego tematu, wpisz jego topic_id i
 topic_action=DEVELOPMENT. Jeżeli tylko uzupełnia kontekst lub wcześniejszą
 agregację, wpisz topic_action=BACKGROUND_OR_CONTEXT. Nowe wydarzenie ma
@@ -857,18 +869,25 @@ def article_for_ai(
 
 def active_topic_payload(
     client: SupabaseRestClient,
+    *,
+    excluded_topic_ids: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, list[str]], dict[str, dict[str, Any]]]:
+    excluded = excluded_topic_ids or set()
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
         filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
     )
+    topics = [row for row in topics if str(row.get("topic_id") or "") not in excluded]
     summaries = client.select_all("topic_summaries", columns="topic_id,summary")
     summary_by_topic = {
         str(row["topic_id"]): stored_base_summary(row.get("summary"))
         for row in summaries
     }
-    links = client.select_all("topic_articles", columns="topic_id,article_id")
+    links = [
+        row for row in client.select_all("topic_articles", columns="topic_id,article_id")
+        if str(row.get("topic_id") or "") not in excluded
+    ]
     link_map: dict[str, list[str]] = {}
     for row in links:
         link_map.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
@@ -1687,6 +1706,7 @@ def _analyze_pending_batch(
     model: str = DEFAULT_MODEL,
     batch_index: str | int = 1,
     summarize: bool = True,
+    excluded_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     openai_api_key()
     conn = sqlite3.connect(db_path)
@@ -1700,7 +1720,10 @@ def _analyze_pending_batch(
         stats["pending_articles"] = len(articles)
         if not articles:
             return stats
-        active_topics, topic_links, topic_context = active_topic_payload(client)
+        active_topics, topic_links, topic_context = active_topic_payload(
+            client,
+            excluded_topic_ids=excluded_topic_ids,
+        )
         grouping_input = {
             "new_articles": [
                 article_for_ai(row, excerpt_words_limit=GROUPING_EXCERPT_WORDS)
@@ -1772,15 +1795,23 @@ def _analyze_pending_batch(
                 if isinstance(item, dict)
                 and len(str(item.get("why_same_event") or "").strip()) >= 12
             }
+            topic_anchor = str(group.get("topic_anchor_pl") or "").strip()
             existing_topic_id = str(group.get("existing_topic_id") or "").strip()
+            if existing_topic_id and existing_topic_id in (excluded_topic_ids or set()):
+                # Repair context deliberately hides the old fallback topic;
+                # never let a hallucinated ID reattach the article to it.
+                existing_topic_id = ""
             requires_cohesion_gate = len(ids) > 1 or bool(existing_topic_id)
-            if requires_cohesion_gate and (
-                confidence < GROUPING_MIN_CONFIDENCE
-                or needs_review
-                or not set(ids).issubset(relevance_ids)
-            ):
+            if requires_cohesion_gate and confidence < GROUPING_MIN_CONFIDENCE:
                 quality_gate_singletons.update(ids)
                 continue
+
+            # needs_review and incomplete article_relevance are audit signals,
+            # not reasons to turn an otherwise credible group into singletons.
+            if requires_cohesion_gate and (
+                not topic_anchor or not set(ids).issubset(relevance_ids)
+            ):
+                needs_review = True
 
             assigned_ids.update(ids)
             title = str(group.get("working_title_pl") or "").strip()[:300]
@@ -1976,6 +2007,202 @@ def _analyze_pending_batch(
         conn.close()
 
 
+SINGLETON_REPAIR_REASON_PREFIX = "Artykuł zachowany osobno:"
+
+
+def singleton_repair_candidates(
+    db_path: Path,
+    client: SupabaseRestClient,
+    max_articles: int,
+) -> tuple[dict[str, str], list[dict[str, Any]]]:
+    """Find only singleton topics created by the failed cohesion fallback."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        links = client.select_all("topic_articles", columns="topic_id,article_id")
+        article_by_topic: dict[str, list[str]] = {}
+        for row in links:
+            article_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+        topics = {
+            str(row["topic_id"]): row
+            for row in client.select_all("topics", columns="topic_id,status")
+        }
+        assignments = client.select_all(
+            "article_topic_assignments",
+            columns="article_id,topic_id,grouping_reason",
+        )
+        old_topic_by_article: dict[str, str] = {}
+        for row in assignments:
+            topic_id = str(row.get("topic_id") or "")
+            article_id = str(row.get("article_id") or "")
+            reason = str(row.get("grouping_reason") or "")
+            if (
+                article_id
+                and topic_id
+                and reason.startswith(SINGLETON_REPAIR_REASON_PREFIX)
+                and topics.get(topic_id, {}).get("status") == "ACTIVE"
+                and article_by_topic.get(topic_id) == [article_id]
+            ):
+                old_topic_by_article[article_id] = topic_id
+        if max_articles > 0:
+            old_topic_by_article = dict(list(old_topic_by_article.items())[:max_articles])
+        rows = local_articles(conn, list(old_topic_by_article))
+        rows_by_id = {str(row["article_id"]): row for row in rows}
+        old_topic_by_article = {
+            article_id: topic_id
+            for article_id, topic_id in old_topic_by_article.items()
+            if article_id in rows_by_id
+        }
+        return old_topic_by_article, [rows_by_id[article_id] for article_id in old_topic_by_article]
+    finally:
+        conn.close()
+
+
+def cleanup_repaired_singletons(
+    run_id: str,
+    client: SupabaseRestClient,
+    old_topic_by_article: dict[str, str],
+) -> int:
+    """Hide old singleton topics only after their article has a new assignment."""
+    if not old_topic_by_article:
+        return 0
+    assignments = client.select_all(
+        "article_topic_assignments",
+        columns="article_id,topic_id",
+        filters=[("run_id", f"eq.{run_id}")],
+    )
+    topic_status = {
+        str(row.get("topic_id") or ""): str(row.get("status") or "")
+        for row in client.select_all("topics", columns="topic_id,status")
+    }
+    new_topic_by_article = {
+        str(row.get("article_id") or ""): str(row.get("topic_id") or "")
+        for row in assignments
+        if str(row.get("article_id") or "") in old_topic_by_article
+    }
+    merged = 0
+    for article_id, old_topic_id in old_topic_by_article.items():
+        if topic_status.get(old_topic_id) != "ACTIVE":
+            continue
+        new_topic_id = new_topic_by_article.get(article_id, "")
+        if not new_topic_id or new_topic_id == old_topic_id:
+            continue
+        client.delete("topic_articles", filters=[("topic_id", f"eq.{old_topic_id}")])
+        try:
+            client.update(
+                "topics",
+                {
+                    "status": "MERGED",
+                    "merged_into_topic_id": new_topic_id,
+                    "merged_at": now(),
+                    "updated_at": now(),
+                },
+                filters=[("topic_id", f"eq.{old_topic_id}")],
+            )
+        except Exception:
+            # Keep the repair compatible with databases created before the
+            # optional merge redirect columns were installed.
+            client.update(
+                "topics",
+                {"status": "MERGED", "updated_at": now()},
+                filters=[("topic_id", f"eq.{old_topic_id}")],
+            )
+        merged += 1
+    return merged
+
+
+def regroup_singletons(
+    db_path: Path,
+    run_id: str,
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+    max_articles: int = 0,
+    batch_size: int = 50,
+) -> dict[str, int]:
+    """Safely regroup singleton fallback topics without deleting source data."""
+    old_topic_by_article, articles = singleton_repair_candidates(
+        db_path, client, max_articles
+    )
+    stats = {
+        "repair_candidates": len(articles),
+        "repair_batches": 0,
+        "groups": 0,
+        "singleton_topics_merged": 0,
+        "summaries": 0,
+        "failed_summaries": 0,
+        "merge_candidates": 0,
+        "topics_merged": 0,
+        "merge_failed": 0,
+        "titles_normalized": 0,
+    }
+    if not articles:
+        print("[AI-REPAIR] Nie znaleziono singletonów z fallbacku do przegrupowania.", flush=True)
+        return stats
+
+    batch_size = min(max(1, batch_size), MAX_GROUPING_BATCH_SIZE)
+    excluded_topic_ids = set(old_topic_by_article.values())
+    total_batches = (len(articles) + batch_size - 1) // batch_size
+    print(
+        f"[AI-REPAIR] Przegrupowuję {len(articles)} singletonów w {total_batches} paczkach...",
+        flush=True,
+    )
+
+    def merge_batch_stats(batch_stats: dict[str, int]) -> None:
+        stats["groups"] += batch_stats["groups"]
+
+    def process_batch(batch: list[dict[str, Any]], label: str) -> None:
+        try:
+            batch_stats = _analyze_pending_batch(
+                db_path,
+                run_id,
+                client,
+                batch,
+                model=model,
+                batch_index=f"REPAIR-{label}",
+                summarize=False,
+                excluded_topic_ids=excluded_topic_ids,
+            )
+            merge_batch_stats(batch_stats)
+            stats["singleton_topics_merged"] += cleanup_repaired_singletons(
+                run_id, client, old_topic_by_article
+            )
+        except ValueError as exc:
+            if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
+                raise
+            midpoint = len(batch) // 2
+            process_batch(batch[:midpoint], f"{label}a")
+            process_batch(batch[midpoint:], f"{label}b")
+        except Exception as exc:
+            if not is_retryable_openai_error(exc) or len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
+                raise
+            midpoint = len(batch) // 2
+            print(
+                f"[AI-REPAIR] Dzielę paczkę {label} po błędzie OpenAI: "
+                f"{openai_error_details(exc)}",
+                flush=True,
+            )
+            process_batch(batch[:midpoint], f"{label}a")
+            process_batch(batch[midpoint:], f"{label}b")
+
+    for offset in range(0, len(articles), batch_size):
+        stats["repair_batches"] += 1
+        process_batch(articles[offset:offset + batch_size], str(stats["repair_batches"]))
+
+    stats["singleton_topics_merged"] += cleanup_repaired_singletons(
+        run_id, client, old_topic_by_article
+    )
+    merge_stats = merge_active_topics(db_path, run_id, client, model=model)
+    stats["merge_candidates"] = merge_stats["merge_candidates"]
+    stats["topics_merged"] = merge_stats["topics_merged"]
+    stats["merge_failed"] = merge_stats["merge_failed"]
+    stats["titles_normalized"] = normalize_topic_titles(client, model=model)
+    recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
+    stats["summaries"] = recovery_stats["summaries"]
+    stats["failed_summaries"] = recovery_stats["failed_summaries"]
+    return stats
+
+
 def analyze_run(
     db_path: Path,
     run_id: str,
@@ -1986,6 +2213,7 @@ def analyze_run(
     batch_size: int = 100,
     rebuild_summaries_mode: bool = False,
     rebuild_max_topics: int = 0,
+    regroup_singletons_mode: bool = False,
 ) -> dict[str, int]:
     """Process the whole pending queue in context-safe AI batches.
 
@@ -2004,6 +2232,15 @@ def analyze_run(
             client,
             model=model,
             max_topics=rebuild_max_topics,
+        )
+    if regroup_singletons_mode:
+        return regroup_singletons(
+            db_path,
+            run_id,
+            client,
+            model=model,
+            max_articles=max_articles,
+            batch_size=batch_size,
         )
     requested_batch_size = max(1, batch_size)
     batch_size = min(requested_batch_size, MAX_GROUPING_BATCH_SIZE)
