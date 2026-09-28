@@ -57,12 +57,23 @@ def main() -> int:
         "--ai-only", action="store_true",
         help="Pomiń pobieranie źródeł i uruchom AI na artykułach już zapisanych w Supabase.",
     )
+    parser.add_argument(
+        "--rebuild-summaries", action="store_true",
+        help="Pomiń harvesting i grupowanie; wygeneruj od nowa syntezy istniejących tematów wieloartykułowych.",
+    )
     parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
     parser.add_argument("--ai-batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
+    parser.add_argument(
+        "--rebuild-max-topics",
+        type=int,
+        default=int(os.environ.get("AI_REBUILD_MAX_TOPICS", "0")),
+    )
     args = parser.parse_args()
 
     if args.ai_only and args.skip_ai:
         parser.error("--ai-only nie może być użyte razem z --skip-ai.")
+    if args.rebuild_summaries and not args.ai_only:
+        parser.error("--rebuild-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
 
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
@@ -100,11 +111,16 @@ def main() -> int:
     if args.skip_ai:
         print("[4/4] AI pominięte przez --skip-ai.", flush=True)
     else:
-        print("[4/4] Grupuję tematy i tworzę opracowania AI...", flush=True)
+        if args.rebuild_summaries:
+            print("[4/4] Przepisuję syntezy istniejących tematów AI...", flush=True)
+        else:
+            print("[4/4] Grupuję tematy i tworzę opracowania AI...", flush=True)
         result = analyze_run(
             args.db, run_id, client,
             max_articles=args.ai_max_articles,
             batch_size=args.ai_batch_size,
+            rebuild_summaries_mode=args.rebuild_summaries,
+            rebuild_max_topics=args.rebuild_max_topics,
         )
         print(json.dumps(result, ensure_ascii=False), flush=True)
     return 0

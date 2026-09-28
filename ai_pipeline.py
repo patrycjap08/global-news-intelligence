@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v10-immutable-base-and-delta-updates"
+PROMPT_VERSION = "ai-prompts-v11-direct-long-summaries-and-rebuild"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -87,14 +87,27 @@ do background_context i oznacz needs_verification=true.
 summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o czym
 piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
 przedstawiają” ani „materiały dotyczą”. Zacznij od tego, co się wydarzyło.
-Przy co najmniej 4 artykułach napisz zwykle 5–8 akapitów i około 450–800 słów,
-a przy 2–3 artykułach około 300–500 słów, o ile materiały zawierają taką ilość
-konkretnych informacji. Zbierz w jednym tekście: główne wydarzenie, uczestników
-i ich działania, najważniejsze liczby i decyzje, reakcje, kolejność rozwoju
-sprawy, skutki oraz to, co jest niepewne albo różni się między źródłami.
-Nie powtarzaj tych samych zdań i nie dopisuj faktów tylko po to, żeby wydłużyć
-tekst. Informacje dodatkowe mogą zostać w osobnych sekcjach, ale summary_pl
-ma już odpowiadać na pytanie „co dokładnie się wydarzyło”.
+Tekst ma odpowiadać na pytanie „co dokładnie się wydarzyło”, a nie „o czym
+były artykuły”. Przy co najmniej 4 artykułach napisz zwykle 6–10 akapitów i
+około 600–1000 słów, a przy 2–3 artykułach około 350–600 słów, jeżeli materiały
+zawierają taką ilość konkretnych informacji. Nie skracaj syntezy do jednego
+ogólnego akapitu, gdy artykuły zawierają więcej ustaleń.
+
+Buduj tekst w tej kolejności, o ile materiał na to pozwala: (1) najważniejsze
+wydarzenie — kto, co, gdzie i kiedy; (2) szczegółowy przebieg i kolejność
+działań; (3) decyzje, liczby, wypowiedzi i reakcje uczestników; (4) skutki,
+znaczenie i aktualny stan sprawy; (5) rozbieżności oraz informacje
+niepotwierdzone. Zbieraj w tekście konkretne fakty z artykułów, zamiast
+referować ich istnienie. Nie dopisuj faktów tylko po to, żeby osiągnąć limit
+słów.
+
+Nie powtarzaj tej samej informacji w kilku zdaniach ani w kilku sekcjach.
+summary_pl ma być pełnym głównym opisem wydarzenia, natomiast facts, agreement,
+differences, framing_and_tone, potential_manipulation_signals,
+background_context i unknowns mogą zawierać wyłącznie informacje dodatkowe,
+które nie zostały już jasno przedstawione w summary_pl. Nie przepisuj do
+agreement oczywistych faktów z syntezy i nie twórz sekcji tylko po to, żeby ją
+wypełnić. Każda sekcja może pozostać pusta.
 
 Pisz dla polskiego czytelnika, który może nie znać lokalnego kontekstu. Jeżeli
 temat dotyczy państwa innego niż Polska, już przy pierwszej wzmiance wyjaśnij
@@ -175,6 +188,17 @@ context, notes ani event. Nie dodawaj innych pól. article_ids to techniczna
 lista identyfikatorów dowodowych i nie należy wstawiać jej do tekstu
 text_pl. Jeśli element nie ma oparcia w konkretnym artykule, zostaw
 article_ids jako [] i ustaw needs_verification=true tam, gdzie to pole istnieje.
+""".strip()
+
+REBUILD_SUMMARY_INSTRUCTIONS = SUMMARY_INSTRUCTIONS + """
+
+TRYB PEŁNEJ PRZEBUDOWY: previous_aggregation będzie zawsze null. Opracuj
+pełną, nową syntezę bazową na podstawie wszystkich artykułów w all_articles.
+Nie traktuj tego jako aktualizacji i nie pisz delta-update. Ustaw
+update.is_update=false, pozostaw update.new_information_pl i
+update.what_changed_pl puste oraz update.new_article_ids jako pustą listę.
+Nie pomijaj ważnych faktów tylko dlatego, że występują w wielu artykułach —
+połącz je w jeden klarowny opis, a powtórzenia wykorzystaj do oceny zgodności.
 """.strip()
 
 
@@ -640,6 +664,69 @@ def persist_summary(
     return version
 
 
+def persist_rebuilt_summary(
+    client: SupabaseRestClient,
+    *,
+    topic_id: str,
+    run_id: str,
+    model: str,
+    summary: dict[str, Any],
+    summary_hash: str,
+    previous_row: dict[str, Any] | None,
+) -> int:
+    """Replace the current base summary while retaining the previous version."""
+    version = int((previous_row or {}).get("version", 0)) + 1
+    timestamp = now()
+    base_summary = dict(summary)
+    base_summary["update"] = empty_update()
+    stored_summary = {
+        "base_summary": base_summary,
+        "latest_update": empty_update(),
+    }
+
+    client.upsert("topic_summaries", [{
+        "topic_id": topic_id,
+        "version": version,
+        "input_hash": summary_hash,
+        "model": model,
+        "summary": stored_summary,
+        "generated_at": timestamp,
+        "updated_at": timestamp,
+    }], on_conflict="topic_id")
+
+    try:
+        # If the history migration was not run before the rebuild, preserve the
+        # summary that was live immediately before the replacement.
+        if previous_row:
+            client.upsert("topic_summary_versions", [{
+                "topic_id": topic_id,
+                "version": int(previous_row.get("version", 0)),
+                "run_id": None,
+                "model": previous_row.get("model") or model,
+                "prompt_version": "BEFORE_REBUILD",
+                "summary": previous_row.get("summary") or {},
+                "new_article_ids": [],
+                "generated_at": previous_row.get("generated_at") or timestamp,
+            }], on_conflict="topic_id,version")
+        client.upsert("topic_summary_versions", [{
+            "topic_id": topic_id,
+            "version": version,
+            "run_id": run_id,
+            "model": model,
+            "prompt_version": PROMPT_VERSION,
+            "summary": stored_summary,
+            "new_article_ids": [],
+            "generated_at": timestamp,
+        }], on_conflict="topic_id,version")
+    except Exception as exc:
+        print(
+            f"[AI] Nie zapisano historii przebudowy tematu {topic_id}; "
+            f"uruchom supabase_migration_topic_updates.sql. ({exc})",
+            flush=True,
+        )
+    return version
+
+
 def retry_incomplete_summaries(
     db_path: Path,
     run_id: str,
@@ -738,6 +825,146 @@ def retry_incomplete_summaries(
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
                     "model": model, "input_hash": summary_hash, "status": "FAILED",
                     "raw_output": parse_failure_for_storage(exc), "error": str(exc)[:2000],
+                }], on_conflict="topic_run_id")
+                stats["failed_summaries"] += 1
+        return stats
+    finally:
+        conn.close()
+
+
+def rebuild_summaries(
+    db_path: Path,
+    run_id: str,
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+    max_topics: int = 0,
+) -> dict[str, int]:
+    """Regenerate every multi-article topic without harvesting or regrouping."""
+    if not (os.environ.get("OPENAI_API_KEY") or "").strip():
+        raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        topics = client.select_all(
+            "topics",
+            columns="topic_id,headline_pl,status,article_count,source_count,last_seen_at",
+        )
+        links = client.select_all("topic_articles", columns="topic_id,article_id")
+        summaries = client.select_all(
+            "topic_summaries",
+            columns="topic_id,summary,input_hash,version,model,generated_at,updated_at",
+        )
+        summary_by_topic = {str(row["topic_id"]): row for row in summaries}
+        ids_by_topic: dict[str, list[str]] = {}
+        for row in links:
+            ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+
+        eligible: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+        for topic in topics:
+            topic_id = str(topic.get("topic_id") or "")
+            if not topic_id:
+                continue
+            article_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
+            rows = [
+                row for row in local_articles(conn, article_ids)
+                if row.get("content_status") in {"COMPLETE", "EXCERPT"}
+                and int(row.get("word_count") or 0) >= MIN_ARTICLE_WORDS
+            ]
+            if len(rows) >= 2:
+                rows.sort(key=lambda row: (str(row.get("published_at") or ""), str(row["article_id"])))
+                eligible.append((topic, rows))
+
+        eligible.sort(
+            key=lambda item: (
+                str(item[0].get("last_seen_at") or ""),
+                str(item[0].get("topic_id") or ""),
+            ),
+            reverse=True,
+        )
+        eligible_count = len(eligible)
+        if max_topics > 0:
+            eligible = eligible[:max_topics]
+
+        stats = {
+            "topics_considered": len(topics),
+            "topics_eligible": eligible_count,
+            "topics_selected": len(eligible),
+            "topics_rebuilt": 0,
+            "topics_not_selected": len(topics) - len(eligible),
+            "failed_summaries": 0,
+        }
+        total = len(eligible)
+        for index, (topic, rows) in enumerate(eligible, start=1):
+            topic_id = str(topic["topic_id"])
+            article_ids = [str(row["article_id"]) for row in rows]
+            print(
+                f"[AI-REBUILD] Temat {index}/{total}: "
+                f"{str(topic.get('headline_pl') or topic_id)[:120]} "
+                f"({len(rows)} artykułów)...",
+                flush=True,
+            )
+            summary_input = {
+                "mode": "FULL_REBUILD",
+                "topic": {
+                    "topic_id": topic_id,
+                    "working_title_pl": str(topic.get("headline_pl") or "Temat bez tytułu"),
+                    "topic_action": "REBUILD",
+                },
+                "previous_aggregation": None,
+                "new_articles": [],
+                "all_articles": [article_for_ai(row) for row in rows],
+                "all_article_ids_in_topic": article_ids,
+            }
+            summary_hash = digest({
+                "mode": "FULL_REBUILD",
+                "prompt_version": PROMPT_VERSION,
+                "input": summary_input,
+            })
+            previous_row = summary_by_topic.get(topic_id)
+            summary_topic_run_id = "topicrun_" + digest({
+                "topic": topic_id,
+                "stage": "REBUILD_SUMMARY",
+                "input": summary_hash,
+            })[:24]
+            try:
+                summary = normalize_summary_response(
+                    call_openai(REBUILD_SUMMARY_INSTRUCTIONS, summary_input, model)
+                )
+                persist_rebuilt_summary(
+                    client,
+                    topic_id=topic_id,
+                    run_id=run_id,
+                    model=model,
+                    summary=summary,
+                    summary_hash=summary_hash,
+                    previous_row=previous_row,
+                )
+                client.upsert("topic_runs", [{
+                    "topic_run_id": summary_topic_run_id,
+                    "run_id": run_id,
+                    "stage": "REBUILD_SUMMARY",
+                    "prompt_version": PROMPT_VERSION,
+                    "model": model,
+                    "input_hash": summary_hash,
+                    "status": "COMPLETED",
+                    "raw_output": response_for_storage(summary),
+                    "error": None,
+                }], on_conflict="topic_run_id")
+                stats["topics_rebuilt"] += 1
+            except Exception as exc:
+                log_parse_failure("REBUILD_SUMMARY", exc)
+                client.upsert("topic_runs", [{
+                    "topic_run_id": summary_topic_run_id,
+                    "run_id": run_id,
+                    "stage": "REBUILD_SUMMARY",
+                    "prompt_version": PROMPT_VERSION,
+                    "model": model,
+                    "input_hash": summary_hash,
+                    "status": "FAILED",
+                    "raw_output": parse_failure_for_storage(exc),
+                    "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["failed_summaries"] += 1
         return stats
@@ -990,15 +1217,27 @@ def analyze_run(
     model: str = DEFAULT_MODEL,
     max_articles: int = 0,
     batch_size: int = 100,
+    rebuild_summaries_mode: bool = False,
+    rebuild_max_topics: int = 0,
 ) -> dict[str, int]:
     """Process the whole pending queue in context-safe AI batches.
 
     ``max_articles=0`` means all pending articles. Batches are deliberately
     processed in one workflow, and each next batch reloads active topics so it
     can attach follow-up articles to topics created by the previous batch.
+    rebuild_summaries_mode bypasses that queue and regenerates existing
+    multi-article topic summaries from their linked articles.
     """
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
+    if rebuild_summaries_mode:
+        return rebuild_summaries(
+            db_path,
+            run_id,
+            client,
+            model=model,
+            max_topics=rebuild_max_topics,
+        )
     requested_batch_size = max(1, batch_size)
     batch_size = min(requested_batch_size, MAX_GROUPING_BATCH_SIZE)
     conn = sqlite3.connect(db_path)
@@ -1061,12 +1300,25 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
     parser.add_argument("--batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
+    parser.add_argument(
+        "--rebuild-summaries",
+        action="store_true",
+        help="Przepisz syntezy istniejących tematów z przypiętych artykułów; nie grupuj nowych artykułów.",
+    )
+    parser.add_argument(
+        "--rebuild-max-topics",
+        type=int,
+        default=int(os.environ.get("AI_REBUILD_MAX_TOPICS", "0")),
+        help="Maksymalna liczba tematów w przebudowie; 0 oznacza wszystkie.",
+    )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args()
     client = SupabaseRestClient()
     print(json.dumps(analyze_run(
         args.db, args.run_id, client, model=args.model,
         max_articles=args.max_articles, batch_size=args.batch_size,
+        rebuild_summaries_mode=args.rebuild_summaries,
+        rebuild_max_topics=args.rebuild_max_topics,
     ), ensure_ascii=False))
     return 0
 
