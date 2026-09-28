@@ -21,8 +21,9 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v11-direct-long-summaries-and-rebuild"
+PROMPT_VERSION = "ai-prompts-v12-topic-merge-before-summary"
 TOPIC_LOOKBACK_DAYS = 3
+TOPIC_MERGE_MIN_CONFIDENCE = 0.90
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
 MIN_ARTICLE_WORDS = 100
@@ -68,6 +69,31 @@ uruchomieniu tego samego dnia. Jeśli dopasowanie do istniejącego tematu jest
 niepewne, zostaw existing_topic_id puste i ustaw needs_review. Profil źródła
 służy wyłącznie do opisu perspektywy, nie do łączenia artykułów.
 grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
+""".strip()
+
+TOPIC_MERGE_INSTRUCTIONS = """
+Jesteś modułem porządkowania tematów w aplikacji Global News Intelligence.
+Otrzymujesz aktywne tematy z ostatnich kilku dni. Sprawdź, czy dwa lub więcej
+tematów dotyczy dokładnie tego samego konkretnego wydarzenia, decyzji,
+głosowania, wypowiedzi albo rozwoju tej samej sprawy.
+
+Scalaj tylko wtedy, gdy podobieństwo wynika z tytułu i krótkiego opisu oraz
+dotyczy tego samego zdarzenia. Nie scalaj tematów tylko dlatego, że dotyczą
+tego samego państwa, osoby, partii, wojny, wyborów albo ogólnego problemu.
+Podobne słowa nie wystarczają, jeżeli chodzi o różne wydarzenia. Jeżeli masz
+wątpliwości, pozostaw tematy osobno.
+
+Zwróć WYŁĄCZNIE poprawny JSON:
+{"merge_groups":[{"topic_ids":["topic_a","topic_b"],
+"merged_title_pl":"neutralny wspólny tytuł","confidence":0.0,
+"reason":"krótkie wyjaśnienie, dlaczego to to samo wydarzenie"}],
+"keep_separate_topic_ids":[]}
+
+W każdej grupie muszą być co najmniej dwa różne topic_id. Nie umieszczaj
+jednego tematu w dwóch grupach. confidence ma oznaczać pewność, że chodzi o
+to samo konkretne wydarzenie, a nie tylko podobną tematykę. Do automatycznego
+scalenia nadają się wyłącznie grupy z confidence co najmniej 0.90. Nie twórz
+grup z tematów, które są już oznaczone jako scalone.
 """.strip()
 
 SUMMARY_INSTRUCTIONS = """
@@ -544,6 +570,235 @@ def active_topic_payload(
     return payload, link_map, topic_context
 
 
+def stable_merged_topic_id(topic_ids: list[str]) -> str:
+    return "topic_merge_" + digest({"topic_ids": sorted(topic_ids)})[:24]
+
+
+def merge_active_topics(
+    db_path: Path,
+    run_id: str,
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+) -> dict[str, int]:
+    """Merge duplicate active topics before any final summary is generated."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=TOPIC_LOOKBACK_DAYS)).isoformat()
+    topics = client.select_all(
+        "topics",
+        columns=(
+            "topic_id,headline_pl,status,first_seen_at,last_seen_at,"
+            "article_count,source_count,coverage_status,needs_review"
+        ),
+        filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
+    )
+    stats = {
+        "merge_candidates": 0,
+        "topics_merged": 0,
+        "merge_failed": 0,
+    }
+    if len(topics) < 2:
+        return stats
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        links = client.select_all("topic_articles", columns="topic_id,article_id")
+        summaries = client.select_all("topic_summaries", columns="topic_id,summary")
+        summary_by_topic = {
+            str(row["topic_id"]): stored_base_summary(row.get("summary"))
+            for row in summaries
+        }
+        ids_by_topic: dict[str, list[str]] = {}
+        for row in links:
+            ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+
+        payload_topics: list[dict[str, Any]] = []
+        topic_by_id = {str(row["topic_id"]): row for row in topics}
+        for topic in topics:
+            topic_id = str(topic["topic_id"])
+            article_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
+            article_rows = local_articles(conn, article_ids)
+            article_rows.sort(
+                key=lambda row: (
+                    str(row.get("published_at") or row.get("fetched_at") or ""),
+                    str(row["article_id"]),
+                ),
+                reverse=True,
+            )
+            previous = summary_by_topic.get(topic_id) or {}
+            previous_topic = previous.get("topic") if isinstance(previous.get("topic"), dict) else {}
+            payload_topics.append({
+                "topic_id": topic_id,
+                "headline_pl": str(topic.get("headline_pl") or ""),
+                "what_happened_one_sentence_pl": str(
+                    previous_topic.get("what_happened_one_sentence_pl") or ""
+                ),
+                "article_count": len(article_ids),
+                "source_count": topic.get("source_count", 0),
+                "first_seen_at": topic.get("first_seen_at", ""),
+                "last_seen_at": topic.get("last_seen_at", ""),
+                "recent_article_titles": [
+                    str(row.get("title") or "")[:300]
+                    for row in article_rows[:5]
+                    if str(row.get("title") or "").strip()
+                ],
+            })
+
+        merge_input = {
+            "active_topics": payload_topics,
+            "topic_memory_window_days": TOPIC_LOOKBACK_DAYS,
+        }
+        merge_hash = digest(merge_input)
+        merge_run_id = "topicrun_" + digest({
+            "run": run_id, "stage": "TOPIC_MERGE", "input": merge_hash,
+        })[:24]
+        try:
+            result = call_openai(TOPIC_MERGE_INSTRUCTIONS, merge_input, model)
+            client.upsert("topic_runs", [{
+                "topic_run_id": merge_run_id,
+                "run_id": run_id,
+                "stage": "TOPIC_MERGE",
+                "prompt_version": PROMPT_VERSION,
+                "model": model,
+                "input_hash": merge_hash,
+                "status": "COMPLETED",
+                "raw_output": response_for_storage(result),
+                "error": None,
+            }], on_conflict="topic_run_id")
+        except Exception as exc:
+            log_parse_failure("TOPIC_MERGE", exc)
+            client.upsert("topic_runs", [{
+                "topic_run_id": merge_run_id,
+                "run_id": run_id,
+                "stage": "TOPIC_MERGE",
+                "prompt_version": PROMPT_VERSION,
+                "model": model,
+                "input_hash": merge_hash,
+                "status": "FAILED",
+                "raw_output": parse_failure_for_storage(exc),
+                "error": str(exc)[:2000],
+            }], on_conflict="topic_run_id")
+            stats["merge_failed"] = 1
+            return stats
+
+        raw_groups = result.get("merge_groups")
+        if not isinstance(raw_groups, list):
+            return stats
+
+        used_topic_ids: set[str] = set()
+        for raw_group in raw_groups:
+            if not isinstance(raw_group, dict):
+                continue
+            try:
+                confidence = float(raw_group.get("confidence") or 0)
+            except (TypeError, ValueError):
+                confidence = 0
+            group_ids = list(dict.fromkeys(
+                str(value) for value in raw_group.get("topic_ids", [])
+                if str(value) in topic_by_id
+            ))
+            if (
+                confidence < TOPIC_MERGE_MIN_CONFIDENCE
+                or len(group_ids) < 2
+                or used_topic_ids.intersection(group_ids)
+            ):
+                continue
+            stats["merge_candidates"] += 1
+            used_topic_ids.update(group_ids)
+
+            article_ids = list(dict.fromkeys(
+                article_id
+                for topic_id in group_ids
+                for article_id in ids_by_topic.get(topic_id, [])
+            ))
+            article_rows = local_articles(conn, article_ids)
+            if len(article_rows) < 2:
+                continue
+            source_ids = {str(row["source_id"]) for row in article_rows}
+            first_seen_values = [
+                str(topic_by_id[topic_id].get("first_seen_at") or "")
+                for topic_id in group_ids
+            ]
+            last_seen_values = [
+                str(topic_by_id[topic_id].get("last_seen_at") or "")
+                for topic_id in group_ids
+            ]
+            title = str(raw_group.get("merged_title_pl") or "").strip()
+            if not title:
+                title = max(
+                    (str(topic_by_id[topic_id].get("headline_pl") or "") for topic_id in group_ids),
+                    key=len,
+                    default="Połączony temat",
+                )
+            canonical_id = stable_merged_topic_id(group_ids)
+            if len(article_ids) == 1:
+                coverage_status = "SINGLE_ARTICLE"
+            elif len(source_ids) == 1:
+                coverage_status = "SINGLE_SOURCE"
+            else:
+                coverage_status = "MULTI_SOURCE"
+            client.upsert("topics", [{
+                "topic_id": canonical_id,
+                "headline_pl": title[:300],
+                "status": "ACTIVE",
+                "first_seen_at": min(value for value in first_seen_values if value) if any(first_seen_values) else now(),
+                "last_seen_at": max(last_seen_values) if any(last_seen_values) else now(),
+                "article_count": len(article_ids),
+                "source_count": len(source_ids),
+                "coverage_status": coverage_status,
+                "needs_review": any(bool(topic_by_id[topic_id].get("needs_review")) for topic_id in group_ids),
+                "updated_at": now(),
+            }], on_conflict="topic_id")
+            client.upsert("topic_articles", [
+                {"topic_id": canonical_id, "article_id": article_id, "confidence": confidence}
+                for article_id in article_ids
+            ], on_conflict="topic_id,article_id")
+
+            for old_topic_id in group_ids:
+                client.update(
+                    "article_topic_assignments",
+                    {"topic_id": canonical_id},
+                    filters=[("topic_id", f"eq.{old_topic_id}")],
+                )
+                client.delete(
+                    "topic_articles",
+                    filters=[("topic_id", f"eq.{old_topic_id}")],
+                )
+                try:
+                    client.update(
+                        "topics",
+                        {
+                            "status": "MERGED",
+                            "merged_into_topic_id": canonical_id,
+                            "merged_at": now(),
+                            "updated_at": now(),
+                        },
+                        filters=[("topic_id", f"eq.{old_topic_id}")],
+                    )
+                except Exception as exc:
+                    # The status fallback keeps the duplicate out of the app
+                    # even before the optional redirect-column migration runs.
+                    print(
+                        f"[AI] Nie zapisano merged_into_topic_id dla {old_topic_id}; "
+                        f"uruchom supabase_migration_topic_merges.sql. ({exc})",
+                        flush=True,
+                    )
+                    client.update(
+                        "topics",
+                        {"status": "MERGED", "updated_at": now()},
+                        filters=[("topic_id", f"eq.{old_topic_id}")],
+                    )
+            stats["topics_merged"] += len(group_ids)
+            print(
+                f"[AI] Scalono tematy {', '.join(group_ids)} → {canonical_id} "
+                f"(confidence={confidence:.2f}).",
+                flush=True,
+            )
+        return stats
+    finally:
+        conn.close()
+
+
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
     assigned_rows = client.select_all("article_topic_assignments", columns="article_id")
     assigned = {str(row["article_id"]) for row in assigned_rows}
@@ -984,6 +1239,7 @@ def _analyze_pending_batch(
     *,
     model: str = DEFAULT_MODEL,
     batch_index: str | int = 1,
+    summarize: bool = True,
 ) -> dict[str, int]:
     openai_api_key()
     conn = sqlite3.connect(db_path)
@@ -1146,6 +1402,9 @@ def _analyze_pending_batch(
         client.upsert("article_topic_assignments", unique_assignment_rows, on_conflict="run_id,article_id")
         stats["groups"] = len(group_data)
 
+        if not summarize:
+            return stats
+
         for group in group_data:
             topic_id = group["topic_id"]
             title = group["title"]
@@ -1251,6 +1510,7 @@ def analyze_run(
         "pending_articles": len(articles), "groups": 0,
         "summaries": 0, "skipped_summaries": 0,
         "skipped_single_article": 0, "failed_summaries": 0, "excluded": 0,
+        "merge_candidates": 0, "topics_merged": 0, "merge_failed": 0,
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
@@ -1269,7 +1529,8 @@ def analyze_run(
             )
             try:
                 batch_stats = _analyze_pending_batch(
-                    db_path, run_id, client, batch, model=model, batch_index=label
+                    db_path, run_id, client, batch, model=model,
+                    batch_index=label, summarize=False,
                 )
                 merge_batch_stats(batch_stats)
             except ValueError as exc:
@@ -1284,10 +1545,14 @@ def analyze_run(
                 process_batch(batch[:midpoint], f"{label}a")
                 process_batch(batch[midpoint:], f"{label}b")
 
-        for offset in range(0, len(articles), batch_size):
+    for offset in range(0, len(articles), batch_size):
             batch_index = offset // batch_size + 1
             process_batch(articles[offset:offset + batch_size], str(batch_index))
 
+    merge_stats = merge_active_topics(db_path, run_id, client, model=model)
+    stats["merge_candidates"] = merge_stats["merge_candidates"]
+    stats["topics_merged"] = merge_stats["topics_merged"]
+    stats["merge_failed"] = merge_stats["merge_failed"]
     recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
     stats["summaries"] += recovery_stats["summaries"]
     stats["failed_summaries"] += recovery_stats["failed_summaries"]

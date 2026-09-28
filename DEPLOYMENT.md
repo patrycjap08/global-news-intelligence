@@ -14,6 +14,11 @@ Po wdrożeniu klasyfikacji pokrycia tematów uruchom jednorazowo w SQL Editor
 plik `supabase_migration_topic_coverage.sql`. Doda on `topics.coverage_status`
 oraz widok `source_topic_coverage` do porównywania źródeł.
 
+Przed kolejnym pełnym uruchomieniem uruchom także jednorazowo
+`supabase_migration_topic_merges.sql`. Dodaje on przekierowanie dla tematów,
+które AI połączy jako duplikaty. Scalony temat nie jest usuwany — dostaje
+status `MERGED`, a aplikacja pokazuje nowy temat zbiorczy.
+
 ## Sekrety repozytorium
 
 W GitHubie wejdź w `Settings -> Secrets and variables -> Actions` i upewnij się,
@@ -57,6 +62,9 @@ wieloartykułowych, generuje nowe syntezy i zapisuje je jako nową wersję.
 Poprzednie wersje pozostają w `topic_summary_versions`. Tematy z jednym
 artykułem są pomijane. Opcjonalna zmienna `AI_REBUILD_MAX_TOPICS` ogranicza
 liczbę przebudowanych tematów; `0` oznacza wszystkie.
+
+W zwykłym trybie po grupowaniu nowych artykułów działa dodatkowy szybki etap
+scalania podobnych aktywnych tematów, a dopiero potem generowane są syntezy.
 
 ## Harmonogram
 

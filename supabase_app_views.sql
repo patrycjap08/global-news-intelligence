@@ -16,6 +16,8 @@ select
     source_count,
     coverage_status,
     needs_review,
+    merged_into_topic_id,
+    merged_at,
     updated_at
 from public.topics
 where status = 'ACTIVE';

@@ -127,11 +127,20 @@ create table if not exists public.topics (
     source_count integer not null default 0,
     coverage_status text not null default 'SINGLE_ARTICLE',
     needs_review boolean not null default false,
+    merged_into_topic_id text references public.topics(topic_id),
+    merged_at timestamptz,
     updated_at timestamptz not null default now()
 );
 
 alter table public.topics
     add column if not exists coverage_status text not null default 'SINGLE_ARTICLE';
+alter table public.topics
+    add column if not exists merged_into_topic_id text references public.topics(topic_id);
+alter table public.topics
+    add column if not exists merged_at timestamptz;
+
+create index if not exists topics_merged_into_idx
+    on public.topics(merged_into_topic_id);
 
 create table if not exists public.topic_articles (
     topic_id text not null references public.topics(topic_id),
@@ -215,7 +224,8 @@ set article_count = coverage.article_count,
     end,
     updated_at = now()
 from coverage
-where t.topic_id = coverage.topic_id;
+where t.topic_id = coverage.topic_id
+  and t.status = 'ACTIVE';
 
 create or replace view public.source_topic_coverage as
 select
@@ -234,6 +244,7 @@ from public.topic_articles ta
 join public.topics t on t.topic_id = ta.topic_id
 join public.articles a on a.article_id = ta.article_id
 left join public.topic_summaries ts on ts.topic_id = t.topic_id
+where t.status = 'ACTIVE'
 group by a.source_id;
 
 -- The publishable key is safe to use from a frontend only together with RLS.
