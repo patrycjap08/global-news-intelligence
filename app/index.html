@@ -57,8 +57,18 @@
 
         <section class="toolbar" aria-label="Filtrowanie tematów">
           <div class="view-tabs" role="tablist" aria-label="Widok tematów">
-            <button class="view-tab" data-view="all" role="tab" type="button">Wszystkie</button>
-            <button class="view-tab is-active" data-view="multi" role="tab" type="button">Wiele źródeł</button>
+            <button class="view-tab is-active" data-view="current" role="tab" type="button">Aktualne</button>
+            <button class="view-tab" data-view="historical" role="tab" type="button">Historyczne</button>
+          </div>
+          <div class="toolbar-options">
+            <label class="sort-control" for="sort-select">Sortuj:
+              <select id="sort-select">
+                <option value="newest">najnowsze</option>
+                <option value="articles">liczba artykułów</option>
+                <option value="sources">liczba źródeł</option>
+              </select>
+            </label>
+            <label class="read-toggle"><input id="hide-read" type="checkbox" /> Ukryj przeczytane</label>
           </div>
           <label class="search-field">
             <span aria-hidden="true">⌕</span>

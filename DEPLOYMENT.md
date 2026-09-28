@@ -19,6 +19,10 @@ Przed kolejnym pełnym uruchomieniem uruchom także jednorazowo
 które AI połączy jako duplikaty. Scalony temat nie jest usuwany — dostaje
 status `MERGED`, a aplikacja pokazuje nowy temat zbiorczy.
 
+Uruchom również jednorazowo `supabase_migration_historical_topics.sql`.
+Udostępnia on aplikacji tematy starsze niż 55 godzin, aby mogły pojawić się
+w zakładce „Historyczne”. Tematy `MERGED` nadal pozostają ukryte.
+
 ## Sekrety repozytorium
 
 W GitHubie wejdź w `Settings -> Secrets and variables -> Actions` i upewnij się,

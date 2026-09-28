@@ -18,9 +18,10 @@ select
     needs_review,
     merged_into_topic_id,
     merged_at,
-    updated_at
+    updated_at,
+    (last_seen_at >= now() - interval '55 hours') as is_current
 from public.topics
-where status = 'ACTIVE';
+where status <> 'MERGED';
 
 create or replace view public.app_topic_articles as
 select

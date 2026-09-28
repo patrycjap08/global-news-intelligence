@@ -1,5 +1,6 @@
 const config = window.GNI_CONFIG || {};
 const READ_STATE_KEY = 'gni.topic-read-state.v1';
+const TOPIC_VALIDITY_HOURS = 55;
 
 const state = {
   topics: [],
@@ -7,7 +8,9 @@ const state = {
   links: [],
   summaries: new Map(),
   history: new Map(),
-  view: 'multi',
+  view: 'current',
+  sort: 'newest',
+  hideRead: false,
   profile: 'ALL',
   search: '',
   readTopics: loadReadTopics(),
@@ -106,6 +109,10 @@ function sourceCountLabel(count) {
   return `${count} ${polishCount(count, 'źródło', 'źródła', 'źródeł')}`;
 }
 
+function topicCountLabel(count) {
+  return String(count) + ' ' + polishCount(count, 'temat', 'tematy', 'tematów');
+}
+
 function humanProfile(profile) { return PROFILE_LABELS[profile] || PROFILE_LABELS.UNCLASSIFIED; }
 function articleMap() { return new Map(state.articles.map((article) => [article.article_id, article])); }
 function updateText(summary) {
@@ -115,6 +122,12 @@ function updateText(summary) {
 
 function topicArticleIds(model) {
   return model.articles.map((article) => String(article.article_id)).sort();
+}
+
+function topicIsCurrent(topic) {
+  if (typeof topic.is_current === 'boolean') return topic.is_current;
+  const timestamp = Date.parse(topic.last_seen_at || '');
+  return Number.isFinite(timestamp) && Date.now() - timestamp < TOPIC_VALIDITY_HOURS * 60 * 60 * 1000;
 }
 
 function readRecord(model) {
@@ -172,6 +185,12 @@ function topicModel(topic) {
   });
   const sourceCount = new Set(articles.map((article) => article.source_id || article.source_name).filter(Boolean)).size;
   const hasAggregation = sourceCount >= 2;
+  const articleTimestamps = articles
+    .map((article) => Date.parse(article.published_at || article.fetched_at || ''))
+    .filter(Number.isFinite);
+  const newestArticleAt = articleTimestamps.length
+    ? new Date(Math.max(...articleTimestamps)).toISOString()
+    : topic.last_seen_at;
   const storedHistory = state.history.get(topic.topic_id) || [];
   return {
     ...topic,
@@ -179,6 +198,8 @@ function topicModel(topic) {
     sources: [...sources],
     sourceCount,
     hasAggregation,
+    isCurrent: topicIsCurrent(topic),
+    newestArticleAt,
     profileCounts,
     summary: hasAggregation ? summary : {},
     latestUpdate: hasAggregation ? latestUpdate : {},
@@ -200,7 +221,7 @@ async function fetchTable(table, query = '') {
 async function loadLiveData() {
   const [topics, articles, links, summaries] = await Promise.all([
     fetchTable('app_topics', '?select=*&order=last_seen_at.desc'),
-    fetchTable('app_articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,word_count,description&order=published_at.desc'),
+    fetchTable('app_articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,fetched_at,word_count,description&order=published_at.desc'),
     fetchTable('app_topic_articles', '?select=topic_id,article_id,confidence'),
     fetchTable('app_topic_summaries', '?select=topic_id,version,summary,updated_at'),
   ]);
@@ -300,12 +321,12 @@ function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
   const badge = model.hasAggregation
     ? `${articleCountLabel(model.articles.length)} · ${sourceCountLabel(model.sources.length)}`
-    : `${articleCountLabel(model.articles.length)} · Jedno źródło — bez agregacji`;
+    : 'Materiał oczekujący na drugie źródło';
   const hasUpdate = Boolean(updateText(model.latestUpdate));
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
+    <div class="card-meta"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.newestArticleAt)}</span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
@@ -356,7 +377,7 @@ function dialogHtml(model) {
     const previousUpdateText = updateText(previousUpdate);
     return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p>${previousUpdateText ? `<small>${escapeHtml(previousUpdateText)}</small>` : ''}</details>`;
   }).join('');
-  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'JEDNO ŹRÓDŁO — BRAK AGREGACJI'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span></p>
+  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
@@ -375,7 +396,7 @@ function dialogHtml(model) {
 
 function openTopic(topicId) {
   const model = state.topics.map(topicModel).find((topic) => topic.topic_id === topicId);
-  if (!model) return;
+  if (!model || !model.hasAggregation) return;
   markTopicRead(model);
   $('#dialog-content').innerHTML = dialogHtml(model);
   const dialog = $('#story-dialog');
@@ -387,21 +408,32 @@ function openTopic(topicId) {
 function filteredModels() {
   const query = state.search.trim().toLowerCase();
   return state.topics.map(topicModel).filter((topic) => {
-    if (state.view === 'multi' && topic.sourceCount < 2) return false;
+    if (!topic.hasAggregation) return false;
+    if (state.view === 'current' && !topic.isCurrent) return false;
+    if (state.view === 'historical' && topic.isCurrent) return false;
+    if (state.hideRead && isTopicRead(topic)) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
     if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;
-  }).sort((a, b) => (b.articles.length - a.articles.length) || new Date(b.last_seen_at) - new Date(a.last_seen_at));
+  }).sort((a, b) => {
+    if (state.sort === 'articles') {
+      return (b.articles.length - a.articles.length) || new Date(b.newestArticleAt) - new Date(a.newestArticleAt);
+    }
+    if (state.sort === 'sources') {
+      return (b.sourceCount - a.sourceCount) || new Date(b.newestArticleAt) - new Date(a.newestArticleAt);
+    }
+    return new Date(b.newestArticleAt) - new Date(a.newestArticleAt);
+  });
 }
 
 function render() {
   const models = filteredModels();
-  const allModels = state.topics.map(topicModel);
+  const allModels = state.topics.map(topicModel).filter((topic) => topic.hasAggregation);
   renderStats(allModels);
   renderProfiles(allModels);
   renderSources(models);
-  $('#result-count').textContent = `${models.length} ${models.length === 1 ? 'temat' : 'tematów'}`;
-  $('#results-heading').textContent = state.view === 'multi' ? 'Tematy wieloźródłowe' : 'Dzisiejsze tematy';
+  $('#result-count').textContent = topicCountLabel(models.length);
+  $('#results-heading').textContent = state.view === 'historical' ? 'Historyczne agregacje' : 'Aktualne agregacje';
   $('#topic-grid').innerHTML = models.map(cardHtml).join('');
   $('#empty-state').hidden = models.length > 0;
   $('#topic-grid').querySelectorAll('[data-topic-id]').forEach((card) => {
@@ -437,6 +469,8 @@ document.addEventListener('click', (event) => {
 });
 
 $('#search-input').addEventListener('input', (event) => { state.search = event.target.value; render(); });
+$('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; render(); });
+$('#hide-read').addEventListener('change', (event) => { state.hideRead = event.target.checked; render(); });
 $('#dialog-close').addEventListener('click', () => $('#story-dialog').close());
 $('#refresh-button').addEventListener('click', async () => { if (state.demo) return showToast('Podgląd nie jest jeszcze połączony z Supabase.'); $('#refresh-button').textContent = 'Odświeżam…'; try { await loadLiveData(); setStatus(); render(); showToast('Dane zostały odświeżone.'); } catch (error) { showToast('Nie udało się odświeżyć danych.'); console.warn(error); } finally { $('#refresh-button').textContent = 'Odśwież dane'; } });
 

@@ -22,7 +22,7 @@ from supabase_client import SupabaseRestClient
 
 
 PROMPT_VERSION = "ai-prompts-v13-source-threshold-and-headlines"
-TOPIC_LOOKBACK_DAYS = 3
+TOPIC_LOOKBACK_HOURS = 55
 TOPIC_MERGE_MIN_CONFIDENCE = 0.90
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -58,7 +58,7 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
 unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
-z ostatnich trzech dni.
+z ostatnich 55 godzin.
 Jeżeli artykuł jest dalszym ciągiem istniejącego tematu, wpisz jego topic_id i
 topic_action=DEVELOPMENT. Jeżeli tylko uzupełnia kontekst lub wcześniejszą
 agregację, wpisz topic_action=BACKGROUND_OR_CONTEXT. Nowe wydarzenie ma
@@ -553,7 +553,7 @@ def article_for_ai(
 def active_topic_payload(
     client: SupabaseRestClient,
 ) -> tuple[list[dict[str, Any]], dict[str, list[str]], dict[str, dict[str, Any]]]:
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=TOPIC_LOOKBACK_DAYS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
         filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
@@ -603,7 +603,7 @@ def merge_active_topics(
     model: str = DEFAULT_MODEL,
 ) -> dict[str, int]:
     """Merge duplicate active topics before any final summary is generated."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=TOPIC_LOOKBACK_DAYS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
         columns=(
@@ -667,7 +667,7 @@ def merge_active_topics(
 
         merge_input = {
             "active_topics": payload_topics,
-            "topic_memory_window_days": TOPIC_LOOKBACK_DAYS,
+            "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
         }
         merge_hash = digest(merge_input)
         merge_run_id = "topicrun_" + digest({
@@ -1281,7 +1281,7 @@ def _analyze_pending_batch(
                 for row in articles
             ],
             "active_topics": active_topics,
-            "topic_memory_window_days": TOPIC_LOOKBACK_DAYS,
+            "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
         }
         grouping_hash = digest(grouping_input)
         grouping_topic_run_id = "topicrun_" + digest({
