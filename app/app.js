@@ -203,7 +203,11 @@ function cardHtml(model, index) {
 
 function listValue(value) {
   if (!Array.isArray(value)) return '';
-  return value.map((item) => `<li>${escapeHtml(typeof item === 'string' ? item : item.text_pl || item.text || item.claim || item.description || item.headline_pl || JSON.stringify(item))}</li>`).join('');
+  return value.map((item) => {
+    if (typeof item === 'string') return `<li>${escapeHtml(item)}</li>`;
+    const text = item.text_pl || item.text || item.claim || item.description_pl || item.description || item.agreement || item.difference || item.frame || item.signal || item.notes || item.headline_pl || item.what_changed_pl || item.new_information_pl || JSON.stringify(item);
+    return `<li>${escapeHtml(text)}</li>`;
+  }).join('');
 }
 
 function readerContextHtml(items) {
