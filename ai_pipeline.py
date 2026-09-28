@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v3-excerpt-and-relevance"
+PROMPT_VERSION = "ai-prompts-v4-json-recovery"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -142,12 +142,22 @@ def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[
     from openai import OpenAI
 
     client = OpenAI(api_key=openai_api_key())
-    response = client.responses.create(
-        model=model,
-        instructions=instructions,
-        input=json.dumps(payload, ensure_ascii=False),
-    )
-    return extract_json(response.output_text)
+    last_error: ValueError | None = None
+    for attempt in range(2):
+        response = client.responses.create(
+            model=model,
+            instructions=instructions,
+            input=json.dumps(payload, ensure_ascii=False),
+            text={"format": {"type": "json_object"}},
+        )
+        try:
+            return extract_json(response.output_text)
+        except ValueError as exc:
+            last_error = exc
+            if attempt == 0:
+                continue
+    assert last_error is not None
+    raise last_error
 
 
 def local_articles(conn: sqlite3.Connection, article_ids: list[str] | None = None) -> list[dict[str, Any]]:
@@ -277,6 +287,109 @@ def mark_excluded_articles(
     return excluded_ids
 
 
+def retry_incomplete_summaries(
+    db_path: Path,
+    run_id: str,
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+) -> dict[str, int]:
+    """Retry summaries for multi-article topics left incomplete by a failed run."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    stats = {"summaries": 0, "failed_summaries": 0}
+    try:
+        topics = client.select_all("topics", filters=[("status", "eq.ACTIVE")])
+        links = client.select_all("topic_articles", columns="topic_id,article_id")
+        summaries = client.select_all(
+            "topic_summaries", columns="topic_id,summary,input_hash,version,updated_at"
+        )
+        assignments = client.select_all(
+            "article_topic_assignments", columns="topic_id,article_id,created_at"
+        )
+        ids_by_topic: dict[str, list[str]] = {}
+        for row in links:
+            ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+        latest_assignment_by_topic: dict[str, str] = {}
+        assignment_time_by_article: dict[tuple[str, str], str] = {}
+        for row in assignments:
+            topic_id = str(row["topic_id"])
+            article_id = str(row["article_id"])
+            created_at = str(row.get("created_at") or "")
+            if created_at > latest_assignment_by_topic.get(topic_id, ""):
+                latest_assignment_by_topic[topic_id] = created_at
+            assignment_time_by_article[(topic_id, article_id)] = created_at
+        summary_by_topic = {str(row["topic_id"]): row for row in summaries}
+
+        for topic in topics:
+            topic_id = str(topic.get("topic_id") or "")
+            all_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
+            if not topic_id or len(all_ids) < 2:
+                continue
+            previous_row = summary_by_topic.get(topic_id)
+            previous_updated_at = str((previous_row or {}).get("updated_at") or "")
+            latest_assignment = latest_assignment_by_topic.get(topic_id, "")
+            if previous_row and latest_assignment <= previous_updated_at:
+                continue
+            new_ids = [
+                article_id for article_id in all_ids
+                if not previous_row
+                or assignment_time_by_article.get((topic_id, article_id), "") > previous_updated_at
+            ]
+            if not new_ids:
+                continue
+            new_rows = local_articles(conn, new_ids)
+            all_rows = local_articles(conn, all_ids)
+            if len(new_rows) == 0 or len(all_rows) < 2:
+                continue
+            previous_aggregation = previous_row.get("summary") if previous_row else None
+            summary_input = {
+                "topic": {
+                    "topic_id": topic_id,
+                    "working_title_pl": str(topic.get("headline_pl") or "Temat bez tytułu"),
+                    "topic_action": "DEVELOPMENT" if previous_aggregation else "NEW_TOPIC",
+                },
+                "previous_aggregation": previous_aggregation,
+                "new_articles": [article_for_ai(row) for row in new_rows],
+                "all_article_ids_in_topic": all_ids,
+            }
+            if previous_aggregation is None:
+                summary_input["all_articles"] = [article_for_ai(row) for row in all_rows]
+            summary_hash = digest(summary_input)
+            summary_topic_run_id = "topicrun_" + digest({
+                "topic": topic_id, "stage": "SUMMARY", "input": summary_hash,
+            })[:24]
+            try:
+                summary = call_openai(SUMMARY_INSTRUCTIONS, summary_input, model)
+                client.upsert("topic_summaries", [{
+                    "topic_id": topic_id,
+                    "version": int(previous_row.get("version", 0)) + 1 if previous_row else 1,
+                    "input_hash": summary_hash,
+                    "model": model,
+                    "summary": summary,
+                    "generated_at": now(),
+                    "updated_at": now(),
+                }], on_conflict="topic_id")
+                client.upsert("topic_runs", [{
+                    "topic_run_id": summary_topic_run_id, "run_id": run_id,
+                    "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
+                    "model": model, "input_hash": summary_hash, "status": "COMPLETED",
+                    "raw_output": summary, "error": None,
+                }], on_conflict="topic_run_id")
+                stats["summaries"] += 1
+            except Exception as exc:
+                client.upsert("topic_runs", [{
+                    "topic_run_id": summary_topic_run_id, "run_id": run_id,
+                    "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
+                    "model": model, "input_hash": summary_hash, "status": "FAILED",
+                    "raw_output": None, "error": str(exc)[:2000],
+                }], on_conflict="topic_run_id")
+                stats["failed_summaries"] += 1
+        return stats
+    finally:
+        conn.close()
+
+
 def stable_topic_id(article_ids: list[str], title: str) -> str:
     return "topic_" + digest({"article_ids": sorted(article_ids), "title": title})[:24]
 
@@ -295,7 +408,8 @@ def _analyze_pending_batch(
     conn.row_factory = sqlite3.Row
     stats = {
         "pending_articles": 0, "groups": 0, "summaries": 0,
-        "skipped_summaries": 0, "skipped_single_article": 0, "excluded": 0,
+        "skipped_summaries": 0, "skipped_single_article": 0,
+        "failed_summaries": 0, "excluded": 0,
     }
     try:
         stats["pending_articles"] = len(articles)
@@ -445,7 +559,7 @@ def _analyze_pending_batch(
                     "model": model, "input_hash": summary_hash, "status": "FAILED",
                     "raw_output": None, "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
-                raise
+                stats["failed_summaries"] += 1
         return stats
     finally:
         conn.close()
@@ -479,24 +593,29 @@ def analyze_run(
     stats = {
         "pending_articles": len(articles), "groups": 0,
         "summaries": 0, "skipped_summaries": 0,
-        "skipped_single_article": 0, "excluded": 0,
+        "skipped_single_article": 0, "failed_summaries": 0, "excluded": 0,
     }
-    if not articles:
-        return stats
+    if articles:
+        total_batches = (len(articles) + batch_size - 1) // batch_size
+        for offset in range(0, len(articles), batch_size):
+            batch_index = offset // batch_size + 1
+            batch = articles[offset:offset + batch_size]
+            print(
+                f"[AI] Paczka {batch_index}/{total_batches}: {len(batch)} artykułów...",
+                flush=True,
+            )
+            batch_stats = _analyze_pending_batch(
+                db_path, run_id, client, batch, model=model, batch_index=batch_index
+            )
+            for key in (
+                "groups", "summaries", "skipped_summaries", "skipped_single_article",
+                "failed_summaries", "excluded",
+            ):
+                stats[key] += batch_stats[key]
 
-    total_batches = (len(articles) + batch_size - 1) // batch_size
-    for offset in range(0, len(articles), batch_size):
-        batch_index = offset // batch_size + 1
-        batch = articles[offset:offset + batch_size]
-        print(
-            f"[AI] Paczka {batch_index}/{total_batches}: {len(batch)} artykułów...",
-            flush=True,
-        )
-        batch_stats = _analyze_pending_batch(
-            db_path, run_id, client, batch, model=model, batch_index=batch_index
-        )
-        for key in ("groups", "summaries", "skipped_summaries", "skipped_single_article", "excluded"):
-            stats[key] += batch_stats[key]
+    recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
+    stats["summaries"] += recovery_stats["summaries"]
+    stats["failed_summaries"] += recovery_stats["failed_summaries"]
     return stats
 
 
