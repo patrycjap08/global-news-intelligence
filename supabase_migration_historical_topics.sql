@@ -1,7 +1,9 @@
 -- Udostępnia aplikacji także niepołączone tematy starsze niż 55 godzin.
 -- Status MERGED pozostaje ukryty; is_current jest wyliczane dynamicznie.
 
-create or replace view public.app_topics as
+drop view if exists public.app_topics;
+
+create view public.app_topics as
 select
     topic_id,
     headline_pl,

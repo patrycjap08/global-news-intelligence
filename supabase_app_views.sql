@@ -5,7 +5,9 @@
 -- udostępnia pełnego body artykułu — aplikacja pokazuje opracowanie AI i link
 -- do oryginalnego materiału.
 
-create or replace view public.app_topics as
+drop view if exists public.app_topics;
+
+create view public.app_topics as
 select
     topic_id,
     headline_pl,
