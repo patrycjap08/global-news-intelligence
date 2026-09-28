@@ -248,12 +248,25 @@ async function fetchTable(table, query = '') {
   return response.json();
 }
 
+async function fetchAllRows(table, query = '') {
+  const pageSize = 1000;
+  const rows = [];
+  let offset = 0;
+  while (true) {
+    const separator = query.includes('?') ? '&' : '?';
+    const page = await fetchTable(table, `${query}${separator}limit=${pageSize}&offset=${offset}`);
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+    offset += page.length;
+  }
+}
+
 async function loadLiveData() {
   const [topics, articles, links, summaries] = await Promise.all([
-    fetchTable('app_topics', '?select=*&order=last_seen_at.desc'),
-    fetchTable('app_articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,fetched_at,word_count,description&order=published_at.desc'),
-    fetchTable('app_topic_articles', '?select=topic_id,article_id,confidence'),
-    fetchTable('app_topic_summaries', '?select=topic_id,version,summary,updated_at'),
+    fetchAllRows('app_topics', '?select=*&order=last_seen_at.desc'),
+    fetchAllRows('app_articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,fetched_at,word_count,description&order=published_at.desc'),
+    fetchAllRows('app_topic_articles', '?select=topic_id,article_id,confidence'),
+    fetchAllRows('app_topic_summaries', '?select=topic_id,version,summary,updated_at'),
   ]);
   state.topics = topics;
   state.articles = articles;
@@ -261,8 +274,8 @@ async function loadLiveData() {
   state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary]));
   try {
     const [xPosts, xLinks] = await Promise.all([
-      fetchTable('app_x_posts', '?select=post_id,username,display_name,category,editorial_profile,text,posted_at,url'),
-      fetchTable('app_topic_x_posts', '?select=topic_id,post_id,confidence,assigned_at'),
+      fetchAllRows('app_x_posts', '?select=post_id,username,display_name,category,editorial_profile,text,posted_at,url'),
+      fetchAllRows('app_topic_x_posts', '?select=topic_id,post_id,confidence,assigned_at'),
     ]);
     state.xPosts = xPosts;
     state.xLinks = xLinks;
@@ -279,7 +292,7 @@ async function loadLiveData() {
     console.warn('Data ostatniego pobrania nie jest jeszcze dostępna.', error);
   }
   try {
-    const versions = await fetchTable('app_topic_summary_versions', '?select=topic_id,version,summary,new_article_ids,generated_at&order=version.asc');
+    const versions = await fetchAllRows('app_topic_summary_versions', '?select=topic_id,version,summary,new_article_ids,generated_at&order=version.asc');
     state.history = new Map();
     versions.forEach((version) => {
       const versionsForTopic = state.history.get(version.topic_id) || [];
