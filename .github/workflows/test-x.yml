@@ -1,0 +1,29 @@
+name: Test one X account
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        description: "Nazwa konta bez @"
+        required: true
+        default: "ZandbergRAZEM"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-x:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Fetch and show filtered posts
+        run: python test_x_account.py "${{ inputs.username }}"
