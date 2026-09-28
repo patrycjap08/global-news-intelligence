@@ -14,14 +14,16 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import random
 import re
 import sqlite3
+import time
 from typing import Any
 
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v16-strict-topic-cohesion"
+PROMPT_VERSION = "ai-prompts-v17-evidence-completeness"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
@@ -33,6 +35,10 @@ MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
 GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.82"))
+OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
+OPENAI_RETRY_BASE_SECONDS = max(
+    0.5, float(os.environ.get("OPENAI_RETRY_BASE_SECONDS", "2"))
+)
 
 TITLE_PREFIX_RE = re.compile(r"^\[([^\]\r\n]{2,80})\]\s+(\S.*)$")
 PLACEHOLDER_TOPIC_TITLES = {
@@ -232,6 +238,8 @@ SUMMARY_INSTRUCTIONS = """
 Jesteś redaktorem analitycznym aplikacji Global News Intelligence. Przygotuj
 neutralne polskie opracowanie jednego tematu wyłącznie na podstawie
 dostarczonych artykułów. Każde istotne twierdzenie musi mieć article_ids.
+Identyfikatory są techniczne: aplikacja ma prezentować czytelnikowi
+odpowiadające im nazwy źródeł, a nie surowe numery lub identyfikatory.
 Pokaż osobno fakty zgodne, informacje jednostkowe, różnice i sprzeczności.
 Nie rozstrzygaj, które źródło ma rację. Profil lewicowe/prawicowe/centralne
 służy wyłącznie do pokazania sposobu przedstawienia tematu.
@@ -246,10 +254,12 @@ summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o
 piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
 przedstawiają” ani „materiały dotyczą”. Zacznij od tego, co się wydarzyło.
 Tekst ma odpowiadać na pytanie „co dokładnie się wydarzyło”, a nie „o czym
-były artykuły”. Przy co najmniej 4 artykułach napisz zwykle 6–10 akapitów i
-około 600–1000 słów, a przy 2–3 artykułach około 350–600 słów, jeżeli materiały
-zawierają taką ilość konkretnych informacji. Nie skracaj syntezy do jednego
-ogólnego akapitu, gdy artykuły zawierają więcej ustaleń.
+były artykuły”. Przy co najmniej 4 artykułach napisz zwykle 6–10 akapitów,
+oddzielonych znakiem nowej linii, i około 700–1100 słów, a przy 2–3 artykułach
+około 500–700 słów, jeżeli materiały zawierają taką ilość konkretnych
+informacji. Nie skracaj syntezy, gdy artykuły zawierają więcej ustaleń. Liczba
+słów jest orientacyjna i może być niższa lub wyższa zależnie od liczby źródeł
+i ilości informacji w nich.
 
 Buduj tekst w tej kolejności, o ile materiał na to pozwala: (1) najważniejsze
 wydarzenie — kto, co, gdzie i kiedy; (2) szczegółowy przebieg i kolejność
@@ -339,6 +349,82 @@ będzie null.
 Pole new_articles zawiera materiały z bieżącego uruchomienia. Pole
 all_articles jest obecne przy pierwszym opracowaniu tematu; przy aktualizacji
 starsze materiały są reprezentowane przez previous_aggregation i ich article_id.
+
+DODATKOWE ZASADY WYKONANIA:
+
+Priorytet zasad jest następujący:
+1. poprawny JSON i dokładna struktura pól;
+2. zgodność z dostarczonymi artykułami;
+3. brak wymyślania informacji;
+4. kompletność ustaleń;
+5. styl, długość i płynność języka.
+
+article_ids muszą być kopiowane dokładnie z wejścia. Nie wolno tworzyć,
+modyfikować ani zgadywać identyfikatorów. Nie wpisuj nazw źródeł do
+article_ids.
+
+Każdy element tablic facts, agreement, differences, framing_and_tone,
+potential_manipulation_signals, contradictions i unknowns powinien zawierać
+jedno główne, możliwie atomowe twierdzenie. Jeżeli zdanie zawiera kilka
+niezależnych faktów, podziel je na kilka elementów.
+
+Pola tekstowe, które nie mają własnego article_ids, w szczególności
+summary_pl, topic.what_happened_one_sentence_pl, update.new_information_pl
+i update.what_changed_pl, mogą zawierać wyłącznie informacje mające
+bezpośrednie potwierdzenie w artykułach. Każde istotne twierdzenie z tych pól
+musi mieć dokładne odzwierciedlenie w co najmniej jednym elemencie tablic
+zawierającym właściwe article_ids.
+
+Nie dodawaj do agreement informacji tylko dlatego, że jest oczywistym faktem
+opisanym w summary_pl. Agreement zawiera wyłącznie dodatkowe ustalenia,
+które co najmniej dwa artykuły przedstawiają zgodnie.
+
+differences oznacza rozbieżności, które mogą współistnieć, na przykład różne
+liczby, kolejność działań, zakres skutków, interpretacje lub poziom
+szczegółowości.
+
+contradictions oznacza wyłącznie twierdzenia wzajemnie wykluczające się,
+dotyczące tego samego faktu. Nie rozstrzygaj sprzeczności i nie przenoś do
+contradictions zwykłych różnic akcentów.
+
+framing_and_tone opisuje sposób przedstawienia tematu, a nie prawdziwość
+artykułu. Każdy wpis powinien wskazywać konkretny element tekstu, na przykład
+język wartościujący, selekcję faktów, mocniejszy nagłówek albo odmienny
+akcent.
+
+potential_manipulation_signals nie jest oceną, że artykuł manipuluje.
+Wpisz wyłącznie obserwowalny sygnał oraz krótko wyjaśnij, dlaczego wymaga
+dodatkowego sprawdzenia.
+
+W trybie aktualizacji, gdy previous_aggregation nie jest null, zwróć pełną
+strukturę JSON, ale skopiuj 1:1 wszystkie wcześniejsze pola poza update.
+Nie parafrazuj, nie skracaj, nie poprawiaj stylistycznie i nie aktualizuj
+wcześniejszej syntezy. Nowe ustalenia mogą pojawić się wyłącznie w update.
+
+W trybie aktualizacji:
+- update.is_update musi mieć wartość true;
+- update.new_article_ids może zawierać wyłącznie article_id z bieżącego
+  new_articles;
+- jeśli nowe artykuły powtarzają wcześniejsze informacje, napisz to
+  wprost w new_information_pl;
+- nie traktuj samego pojawienia się nowego artykułu jako nowej informacji;
+- nie dodawaj do update faktów obecnych już w previous_aggregation lub
+  prior_updates.
+
+Każdy artykuł z wejścia musi pojawić się w sources. Jeżeli nie wnosi nowej
+informacji, napisz to w description_pl. Jeżeli jest logicznie niezgodny
+z tematem, wymień ten problem w quality.limitations_pl zamiast dopasowywać
+go sztucznie do syntezy.
+
+Przed zwróceniem odpowiedzi sprawdź wewnętrznie, czy:
+- wynik zawiera wyłącznie dozwolone pola;
+- nie ma komentarza, markdownu ani tekstu poza JSON-em;
+- JSON jest poprawnie parsowalny;
+- wszystkie article_id z wejścia występują w sources;
+- article_count oznacza liczbę unikalnych artykułów;
+- source_count oznacza liczbę unikalnych źródeł;
+- puste sekcje są reprezentowane przez [] lub "";
+- żadne twierdzenie nie zostało dodane wyłącznie dla zwiększenia długości.
 
 Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 {"topic":{"headline_pl":"","what_happened_one_sentence_pl":"",
@@ -641,28 +727,79 @@ def openai_api_key() -> str:
     return value
 
 
+def is_retryable_openai_error(exc: Exception) -> bool:
+    from openai import APIConnectionError, APIError, APITimeoutError
+
+    if isinstance(exc, (APIConnectionError, APITimeoutError)):
+        return True
+    if not isinstance(exc, APIError):
+        return False
+    return getattr(exc, "status_code", None) in {408, 409, 429, 500, 502, 503, 504}
+
+
+def openai_error_details(exc: Exception) -> str:
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None) or "unknown"
+    request_id = getattr(exc, "request_id", None)
+    suffix = f", request_id={request_id}" if request_id else ""
+    return f"status={status}{suffix}: {exc}"
+
+
+def wait_before_openai_retry(attempt: int, exc: Exception) -> None:
+    delay = min(OPENAI_RETRY_BASE_SECONDS * (2 ** attempt), 30.0)
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+    retry_after = headers.get("retry-after") if headers else None
+    if retry_after:
+        try:
+            delay = max(delay, float(retry_after))
+        except (TypeError, ValueError):
+            pass
+    delay += random.uniform(0, min(1.0, delay * 0.25))
+    print(
+        f"[AI] Chwilowy błąd OpenAI ({openai_error_details(exc)}); "
+        f"ponawiam za {delay:.1f}s ({attempt + 1}/{OPENAI_MAX_RETRIES}).",
+        flush=True,
+    )
+    time.sleep(delay)
+
+
 def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[str, Any]:
     from openai import OpenAI
 
     client = OpenAI(api_key=openai_api_key())
-    last_error: ValueError | None = None
-    for attempt in range(2):
+    last_error: Exception | None = None
+    parse_failures = 0
+    for attempt in range(OPENAI_MAX_RETRIES):
         input_text = (
             json.dumps(payload, ensure_ascii=False)
             + "\n\nReturn only valid JSON. Do not add any commentary outside the JSON object."
         )
-        response = client.responses.create(
-            model=model,
-            instructions=instructions,
-            input=input_text,
-            text={"format": {"type": "json_object"}},
-        )
+        try:
+            response = client.responses.create(
+                model=model,
+                instructions=instructions,
+                input=input_text,
+                text={"format": {"type": "json_object"}},
+            )
+        except Exception as exc:
+            if not is_retryable_openai_error(exc):
+                raise
+            last_error = exc
+            if attempt + 1 >= OPENAI_MAX_RETRIES:
+                raise
+            wait_before_openai_retry(attempt, exc)
+            continue
         try:
             return ParsedAIResponse(extract_json(response.output_text), response.output_text)
         except ValueError as exc:
             last_error = exc
-            if attempt == 0:
-                continue
+            parse_failures += 1
+            if parse_failures >= 2:
+                raise
+            print(
+                f"[AI] Niepoprawny JSON z OpenAI; ponawiam próbę ({parse_failures}/2): {exc}",
+                flush=True,
+            )
     assert last_error is not None
     raise last_error
 
@@ -1917,6 +2054,18 @@ def analyze_run(
                 print(
                     f"[AI] Niepoprawny JSON dla paczki {label}; dzielę ją na "
                     f"{midpoint} + {len(batch) - midpoint} artykułów. ({exc})",
+                    flush=True,
+                )
+                process_batch(batch[:midpoint], f"{label}a")
+                process_batch(batch[midpoint:], f"{label}b")
+            except Exception as exc:
+                if not is_retryable_openai_error(exc) or len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
+                    raise
+                midpoint = len(batch) // 2
+                print(
+                    f"[AI] OpenAI nie przetworzyło paczki {label}; dzielę ją na "
+                    f"{midpoint} + {len(batch) - midpoint} artykułów. "
+                    f"({openai_error_details(exc)})",
                     flush=True,
                 )
                 process_batch(batch[:midpoint], f"{label}a")
