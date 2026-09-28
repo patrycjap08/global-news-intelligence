@@ -91,6 +91,21 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' }).format(date).replace('.', '');
 }
 
+function polishCount(count, one, few, many) {
+  const value = Math.abs(Number(count) || 0);
+  if (value === 1) return one;
+  if (value % 10 >= 2 && value % 10 <= 4 && (value % 100 < 12 || value % 100 > 14)) return few;
+  return many;
+}
+
+function articleCountLabel(count) {
+  return `${count} ${polishCount(count, 'artykuł', 'artykuły', 'artykułów')}`;
+}
+
+function sourceCountLabel(count) {
+  return `${count} ${polishCount(count, 'źródło', 'źródła', 'źródeł')}`;
+}
+
 function humanProfile(profile) { return PROFILE_LABELS[profile] || PROFILE_LABELS.UNCLASSIFIED; }
 function articleMap() { return new Map(state.articles.map((article) => [article.article_id, article])); }
 function updateText(summary) {
@@ -155,18 +170,23 @@ function topicModel(topic) {
     profileCounts[profile] = (profileCounts[profile] || 0) + 1;
     if (article.source_name) sources.add(article.source_name);
   });
+  const sourceCount = new Set(articles.map((article) => article.source_id || article.source_name).filter(Boolean)).size;
+  const hasAggregation = sourceCount >= 2;
+  const storedHistory = state.history.get(topic.topic_id) || [];
   return {
     ...topic,
     articles,
     sources: [...sources],
+    sourceCount,
+    hasAggregation,
     profileCounts,
-    summary,
-    latestUpdate,
+    summary: hasAggregation ? summary : {},
+    latestUpdate: hasAggregation ? latestUpdate : {},
     summaryVersion: summaryRow.version || 1,
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
-    history: state.history.get(topic.topic_id) || [],
-    title: summaryTopic.headline_pl || topic.headline_pl || 'Temat bez tytułu',
-    lead: summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.',
+    history: hasAggregation ? storedHistory : [],
+    title: hasAggregation ? (summaryTopic.headline_pl || topic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
+    lead: hasAggregation ? (summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
 }
 
@@ -221,7 +241,7 @@ function setStatus() {
 }
 
 function renderStats(models) {
-  const multi = models.filter((topic) => topic.articles.length > 1).length;
+  const multi = models.filter((topic) => topic.sourceCount >= 2).length;
   $('#stat-topics').textContent = models.length;
   $('#stat-multi').textContent = multi;
   $('#stat-articles').textContent = new Set(models.flatMap((topic) => topic.articles.map((article) => article.article_id))).size;
@@ -278,11 +298,13 @@ function renderSources(models) {
 
 function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
-  const badge = model.articles.length > 1 ? `${model.articles.length} artykuły · ${model.sources.length} źródła` : 'Jedno źródło';
+  const badge = model.hasAggregation
+    ? `${articleCountLabel(model.articles.length)} · ${sourceCountLabel(model.sources.length)}`
+    : `${articleCountLabel(model.articles.length)} · Jedno źródło — bez agregacji`;
   const hasUpdate = Boolean(updateText(model.latestUpdate));
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
-  return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
+  return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
     <div class="card-meta"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
@@ -334,11 +356,11 @@ function dialogHtml(model) {
     const previousUpdateText = updateText(previousUpdate);
     return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p>${previousUpdateText ? `<small>${escapeHtml(previousUpdateText)}</small>` : ''}</details>`;
   }).join('');
-  return `<div class="dialog-content"><p class="dialog-kicker">${model.articles.length > 1 ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'POJEDYNCZY MATERIAŁ'} <span class="coverage-pill">${model.articles.length} artykuł${model.articles.length === 1 ? '' : 'y'}</span></p>
+  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'JEDNO ŹRÓDŁO — BRAK AGREGACJI'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
-    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${newArticleIds.length} ${newArticleIds.length === 1 ? 'artykuł' : 'artykuły'}</small>` : ''}</section>` : ''}
+    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateCopy)}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>` : ''}
     ${readerContextHtml(summary.reader_context)}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
@@ -365,8 +387,8 @@ function openTopic(topicId) {
 function filteredModels() {
   const query = state.search.trim().toLowerCase();
   return state.topics.map(topicModel).filter((topic) => {
-    if (state.view === 'multi' && topic.articles.length < 2) return false;
-    if (state.view === 'single' && topic.articles.length !== 1) return false;
+    if (state.view === 'multi' && topic.sourceCount < 2) return false;
+    if (state.view === 'single' && topic.sourceCount >= 2) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
     if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;

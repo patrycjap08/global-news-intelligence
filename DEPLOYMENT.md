@@ -57,10 +57,12 @@ nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
 
 Jeżeli chcesz przepisać od początku pełne syntezy tematów, w formularzu
 `Run workflow` wybierz tryb `rebuild-summaries`. Ten tryb nie uruchamia
-harvestera ani grupowania: bierze wszystkie artykuły już przypięte do tematów
-wieloartykułowych, generuje nowe syntezy i zapisuje je jako nową wersję.
-Poprzednie wersje pozostają w `topic_summary_versions`. Tematy z jednym
-artykułem są pomijane. Opcjonalna zmienna `AI_REBUILD_MAX_TOPICS` ogranicza
+harvestera ani grupowania: bierze artykuły już przypięte do tematów
+wieluźródłowych, generuje nowe syntezy i zapisuje je jako nową wersję.
+Poprzednie wersje pozostają w `topic_summary_versions`. Tematy, w których
+materiały pochodzą tylko z jednego źródła, są pomijane. Do syntezy potrzebne są
+co najmniej dwa różne źródła, nawet jeśli temat ma więcej niż dwa artykuły.
+Opcjonalna zmienna `AI_REBUILD_MAX_TOPICS` ogranicza
 liczbę przebudowanych tematów; `0` oznacza wszystkie.
 
 W zwykłym trybie po grupowaniu nowych artykułów działa dodatkowy szybki etap

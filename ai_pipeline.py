@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v12-topic-merge-before-summary"
+PROMPT_VERSION = "ai-prompts-v13-source-threshold-and-headlines"
 TOPIC_LOOKBACK_DAYS = 3
 TOPIC_MERGE_MIN_CONFIDENCE = 0.90
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
@@ -68,6 +68,15 @@ Nie twórz nowego tematu tylko dlatego, że artykuł pojawił się w kolejnym
 uruchomieniu tego samego dnia. Jeśli dopasowanie do istniejącego tematu jest
 niepewne, zostaw existing_topic_id puste i ustaw needs_review. Profil źródła
 służy wyłącznie do opisu perspektywy, nie do łączenia artykułów.
+working_title_pl ma być krótkim, konkretnym i informacyjnym tytułem po polsku,
+napisanym w jednolitym stylu dobrej gazety: ma jasno mówić, czego dotyczy
+wydarzenie, decyzja lub spór, i — gdy to pomaga — wskazywać głównego aktora
+oraz miejsce. Tytuł ma być ciekawy i zachęcający do lektury, ale nie może być
+clickbaitem, sensacyjną obietnicą, pytaniem retorycznym ani ogólnikiem typu
+„Azja”, „Nowe informacje” lub „Sytuacja jest napięta”. Nie używaj krzykliwych
+zapisów wielkimi literami ani ocen sugerujących, kto ma rację. Stosuj zwykłą
+polską kapitalizację tytułową i nie dodawaj informacji, których nie ma w
+artykułach. Tytuł powinien być zwięzły — zwykle około 8–16 słów.
 grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
 """.strip()
 
@@ -82,6 +91,10 @@ dotyczy tego samego zdarzenia. Nie scalaj tematów tylko dlatego, że dotyczą
 tego samego państwa, osoby, partii, wojny, wyborów albo ogólnego problemu.
 Podobne słowa nie wystarczają, jeżeli chodzi o różne wydarzenia. Jeżeli masz
 wątpliwości, pozostaw tematy osobno.
+
+merged_title_pl zachowuje te same zasady co working_title_pl: ma być konkretnym,
+informacyjnym i ciekawym tytułem w jednolitym stylu prasowym, bez clickbaitu,
+krzykliwych ocen i ogólników.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"merge_groups":[{"topic_ids":["topic_a","topic_b"],
@@ -499,6 +512,14 @@ def local_articles(conn: sqlite3.Connection, article_ids: list[str] | None = Non
         marks = ",".join("?" for _ in article_ids)
         rows = conn.execute(f"SELECT * FROM articles WHERE article_id IN ({marks})", article_ids).fetchall()
     return [dict(row) for row in rows]
+
+
+def distinct_source_keys(rows: list[dict[str, Any]]) -> set[str]:
+    return {
+        str(row.get("source_id") or row.get("source_name") or "").strip()
+        for row in rows
+        if str(row.get("source_id") or row.get("source_name") or "").strip()
+    }
 
 
 def first_words(text: str, limit: int) -> str:
@@ -1127,7 +1148,7 @@ def rebuild_summaries(
                 if row.get("content_status") in {"COMPLETE", "EXCERPT"}
                 and int(row.get("word_count") or 0) >= MIN_ARTICLE_WORDS
             ]
-            if len(rows) >= 2:
+            if len(distinct_source_keys(rows)) >= 2:
                 rows.sort(key=lambda row: (str(row.get("published_at") or ""), str(row["article_id"])))
                 eligible.append((topic, rows))
 
@@ -1246,7 +1267,7 @@ def _analyze_pending_batch(
     conn.row_factory = sqlite3.Row
     stats = {
         "pending_articles": 0, "groups": 0, "summaries": 0,
-        "skipped_summaries": 0, "skipped_single_article": 0,
+        "skipped_summaries": 0, "skipped_single_source": 0,
         "failed_summaries": 0, "excluded": 0,
     }
     try:
@@ -1367,7 +1388,7 @@ def _analyze_pending_batch(
             topic_id = group["topic_id"]
             all_ids = group["all_ids"]
             all_rows = local_articles(conn, all_ids)
-            source_ids = {row["source_id"] for row in all_rows}
+            source_ids = distinct_source_keys(all_rows)
             if len(all_ids) == 1:
                 coverage_status = "SINGLE_ARTICLE"
             elif len(source_ids) == 1:
@@ -1409,12 +1430,12 @@ def _analyze_pending_batch(
             topic_id = group["topic_id"]
             title = group["title"]
             all_ids = group["all_ids"]
-            if len(set(all_ids)) < 2:
-                stats["skipped_single_article"] += 1
-                continue
             new_rows = local_articles(conn, group["new_ids"])
             all_rows = local_articles(conn, all_ids)
             if not new_rows or not all_rows:
+                continue
+            if len(distinct_source_keys(all_rows)) < 2:
+                stats["skipped_single_source"] += 1
                 continue
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)
             previous_aggregation = stored_base_summary(old[0].get("summary")) if old else None
@@ -1509,7 +1530,7 @@ def analyze_run(
     stats = {
         "pending_articles": len(articles), "groups": 0,
         "summaries": 0, "skipped_summaries": 0,
-        "skipped_single_article": 0, "failed_summaries": 0, "excluded": 0,
+        "skipped_single_source": 0, "failed_summaries": 0, "excluded": 0,
         "merge_candidates": 0, "topics_merged": 0, "merge_failed": 0,
     }
     if articles:
@@ -1517,7 +1538,7 @@ def analyze_run(
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
             for key in (
-                "groups", "summaries", "skipped_summaries", "skipped_single_article",
+                "groups", "summaries", "skipped_summaries", "skipped_single_source",
                 "failed_summaries", "excluded",
             ):
                 stats[key] += batch_stats[key]
