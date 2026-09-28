@@ -59,6 +59,10 @@ def main() -> int:
         help="Pomiń pobieranie źródeł i uruchom AI na artykułach już zapisanych w Supabase.",
     )
     parser.add_argument(
+        "--x-only", action="store_true",
+        help="Pomiń portale i uruchom wyłącznie pobieranie oraz dopasowanie wpisów z X.",
+    )
+    parser.add_argument(
         "--rebuild-summaries", action="store_true",
         help="Pomiń harvesting i grupowanie; wygeneruj od nowa syntezy istniejących tematów wieloartykułowych.",
     )
@@ -73,6 +77,8 @@ def main() -> int:
 
     if args.ai_only and args.skip_ai:
         parser.error("--ai-only nie może być użyte razem z --skip-ai.")
+    if args.x_only and (args.ai_only or args.rebuild_summaries or args.skip_ai):
+        parser.error("--x-only jest osobnym trybem i nie łączy się z innymi trybami AI.")
     if args.rebuild_summaries and not args.ai_only:
         parser.error("--rebuild-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
 
@@ -81,6 +87,14 @@ def main() -> int:
     print("[1/4] Pobieram stan deduplikacji z Supabase...", flush=True)
     print(json.dumps(pull_state(args.db, client), ensure_ascii=False), flush=True)
 
+    if args.x_only:
+        run_id = latest_run_id(args.db)
+        print(f"[2/4] Portale pominięte; używam run {run_id} jako punktu odniesienia...", flush=True)
+        print("[3/4] Pobieram wpisy z X z ostatnich 24 godzin...", flush=True)
+        print(json.dumps(fetch_x_posts(run_id, client), ensure_ascii=False), flush=True)
+        print("[4/4] Dopasowuję wpisy do aktywnych historii...", flush=True)
+        print(json.dumps(analyze_x_posts(run_id, client), ensure_ascii=False), flush=True)
+        return 0
     if args.ai_only:
         run_id = latest_run_id(args.db)
         print(f"[2/4] Pobieranie źródeł pominięte; używam run {run_id}...", flush=True)
