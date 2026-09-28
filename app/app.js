@@ -5,6 +5,7 @@ const state = {
   articles: [],
   links: [],
   summaries: new Map(),
+  history: new Map(),
   view: 'all',
   profile: 'ALL',
   search: '',
@@ -77,7 +78,8 @@ function topicModel(topic) {
   const articlesById = articleMap();
   const topicLinks = state.links.filter((link) => link.topic_id === topic.topic_id);
   const articles = topicLinks.map((link) => articlesById.get(link.article_id)).filter(Boolean);
-  const summary = state.summaries.get(topic.topic_id) || {};
+  const summaryRow = state.summaries.get(topic.topic_id) || {};
+  const summary = summaryRow.summary || summaryRow;
   const summaryTopic = summary.topic || {};
   const profileCounts = {};
   const sources = new Set();
@@ -92,6 +94,9 @@ function topicModel(topic) {
     sources: [...sources],
     profileCounts,
     summary,
+    summaryVersion: summaryRow.version || 1,
+    summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
+    history: state.history.get(topic.topic_id) || [],
     title: summaryTopic.headline_pl || topic.headline_pl || 'Temat bez tytułu',
     lead: summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.',
   };
@@ -114,7 +119,20 @@ async function loadLiveData() {
   state.topics = topics;
   state.articles = articles;
   state.links = links;
-  state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary.summary || {}]));
+  state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary]));
+  try {
+    const versions = await fetchTable('app_topic_summary_versions', '?select=topic_id,version,summary,new_article_ids,generated_at&order=version.asc');
+    state.history = new Map();
+    versions.forEach((version) => {
+      const versionsForTopic = state.history.get(version.topic_id) || [];
+      versionsForTopic.push(version);
+      state.history.set(version.topic_id, versionsForTopic);
+    });
+  } catch (error) {
+    // The history migration is optional for an older deployment.
+    state.history = new Map();
+    console.warn('Historia wersji tematów jest jeszcze niedostępna.', error);
+  }
   state.demo = false;
 }
 
@@ -123,6 +141,7 @@ function loadDemoData(message) {
   state.articles = DEMO.articles;
   state.links = DEMO.links;
   state.summaries = new Map(DEMO.summaries);
+  state.history = new Map();
   state.demo = true;
   if (message) showToast(message);
 }
@@ -168,9 +187,10 @@ function renderSources(models) {
 function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
   const badge = model.articles.length > 1 ? `${model.articles.length} artykuły · ${model.sources.length} źródła` : 'Jedno źródło';
+  const hasUpdate = Boolean(model.summary.update?.is_update) || model.summaryVersion > 1 || model.history.length > 1;
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${model.articles.length === 1 ? 'is-single' : ''}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="Otwórz opracowanie: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge">${index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
+    <div class="card-meta"><span class="card-badge">${hasUpdate ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span><span>${formatDate(model.last_seen_at)}</span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
@@ -186,10 +206,20 @@ function dialogHtml(model) {
   const summary = model.summary || {};
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
+  const update = summary.update || {};
+  const latestVersion = model.history[model.history.length - 1];
+  const newArticleIds = Array.isArray(update.new_article_ids) && update.new_article_ids.length ? update.new_article_ids : (latestVersion?.new_article_ids || []);
+  const isUpdate = Boolean(update.is_update) || model.summaryVersion > 1 || model.history.length > 1;
+  const updateText = update.new_information_pl || update.what_changed_pl || (isUpdate ? 'Do tego tematu dodano nowe materiały i przygotowano kolejną wersję opracowania.' : '');
+  const previousVersions = model.history.slice(0, -1).reverse().map((version) => {
+    const previousSummary = version.summary?.summary_pl || 'Brak tekstu poprzedniej wersji.';
+    return `<details class="history-item"><summary>Wersja ${version.version} · ${formatDate(version.generated_at)}</summary><p>${escapeHtml(previousSummary)}</p></details>`;
+  }).join('');
   return `<div class="dialog-content"><p class="dialog-kicker">${model.articles.length > 1 ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'POJEDYNCZY MATERIAŁ'} <span class="coverage-pill">${model.articles.length} artykuł${model.articles.length === 1 ? '' : 'y'}</span></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
+    ${isUpdate ? `<section class="update-section"><p class="update-label">AKTUALIZACJA · WERSJA ${model.summaryVersion}</p><h3>Co nowego od poprzedniej wersji?</h3><p>${escapeHtml(updateText)}</p>${newArticleIds.length ? `<small>Dodano ${newArticleIds.length} nowych materiałów do tego wątku.</small>` : ''}</section>` : ''}
     ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
     ${section('Co łączy źródła', summary.agreement)}
     ${section('Różnice i sprzeczności', summary.differences)}
@@ -197,6 +227,7 @@ function dialogHtml(model) {
     ${section('Sposób przedstawienia i ton', summary.framing_and_tone)}
     ${section('Sygnały języka lub możliwej manipulacji', summary.potential_manipulation_signals)}
     ${section('Kontekst i niewiadome', summary.background_context)}
+    ${previousVersions ? `<section class="dialog-section"><h3>Poprzednie wersje opracowania</h3>${previousVersions}</section>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
 }

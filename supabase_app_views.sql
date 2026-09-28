@@ -37,6 +37,15 @@ select
     updated_at
 from public.topic_summaries;
 
+create or replace view public.app_topic_summary_versions as
+select
+    topic_id,
+    version,
+    summary,
+    new_article_ids,
+    generated_at
+from public.topic_summary_versions;
+
 create or replace view public.app_articles as
 select
     article_id,
@@ -65,4 +74,5 @@ from public.articles;
 grant select on public.app_topics to anon, authenticated;
 grant select on public.app_topic_articles to anon, authenticated;
 grant select on public.app_topic_summaries to anon, authenticated;
+grant select on public.app_topic_summary_versions to anon, authenticated;
 grant select on public.app_articles to anon, authenticated;

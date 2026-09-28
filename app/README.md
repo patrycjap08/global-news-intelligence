@@ -12,9 +12,12 @@ cp app/config.example.js app/config.js
 W `app/config.js` wpisz `SUPABASE_URL` oraz `SUPABASE_PUBLISHABLE_KEY`. Nie wpisuj
 `SUPABASE_SECRET_KEY` — klucz serwerowy nie może trafić do aplikacji telefonu.
 
-Przed pierwszym uruchomieniem aplikacji wykonaj w Supabase SQL Editorze plik
-`supabase_app_views.sql`. Tworzy on bezpieczne widoki dla aplikacji i nie
-udostępnia jej pełnego tekstu artykułów.
+Przed pierwszym uruchomieniem aplikacji wykonaj w Supabase SQL Editorze kolejno:
+
+1. `supabase_migration_topic_updates.sql` — historia wersji opracowań;
+2. `supabase_app_views.sql` — bezpieczne widoki dla aplikacji.
+
+Widoki nie udostępniają aplikacji pełnego tekstu artykułów.
 
 Następnie uruchom z katalogu repozytorium:
 

@@ -93,6 +93,11 @@ zdań w różnych akapitach i nie wydłużaj tekstu sztucznie, jeśli materiały
 krótkie. Istotne twierdzenia nadal muszą mieć oparcie w article_ids w
 pozostałych polach struktury.
 
+Jeżeli previous_aggregation nie jest null, wypełnij też pole update. Ma ono
+opisywać wyłącznie to, co wniósł bieżący zestaw new_articles: nowe fakty,
+zmiany, korekty albo nowe rozbieżności. Nie kopiuj do niego całej poprzedniej
+syntezy. Jeżeli previous_aggregation jest null, ustaw update.is_update=false.
+
 Jeżeli wejście zawiera previous_aggregation, potraktuj ją jako poprzednią
 wersję roboczą tego samego tematu. Zachowaj nadal prawidłowe fakty, dodaj nowe
 informacje, pokaż korekty i konflikty. Nie twórz drugiego tematu dla dalszego
@@ -103,7 +108,9 @@ starsze materiały są reprezentowane przez previous_aggregation i ich article_i
 
 Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 {"topic":{"headline_pl":"","what_happened_one_sentence_pl":"",
-"status":"ONGOING","time_scope":""},"summary_pl":"","timeline":[],
+"status":"ONGOING","time_scope":""},
+"update":{"is_update":false,"new_information_pl":"",
+"what_changed_pl":"","new_article_ids":[]},"summary_pl":"","timeline":[],
 "facts":[],"agreement":[],"differences":[],"framing_and_tone":[],
 "potential_manipulation_signals":[],"contradictions":[],
 "background_context":[],"unknowns":[],"sources":[],
@@ -349,6 +356,51 @@ def mark_excluded_articles(
     return excluded_ids
 
 
+def persist_summary(
+    client: SupabaseRestClient,
+    *,
+    topic_id: str,
+    run_id: str,
+    model: str,
+    summary: dict[str, Any],
+    summary_hash: str,
+    previous_row: dict[str, Any] | None,
+    new_article_ids: list[str],
+) -> int:
+    """Save the current summary and best-effort immutable version history."""
+    version = int((previous_row or {}).get("version", 0)) + 1
+    timestamp = now()
+    client.upsert("topic_summaries", [{
+        "topic_id": topic_id,
+        "version": version,
+        "input_hash": summary_hash,
+        "model": model,
+        "summary": summary,
+        "generated_at": timestamp,
+        "updated_at": timestamp,
+    }], on_conflict="topic_id")
+    try:
+        client.upsert("topic_summary_versions", [{
+            "topic_id": topic_id,
+            "version": version,
+            "run_id": run_id,
+            "model": model,
+            "prompt_version": PROMPT_VERSION,
+            "summary": summary,
+            "new_article_ids": new_article_ids,
+            "generated_at": timestamp,
+        }], on_conflict="topic_id,version")
+    except Exception as exc:
+        # Backwards compatibility: current summaries remain usable even if the
+        # optional history migration has not been run yet.
+        print(
+            f"[AI] Nie zapisano historii wersji tematu {topic_id}; "
+            f"uruchom supabase_migration_topic_updates.sql. ({exc})",
+            flush=True,
+        )
+    return version
+
+
 def retry_incomplete_summaries(
     db_path: Path,
     run_id: str,
@@ -423,15 +475,16 @@ def retry_incomplete_summaries(
             })[:24]
             try:
                 summary = call_openai(SUMMARY_INSTRUCTIONS, summary_input, model)
-                client.upsert("topic_summaries", [{
-                    "topic_id": topic_id,
-                    "version": int(previous_row.get("version", 0)) + 1 if previous_row else 1,
-                    "input_hash": summary_hash,
-                    "model": model,
-                    "summary": summary,
-                    "generated_at": now(),
-                    "updated_at": now(),
-                }], on_conflict="topic_id")
+                persist_summary(
+                    client,
+                    topic_id=topic_id,
+                    run_id=run_id,
+                    model=model,
+                    summary=summary,
+                    summary_hash=summary_hash,
+                    previous_row=previous_row,
+                    new_article_ids=new_ids,
+                )
                 client.upsert("topic_runs", [{
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
@@ -639,11 +692,16 @@ def _analyze_pending_batch(
             summary_topic_run_id = "topicrun_" + digest({"topic": topic_id, "stage": "SUMMARY", "input": summary_hash})[:24]
             try:
                 summary = call_openai(SUMMARY_INSTRUCTIONS, summary_input, model)
-                client.upsert("topic_summaries", [{
-                    "topic_id": topic_id, "version": int(old[0].get("version", 0)) + 1 if old else 1,
-                    "input_hash": summary_hash, "model": model, "summary": summary,
-                    "generated_at": now(), "updated_at": now(),
-                }], on_conflict="topic_id")
+                persist_summary(
+                    client,
+                    topic_id=topic_id,
+                    run_id=run_id,
+                    model=model,
+                    summary=summary,
+                    summary_hash=summary_hash,
+                    previous_row=old[0] if old else None,
+                    new_article_ids=group["new_ids"],
+                )
                 client.upsert("topic_runs", [{
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,

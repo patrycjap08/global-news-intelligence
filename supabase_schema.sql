@@ -177,10 +177,23 @@ create table if not exists public.topic_summaries (
     updated_at timestamptz not null default now()
 );
 
+create table if not exists public.topic_summary_versions (
+    topic_id text not null references public.topics(topic_id),
+    version integer not null,
+    run_id text references public.harvest_runs(run_id),
+    model text not null,
+    prompt_version text not null,
+    summary jsonb not null,
+    new_article_ids jsonb not null default '[]'::jsonb,
+    generated_at timestamptz not null default now(),
+    primary key (topic_id, version)
+);
+
 create index if not exists articles_source_published_idx on public.articles(source_id, published_at);
 create index if not exists articles_content_hash_idx on public.articles(content_hash);
 create index if not exists topics_last_seen_idx on public.topics(status, last_seen_at desc);
 create index if not exists topic_articles_article_idx on public.topic_articles(article_id);
+create index if not exists topic_summary_versions_topic_idx on public.topic_summary_versions(topic_id, version desc);
 
 -- Recalculate coverage for topics created before coverage_status was added.
 with coverage as (
