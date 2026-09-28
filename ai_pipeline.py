@@ -21,7 +21,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v4-json-recovery"
+PROMPT_VERSION = "ai-prompts-v5-json-extraction-logging"
 TOPIC_LOOKBACK_DAYS = 3
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100")))
@@ -113,20 +113,66 @@ def digest(value: Any) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+class AIResponseParseError(ValueError):
+    def __init__(self, message: str, raw_output: str):
+        super().__init__(message)
+        self.raw_output = raw_output
+
+
+class ParsedAIResponse(dict[str, Any]):
+    def __init__(self, value: dict[str, Any], raw_output: str):
+        super().__init__(value)
+        self.raw_output = raw_output
+
+
 def extract_json(text: str) -> dict[str, Any]:
-    cleaned = (text or "").strip()
+    raw_output = text or ""
+    cleaned = raw_output.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.I)
     cleaned = re.sub(r"\s*```$", "", cleaned)
     try:
         value = json.loads(cleaned)
     except json.JSONDecodeError as exc:
-        start, end = cleaned.find("{"), cleaned.rfind("}")
-        if start < 0 or end <= start:
-            raise ValueError(f"AI nie zwróciło JSON: {cleaned[:400]}") from exc
-        value = json.loads(cleaned[start:end + 1])
+        decoder = json.JSONDecoder()
+        last_error: json.JSONDecodeError = exc
+        for match in re.finditer(r"\{", cleaned):
+            try:
+                candidate, _ = decoder.raw_decode(cleaned, match.start())
+            except json.JSONDecodeError as candidate_error:
+                last_error = candidate_error
+                continue
+            if isinstance(candidate, dict):
+                return candidate
+        raise AIResponseParseError(
+            f"AI nie zwróciło poprawnego JSON: {last_error}", raw_output
+        ) from last_error
     if not isinstance(value, dict):
-        raise ValueError("AI zwróciło JSON inny niż obiekt.")
+        raise AIResponseParseError("AI zwróciło JSON inny niż obiekt.", raw_output)
     return value
+
+
+def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
+    raw_output = getattr(response, "raw_output", None)
+    if raw_output is None:
+        return response
+    return {"parsed": dict(response), "raw_response": raw_output[:20000]}
+
+
+def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
+    if not isinstance(exc, AIResponseParseError):
+        return None
+    return {
+        "parse_error": str(exc)[:2000],
+        "raw_response": exc.raw_output[:20000],
+    }
+
+
+def log_parse_failure(stage: str, exc: Exception) -> None:
+    if not isinstance(exc, AIResponseParseError):
+        return
+    preview = exc.raw_output[:5000]
+    suffix = "\n...[ucięto w logu; pełna odpowiedź jest w topic_runs.raw_output]" if len(exc.raw_output) > 5000 else ""
+    print(f"[AI] Niepoprawny JSON na etapie {stage}: {exc}\n[AI] Surowa odpowiedź AI:\n{preview}{suffix}", flush=True)
 
 
 def openai_api_key() -> str:
@@ -154,7 +200,7 @@ def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[
             text={"format": {"type": "json_object"}},
         )
         try:
-            return extract_json(response.output_text)
+            return ParsedAIResponse(extract_json(response.output_text), response.output_text)
         except ValueError as exc:
             last_error = exc
             if attempt == 0:
@@ -377,15 +423,16 @@ def retry_incomplete_summaries(
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
                     "model": model, "input_hash": summary_hash, "status": "COMPLETED",
-                    "raw_output": summary, "error": None,
+                    "raw_output": response_for_storage(summary), "error": None,
                 }], on_conflict="topic_run_id")
                 stats["summaries"] += 1
             except Exception as exc:
+                log_parse_failure("SUMMARY", exc)
                 client.upsert("topic_runs", [{
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
                     "model": model, "input_hash": summary_hash, "status": "FAILED",
-                    "raw_output": None, "error": str(exc)[:2000],
+                    "raw_output": parse_failure_for_storage(exc), "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["failed_summaries"] += 1
         return stats
@@ -437,14 +484,15 @@ def _analyze_pending_batch(
                 "topic_run_id": grouping_topic_run_id, "run_id": run_id,
                 "stage": "GROUPING", "prompt_version": PROMPT_VERSION,
                 "model": model, "input_hash": grouping_hash, "status": "COMPLETED",
-                "raw_output": grouping, "error": None,
+                "raw_output": response_for_storage(grouping), "error": None,
             }], on_conflict="topic_run_id")
         except Exception as exc:
+            log_parse_failure("GROUPING", exc)
             client.upsert("topic_runs", [{
                 "topic_run_id": grouping_topic_run_id, "run_id": run_id,
                 "stage": "GROUPING", "prompt_version": PROMPT_VERSION,
                 "model": model, "input_hash": grouping_hash, "status": "FAILED",
-                "raw_output": None, "error": str(exc)[:2000],
+                "raw_output": parse_failure_for_storage(exc), "error": str(exc)[:2000],
             }], on_conflict="topic_run_id")
             raise
 
@@ -559,15 +607,16 @@ def _analyze_pending_batch(
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
                     "model": model, "input_hash": summary_hash, "status": "COMPLETED",
-                    "raw_output": summary, "error": None,
+                    "raw_output": response_for_storage(summary), "error": None,
                 }], on_conflict="topic_run_id")
                 stats["summaries"] += 1
             except Exception as exc:
+                log_parse_failure("SUMMARY", exc)
                 client.upsert("topic_runs", [{
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
                     "model": model, "input_hash": summary_hash, "status": "FAILED",
-                    "raw_output": None, "error": str(exc)[:2000],
+                    "raw_output": parse_failure_for_storage(exc), "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["failed_summaries"] += 1
         return stats
