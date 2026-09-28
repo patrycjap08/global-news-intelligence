@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -85,7 +86,10 @@ def _x_get(path: str, token: str, params: dict[str, str] | None = None) -> dict[
 
 def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
     token = (os.environ.get("X_BEARER_TOKEN") or "").strip()
-    stats = {"accounts": len(ACCOUNTS), "checked": 0, "posts": 0, "failed": 0}
+    stats = {
+        "accounts": len(ACCOUNTS), "checked": 0, "posts": 0,
+        "skipped_without_meaningful_text": 0, "failed": 0,
+    }
     if not token:
         print("[X] Brakuje X_BEARER_TOKEN — pomijam X.", flush=True)
         return stats
@@ -122,6 +126,10 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
                 note = post.get("note_tweet") if isinstance(post.get("note_tweet"), dict) else {}
                 text = str(note.get("text") or post.get("text") or "").strip()
                 if not post_id or not text or post_id in existing_post_ids:
+                    continue
+                meaningful_text = re.sub(r"https?://\S+", "", text).strip()
+                if len(meaningful_text) < 40 or len(meaningful_text.split()) < 6:
+                    stats["skipped_without_meaningful_text"] += 1
                     continue
                 rows.append({
                     "post_id": post_id, "username": username, "display_name": display_name,
