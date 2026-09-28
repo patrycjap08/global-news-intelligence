@@ -71,11 +71,6 @@ button { color: inherit; }
 .status-divider { color: var(--line-dark); }
 .edition-mark { margin: 0; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
 
-.intro-row { padding: 46px 0 36px; }
-.intro-row h2 { max-width: 680px; margin: 8px 0 0; font-family: var(--serif); font-size: clamp(32px, 4.5vw, 64px); font-weight: 400; letter-spacing: -.055em; line-height: 1.03; }
-.intro-row h2 em { color: var(--red); }
-.intro-copy { max-width: 360px; margin: 0 0 4px; color: var(--muted); font-size: 14px; }
-
 .stats-strip { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line-dark); }
 .stat-cell { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 13px 16px 12px 0; border-right: 1px solid var(--line); }
 .stat-cell + .stat-cell { padding-left: 16px; }
@@ -117,7 +112,9 @@ button { color: inherit; }
 .side-help { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .filter-button { display: flex; align-items: center; justify-content: space-between; border: 0; padding: 6px 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; text-align: left; }
 .filter-button:hover, .filter-button.is-active { color: var(--red); }
-.filter-button span:last-child { min-width: 20px; color: var(--line-dark); font-size: 10px; text-align: right; }
+.filter-button > span:last-child { min-width: 20px; color: var(--line-dark); font-size: 10px; text-align: right; }
+.filter-name { display: inline-flex; align-items: center; gap: 7px; }
+.filter-name .perspective-dot { flex: 0 0 auto; }
 .source-list { display: grid; gap: 10px; margin-top: 13px; }
 .source-row { display: grid; grid-template-columns: 1fr auto; gap: 5px; font-size: 11px; }
 .source-row small { grid-column: 1 / -1; color: var(--muted); font-size: 9px; }
@@ -195,8 +192,6 @@ button { color: inherit; }
   .app-shell { width: 100%; margin: 0; padding: 0 18px 24px; }
   .topline { gap: 8px; font-size: 8px; }
   .topline span:nth-of-type(2), .topline-rule { display: none; }
-  .intro-row { grid-template-columns: 1fr; gap: 20px; padding: 34px 0 28px; }
-  .intro-copy { max-width: 600px; }
   .content-layout { grid-template-columns: 1fr; gap: 22px; }
   .sidebar { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-right: 0; border-bottom: 1px solid var(--line); padding: 0 0 20px; }
   .side-block + .side-block { margin-top: 0; }

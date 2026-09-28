@@ -303,7 +303,7 @@ function renderProfiles(models) {
       .map(([key, label]) => [key, label, counts[key] || 0])
       .filter(([, , count]) => count > 0),
   ];
-  $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${state.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button"><span>${label}</span><span>${count}</span></button>`).join('');
+  $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${state.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button"><span class="filter-name">${key === 'ALL' ? '' : `<i class="perspective-dot ${PROFILE_COLORS[key] || 'dot-unclassified'}" aria-hidden="true"></i>`}<span>${label}</span></span><span>${count}</span></button>`).join('');
   $('#profile-filters').querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => {
     state.profile = button.dataset.profile;
     render();
