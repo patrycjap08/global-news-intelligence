@@ -606,12 +606,18 @@ def _analyze_pending_batch(
         for group in groups:
             if not isinstance(group, dict):
                 continue
-            ids = [
-                str(value) for value in group.get("article_ids", [])
-                if str(value) in input_by_id
-                and str(value) not in excluded_ids
-                and str(value) not in assigned_ids
-            ]
+            group_seen_ids: set[str] = set()
+            ids = []
+            for value in group.get("article_ids", []):
+                article_id = str(value)
+                if (
+                    article_id in input_by_id
+                    and article_id not in excluded_ids
+                    and article_id not in assigned_ids
+                    and article_id not in group_seen_ids
+                ):
+                    ids.append(article_id)
+                    group_seen_ids.add(article_id)
             if not ids:
                 continue
             assigned_ids.update(ids)
@@ -685,8 +691,22 @@ def _analyze_pending_batch(
             })
 
         client.upsert("topics", topic_rows, on_conflict="topic_id")
-        client.upsert("topic_articles", link_rows, on_conflict="topic_id,article_id")
-        client.upsert("article_topic_assignments", assignment_rows, on_conflict="run_id,article_id")
+        unique_link_rows = list({
+            (row["topic_id"], row["article_id"]): row for row in link_rows
+        }.values())
+        unique_assignment_rows = list({
+            (row["run_id"], row["article_id"]): row for row in assignment_rows
+        }.values())
+        removed_links = len(link_rows) - len(unique_link_rows)
+        removed_assignments = len(assignment_rows) - len(unique_assignment_rows)
+        if removed_links or removed_assignments:
+            print(
+                f"[AI] Usunięto duplikaty przed zapisem: topic_articles={removed_links}, "
+                f"article_topic_assignments={removed_assignments}.",
+                flush=True,
+            )
+        client.upsert("topic_articles", unique_link_rows, on_conflict="topic_id,article_id")
+        client.upsert("article_topic_assignments", unique_assignment_rows, on_conflict="run_id,article_id")
         stats["groups"] = len(group_data)
 
         for group in group_data:
