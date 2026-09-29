@@ -24,7 +24,7 @@ on:
     # Times are Europe/Warsaw; minute 17 avoids the busiest exact-hour slot.
     - cron: "17 7 * * *"
       timezone: "Europe/Warsaw"
-    - cron: "17 16 * * *"
+    - cron: "17 17 * * *"
       timezone: "Europe/Warsaw"
 
 permissions:
@@ -45,7 +45,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-      X_FETCH_ENABLED: ${{ (github.event_name == 'schedule' && github.event.schedule == '17 16 * * *') || (github.event_name == 'workflow_dispatch' && inputs.include_x) }}
+      X_FETCH_ENABLED: ${{ (github.event_name == 'schedule' && github.event.schedule == '17 17 * * *') || (github.event_name == 'workflow_dispatch' && inputs.include_x) }}
       # Reserved for the future PWA; the server worker never needs it.
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       # The per-run top window is the only fetch cap; repeated manual tests are allowed.
