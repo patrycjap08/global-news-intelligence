@@ -15,7 +15,7 @@ const state = {
   sort: 'articles',
   hideRead: false,
   profile: 'ALL',
-  category: 'ALL',
+  categories: [],
   search: '',
   readTopics: loadReadTopics(),
   bookmarkedTopics: loadBookmarkedTopics(),
@@ -534,9 +534,21 @@ function renderCategories(models) {
       .filter(([, , count]) => count > 0),
     ...(counts.UNCLASSIFIED ? [['UNCLASSIFIED', CATEGORY_LABELS.UNCLASSIFIED, counts.UNCLASSIFIED]] : []),
   ];
-  $('#category-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button category-filter ${state.category === key ? 'is-active' : ''}" data-category="${key}" type="button"><span class="filter-name"><i class="category-swatch ${CATEGORY_COLORS[key] || 'category-all'}" aria-hidden="true"></i><span>${label}</span></span><span>${count}</span></button>`).join('');
+  const allCategoriesSelected = state.categories.length === 0;
+  $('#category-filters').innerHTML = rows.map(([key, label, count]) => {
+    const isActive = key === 'ALL' ? allCategoriesSelected : state.categories.includes(key);
+    const pressed = key === 'ALL' ? allCategoriesSelected : isActive;
+    return `<button class="filter-button category-filter ${isActive ? 'is-active' : ''}" data-category="${key}" type="button" aria-pressed="${pressed}"><span class="filter-name"><i class="category-swatch ${CATEGORY_COLORS[key] || 'category-all'}" aria-hidden="true"></i><span>${label}</span></span><span>${count}</span></button>`;
+  }).join('');
   $('#category-filters').querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => {
-    state.category = button.dataset.category;
+    const category = button.dataset.category;
+    if (category === 'ALL') {
+      state.categories = [];
+    } else if (state.categories.includes(category)) {
+      state.categories = state.categories.filter((value) => value !== category);
+    } else {
+      state.categories = [...state.categories, category];
+    }
     render();
   }));
 }
@@ -661,7 +673,9 @@ function filteredModels() {
     if (state.view === 'saved' && !isTopicBookmarked(topic)) return false;
     if (state.hideRead && isTopicRead(topic)) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
-    if (state.category !== 'ALL' && !topic.categories.includes(state.category)) return false;
+    if (state.categories.length && !state.categories.some((category) => (
+      category === 'UNCLASSIFIED' ? !topic.categories.length : topic.categories.includes(category)
+    ))) return false;
     if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;
   }).sort((a, b) => {
