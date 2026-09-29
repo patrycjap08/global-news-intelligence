@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v25-factual-topic-updates-source-names"
+PROMPT_VERSION = "ai-prompts-v26-faster-topic-merge-json"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
