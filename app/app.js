@@ -139,6 +139,10 @@ function saveBookmarkedTopics() {
 
 function normalizeDisplayText(value) {
   return String(value ?? '')
+    // Handle summaries where a JSON/storage layer left line breaks escaped.
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n')
     .replace(/\r\n?/g, '\n')
     .replace(/<\s*\/?\s*br\s*\/?\s*>/gi, '\n');
 }
@@ -282,11 +286,16 @@ function readableEvidenceText(value) {
 function richTextHtml(value) {
   const text = readableEvidenceText(value).trim();
   if (!text) return '';
-  return text
-    .split(/\n{2,}/)
+  // Prefer blank-line paragraphs. If an older response has only single line
+  // breaks, treat those as paragraph boundaries too instead of collapsing the
+  // whole synthesis into one dense block.
+  const paragraphs = text.includes('\n\n') ? text.split(/\n{2,}/) : text.split(/\n+/);
+  return paragraphs
+    .filter((paragraph) => paragraph.trim())
     .map((paragraph) => {
       const safe = escapeHtml(paragraph)
-        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/__([^_]+)__/g, '<strong>$1</strong>')
         .replace(/\n/g, '<br />');
       return `<p>${safe}</p>`;
     })

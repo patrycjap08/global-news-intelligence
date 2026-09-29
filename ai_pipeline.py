@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v31-single-geo-scope"
+PROMPT_VERSION = "ai-prompts-v32-rich-summary-format"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -855,11 +855,16 @@ do background_context i oznacz needs_verification=true.
 summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o czym
 piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
 przedstawiają” ani „materiały dotyczą”. Zacznij od tego, co się wydarzyło.
-Stosuj krótkie akapity: każdy powinien rozwijać jeden etap wydarzenia albo
-jedną grupę faktów. Akapity oddzielaj pustą linią (`\\n\\n`). Możesz używać
-wyłącznie ograniczonego Markdown: `**pogrubienie**` dla nazwisk, instytucji,
-liczb lub najważniejszych decyzji. Nie używaj HTML, nagłówków Markdown,
-list, tabel, emotikonów ani innych znaczników formatowania.
+Formatowanie jest obowiązkowe: nie zwracaj głównej syntezy jako jednego zwartego
+bloku tekstu. Podziel ją na krótkie akapity, z których każdy rozwija jeden etap
+wydarzenia albo jedną grupę faktów. Każdy akapit oddziel pustą linią — w JSON
+zapisz separator jako `\\n\\n`, aby po odczytaniu powstała rzeczywista pusta
+linia. Przy 2–3 artykułach użyj co najmniej 3 akapitów, a przy większej liczbie
+materiałów co najmniej 5 akapitów, o ile treść dostarcza wystarczająco dużo
+faktów. W całej syntezie pogrub `**...**` najważniejsze nazwiska, instytucje,
+liczby, daty i decyzje — zwykle kilka kluczowych elementów, a nie całe zdania.
+Używaj wyłącznie tego ograniczonego Markdownu. Nie używaj HTML, nagłówków
+Markdown, list, tabel, emotikonów ani innych znaczników formatowania.
 Tekst ma odpowiadać na pytanie „co dokładnie się wydarzyło”, a nie „o czym
 były artykuły”. Przy co najmniej 4 artykułach napisz zwykle 5–8 akapitów i
 około 550–900 słów, a przy 2–3 artykułach zwykle 3–5 akapitów i około 350–600
@@ -1304,7 +1309,11 @@ def digest(value: Any) -> str:
 
 def normalize_generated_text(value: Any) -> str:
     """Keep model text as plain text, including when it emits HTML breaks."""
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = str(value or "")
+    # Some model/storage paths preserve JSON-escaped line breaks literally.
+    # Convert both escaped and real variants before the UI receives the text.
+    text = text.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     return AI_BREAK_TAG_RE.sub("\n", text).strip()
 
 

@@ -224,9 +224,14 @@ Przed zwróceniem odpowiedzi wykonaj osobną kontrolę redakcyjną: usuń kalki
 składniowe z angielskiego, spolszczone anglicyzmy, dosłowne i błędne
 tłumaczenia, nienaturalną odmianę nazw własnych oraz błędy gramatyczne,
 interpunkcyjne i fleksyjne. Nie zmieniaj przy tym znaczenia ani poziomu
-pewności informacji. `summary_pl` może używać wyłącznie prostego Markdownu:
-`**pogrubienie**` oraz pustych linii między akapitami; nie używaj HTML, tabel
-ani list Markdown.
+pewności informacji. `summary_pl` musi używać prostego formatowania: krótkich
+akapitów oddzielonych pustą linią oraz `**pogrubienia**` najważniejszych
+nazwisk, instytucji, liczb, dat i decyzji. W JSON separator akapitu zapisz jako
+`\n\n`, aby po odczytaniu powstała rzeczywista pusta linia. Nie zwracaj
+syntezy jako jednego zwartego bloku. Przy 2–3 materiałach użyj co najmniej
+3 akapitów, a przy większej liczbie materiałów co najmniej 5 akapitów, jeśli
+pozwala na to liczba konkretnych faktów. Nie pogrubiaj całych zdań ani każdego
+słowa. Nie używaj HTML, tabel, list Markdown ani innych znaczników.
 
 W `summary_pl` prowadź czytelnika przez temat w krótkich akapitach. Dla
 większej liczby materiałów celuj w 5–8 akapitów i około 550–900 słów, a dla

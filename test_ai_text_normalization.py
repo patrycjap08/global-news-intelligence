@@ -14,6 +14,10 @@ class AITextNormalizationTests(unittest.TestCase):
             normalize_generated_text("Pierwszy akapit</br></br>Drugi<br />akapit"),
             "Pierwszy akapit\n\nDrugi\nakapit",
         )
+        self.assertEqual(
+            normalize_generated_text(r"Pierwszy akapit\n\nDrugi akapit"),
+            "Pierwszy akapit\n\nDrugi akapit",
+        )
 
     def test_normalize_summary_response_cleans_visible_text_fields(self):
         response = normalize_summary_response({
@@ -61,6 +65,11 @@ class AITextNormalizationTests(unittest.TestCase):
         self.assertIn("bezpośrednio w `summary_pl`", SUMMARY_INSTRUCTIONS)
         self.assertIn("Nie objaśniaj oczywistych nazw", SUMMARY_INSTRUCTIONS)
         self.assertIn("nie twórz osobnego słowniczka", SUMMARY_INSTRUCTIONS)
+
+    def test_summary_prompt_requires_paragraphs_and_bold_markdown(self):
+        self.assertIn("nie zwracaj głównej syntezy jako jednego zwartego", SUMMARY_INSTRUCTIONS)
+        self.assertIn("`**...**`", SUMMARY_INSTRUCTIONS)
+        self.assertIn("co najmniej 5 akapitów", SUMMARY_INSTRUCTIONS)
 
 
 if __name__ == "__main__":
