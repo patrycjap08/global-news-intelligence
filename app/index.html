@@ -41,9 +41,19 @@
 
       <main>
         <section class="stats-strip" aria-label="Statystyki wydania">
-          <div class="stat-cell"><span class="stat-label">TEMATY</span><strong id="stat-topics">—</strong></div>
-          <div class="stat-cell"><span class="stat-label">ARTYKUŁY</span><strong id="stat-articles">—</strong></div>
-          <div class="stat-cell"><span class="stat-label">ŹRÓDŁA</span><strong id="stat-sources">—</strong></div>
+          <div class="stat-cell stat-topic-cell">
+            <div class="stat-topic-breakdown" aria-label="Podział tematów">
+              <span class="stat-topic-value"><small>TEMATY AKTUALNE</small><strong id="stat-current-topics">—</strong></span>
+              <span class="stat-topic-value"><small>TEMATY HISTORYCZNE</small><strong id="stat-historical-topics">—</strong></span>
+            </div>
+          </div>
+          <div class="stat-cell stat-split-cell">
+            <div class="stat-topic-breakdown" aria-label="Podział artykułów">
+              <span class="stat-topic-value"><small>ARTYKUŁY AKTUALNE</small><strong id="stat-current-articles">—</strong></span>
+              <span class="stat-topic-value"><small>ARTYKUŁY HISTORYCZNE</small><strong id="stat-historical-articles">—</strong></span>
+            </div>
+          </div>
+          <div class="stat-cell stat-source-cell"><span class="stat-label">ŹRÓDŁA</span><strong id="stat-sources">—</strong></div>
         </section>
 
         <section class="toolbar" aria-label="Filtrowanie tematów">

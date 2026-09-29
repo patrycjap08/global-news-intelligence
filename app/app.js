@@ -514,8 +514,15 @@ function setStatus() {
 }
 
 function renderStats(models) {
-  $('#stat-topics').textContent = models.length;
-  $('#stat-articles').textContent = new Set(models.flatMap((topic) => topic.articles.map((article) => article.article_id))).size;
+  const currentModels = models.filter((topic) => topic.isCurrent);
+  const historicalModels = models.filter((topic) => !topic.isCurrent);
+  const articleCount = (topicModels) => new Set(
+    topicModels.flatMap((topic) => topic.articles.map((article) => article.article_id)),
+  ).size;
+  $('#stat-current-topics').textContent = currentModels.length;
+  $('#stat-historical-topics').textContent = historicalModels.length;
+  $('#stat-current-articles').textContent = articleCount(currentModels);
+  $('#stat-historical-articles').textContent = articleCount(historicalModels);
   $('#stat-sources').textContent = new Set(models.flatMap((topic) => topic.articles.map((article) => article.source_name))).size;
 }
 
