@@ -38,8 +38,8 @@ def main() -> int:
     parser.add_argument(
         "--daily-max-articles-per-source",
         type=int,
-        default=int(os.environ.get("HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE", "30")),
-        help="Maximum number of new fetch attempts per source during one UTC day.",
+        default=0,
+        help="Deprecated compatibility option. Zero disables the former daily limit.",
     )
     parser.add_argument(
         "--top-articles-per-source",
@@ -124,7 +124,7 @@ def main() -> int:
             sys.executable, "article_harvester.py", "--config", str(args.config),
             "--db", str(args.db), "--output-dir", str(args.output_dir),
             "--runtime-config", "source_runtime.yaml",
-            "--daily-max-articles-per-source", str(args.daily_max_articles_per_source),
+            "--daily-max-articles-per-source", "0",
             "--top-articles-per-source", str(args.top_articles_per_source),
             "--discovery-limit-per-source", str(args.discovery_limit_per_source),
             "--max-sitemap-probes", str(args.max_sitemap_probes),

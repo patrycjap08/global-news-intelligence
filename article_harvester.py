@@ -307,8 +307,16 @@ def classify_item(extracted: dict[str, Any]) -> tuple[str, str]:
 
 
 def existing_article(conn: sqlite3.Connection, source_id: str, canonical_url: str) -> sqlite3.Row | None:
-    return conn.execute(
+    direct = conn.execute(
         "SELECT * FROM articles WHERE source_id = ? AND canonical_url = ?",
+        (source_id, canonical_url),
+    ).fetchone()
+    if direct is not None:
+        return direct
+    return conn.execute(
+        "SELECT article.* FROM article_url_aliases alias "
+        "JOIN articles article ON article.article_id = alias.duplicate_of_article_id "
+        "WHERE alias.source_id = ? AND alias.candidate_url = ?",
         (source_id, canonical_url),
     ).fetchone()
 
@@ -385,9 +393,30 @@ def save_article(
     )
     existing = existing_article(conn, source_id, canonical_url)
     if existing is not None:
+        candidate_canonical = (
+            st.canonicalize(candidate_url, source["homepage"]) or candidate_url
+        )
+        if candidate_canonical != canonical_url:
+            conn.execute(
+                "INSERT INTO article_url_aliases "
+                "(source_id, candidate_url, duplicate_of_article_id, first_seen_at, last_seen_at, reason) "
+                "VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(source_id, candidate_url) DO UPDATE SET "
+                "duplicate_of_article_id = excluded.duplicate_of_article_id, "
+                "last_seen_at = excluded.last_seen_at, reason = excluded.reason",
+                (
+                    source_id, candidate_canonical, existing["article_id"], now, now,
+                    "REDIRECTS_TO_EXISTING_CANONICAL",
+                ),
+            )
         conn.execute(
             "UPDATE articles SET last_seen_on_homepage_at = ? WHERE article_id = ?",
             (now, existing["article_id"]),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO run_articles "
+            "(run_id, article_id, discovered_on_homepage, fetched_now) VALUES (?, ?, 1, 1)",
+            (run_id, existing["article_id"]),
         )
         return existing["article_id"], False, True, "existing"
     logical_existing = existing_logical_article(conn, source_id, title_key, opening_hash)
@@ -857,6 +886,8 @@ def harvest_source(
     }
 
     short_followups = 0
+    resolved_existing_after_fetch = 0
+    rejected_other: dict[str, int] = {}
     fetch_duration_ms = 0
 
     def queue_short_followup(candidate: dict[str, str]) -> None:
@@ -932,6 +963,10 @@ def harvest_source(
             counts["duplicates"] += int(outcome == "duplicate")
             is_short = outcome == "rejected" and classify_item(extracted)[1] == "TOO_SHORT"
             counts["rejected_short"] += int(is_short)
+            resolved_existing_after_fetch += int(outcome == "existing")
+            if outcome == "rejected" and not is_short:
+                rejection_status = classify_item(extracted)[1]
+                rejected_other[rejection_status] = rejected_other.get(rejection_status, 0) + 1
             if is_short:
                 queue_short_followup(candidate)
         except Exception as exc:
@@ -946,6 +981,16 @@ def harvest_source(
             counts["failed"] += 1
     if short_followups:
         notes.append(f"short_followups={short_followups}")
+    if resolved_existing_after_fetch:
+        notes.append(f"existing_after_redirect={resolved_existing_after_fetch}")
+    if rejected_other:
+        notes.append(
+            "rejected_other="
+            + ",".join(
+                f"{status}:{count}"
+                for status, count in sorted(rejected_other.items())
+            )
+        )
     total_duration_ms = round((time.monotonic() - source_started) * 1000)
     average_article_fetch_ms = round(fetch_duration_ms / counts["fetched"]) if counts["fetched"] else 0
     conn.execute(
@@ -1041,7 +1086,7 @@ def main() -> int:
     parser.add_argument("--runtime-config", type=Path, default=Path("source_runtime.yaml"))
     parser.add_argument("--db", type=Path, default=Path("article_harvest/articles.sqlite3"))
     parser.add_argument("--output-dir", type=Path, default=Path("article_harvest"))
-    parser.add_argument("--daily-max-articles-per-source", type=int, default=50)
+    parser.add_argument("--daily-max-articles-per-source", type=int, default=0)
     parser.add_argument(
         "--top-articles-per-source", type=int, default=10,
         help="Only inspect the first N discovered articles per source in this run; do not fill from older links.",

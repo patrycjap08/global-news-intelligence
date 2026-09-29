@@ -72,10 +72,10 @@ sekcji i strony głównej jako fallbacku. Zapisuje artykuły do SQLite oraz
 eksportu JSONL/HTML:
 
 ```bash
-python3 article_harvester.py --browser --daily-max-articles-per-source 50
+python3 article_harvester.py --browser
 ```
 
-Treść krótsza niż 200 słów nie trafia do eksportu ani do tabeli artykułów.
+Treść krótsza niż 100 słów nie trafia do eksportu ani do tabeli artykułów.
 Adres odrzuconego materiału jest zapamiętywany technicznie, żeby nie pobierać
 go ponownie. Opcja `--retry-rejected` pozwala świadomie spróbować ponownie.
 Poza deduplikacją po znormalizowanym adresie URL harvester rozpoznaje także
