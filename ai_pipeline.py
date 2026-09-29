@@ -52,6 +52,9 @@ TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT = max(
 TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
     1000, int(os.environ.get("AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS", "12000"))
 )
+TOPIC_MERGE_MAX_REQUESTS = max(
+    1, int(os.environ.get("AI_TOPIC_MERGE_MAX_REQUESTS", "80"))
+)
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "130")))
 MIN_ARTICLE_WORDS = 100
@@ -61,6 +64,9 @@ GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.
 OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
 OPENAI_RETRY_BASE_SECONDS = max(
     0.5, float(os.environ.get("OPENAI_RETRY_BASE_SECONDS", "2"))
+)
+OPENAI_REQUEST_TIMEOUT_SECONDS = max(
+    15.0, float(os.environ.get("OPENAI_REQUEST_TIMEOUT_SECONDS", "90"))
 )
 AI_BREAK_TAG_RE = re.compile(r"<\s*/?\s*br\s*/?\s*>", re.IGNORECASE)
 
@@ -347,17 +353,61 @@ def build_topic_merge_candidate_groups(
             continue
 
         # A very large component usually means a common actor is shared by many
-        # unrelated stories. Use bounded neighborhoods so AI can separate them
-        # while still seeing every strong local edge.
+        # unrelated stories. Cover its strong edges with bounded, greedy
+        # neighborhoods. The previous one-neighborhood-per-topic strategy
+        # produced hundreds of heavily overlapping groups and API calls.
         component_set = set(component)
-        for topic_id in sorted(component):
-            ranked_neighbors = sorted(
-                (neighbor for neighbor in neighbors[topic_id] if neighbor in component_set),
-                key=lambda neighbor: (-edges.get(tuple(sorted((topic_id, neighbor))), 0), neighbor),
+        remaining_edges = {
+            pair: score
+            for pair, score in edges.items()
+            if pair[0] in component_set and pair[1] in component_set
+        }
+        while remaining_edges:
+            seed_pair, seed_score = max(
+                remaining_edges.items(),
+                key=lambda item: (
+                    item[1],
+                    sum(
+                        score
+                        for pair, score in remaining_edges.items()
+                        if item[0][0] in pair or item[0][1] in pair
+                    ),
+                    tuple(reversed(item[0])),
+                ),
             )
-            group = [topic_id, *ranked_neighbors[: max_topics_per_group - 1]]
+            group = set(seed_pair)
+            while len(group) < max_topics_per_group:
+                candidate_scores: dict[str, tuple[float, int]] = {}
+                for pair, score in remaining_edges.items():
+                    if not (group.intersection(pair)):
+                        continue
+                    candidate = pair[1] if pair[0] in group else pair[0]
+                    if candidate in group:
+                        continue
+                    total_score, edge_count = candidate_scores.get(candidate, (0.0, 0))
+                    candidate_scores[candidate] = (
+                        total_score + score,
+                        edge_count + 1,
+                    )
+                if not candidate_scores:
+                    break
+                candidate = max(
+                    candidate_scores,
+                    key=lambda topic_id: (
+                        candidate_scores[topic_id][0],
+                        candidate_scores[topic_id][1],
+                        topic_id,
+                    ),
+                )
+                group.add(candidate)
+
+            covered_edges = [
+                pair for pair in remaining_edges if set(pair).issubset(group)
+            ]
+            for pair in covered_edges:
+                del remaining_edges[pair]
             if len(group) > 1:
-                groups.append(group)
+                groups.append(sorted(group))
     return groups
 
 
@@ -389,10 +439,11 @@ def build_topic_merge_requests(
     topics: list[dict[str, Any]],
     *,
     max_topics_per_request: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
+    candidate_groups: list[list[str]] | None = None,
 ) -> list[list[dict[str, Any]]]:
     """Pack disjoint candidate components into small AI requests."""
     topic_by_id = {str(topic["topic_id"]): topic for topic in topics}
-    groups = build_topic_merge_candidate_groups(
+    groups = candidate_groups if candidate_groups is not None else build_topic_merge_candidate_groups(
         topics,
         max_topics_per_group=max_topics_per_request,
     )
@@ -401,7 +452,13 @@ def build_topic_merge_requests(
     for group_index, group in enumerate(groups, start=1):
         group_ids = list(dict.fromkeys(group))
         merged_ids = list(dict.fromkeys([*current_records, *group_ids]))
-        if current_records and len(merged_ids) > max_topics_per_request:
+        # candidate_group_id is a hard boundary for the model. Never place
+        # overlapping groups in the same request: otherwise a repeated topic
+        # would keep the first group's id and make the later edge invisible.
+        if current_records and (
+            len(merged_ids) > max_topics_per_request
+            or set(current_records).intersection(group_ids)
+        ):
             requests.append(list(current_records.values()))
             current_records = {}
         candidate_group_id = f"local_{group_index}"
@@ -628,9 +685,11 @@ ten sam konkretny incydent lub ciąg dalszy tej samej historii. Używaj wartośc
 co najmniej 0.84 dla mocnych, ale niekoniecznie identycznych relacji; wartości
 poniżej 0.84 zostaw osobno. Nie twórz grup z tematów, które są już oznaczone
  jako scalone. categories wybierz z dokładnie tej samej listy siedmiu kategorii
- co w module grupowania. Zwróć jedną lub maksymalnie trzy kategorie, ale dodaj
- więcej niż jedną wyłącznie wtedy, gdy każda opisuje istotny wymiar wspólnej
- historii.
+co w module grupowania. Zwróć jedną lub maksymalnie trzy kategorie, ale dodaj
+więcej niż jedną wyłącznie wtedy, gdy każda opisuje istotny wymiar wspólnej
+historii.
+Nie opisuj tematów, których nie łączysz. Jeśli w tej paczce nie ma pewnego
+połączenia, zwróć dokładnie `{"merge_groups":[]}`.
 """.strip()
 
 TITLE_NORMALIZATION_INSTRUCTIONS = """
@@ -1325,7 +1384,11 @@ def call_openai(
 ) -> dict[str, Any]:
     from openai import OpenAI
 
-    client = OpenAI(api_key=openai_api_key())
+    client = OpenAI(
+        api_key=openai_api_key(),
+        timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
     last_error: Exception | None = None
     parse_failures = 0
     for attempt in range(OPENAI_MAX_RETRIES):
@@ -1333,6 +1396,11 @@ def call_openai(
             json.dumps(payload, ensure_ascii=False)
             + "\n\nReturn only valid JSON. Do not add any commentary outside the JSON object."
         )
+        if parse_failures:
+            input_text += (
+                "\nThe previous attempt was empty or invalid. Return the requested "
+                "JSON object now, even when there are no matches."
+            )
         try:
             request = {
                 "model": model,
@@ -1570,15 +1638,26 @@ def merge_active_topics(
                 ],
             })
 
-        merge_requests = build_topic_merge_requests(payload_topics)
-        stats["local_candidate_groups"] = len(
-            build_topic_merge_candidate_groups(payload_topics)
+        candidate_groups = build_topic_merge_candidate_groups(payload_topics)
+        merge_requests = build_topic_merge_requests(
+            payload_topics,
+            candidate_groups=candidate_groups,
         )
+        stats["local_candidate_groups"] = len(candidate_groups)
+        total_merge_requests = len(merge_requests)
+        if total_merge_requests > TOPIC_MERGE_MAX_REQUESTS:
+            print(
+                f"[AI] Ograniczam scalanie z {total_merge_requests} do "
+                f"{TOPIC_MERGE_MAX_REQUESTS} żądań; reszta zostaje do kolejnego uruchomienia.",
+                flush=True,
+            )
+            merge_requests = merge_requests[:TOPIC_MERGE_MAX_REQUESTS]
         stats["merge_requests"] = len(merge_requests)
         print(
             f"[AI] Lokalna selekcja scalania: {len(payload_topics)} tematów -> "
             f"{stats['local_candidate_groups']} grup kandydackich -> "
-            f"{len(merge_requests)} małych żądań do AI.",
+            f"{len(merge_requests)} małych żądań do AI "
+            f"(limit {TOPIC_MERGE_MAX_REQUESTS}).",
             flush=True,
         )
         if not merge_requests:
@@ -1586,6 +1665,12 @@ def merge_active_topics(
 
         raw_groups: list[dict[str, Any]] = []
         for request_index, request_topics in enumerate(merge_requests, start=1):
+            started_at = time.monotonic()
+            print(
+                f"[AI] Scalanie: żądanie {request_index}/{len(merge_requests)} "
+                f"({len(request_topics)} tematów)...",
+                flush=True,
+            )
             merge_input = {
                 "active_topics": request_topics,
                 "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
@@ -1620,6 +1705,12 @@ def merge_active_topics(
                     raw_groups.extend(
                         group for group in batch_groups if isinstance(group, dict)
                     )
+                print(
+                    f"[AI] Scalanie: żądanie {request_index}/{len(merge_requests)} "
+                    f"zakończone ({len(batch_groups or [])} grup, "
+                    f"{time.monotonic() - started_at:.1f}s).",
+                    flush=True,
+                )
             except Exception as exc:
                 log_parse_failure("TOPIC_MERGE", exc)
                 client.upsert("topic_runs", [{
@@ -1634,6 +1725,12 @@ def merge_active_topics(
                     "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["merge_failed"] += 1
+                print(
+                    f"[AI] Scalanie: żądanie {request_index}/{len(merge_requests)} "
+                    f"nieudane po {time.monotonic() - started_at:.1f}s; "
+                    "przechodzę dalej.",
+                    flush=True,
+                )
 
         if not raw_groups:
             return stats

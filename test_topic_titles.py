@@ -56,6 +56,44 @@ class TopicTitleTests(unittest.TestCase):
             {"local_1"},
         )
 
+    def test_large_component_uses_bounded_edge_cover_instead_of_one_group_per_topic(self):
+        actor_names = [f"Actor{index}" for index in range(120)]
+        topics = [
+            {
+                "topic_id": "hub",
+                "headline_pl": "[Świat] " + " ".join(actor_names),
+                "what_happened_one_sentence_pl": "Wspólna sprawa.",
+                "recent_article_titles": [],
+            }
+        ] + [
+            {
+                "topic_id": f"topic_{index}",
+                "headline_pl": f"[Świat] {actor_name} wydarzenie",
+                "what_happened_one_sentence_pl": "Wspólna sprawa.",
+                "recent_article_titles": [],
+            }
+            for index, actor_name in enumerate(actor_names)
+        ]
+        groups = build_topic_merge_candidate_groups(topics, max_topics_per_group=20)
+        self.assertGreater(len(groups), 0)
+        self.assertLessEqual(len(groups), 8)
+        self.assertTrue(all(len(group) <= 20 for group in groups))
+
+    def test_overlapping_candidate_groups_are_not_packed_together(self):
+        topics = [
+            {"topic_id": topic_id, "headline_pl": topic_id}
+            for topic_id in ("a", "b", "c")
+        ]
+        requests = build_topic_merge_requests(
+            topics,
+            max_topics_per_request=3,
+            candidate_groups=[["a", "b"], ["a", "c"]],
+        )
+        self.assertEqual(
+            [[item["topic_id"] for item in request] for request in requests],
+            [["a", "b"], ["a", "c"]],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

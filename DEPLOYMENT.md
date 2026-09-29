@@ -46,6 +46,10 @@ dodać:
   niekontrolowanej liczby wywołań API.
 - `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
+- `AI_TOPIC_MERGE_MAX_REQUESTS`, domyślnie `80`; bezpiecznik ograniczający
+  liczbę kolejnych żądań scalania w jednym przebiegu.
+- `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
+  na pojedynczą odpowiedź OpenAI.
 
 ## Pierwsze uruchomienie
 
