@@ -1,12 +1,44 @@
+import sqlite3
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+import ai_pipeline
 from ai_pipeline import (
     GROUPING_INSTRUCTIONS,
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
+    choose_merge_canonical_topic_id,
     is_article_title_copy,
+    merge_active_topics,
     merge_overlapping_candidate_groups,
 )
+
+
+class FakeMergeClient:
+    def __init__(self, topics, links, summaries):
+        self.rows = {
+            "topics": topics,
+            "topic_articles": links,
+            "topic_summaries": summaries,
+            "topic_categories": [],
+        }
+        self.upserts = []
+        self.updates = []
+        self.deletes = []
+
+    def select_all(self, table, *, columns="*", filters=()):
+        return list(self.rows.get(table, []))
+
+    def upsert(self, table, rows, *, on_conflict):
+        self.upserts.append((table, rows, on_conflict))
+
+    def update(self, table, values, *, filters):
+        self.updates.append((table, values, list(filters)))
+
+    def delete(self, table, *, filters):
+        self.deletes.append((table, list(filters)))
 
 
 class TopicTitleTests(unittest.TestCase):
@@ -104,6 +136,142 @@ class TopicTitleTests(unittest.TestCase):
             [[item["topic_id"] for item in request] for request in requests],
             [["a", "b", "c"]],
         )
+
+    def test_merge_preserves_topic_with_existing_synthesis(self):
+        topics = {
+            "older_without_summary": {
+                "topic_id": "older_without_summary",
+                "first_seen_at": "2026-09-01T00:00:00+00:00",
+                "article_count": 4,
+            },
+            "established_topic": {
+                "topic_id": "established_topic",
+                "first_seen_at": "2026-09-10T00:00:00+00:00",
+                "article_count": 2,
+            },
+            "new_topic": {
+                "topic_id": "new_topic",
+                "first_seen_at": "2026-09-28T00:00:00+00:00",
+                "article_count": 1,
+            },
+        }
+        self.assertEqual(
+            choose_merge_canonical_topic_id(
+                ["older_without_summary", "established_topic", "new_topic"],
+                topics,
+                {"established_topic": {"topic": {"what_happened_one_sentence_pl": "stara synteza"}}},
+            ),
+            "established_topic",
+        )
+
+    def test_merge_without_synthesis_preserves_oldest_topic(self):
+        topics = {
+            "old_topic": {
+                "topic_id": "old_topic",
+                "first_seen_at": "2026-09-01T00:00:00+00:00",
+                "article_count": 2,
+            },
+            "new_topic": {
+                "topic_id": "new_topic",
+                "first_seen_at": "2026-09-28T00:00:00+00:00",
+                "article_count": 5,
+            },
+        }
+        self.assertEqual(
+            choose_merge_canonical_topic_id(["old_topic", "new_topic"], topics),
+            "old_topic",
+        )
+
+    def test_merge_moves_new_topic_into_existing_synthesis_topic(self):
+        topics = [
+            {
+                "topic_id": "old_topic",
+                "headline_pl": "Stary tytuł",
+                "status": "ACTIVE",
+                "first_seen_at": "2026-09-01T00:00:00+00:00",
+                "last_seen_at": "2026-09-28T00:00:00+00:00",
+                "article_count": 2,
+                "source_count": 2,
+                "coverage_status": "MULTI_SOURCE",
+                "needs_review": False,
+            },
+            {
+                "topic_id": "new_topic",
+                "headline_pl": "Nowy tytuł",
+                "status": "ACTIVE",
+                "first_seen_at": "2026-09-29T00:00:00+00:00",
+                "last_seen_at": "2026-09-29T00:00:00+00:00",
+                "article_count": 1,
+                "source_count": 1,
+                "coverage_status": "SINGLE_SOURCE",
+                "needs_review": False,
+            },
+        ]
+        links = [
+            {"topic_id": "old_topic", "article_id": "old_article_1"},
+            {"topic_id": "old_topic", "article_id": "old_article_2"},
+            {"topic_id": "new_topic", "article_id": "new_article"},
+        ]
+        summaries = [{
+            "topic_id": "old_topic",
+            "summary": {
+                "base_summary": {"topic": {"what_happened_one_sentence_pl": "Stara synteza"}},
+                "updates": [],
+            },
+        }]
+        client = FakeMergeClient(topics, links, summaries)
+
+        with TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "articles.sqlite3"
+            conn = sqlite3.connect(db_path)
+            conn.execute(
+                "CREATE TABLE articles (article_id TEXT, title TEXT, source_id TEXT, "
+                "published_at TEXT, fetched_at TEXT)"
+            )
+            conn.executemany(
+                "INSERT INTO articles VALUES (?, ?, ?, ?, ?)",
+                [
+                    ("old_article_1", "Stary artykuł 1", "source_a", "2026-09-01", "2026-09-01"),
+                    ("old_article_2", "Stary artykuł 2", "source_b", "2026-09-02", "2026-09-02"),
+                    ("new_article", "Nowy artykuł", "source_c", "2026-09-29", "2026-09-29"),
+                ],
+            )
+            conn.commit()
+            conn.close()
+
+            with patch.object(
+                ai_pipeline,
+                "call_openai",
+                return_value={
+                    "merge_groups": [{
+                        "topic_ids": ["old_topic", "new_topic"],
+                        "merged_title_pl": "[Polska] Zaktualizowany tytuł",
+                        "confidence": 0.95,
+                        "categories": ["POLITYKA"],
+                    }],
+                },
+            ):
+                stats = merge_active_topics(db_path, "run_merge", client)
+
+        topic_upsert = next(rows for table, rows, _ in client.upserts if table == "topics")
+        self.assertEqual(topic_upsert[0]["topic_id"], "old_topic")
+        self.assertEqual(topic_upsert[0]["headline_pl"], "[Polska] Zaktualizowany tytuł")
+        self.assertEqual(stats["topics_merged"], 2)
+        assignment_update = next(
+            values for table, values, _ in client.updates
+            if table == "article_topic_assignments"
+        )
+        self.assertEqual(assignment_update["topic_id"], "old_topic")
+        self.assertIn("created_at", assignment_update)
+        redirect_update = next(
+            values for table, values, filters in client.updates
+            if table == "topics" and any("new_topic" in value for _, value in filters)
+        )
+        self.assertEqual(redirect_update["merged_into_topic_id"], "old_topic")
+        links_upsert = next(rows for table, rows, _ in client.upserts if table == "topic_articles")
+        new_link = next(row for row in links_upsert if row["article_id"] == "new_article")
+        self.assertEqual(new_link["topic_id"], "old_topic")
+        self.assertIn("assigned_at", new_link)
 
 
 if __name__ == "__main__":
