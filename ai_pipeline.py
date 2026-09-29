@@ -86,6 +86,9 @@ MIN_GROUPING_RETRY_BATCH_SIZE = 25
 # every article), so keep its normal payload smaller than the repair grouper.
 MAX_LABEL_BATCH_SIZE = 25
 MIN_LABEL_RETRY_BATCH_SIZE = max(5, MAX_LABEL_BATCH_SIZE // 2)
+LABEL_MAX_OUTPUT_TOKENS = max(
+    4000, int(os.environ.get("AI_LABEL_MAX_OUTPUT_TOKENS", "8000"))
+)
 GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.70"))
 OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
 OPENAI_RETRY_BASE_SECONDS = max(
@@ -3414,7 +3417,7 @@ def _label_pending_batch(
             TOPIC_LABELING_INSTRUCTIONS,
             labeling_input,
             model,
-            max_output_tokens=4000,
+            max_output_tokens=LABEL_MAX_OUTPUT_TOKENS,
             response_schema=TOPIC_LABEL_RESPONSE_SCHEMA,
             response_schema_name="topic_labels",
         )
