@@ -81,8 +81,8 @@ GROUPING_EXCERPT_WORDS = min(
     max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100"))),
 )
 LABEL_EXCERPT_WORDS = min(
-    60,
-    max(20, int(os.environ.get("AI_LABEL_EXCERPT_WORDS", "60"))),
+    100,
+    max(20, int(os.environ.get("AI_LABEL_EXCERPT_WORDS", "100"))),
 )
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
