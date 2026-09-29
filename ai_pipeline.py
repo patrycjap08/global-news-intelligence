@@ -76,6 +76,7 @@ CATEGORY_MAX_RETRIES = max(
 )
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 LABEL_MODEL = os.environ.get("OPENAI_LABEL_MODEL", "gpt-4o-mini")
+TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", LABEL_MODEL)
 GROUPING_EXCERPT_WORDS = min(
     100,
     max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100"))),
@@ -99,6 +100,19 @@ LABEL_REQUEST_TIMEOUT_SECONDS = max(
 )
 LABEL_MAX_RETRIES = max(
     1, int(os.environ.get("AI_LABEL_MAX_RETRIES", "2"))
+)
+TITLE_NORMALIZATION_BATCH_SIZE = max(
+    5, int(os.environ.get("AI_TITLE_NORMALIZATION_BATCH_SIZE", "25"))
+)
+TITLE_NORMALIZATION_MAX_OUTPUT_TOKENS = max(
+    1000, int(os.environ.get("AI_TITLE_NORMALIZATION_MAX_OUTPUT_TOKENS", "4000"))
+)
+TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS = max(
+    20.0,
+    float(os.environ.get("AI_TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS", "60")),
+)
+TITLE_NORMALIZATION_MAX_RETRIES = max(
+    1, int(os.environ.get("AI_TITLE_NORMALIZATION_MAX_RETRIES", "2"))
 )
 GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.70"))
 OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
@@ -2529,7 +2543,7 @@ def normalize_topic_titles(
     }
     openings_by_topic = {
         topic_id: [
-            article_openings[article_id][:1600]
+            article_openings[article_id][:800]
             for article_id in article_ids
             if article_openings.get(article_id)
         ]
@@ -2548,11 +2562,18 @@ def normalize_topic_titles(
     if not missing:
         log("AI", "Tytuły: wszystkie są już w poprawnym formacie.")
         return 0
-    total_batches = (len(missing) + 99) // 100
+    total_batches = (
+        len(missing) + TITLE_NORMALIZATION_BATCH_SIZE - 1
+    ) // TITLE_NORMALIZATION_BATCH_SIZE
     log("AI", f"Tytuły: poprawiam {len(missing)} tematów w {total_batches} paczkach.")
-    for offset in range(0, len(missing), 100):
-        batch = missing[offset:offset + 100]
-        log("AI", f"Tytuły {offset // 100 + 1}/{total_batches}: analizuję {len(batch)} tematów.")
+    for offset in range(0, len(missing), TITLE_NORMALIZATION_BATCH_SIZE):
+        batch_number = offset // TITLE_NORMALIZATION_BATCH_SIZE + 1
+        batch = missing[offset:offset + TITLE_NORMALIZATION_BATCH_SIZE]
+        log(
+            "AI",
+            f"Tytuły {batch_number}/{total_batches}: analizuję {len(batch)} tematów "
+            f"(model: {TITLE_MODEL}, timeout: {TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS:.0f} s).",
+        )
         payload = {"topics": [{
             "topic_id": row["topic_id"],
             "current_title_pl": row.get("headline_pl") or "",
@@ -2562,17 +2583,29 @@ def normalize_topic_titles(
             ),
             "summary_pl": str(
                 summaries.get(str(row["topic_id"]), {}).get("summary_pl") or ""
-            )[:1600],
+            )[:800],
             "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:5],
-            "article_openings": openings_by_topic.get(str(row["topic_id"]), [])[:3],
+            "article_openings": openings_by_topic.get(str(row["topic_id"]), [])[:2],
         } for row in batch]}
-        result = call_openai(
-            TITLE_NORMALIZATION_INSTRUCTIONS,
-            payload,
-            model,
-            response_schema=TITLE_RESPONSE_SCHEMA,
-            response_schema_name="topic_titles",
-        )
+        try:
+            result = call_openai(
+                TITLE_NORMALIZATION_INSTRUCTIONS,
+                payload,
+                TITLE_MODEL,
+                max_output_tokens=TITLE_NORMALIZATION_MAX_OUTPUT_TOKENS,
+                timeout_seconds=TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS,
+                retry_limit=TITLE_NORMALIZATION_MAX_RETRIES,
+                response_schema=TITLE_RESPONSE_SCHEMA,
+                response_schema_name="topic_titles",
+            )
+        except Exception as exc:
+            result = {}
+            log(
+                "AI",
+                f"Tytuły {batch_number}/{total_batches}: AI nie odpowiedziało; "
+                f"stosuję fallback dla tej paczki ({short_text(exc, 180)}).",
+                level="WARN",
+            )
         allowed = {str(row["topic_id"]) for row in batch}
         by_id = {str(row["topic_id"]): row for row in batch}
         candidate_titles: dict[str, str] = {}
@@ -2613,7 +2646,7 @@ def normalize_topic_titles(
                 filters=[("topic_id", f"eq.{topic_id}")],
             )
             changed += 1
-        log("AI", f"Tytuły {offset // 100 + 1}/{total_batches} zakończone.")
+        log("AI", f"Tytuły {batch_number}/{total_batches} zakończone.")
 
     remaining = [
         row for row in client.select_all(
