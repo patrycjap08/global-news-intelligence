@@ -23,7 +23,7 @@ from typing import Any
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v20-topic-grouping-recall"
+PROMPT_VERSION = "ai-prompts-v21-compact-active-topic-context"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
@@ -149,7 +149,10 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
 unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
-z ostatnich 55 godzin.
+z ostatnich 55 godzin. Każdy wpis active_topics zawiera wyłącznie tytuł
+istniejącego tematu, jednozdaniowy opis oraz tytuły artykułów już przypisanych
+do tego tematu. Używaj tych tytułów i opisu do dopasowania nowego artykułu;
+nie zakładaj, że active_topics zawiera pełne teksty artykułów.
 Każda grupa ma oznaczać jeden konkretny wątek redakcyjny: jedno wydarzenie,
 bezpośredni ciąg aktualizacji albo jedną trwającą sprawę, negocjację, decyzję
 lub politykę. Artykuły mogą dodawać różne, uzupełniające informacje — nie muszą
@@ -937,6 +940,18 @@ def active_topic_payload(
     for row in links:
         link_map.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
 
+    article_titles = {
+        str(row["article_id"]): str(row.get("title") or "").strip()
+        for row in client.select_all("articles", columns="article_id,title")
+    }
+    titles_by_topic: dict[str, list[str]] = {}
+    for topic_id, article_ids in link_map.items():
+        titles_by_topic[topic_id] = [
+            article_titles[article_id]
+            for article_id in article_ids
+            if article_titles.get(article_id)
+        ]
+
     payload: list[dict[str, Any]] = []
     topic_context: dict[str, dict[str, Any]] = {}
     for row in topics:
@@ -947,15 +962,17 @@ def active_topic_payload(
         previous_topic = previous.get("topic") if isinstance(previous.get("topic"), dict) else {}
         context = {
             "topic_id": topic_id,
-            "representative_title_pl": row.get("headline_pl", ""),
             "last_seen_at": row.get("last_seen_at", ""),
             "first_seen_at": row.get("first_seen_at", ""),
             "article_count": row.get("article_count", 0),
-            "previous_headline_pl": previous_topic.get("headline_pl", ""),
             "previous_one_sentence_pl": previous_topic.get("what_happened_one_sentence_pl", ""),
-            "previous_summary_pl": str(previous.get("summary_pl", ""))[:4000],
         }
-        payload.append(context)
+        payload.append({
+            "topic_id": topic_id,
+            "topic_title_pl": row.get("headline_pl", ""),
+            "one_sentence_description_pl": context["previous_one_sentence_pl"],
+            "article_titles": titles_by_topic.get(topic_id, []),
+        })
         topic_context[topic_id] = context
     return payload, link_map, topic_context
 
