@@ -171,6 +171,16 @@ sources:
     name: Washington Post
     region: USA
     homepage: https://www.washingtonpost.com
+    discover_homepage: true
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^www\.washingtonpost\.com$'
+    candidate_include_url_patterns:
+      - '^/(?!opinions/)(?:[^/]+/)*20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:opinions|sports|video|videos|podcasts|graphics)(?:/|$)'
+    browser_article_patterns:
+      - '^https://www\.washingtonpost\.com/(?!opinions/)(?:[^/]+/)*20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
     rss_urls:
       - https://feeds.washingtonpost.com/rss/politics
       - https://feeds.washingtonpost.com/rss/national

@@ -225,14 +225,14 @@ sources:
   region: USA
   homepage: https://www.washingtonpost.com
   enabled: true
-  runtime_mode: METADATA
-  discovery_method: RSS
-  content_method: NONE
-  technical_status: METADATA_ONLY
+  runtime_mode: CONTENT
+  discovery_method: BROWSER
+  content_method: HTTP_HTML
+  technical_status: PARTIAL
   policy_status: REVIEW_REQUIRED
   ai_usage_policy: NONE
   retention_policy: METADATA_ONLY
-  notes: The read operation timed out
+  notes: Browser discovery for dated article URLs; Opinions and sports are excluded. Some premium articles expose only a partial body.
 - id: wall_street_journal
   name: Wall Street Journal
   region: USA

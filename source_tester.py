@@ -421,6 +421,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description and source_id == "reuters":
         lead_node = soup.select_one("[data-testid='ArticleBody'] [data-testid='paragraph-0']")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description and source_id == "washington_post":
+        lead_node = soup.select_one("article.grid-article [data-qa='article-body'] p")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -605,6 +608,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
                 == clean_text(" ".join(link.get_text(" ", strip=True) for link in node.select("a")))
             )
         ]
+    if source_kind == "washington_post":
+        text_nodes = content_root.select("[data-qa='article-body'] p, [data-qa='article-body'] h2, [data-qa='article-body'] h3, [data-qa='article-body'] li")
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
