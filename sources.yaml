@@ -76,7 +76,11 @@ sources:
     name: Onet
     region: Poland
     homepage: https://www.onet.pl
+    discovery_method: RSS
     discover_homepage: false
+    browser_discovery: false
+    rss_urls:
+      - https://wiadomosci.onet.pl/.feed
     section_urls:
       - https://wiadomosci.onet.pl
       - https://wiadomosci.onet.pl/swiat
@@ -122,7 +126,17 @@ sources:
     browser_click_texts:
       - 'Zamknij'
     browser_wait_after_click_seconds: 1
-  - {id: bankier, name: Bankier, region: Poland, homepage: https://www.bankier.pl}
+  - id: bankier
+    name: Bankier
+    region: Poland
+    homepage: https://www.bankier.pl
+    discovery_method: RSS
+    rss_urls:
+      - https://www.bankier.pl/rss/wiadomosci.xml
+    candidate_include_host_patterns:
+      - '^www\.bankier\.pl$'
+    candidate_include_url_patterns:
+      - '^/wiadomosc/[^/?#]+-[0-9]+\.html$'
   - {id: parkiet, name: Parkiet, region: Poland, homepage: https://www.parkiet.com}
   - {id: do_rzeczy, name: Do Rzeczy, region: Poland, homepage: https://dorzeczy.pl}
   - id: wpolityce
@@ -282,6 +296,13 @@ sources:
     name: Financial Times
     region: United Kingdom
     homepage: https://www.ft.com
+    discovery_method: RSS
+    rss_urls:
+      - https://www.ft.com/?format=rss
+    candidate_include_host_patterns:
+      - '^www\.ft\.com$'
+    candidate_include_url_patterns:
+      - '^/content/[0-9a-f-]+/?$'
     browser_accept_selectors:
       - "button[title='Accept']"
       - "button[aria-label='Accept']"
@@ -355,10 +376,53 @@ sources:
 
   - {id: ansa, name: ANSA, region: Italy, homepage: https://www.ansa.it}
   - {id: corriere, name: Corriere della Sera, region: Italy, homepage: https://www.corriere.it}
-  - {id: la_repubblica, name: La Repubblica, region: Italy, homepage: https://www.repubblica.it}
+  - id: la_repubblica
+    name: La Repubblica
+    region: Italy
+    homepage: https://www.repubblica.it
+    discovery_method: RSS
+    rss_urls:
+      - https://www.repubblica.it/rss/homepage/rss2.0.xml
+    candidate_include_host_patterns:
+      - '^(?:www\.)?repubblica\.it$'
+    candidate_exclude_url_patterns:
+      - '^/(?:sport|spettacoli|video|podcast)(?:/|$)'
 
-  - {id: efe, name: EFE, region: Spain, homepage: https://efe.com}
-  - {id: el_pais, name: El País, region: Spain, homepage: https://elpais.com}
+  - id: efe
+    name: EFE
+    region: Spain
+    homepage: https://efe.com
+    discover_homepage: false
+    discovery_method: API
+    wordpress_api_url: https://efe.com/wp-json/wp/v2/posts?per_page=50&_fields=link,title,date,date_gmt,content,excerpt
+    section_urls:
+      - https://efe.com/espana/
+      - https://efe.com/mundo/
+      - https://efe.com/economia/
+      - https://efe.com/euro-efe/
+    candidate_pool_per_section: 20
+    candidate_include_host_patterns:
+      - '^efe\.com$'
+    candidate_include_url_patterns:
+      - '^/(?:espana|mundo|economia|euro-efe)/20[0-9]{2}-[0-9]{2}-[0-9]{2}/[^/?#]+/?$'
+    browser_article_patterns:
+      - '^https://efe\.com/(?:espana|mundo|economia|euro-efe)/20[0-9]{2}-[0-9]{2}-[0-9]{2}/[^/?#]+/?$'
+  - id: el_pais
+    name: El País
+    region: Spain
+    homepage: https://elpais.com
+    discovery_method: RSS
+    rss_urls:
+      - https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ultimas-noticias/portada
+      - https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada
+      - https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/espana/portada
+      - https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/economia/portada
+    candidate_include_host_patterns:
+      - '^elpais\.com$'
+    candidate_include_url_patterns:
+      - '^/(?:internacional|espana|economia|sociedad|tecnologia|clima-y-medio-ambiente)/20[0-9]{2}-[0-9]{2}-[0-9]{2}/[^/?#]+\.html$'
+    candidate_exclude_url_patterns:
+      - '^/(?:deportes|gente|television|cultura|gastronomia)(?:/|$)'
   - {id: el_mundo, name: El Mundo, region: Spain, homepage: https://www.elmundo.es}
 
   - {id: xinhua, name: Xinhua, region: China, homepage: https://english.news.cn}
@@ -372,11 +436,40 @@ sources:
   - {id: ria, name: RIA Novosti, region: Russia, homepage: https://ria.ru}
   - {id: rt, name: RT, region: Russia, homepage: https://www.rt.com}
   - {id: kommersant, name: Kommersant, region: Russia, homepage: https://www.kommersant.ru}
-  - {id: meduza, name: Meduza, region: Russia, homepage: https://meduza.io}
+  - id: meduza
+    name: Meduza
+    region: Russia
+    homepage: https://meduza.io
+    discovery_method: RSS
+    rss_urls:
+      - https://meduza.io/rss/all
+    candidate_include_host_patterns:
+      - '^(?:www\.)?meduza\.io$'
+    candidate_include_url_patterns:
+      - '^/(?:news|feature|cards|episodes)/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:podcasts|games|slides)(?:/|$)'
   - {id: moscow_times, name: Moscow Times, region: Russia, homepage: https://www.themoscowtimes.com}
 
   - {id: ukrinform, name: Ukrinform, region: Ukraine, homepage: https://www.ukrinform.net}
-  - {id: suspilne, name: Suspilne, region: Ukraine, homepage: https://suspilne.media}
+  - id: suspilne
+    name: Suspilne
+    region: Ukraine
+    homepage: https://suspilne.media
+    discovery_method: SECTION_HTML
+    section_urls:
+      - https://suspilne.media/all-news/
+      - https://suspilne.media/politics/
+      - https://suspilne.media/economy/
+      - https://suspilne.media/world/
+      - https://suspilne.media/war/
+    candidate_pool_per_section: 20
+    candidate_include_host_patterns:
+      - '^suspilne\.media$'
+    candidate_include_url_patterns:
+      - '^/[0-9]+-[^/?#]+/?$'
+    candidate_exclude_title_patterns:
+      - '(?:спорт|футбол|теніс|баскетбол|погода|серіал|кіно)'
   - {id: kyiv_independent, name: Kyiv Independent, region: Ukraine, homepage: https://kyivindependent.com}
   - {id: kyiv_post, name: Kyiv Post, region: Ukraine, homepage: https://www.kyivpost.com}
   - {id: interfax_ukraine, name: Interfax-Ukraine, region: Ukraine, homepage: https://interfax.com.ua}

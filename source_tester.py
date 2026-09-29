@@ -558,6 +558,13 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is not None:
             source_kind = "tvp"
     if content_root is None:
+        # Onet keeps the headline/lead and the actual story in two separate
+        # article elements.  Prefer the body; selecting the lead here used to
+        # truncate otherwise complete stories to roughly 30-70 words.
+        content_root = soup.select_one("article.ods-article-body")
+        if content_root is not None:
+            source_kind = "onet"
+    if content_root is None:
         content_root = soup.select_one("article.ods-article-lead")
         if content_root is not None:
             source_kind = "onet"
@@ -721,6 +728,13 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         text_nodes = content_root.select("p, h2, h3, li")
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
+    # Some publishers (notably Onet) render only a short premium preview in
+    # the visible body while exposing the complete article in schema.org
+    # NewsArticle.articleBody.  Prefer that first-party structured value when
+    # it is materially longer than the DOM extraction.
+    json_ld_body = _json_ld_value(json_ld, "articleBody")
+    if len(json_ld_body.split()) > len(body.split()):
+        body = json_ld_body
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
 
 

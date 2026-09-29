@@ -652,6 +652,59 @@ def _feed_candidates(
     return rows, notes
 
 
+def _html_fragment_text(fragment: str) -> str:
+    """Turn a trusted publisher API HTML fragment into article text."""
+    if not fragment:
+        return ""
+    if st.BeautifulSoup is None:
+        return st.clean_text(re.sub(r"<[^>]+>", " ", fragment))
+    soup = st.BeautifulSoup(fragment, "html.parser")
+    for node in soup.select("script, style, noscript, template, svg, figure, aside, nav, footer"):
+        node.decompose()
+    nodes = soup.select("p, h2, h3, li")
+    if nodes:
+        return st.clean_text(" ".join(node.get_text(" ", strip=True) for node in nodes))
+    return st.clean_text(soup.get_text(" ", strip=True))
+
+
+def _wordpress_api_candidates(
+    client: st.HttpClient,
+    source: dict[str, Any],
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Read public WordPress posts including their publisher-supplied body."""
+    endpoint = str(source.get("wordpress_api_url", "") or "").strip()
+    if not endpoint:
+        return [], []
+    result = client.get(endpoint, accept="application/json,*/*;q=0.1")
+    try:
+        payload = json.loads(result.text) if result.status and result.status < 400 else []
+    except (TypeError, ValueError):
+        payload = []
+    if not isinstance(payload, list):
+        return [], [f"wordpress_api_status={result.status or 'FAILED'}"]
+    rows: list[dict[str, str]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        url = st.canonicalize(str(item.get("link", "")), str(source["homepage"]))
+        title_data = item.get("title") if isinstance(item.get("title"), dict) else {}
+        content_data = item.get("content") if isinstance(item.get("content"), dict) else {}
+        excerpt_data = item.get("excerpt") if isinstance(item.get("excerpt"), dict) else {}
+        body = _html_fragment_text(str(content_data.get("rendered", "")))
+        title = _html_fragment_text(str(title_data.get("rendered", "")))
+        if not url or not body:
+            continue
+        rows.append({
+            "url": url,
+            "title": title,
+            "api_title": title,
+            "api_body": body,
+            "api_description": _html_fragment_text(str(excerpt_data.get("rendered", ""))),
+            "api_published_at": str(item.get("date_gmt") or item.get("date") or ""),
+        })
+    return rows, [f"wordpress_api={len(rows)}"]
+
+
 def _sitemap_candidates(
     client: st.HttpClient,
     source: dict[str, Any],
@@ -748,6 +801,7 @@ def discover_candidates(
 ) -> tuple[st.FetchResult, list[dict[str, str]], list[str]]:
     """Use the same discovery families as the source tester, then deduplicate."""
     listing_rows, homepage_result, notes = _listing_rows(client, source)
+    api_rows, api_notes = _wordpress_api_candidates(client, source)
     feed_rows, feed_notes = _feed_candidates(client, source, listing_rows)
     sitemap_rows, sitemap_notes = _sitemap_candidates(
         client, source, defaults, args.max_sitemap_probes, args.max_sitemap_children
@@ -759,8 +813,14 @@ def discover_candidates(
     ]
     discovery_method = str(source.get("discovery_method", "")).upper()
     ordered: list[dict[str, str]] = []
-    if discovery_method in {"RSS", "ATOM"}:
+    if discovery_method == "API":
+        ordered.extend(api_rows)
         ordered.extend(feed_rows)
+        ordered.extend(section_rows)
+        ordered.extend(sitemap_rows)
+    elif discovery_method in {"RSS", "ATOM"}:
+        ordered.extend(feed_rows)
+        ordered.extend(api_rows)
         ordered.extend(sitemap_rows)
         ordered.extend(section_rows)
     elif discovery_method in {"NEWS_SITEMAP", "SITEMAP"}:
@@ -772,12 +832,13 @@ def discover_candidates(
         ordered.extend(feed_rows)
         ordered.extend(sitemap_rows)
     else:
+        ordered.extend(api_rows)
         ordered.extend(feed_rows)
         ordered.extend(sitemap_rows)
         ordered.extend(section_rows)
 
     needs_browser = bool(
-        args.browser and (
+        args.browser and source.get("browser_discovery", True) and (
             not ordered
             or discovery_method == "BROWSER"
             or source.get("browser_accept_selectors")
@@ -806,9 +867,18 @@ def discover_candidates(
         if not _candidate_allowed(source, url, row.get("title", "")):
             continue
         seen.add(url)
-        unique.append({"url": url, "title_hint": row.get("title", ""), "section_key": row.get("section_key", "")})
+        candidate = {
+            "url": url,
+            "title_hint": row.get("title", ""),
+            "section_key": row.get("section_key", ""),
+        }
+        for key in ("api_title", "api_body", "api_description", "api_published_at"):
+            if row.get(key):
+                candidate[key] = row[key]
+        unique.append(candidate)
         if args.discovery_limit_per_source > 0 and len(unique) >= args.discovery_limit_per_source:
             break
+    notes.extend(api_notes)
     notes.extend(feed_notes)
     notes.extend(sitemap_notes)
     if homepage_result.status and homepage_result.status >= 400:
@@ -952,7 +1022,25 @@ def harvest_source(
         fetch_started = time.monotonic()
         fetch_measured = False
         try:
-            extracted, method = fetch_one(client, page_obj, source, url, args.browser)
+            if candidate.get("api_body"):
+                api_body = str(candidate.get("api_body", ""))
+                extracted = {
+                    "url": url,
+                    "status": 200,
+                    "title": str(candidate.get("api_title") or candidate.get("title_hint") or ""),
+                    "description": str(candidate.get("api_description", "")),
+                    "author": "",
+                    "published_at": str(candidate.get("api_published_at", "")),
+                    "body_success": bool(api_body),
+                    "word_count": len(api_body.split()),
+                    "paywall": False,
+                    "captcha": False,
+                    "content_hash": hashlib.sha256(api_body.encode("utf-8")).hexdigest(),
+                    "body": api_body,
+                }
+                method = "WORDPRESS_API"
+            else:
+                extracted, method = fetch_one(client, page_obj, source, url, args.browser)
             fetch_duration_ms += round((time.monotonic() - fetch_started) * 1000)
             fetch_measured = True
             _, inserted, valid, outcome = save_article(
@@ -1110,7 +1198,9 @@ def main() -> int:
         for source in sources:
             runtime = runtime_by_id.get(str(source.get("id")), {})
             for key in ("discovery_method", "content_method", "technical_status"):
-                if runtime.get(key):
+                # A hand-maintained source override is newer and more precise
+                # than the historical tester recommendation in source_runtime.
+                if runtime.get(key) and not source.get(key):
                     source[key] = runtime[key]
     sources = [source for source in sources if source.get("enabled", True)]
     selected = set(args.source or [])
