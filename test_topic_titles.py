@@ -7,6 +7,7 @@ from unittest.mock import patch
 import ai_pipeline
 from ai_pipeline import (
     GROUPING_INSTRUCTIONS,
+    TOPIC_LABELING_INSTRUCTIONS,
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
     build_bounded_summary_input,
@@ -151,8 +152,14 @@ class TopicTitleTests(unittest.TestCase):
         )
         self.assertEqual(
             {topic["candidate_group_id"] for topic in request_topics[0]},
-            {"local_1"},
+            {"local_1_1"},
         )
+
+    def test_labeling_prompt_separates_naming_from_grouping(self):
+        self.assertIn("nie grupuj artykułów", TOPIC_LABELING_INSTRUCTIONS)
+        self.assertIn("title_original", TOPIC_LABELING_INSTRUCTIONS)
+        self.assertIn("body_excerpt_original", TOPIC_LABELING_INSTRUCTIONS)
+        self.assertIn("zawsze po polsku", TOPIC_LABELING_INSTRUCTIONS)
 
     def test_large_component_uses_bounded_edge_cover_instead_of_one_group_per_topic(self):
         actor_names = [f"Actor{index}" for index in range(120)]
@@ -173,15 +180,23 @@ class TopicTitleTests(unittest.TestCase):
             for index, actor_name in enumerate(actor_names)
         ]
         groups = build_topic_merge_candidate_groups(topics, max_topics_per_group=20)
-        self.assertEqual(len(groups), 1)
-        self.assertEqual(len(groups[0]), 121)
+        self.assertGreater(len(groups), 1)
+        self.assertLessEqual(max(len(group) for group in groups), 20)
+        self.assertEqual(
+            {topic_id for group in groups for topic_id in group},
+            {topic["topic_id"] for topic in topics},
+        )
         requests = build_topic_merge_requests(
             topics,
             max_topics_per_request=20,
             candidate_groups=groups,
         )
-        self.assertEqual(len(requests), 1)
-        self.assertEqual(len(requests[0]), 121)
+        self.assertGreater(len(requests), 1)
+        self.assertLessEqual(max(len(request) for request in requests), 20)
+        self.assertEqual(
+            {item["topic_id"] for request in requests for item in request},
+            {topic["topic_id"] for topic in topics},
+        )
 
     def test_overlapping_candidate_groups_are_collapsed(self):
         topics = [

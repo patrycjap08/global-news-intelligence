@@ -40,7 +40,11 @@ def count_summary(values: dict[str, int], labels: tuple[tuple[str, str], ...]) -
 def ai_summary(values: dict[str, int]) -> str:
     labels = (
         ("pending_articles", "oczekujące artykuły"),
-        ("groups", "grupy tematów"),
+        ("labeled_articles", "nazwane artykuły"),
+        ("candidate_topics", "kandydackie tematy"),
+        ("local_candidate_groups", "grupy kandydackie"),
+        ("largest_candidate_group", "największa grupa kandydacka"),
+        ("merge_requests", "zapytania o scalanie"),
         ("summaries", "gotowe syntezy"),
         ("topics_rebuilt", "przebudowane syntezy"),
         ("failed_summaries", "nieudane syntezy"),

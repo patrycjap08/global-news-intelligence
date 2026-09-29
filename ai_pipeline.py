@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Two-stage OpenAI processing for the harvested articles.
+"""Three-stage OpenAI processing for the harvested articles.
 
 The worker deliberately stores model output as JSON and keeps article_ids next
 to claims. This makes the UI able to show the evidence instead of presenting a
@@ -27,7 +27,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v34-polish-facts"
+PROMPT_VERSION = "ai-prompts-v35-polish-label-merge"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -115,6 +115,7 @@ PLACEHOLDER_TOPIC_TITLES = {
     "połączony temat",
     "konkretny tytuł",
     "konkretny tytuł wydarzenia",
+    "wymaga doprecyzowania tematu",
 }
 
 TOPIC_CATEGORY_VALUES = (
@@ -367,7 +368,13 @@ def build_topic_merge_candidate_groups(
     *,
     max_topics_per_group: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
 ) -> list[list[str]]:
-    """Build candidate topic groups before asking the model to merge them."""
+    """Build bounded candidate groups before asking the model to merge them.
+
+    The lexical graph is useful for finding possible relationships, but its
+    connected components can become enormous through weak transitive bridges
+    (A resembles B, B resembles C, and so on). Split every component into
+    bounded, graph-local chunks before it reaches the model.
+    """
     if len(topics) < 2:
         return []
     edges, _neighbors = _topic_merge_candidate_edges(topics)
@@ -399,16 +406,53 @@ def build_topic_merge_candidate_groups(
     for component in components.values():
         if len(component) < 2:
             continue
-        if len(component) <= max_topics_per_group:
-            groups.append(sorted(component))
-            continue
-
-        # A connected component is one logical candidate group. Do not turn a
-        # large component into one neighborhood per topic: that creates many
-        # overlapping groups and repeats the same topic in many AI requests.
-        # The request builder keeps this component together and only packs
-        # separate components into one request.
-        groups.append(sorted(component))
+        remaining = set(component)
+        orphan_ids: list[str] = []
+        while remaining:
+            # Start each chunk near the densest remaining node, then walk its
+            # local neighbors. This preserves more of the graph structure
+            # than slicing the component alphabetically.
+            start = max(
+                remaining,
+                key=lambda topic_id: (len(_neighbors.get(topic_id, set()) & remaining), topic_id),
+            )
+            queue = [start]
+            chunk: list[str] = []
+            queued: set[str] = {start}
+            while queue and len(chunk) < max_topics_per_group:
+                topic_id = queue.pop(0)
+                if topic_id not in remaining:
+                    continue
+                remaining.remove(topic_id)
+                chunk.append(topic_id)
+                neighbors = sorted(
+                    _neighbors.get(topic_id, set()) & remaining,
+                    key=lambda candidate: (
+                        -len(_neighbors.get(candidate, set()) & remaining),
+                        candidate,
+                    ),
+                )
+                for candidate in neighbors:
+                    if candidate not in queued:
+                        queued.add(candidate)
+                        queue.append(candidate)
+            if len(chunk) >= 2:
+                groups.append(sorted(chunk))
+            else:
+                # A hub may consume the only direct edge of many nodes in
+                # the first chunk. Preserve those nodes for bounded review;
+                # the AI step will reject pairs that are only transitively
+                # related and would otherwise never be examined.
+                orphan_ids.extend(chunk)
+        orphan_chunks = [
+            orphan_ids[offset:offset + max_topics_per_group]
+            for offset in range(0, len(orphan_ids), max_topics_per_group)
+        ]
+        if len(orphan_chunks) >= 2 and len(orphan_chunks[-1]) == 1:
+            orphan_chunks[-1].insert(0, orphan_chunks[-2].pop())
+        for chunk in orphan_chunks:
+            if len(chunk) >= 2:
+                groups.append(sorted(chunk))
     return groups
 
 
@@ -488,32 +532,42 @@ def build_topic_merge_requests(
     current_records: dict[str, dict[str, Any]] = {}
     for group_index, group in enumerate(groups, start=1):
         group_ids = list(dict.fromkeys(group))
-        if len(group_ids) > max_topics_per_request:
-            if current_records:
+        # Keep this defensive split even though the graph builder already
+        # applies the same bound. It also protects callers that provide their
+        # own overlapping/oversized candidate groups.
+        chunks = [
+            group_ids[offset:offset + max_topics_per_request]
+            for offset in range(0, len(group_ids), max_topics_per_request)
+        ]
+        for chunk_index, chunk in enumerate(chunks, start=1):
+            if not chunk:
+                continue
+            if len(chunk) >= max_topics_per_request:
+                if current_records:
+                    requests.append(list(current_records.values()))
+                    current_records = {}
+                candidate_group_id = f"local_{group_index}_{chunk_index}"
+                requests.append([
+                    compact_topic_merge_record(
+                        topic_by_id[topic_id],
+                        candidate_group_id=candidate_group_id,
+                    )
+                    for topic_id in chunk
+                ])
+                continue
+            merged_ids = list(dict.fromkeys([*current_records, *chunk]))
+            if current_records and len(merged_ids) > max_topics_per_request:
                 requests.append(list(current_records.values()))
                 current_records = {}
-            candidate_group_id = f"local_{group_index}"
-            requests.append([
-                compact_topic_merge_record(
-                    topic_by_id[topic_id],
-                    candidate_group_id=candidate_group_id,
+            candidate_group_id = f"local_{group_index}_{chunk_index}"
+            for topic_id in chunk:
+                current_records.setdefault(
+                    topic_id,
+                    compact_topic_merge_record(
+                        topic_by_id[topic_id],
+                        candidate_group_id=candidate_group_id,
+                    ),
                 )
-                for topic_id in group_ids
-            ])
-            continue
-        merged_ids = list(dict.fromkeys([*current_records, *group_ids]))
-        if current_records and len(merged_ids) > max_topics_per_request:
-            requests.append(list(current_records.values()))
-            current_records = {}
-        candidate_group_id = f"local_{group_index}"
-        for topic_id in group_ids:
-            current_records.setdefault(
-                topic_id,
-                compact_topic_merge_record(
-                    topic_by_id[topic_id],
-                    candidate_group_id=candidate_group_id,
-                ),
-            )
     if current_records:
         requests.append(list(current_records.values()))
     return requests
@@ -533,6 +587,43 @@ def fallback_topic_title(
         "Nie można nadać tematowi konkretnego tytułu: brak tytułu artykułu "
         "i brak jednozdaniowego opisu do użycia jako fallback."
     )
+
+TOPIC_LABELING_INSTRUCTIONS = """
+Jesteś modułem nadawania roboczych nazw wątków wiadomości w aplikacji Global
+News Intelligence. Otrzymujesz artykuły i dla KAŻDEGO artykułu utwórz jeden
+osobny kandydat wątku. W tym kroku nie grupuj artykułów, nie porównuj ich ze
+sobą i nie dopasowuj ich do innych tematów — scalanie odbędzie się dopiero w
+następnym etapie.
+
+Nazwę twórz zawsze łącznie na podstawie `title_original` oraz
+`body_excerpt_original`, czyli początku artykułu. Początek tekstu ma pomóc
+rozpoznać sedno materiału, zwłaszcza gdy nagłówek jest clickbaitem, pytaniem
+albo ogólną zapowiedzią. Nie wybieraj nazwy wyłącznie z tytułu.
+
+`working_title_pl` musi być zawsze po polsku, niezależnie od języka źródła.
+Ma być krótką, konkretną i ogólniejszą nazwą wątku redakcyjnego, a nie kopią
+tytułu artykułu. Nie przepisuj `title_original` słowo w słowo ani prawie słowo
+w słowo. Usuń clickbait i nazwij sedno wydarzenia, decyzji, sporu, śledztwa
+albo innej sprawy tak, aby nazwa pasowała także do kolejnych materiałów.
+Nie używaj placeholderów ani ogólników typu „Nowe informacje” lub „Sytuacja”.
+
+Każda nazwa musi zaczynać się od jednego prefiksu geograficznego w nawiasach
+kwadratowych. Dla jednego głównego kraju użyj jego polskiej nazwy, dla kilku
+państw europejskich `[Europa]`, a dla spraw międzynarodowych, globalnych lub
+bez jednego głównego kraju `[Świat]`. Nigdy nie wypisuj kilku państw w jednym
+prefiksie.
+
+`topic_anchor_pl` napisz po polsku jako jedno krótkie zdanie opisujące sedno
+artykułu. Posłuży jako kontrola, czy nazwa rzeczywiście wynika także z
+początku tekstu, a nie wyłącznie z nagłówka.
+Zwróć dokładnie jeden wpis w `labels` dla każdego `article_id` z wejścia,
+bez dodawania obcych identyfikatorów.
+
+Zwróć WYŁĄCZNIE poprawny JSON:
+{"labels":[{"article_id":"...","working_title_pl":"[Kraj] Ogólna
+nazwa konkretnej sprawy","topic_anchor_pl":"Jedno zdanie o sednie
+artykułu","needs_review":false}]}
+""".strip()
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
@@ -693,8 +784,9 @@ potwierdzić, które z tych tematów opisują tę samą konkretną historię, na
 jeśli wcześniejsze grupowanie rozdzieliło je na różne tematy. Porównuj tylko
 tematy przekazane w bieżącym żądaniu; brak tematu w żądaniu nie oznacza, że
 jest on niepowiązany. Jeśli rekordy mają `candidate_group_id`, porównuj i
-scalaj tematy tylko w obrębie tego samego identyfikatora. Nakładające się
-kandydatury zostały już wcześniej połączone w jeden komponent.
+scalaj tematy tylko w obrębie tego samego identyfikatora. Jest to ograniczona
+grupa lokalnych kandydatów; rekordy z innych identyfikatorów nie należą do
+tego porównania.
 W tym kroku preferuj wysoką czułość: lepiej połączyć dwa bardzo podobne
 relacje o tej samej historii niż zostawić je jako duplikaty.
 
@@ -1197,6 +1289,18 @@ _JSON_CATEGORY_ARRAY_SCHEMA = {
         "enum": list(TOPIC_CATEGORY_VALUES),
     },
 }
+
+TOPIC_LABEL_RESPONSE_SCHEMA = _json_schema_object({
+    "labels": {
+        "type": "array",
+        "items": _json_schema_object({
+            "article_id": {"type": "string"},
+            "working_title_pl": {"type": "string"},
+            "topic_anchor_pl": {"type": "string"},
+            "needs_review": {"type": "boolean"},
+        }),
+    },
+})
 
 GROUPING_RESPONSE_SCHEMA = _json_schema_object({
     "groups": {
@@ -1995,6 +2099,8 @@ def merge_active_topics(
         "topics_merged": 0,
         "merge_failed": 0,
         "local_candidate_groups": 0,
+        "local_candidate_topics": 0,
+        "largest_candidate_group": 0,
         "merge_requests": 0,
     }
     if len(topics) < 2:
@@ -2060,6 +2166,11 @@ def merge_active_topics(
             candidate_groups=candidate_groups,
         )
         stats["local_candidate_groups"] = len(candidate_groups)
+        stats["local_candidate_topics"] = sum(len(group) for group in candidate_groups)
+        stats["largest_candidate_group"] = max(
+            (len(group) for group in candidate_groups),
+            default=0,
+        )
         total_merge_requests = len(merge_requests)
         if total_merge_requests > TOPIC_MERGE_MAX_REQUESTS:
             log(
@@ -2074,6 +2185,8 @@ def merge_active_topics(
             "AI",
             f"Scalanie: tematów: {len(payload_topics)}, "
             f"grup kandydackich: {stats['local_candidate_groups']}, "
+            f"kandydatów w grupach: {stats['local_candidate_topics']}, "
+            f"największa grupa: {stats['largest_candidate_group']}, "
             f"zapytań do AI: {len(merge_requests)}.",
         )
         if not merge_requests:
@@ -2082,10 +2195,16 @@ def merge_active_topics(
         raw_groups: list[dict[str, Any]] = []
         for request_index, request_topics in enumerate(merge_requests, start=1):
             started_at = time.monotonic()
+            request_group_ids = {
+                str(topic.get("candidate_group_id") or "")
+                for topic in request_topics
+                if str(topic.get("candidate_group_id") or "")
+            }
             log(
                 "AI",
                 f"Scalanie {request_index}/{len(merge_requests)}: "
-                f"tematów w zapytaniu: {len(request_topics)}.",
+                f"tematów: {len(request_topics)}, "
+                f"grup kandydackich: {len(request_group_ids)}.",
             )
             merge_input = {
                 "active_topics": request_topics,
@@ -3233,6 +3352,155 @@ def stable_topic_id(article_ids: list[str], title: str) -> str:
     return "topic_" + digest({"article_ids": sorted(article_ids), "title": title})[:24]
 
 
+def _label_pending_batch(
+    run_id: str,
+    client: SupabaseRestClient,
+    articles: list[dict[str, Any]],
+    *,
+    model: str = DEFAULT_MODEL,
+    batch_index: str | int = 1,
+) -> dict[str, int]:
+    """Give every new article its own merge candidate and a general label.
+
+    Stage 1 deliberately does not see active topics. This keeps naming cheap
+    and deterministic at the article level; the cross-article decision belongs
+    exclusively to ``merge_active_topics`` in Stage 2.
+    """
+    openai_api_key()
+    stats = {
+        "pending_articles": len(articles),
+        "labeled_articles": 0,
+        "candidate_topics": 0,
+        "label_needs_review": 0,
+    }
+    if not articles:
+        return stats
+
+    labeling_input = {
+        "articles": [
+            article_for_ai(row, excerpt_words_limit=GROUPING_EXCERPT_WORDS)
+            for row in articles
+        ],
+    }
+    labeling_hash = digest(labeling_input)
+    labeling_topic_run_id = "topicrun_" + digest({
+        "run": run_id,
+        "stage": "LABELING",
+        "batch": batch_index,
+        "input": labeling_hash,
+    })[:24]
+    try:
+        labeling = call_openai(
+            TOPIC_LABELING_INSTRUCTIONS,
+            labeling_input,
+            model,
+            response_schema=TOPIC_LABEL_RESPONSE_SCHEMA,
+            response_schema_name="topic_labels",
+        )
+        client.upsert("topic_runs", [{
+            "topic_run_id": labeling_topic_run_id,
+            "run_id": run_id,
+            "stage": "LABELING",
+            "prompt_version": PROMPT_VERSION,
+            "model": model,
+            "input_hash": labeling_hash,
+            "status": "COMPLETED",
+            "raw_output": response_for_storage(labeling),
+            "error": None,
+        }], on_conflict="topic_run_id")
+    except Exception as exc:
+        log_parse_failure("LABELING", exc)
+        client.upsert("topic_runs", [{
+            "topic_run_id": labeling_topic_run_id,
+            "run_id": run_id,
+            "stage": "LABELING",
+            "prompt_version": PROMPT_VERSION,
+            "model": model,
+            "input_hash": labeling_hash,
+            "status": "FAILED",
+            "raw_output": parse_failure_for_storage(exc),
+            "error": str(exc)[:2000],
+        }], on_conflict="topic_run_id")
+        raise
+
+    labels_by_article_id: dict[str, dict[str, Any]] = {}
+    for item in labeling.get("labels") or []:
+        if not isinstance(item, dict):
+            continue
+        article_id = str(item.get("article_id") or "")
+        if article_id in {str(row["article_id"]) for row in articles}:
+            labels_by_article_id.setdefault(article_id, item)
+
+    timestamp = now()
+    topic_rows: list[dict[str, Any]] = []
+    link_rows: list[dict[str, Any]] = []
+    assignment_rows: list[dict[str, Any]] = []
+    for row in articles:
+        article_id = str(row["article_id"])
+        label = labels_by_article_id.get(article_id, {})
+        article_title = str(row.get("title") or "")
+        title = format_topic_title_candidate(label.get("working_title_pl"), "")
+        anchor_title = format_topic_title_candidate(label.get("topic_anchor_pl"), "")
+        needs_review = bool(label.get("needs_review", False))
+        if (
+            not is_usable_topic_title(title)
+            or is_article_title_copy(title, [article_title])
+        ):
+            if (
+                is_usable_topic_title(anchor_title)
+                and not is_article_title_copy(anchor_title, [article_title])
+            ):
+                title = anchor_title
+            else:
+                title = "[Świat] Wymaga doprecyzowania tematu"
+                needs_review = True
+        if article_id not in labels_by_article_id:
+            needs_review = True
+        topic_id = stable_topic_id([article_id], title)
+        topic_rows.append({
+            "topic_id": topic_id,
+            "headline_pl": title[:300],
+            "status": "ACTIVE",
+            "first_seen_at": timestamp,
+            "last_seen_at": timestamp,
+            "article_count": 1,
+            "source_count": 1,
+            "coverage_status": "SINGLE_ARTICLE",
+            "needs_review": needs_review,
+            "updated_at": timestamp,
+        })
+        link_rows.append({
+            "topic_id": topic_id,
+            "article_id": article_id,
+            "confidence": 1.0,
+        })
+        assignment_rows.append({
+            "run_id": run_id,
+            "article_id": article_id,
+            "topic_id": topic_id,
+            "confidence": 1.0,
+            "needs_review": needs_review,
+            "grouping_reason": (
+                "Etap 1: osobny kandydat nazwany na podstawie tytułu i początku artykułu; "
+                "scalanie nastąpi w etapie 2."
+            ),
+            "prompt_version": PROMPT_VERSION,
+        })
+        stats["candidate_topics"] += 1
+        if needs_review:
+            stats["label_needs_review"] += 1
+
+    client.upsert("topics", topic_rows, on_conflict="topic_id")
+    client.upsert("topic_articles", link_rows, on_conflict="topic_id,article_id")
+    client.upsert(
+        "article_topic_assignments",
+        assignment_rows,
+        on_conflict="run_id,article_id",
+    )
+    stats["labeled_articles"] = len(articles)
+    return stats
+
+
 def _analyze_pending_batch(
     db_path: Path,
     run_id: str,
@@ -3806,13 +4074,12 @@ def analyze_run(
     rebuild_max_topics: int = 0,
     regroup_singletons_mode: bool = False,
 ) -> dict[str, int]:
-    """Process the whole pending queue in context-safe AI batches.
+    """Run the three-stage pipeline: label, merge, then synthesize.
 
-    ``max_articles=0`` means all pending articles. Batches are deliberately
-    processed in one workflow, and each next batch reloads active topics so it
-    can attach follow-up articles to topics created by the previous batch.
-    rebuild_summaries_mode bypasses that queue and regenerates existing
-    multi-article topic summaries from their linked articles.
+    ``max_articles=0`` means all pending articles. Stage 1 creates one
+    independently named candidate per article. Stage 2 is the only stage that
+    decides whether candidates describe the same story. ``rebuild_summaries_mode``
+    bypasses that queue and regenerates existing multi-article summaries.
     """
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
@@ -3852,41 +4119,44 @@ def analyze_run(
 
     stats = {
         "pending_articles": len(articles), "groups": 0,
+        "labeled_articles": 0, "candidate_topics": 0, "label_needs_review": 0,
         "summaries": 0, "skipped_summaries": 0,
         "skipped_single_source": 0, "failed_summaries": 0, "excluded": 0,
         "merge_candidates": 0, "topics_merged": 0, "merge_failed": 0,
+        "local_candidate_groups": 0, "local_candidate_topics": 0,
+        "largest_candidate_group": 0, "merge_requests": 0,
         "titles_normalized": 0, "categories_classified": 0,
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
         log(
             "AI",
-            f"Etap 1/3 — grupowanie: artykułów: {len(articles)}, "
-            f"paczek: {total_batches}. Syntezy powstaną po zakończeniu grupowania.",
+            f"Etap 1/3 — nadaję nazwy kandydatom: artykułów: {len(articles)}, "
+            f"paczek: {total_batches}. Grupowanie nastąpi w etapie 2.",
         )
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
             for key in (
-                "groups", "summaries", "skipped_summaries", "skipped_single_source",
-                "failed_summaries", "excluded",
+                "labeled_articles", "candidate_topics", "label_needs_review",
             ):
                 stats[key] += batch_stats[key]
 
         def process_batch(batch: list[dict[str, Any]], label: str) -> None:
             log(
                 "AI",
-                f"Grupowanie {label}/{total_batches}: artykułów w paczce: {len(batch)}.",
+                f"Nazwy {label}/{total_batches}: artykułów w paczce: {len(batch)}.",
             )
             try:
-                batch_stats = _analyze_pending_batch(
-                    db_path, run_id, client, batch, model=model,
-                    batch_index=label, summarize=False,
+                batch_stats = _label_pending_batch(
+                    run_id, client, batch, model=model, batch_index=label,
                 )
                 merge_batch_stats(batch_stats)
                 log(
                     "AI",
-                    f"Grupowanie {label}/{total_batches} zakończone: "
-                    f"utworzono lub zaktualizowano grup: {batch_stats['groups']}.",
+                    f"Nazwy {label}/{total_batches} zakończone: "
+                    f"nadano {batch_stats['labeled_articles']} nazw, "
+                    f"utworzono {batch_stats['candidate_topics']} kandydatów, "
+                    f"do kontroli: {batch_stats['label_needs_review']}.",
                 )
             except ValueError as exc:
                 if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
@@ -3894,7 +4164,7 @@ def analyze_run(
                 midpoint = len(batch) // 2
                 log(
                     "AI",
-                    f"Grupowanie {label}: dzielę paczkę po niepoprawnym JSON na "
+                    f"Nazwy {label}: dzielę paczkę po niepoprawnym JSON na "
                     f"{midpoint} + {len(batch) - midpoint} artykułów.",
                     level="WARN",
                 )
@@ -3906,7 +4176,7 @@ def analyze_run(
                 midpoint = len(batch) // 2
                 log(
                     "AI",
-                    f"Grupowanie {label}: dzielę paczkę po błędzie OpenAI na "
+                    f"Nazwy {label}: dzielę paczkę po błędzie OpenAI na "
                     f"{midpoint} + {len(batch) - midpoint} artykułów "
                     f"({short_text(openai_error_details(exc), 180)}).",
                     level="WARN",
@@ -3917,15 +4187,24 @@ def analyze_run(
         for offset in range(0, len(articles), batch_size):
             batch_index = offset // batch_size + 1
             process_batch(articles[offset:offset + batch_size], str(batch_index))
-        log("AI", f"Etap 1/3 zakończony: przetworzono {len(articles)} artykułów.")
+        log(
+            "AI",
+            f"Etap 1/3 zakończony: nazwano {stats['labeled_articles']} artykułów, "
+            f"utworzono {stats['candidate_topics']} kandydatów; "
+            f"do kontroli: {stats['label_needs_review']}.",
+        )
     else:
-        log("AI", "Etap 1/3 pominięty: brak nowych artykułów do grupowania.")
+        log("AI", "Etap 1/3 pominięty: brak nowych artykułów do nazwania.")
 
     log("AI", "Etap 2/3 — porządkowanie tematów: scalanie, tytuły i kategorie.")
     merge_stats = merge_active_topics(db_path, run_id, client, model=model)
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]
+    stats["local_candidate_groups"] = merge_stats["local_candidate_groups"]
+    stats["local_candidate_topics"] = merge_stats["local_candidate_topics"]
+    stats["largest_candidate_group"] = merge_stats["largest_candidate_group"]
+    stats["merge_requests"] = merge_stats["merge_requests"]
     log("AI", "Porządkowanie tematów: sprawdzam tytuły.")
     stats["titles_normalized"] = normalize_topic_titles(client, model=model)
     log("AI", "Porządkowanie tematów: uzupełniam kategorie.")
