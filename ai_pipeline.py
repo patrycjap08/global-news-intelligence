@@ -55,6 +55,21 @@ TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
 TOPIC_MERGE_MAX_REQUESTS = max(
     1, int(os.environ.get("AI_TOPIC_MERGE_MAX_REQUESTS", "80"))
 )
+CATEGORY_BATCH_SIZE = max(
+    10, int(os.environ.get("AI_CATEGORY_BATCH_SIZE", "30"))
+)
+CATEGORY_MIN_RETRY_BATCH_SIZE = max(
+    5, int(os.environ.get("AI_CATEGORY_MIN_RETRY_BATCH_SIZE", "10"))
+)
+CATEGORY_MAX_OUTPUT_TOKENS = max(
+    1000, int(os.environ.get("AI_CATEGORY_MAX_OUTPUT_TOKENS", "5000"))
+)
+CATEGORY_REQUEST_TIMEOUT_SECONDS = max(
+    15.0, float(os.environ.get("AI_CATEGORY_REQUEST_TIMEOUT_SECONDS", "45"))
+)
+CATEGORY_MAX_RETRIES = max(
+    1, int(os.environ.get("AI_CATEGORY_MAX_RETRIES", "2"))
+)
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "130")))
 MIN_ARTICLE_WORDS = 100
@@ -1350,7 +1365,12 @@ def openai_error_details(exc: Exception) -> str:
     return f"status={status}{suffix}: {exc}"
 
 
-def wait_before_openai_retry(attempt: int, exc: Exception) -> None:
+def wait_before_openai_retry(
+    attempt: int,
+    exc: Exception,
+    *,
+    retry_limit: int = OPENAI_MAX_RETRIES,
+) -> None:
     delay = min(OPENAI_RETRY_BASE_SECONDS * (2 ** attempt), 30.0)
     response = getattr(exc, "response", None)
     headers = getattr(response, "headers", None)
@@ -1363,7 +1383,7 @@ def wait_before_openai_retry(attempt: int, exc: Exception) -> None:
     delay += random.uniform(0, min(1.0, delay * 0.25))
     print(
         f"[AI] Chwilowy błąd OpenAI ({openai_error_details(exc)}); "
-        f"ponawiam za {delay:.1f}s ({attempt + 1}/{OPENAI_MAX_RETRIES}).",
+        f"ponawiam za {delay:.1f}s ({attempt + 1}/{retry_limit}).",
         flush=True,
     )
     time.sleep(delay)
@@ -1375,17 +1395,20 @@ def call_openai(
     model: str,
     *,
     max_output_tokens: int | None = None,
+    timeout_seconds: float | None = None,
+    retry_limit: int | None = None,
 ) -> dict[str, Any]:
     from openai import OpenAI
 
+    effective_retry_limit = max(1, retry_limit or OPENAI_MAX_RETRIES)
     client = OpenAI(
         api_key=openai_api_key(),
-        timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+        timeout=timeout_seconds or OPENAI_REQUEST_TIMEOUT_SECONDS,
         max_retries=0,
     )
     last_error: Exception | None = None
     parse_failures = 0
-    for attempt in range(OPENAI_MAX_RETRIES):
+    for attempt in range(effective_retry_limit):
         input_text = (
             json.dumps(payload, ensure_ascii=False)
             + "\n\nReturn only valid JSON. Do not add any commentary outside the JSON object."
@@ -1409,9 +1432,13 @@ def call_openai(
             if not is_retryable_openai_error(exc):
                 raise
             last_error = exc
-            if attempt + 1 >= OPENAI_MAX_RETRIES:
+            if attempt + 1 >= effective_retry_limit:
                 raise
-            wait_before_openai_retry(attempt, exc)
+            wait_before_openai_retry(
+                attempt,
+                exc,
+                retry_limit=effective_retry_limit,
+            )
             continue
         try:
             return ParsedAIResponse(extract_json(response.output_text), response.output_text)
@@ -1551,6 +1578,40 @@ def active_topic_payload(
 
 def stable_merged_topic_id(topic_ids: list[str]) -> str:
     return "topic_merge_" + digest({"topic_ids": sorted(topic_ids)})[:24]
+
+
+def choose_merge_canonical_topic_id(
+    topic_ids: list[str],
+    topic_by_id: dict[str, Any],
+    summary_by_topic: dict[str, dict[str, Any]] | None = None,
+) -> str:
+    """Keep the most established topic as the identity after a merge.
+
+    A topic with an existing synthesis wins over an unsummarized topic so the
+    next summary pass can append an update to the existing aggregation. Among
+    equally established topics, preserve the one seen first; article count and
+    topic_id make the choice deterministic for ties.
+    """
+    summary_by_topic = summary_by_topic or {}
+
+    def sort_key(topic_id: str) -> tuple[int, int, str, int, str]:
+        topic = topic_by_id.get(topic_id, {})
+        has_summary = 0 if topic_id in summary_by_topic else 1
+        first_seen = str(topic.get("first_seen_at") or "")
+        missing_first_seen = 1 if not first_seen else 0
+        try:
+            article_count = int(topic.get("article_count") or 0)
+        except (TypeError, ValueError):
+            article_count = 0
+        return (
+            has_summary,
+            missing_first_seen,
+            first_seen or "9999-12-31T23:59:59+00:00",
+            -article_count,
+            topic_id,
+        )
+
+    return min((str(topic_id) for topic_id in topic_ids), key=sort_key)
 
 
 def merge_active_topics(
@@ -1782,7 +1843,15 @@ def merge_active_topics(
                         for topic_id in group_ids
                     ],
                 )
-            canonical_id = stable_merged_topic_id(group_ids)
+            # Preserve the identity of an established topic. In particular,
+            # keep a topic that already has a synthesis so the final summary
+            # pass appends an update instead of starting a new aggregation.
+            canonical_id = choose_merge_canonical_topic_id(
+                group_ids,
+                topic_by_id,
+                summary_by_topic,
+            )
+            merge_timestamp = now()
             if len(article_ids) == 1:
                 coverage_status = "SINGLE_ARTICLE"
             elif len(source_ids) == 1:
@@ -1811,14 +1880,28 @@ def merge_active_topics(
             if merged_categories:
                 persist_topic_categories(client, canonical_id, merged_categories)
             client.upsert("topic_articles", [
-                {"topic_id": canonical_id, "article_id": article_id, "confidence": confidence}
+                {
+                    "topic_id": canonical_id,
+                    "article_id": article_id,
+                    "confidence": confidence,
+                    **(
+                        {"assigned_at": merge_timestamp}
+                        if article_id not in ids_by_topic.get(canonical_id, [])
+                        else {}
+                    ),
+                }
                 for article_id in article_ids
             ], on_conflict="topic_id,article_id")
 
             for old_topic_id in group_ids:
+                if old_topic_id == canonical_id:
+                    continue
                 client.update(
                     "article_topic_assignments",
-                    {"topic_id": canonical_id},
+                    # Reassignment makes these articles new material for the
+                    # retained topic, so its existing synthesis receives an
+                    # update even when the merged-in topic had its own history.
+                    {"topic_id": canonical_id, "created_at": merge_timestamp},
                     filters=[("topic_id", f"eq.{old_topic_id}")],
                 )
                 client.delete(
@@ -1851,8 +1934,9 @@ def merge_active_topics(
                     )
             stats["topics_merged"] += len(group_ids)
             print(
-                f"[AI] Scalono tematy {', '.join(group_ids)} → {canonical_id} "
-                f"(confidence={confidence:.2f}).",
+                f"[AI] Scalono tematy {', '.join(group_ids)} → zachowano "
+                f"{canonical_id} (confidence={confidence:.2f}); "
+                "istniejąca synteza zostanie zaktualizowana.",
                 flush=True,
             )
         return stats
@@ -1953,7 +2037,7 @@ def classify_topic_categories(
     client: SupabaseRestClient,
     *,
     model: str = DEFAULT_MODEL,
-    batch_size: int = 80,
+    batch_size: int = CATEGORY_BATCH_SIZE,
 ) -> int:
     """Fill missing topic categories without overwriting reviewed categories."""
     topics = client.select_all(
@@ -1988,8 +2072,14 @@ def classify_topic_categories(
     }
 
     classified = 0
-    for offset in range(0, len(missing), max(1, batch_size)):
-        batch = missing[offset:offset + max(1, batch_size)]
+    batch_size = min(max(1, batch_size), CATEGORY_BATCH_SIZE)
+    batches = [
+        missing[offset:offset + batch_size]
+        for offset in range(0, len(missing), batch_size)
+    ]
+
+    def process_batch(batch: list[dict[str, Any]], label: str) -> None:
+        nonlocal classified
         payload_topics = []
         for row in batch:
             topic_id = str(row["topic_id"])
@@ -2005,11 +2095,47 @@ def classify_topic_categories(
                 "headline_pl": str(row.get("headline_pl") or ""),
                 "what_happened_one_sentence_pl": str(
                     summary_topic.get("what_happened_one_sentence_pl") or ""
-                ),
-                "recent_article_titles": titles[:5],
+                )[:300],
+                "recent_article_titles": titles[:2],
             })
 
-        result = call_openai(CATEGORY_INSTRUCTIONS, {"topics": payload_topics}, model)
+        print(
+            f"[AI] Kategorie: paczka {label}/{len(batches)} "
+            f"({len(batch)} tematów)...",
+            flush=True,
+        )
+        try:
+            result = call_openai(
+                CATEGORY_INSTRUCTIONS,
+                {"topics": payload_topics},
+                model,
+                max_output_tokens=CATEGORY_MAX_OUTPUT_TOKENS,
+                timeout_seconds=CATEGORY_REQUEST_TIMEOUT_SECONDS,
+                retry_limit=CATEGORY_MAX_RETRIES,
+            )
+        except Exception as exc:
+            retryable = isinstance(exc, AIResponseParseError) or is_retryable_openai_error(exc)
+            if retryable and len(batch) > CATEGORY_MIN_RETRY_BATCH_SIZE:
+                midpoint = len(batch) // 2
+                print(
+                    f"[AI] Kategorie: dzielę paczkę {label} po błędzie OpenAI "
+                    f"na {midpoint} + {len(batch) - midpoint} tematów "
+                    f"({openai_error_details(exc)}).",
+                    flush=True,
+                )
+                process_batch(batch[:midpoint], f"{label}a")
+                process_batch(batch[midpoint:], f"{label}b")
+                return
+            if retryable:
+                print(
+                    f"[AI] Kategorie: pomijam paczkę {label} po błędzie "
+                    f"({openai_error_details(exc)}); brakujące kategorie "
+                    "spróbują się uzupełnić przy kolejnym uruchomieniu.",
+                    flush=True,
+                )
+                return
+            raise
+
         allowed = {str(row["topic_id"]) for row in batch}
         for item in result.get("categories") or []:
             if not isinstance(item, dict):
@@ -2030,6 +2156,14 @@ def classify_topic_categories(
                 filters=[("topic_id", f"eq.{topic_id}")],
             )
             classified += 1
+        print(
+            f"[AI] Kategorie: paczka {label}/{len(batches)} zakończona "
+            f"({len(batch)} tematów).",
+            flush=True,
+        )
+
+    for offset, batch in enumerate(batches, start=1):
+        process_batch(batch, str(offset))
     return classified
 
 

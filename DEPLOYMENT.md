@@ -52,6 +52,10 @@ dodać:
   przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
   na pojedynczą odpowiedź OpenAI.
+- `AI_CATEGORY_BATCH_SIZE`, domyślnie `30`; liczba tematów w jednej paczce
+  klasyfikacji kategorii.
+- `AI_CATEGORY_REQUEST_TIMEOUT_SECONDS`, domyślnie `45`; timeout klasyfikacji
+  kategorii. Po błędzie zbyt duża paczka jest automatycznie dzielona.
 
 ## Pierwsze uruchomienie
 
