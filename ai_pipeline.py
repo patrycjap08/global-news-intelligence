@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v30-context-only"
+PROMPT_VERSION = "ai-prompts-v31-single-geo-scope"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -98,6 +98,15 @@ SUMMARY_FALLBACK_EXCERPT_WORDS = max(
 AI_BREAK_TAG_RE = re.compile(r"<\s*/?\s*br\s*/?\s*>", re.IGNORECASE)
 
 TITLE_PREFIX_RE = re.compile(r"^\[([^\]\r\n]{2,80})\]\s+(\S.*)$")
+COMPOSITE_GEO_PREFIX_RE = re.compile(r"(?:,|/|&|\s+(?:i|oraz)\s+)", re.IGNORECASE)
+# These are single country names even though their Polish names contain the
+# conjunction "i". They must not be mistaken for a list of countries.
+SINGLE_COUNTRY_GEO_PREFIXES = {
+    "antigua i barbuda",
+    "bośnia i hercegowina",
+    "trynidad i tobago",
+    "wyspy świętego tomasza i książęca",
+}
 PLACEHOLDER_TOPIC_TITLES = {
     "neutralna nazwa wydarzenia",
     "neutralny wspólny tytuł",
@@ -183,6 +192,17 @@ def is_placeholder_topic_title(value: Any) -> bool:
 def is_usable_topic_title(value: Any) -> bool:
     text = str(value or "").strip()
     return bool(TITLE_PREFIX_RE.match(text)) and not is_placeholder_topic_title(text)
+
+
+def has_composite_geo_prefix(value: Any) -> bool:
+    """Return whether a title prefix lists more than one geographic scope."""
+    match = TITLE_PREFIX_RE.match(str(value or "").strip())
+    if not match:
+        return False
+    prefix = re.sub(r"\s+", " ", match.group(1).strip()).casefold()
+    if prefix in SINGLE_COUNTRY_GEO_PREFIXES:
+        return False
+    return bool(COMPOSITE_GEO_PREFIX_RE.search(prefix))
 
 
 def format_topic_title_candidate(candidate: Any, current_title: Any = "") -> str:
@@ -624,14 +644,24 @@ podaje węższego tematu, zwróć np. „[USA] Dzisiejsze wystąpienie Trumpa”
 „[USA] Wystąpienie Trumpa z datą artykułu” (wstaw właściwą datę); jeśli treść
 wskazuje konkretny temat wypowiedzi, nazwij właśnie ten temat. Dla dwóch artykułów wybierz jedną
 wspólną nazwę sedna wydarzenia, a nie jeden z ich nagłówków.
-Każdy working_title_pl musi zaczynać się od jednego spójnego prefiksu
-geograficznego w nawiasach kwadratowych: `[Polska]`, `[Niemcy]`,
-`[USA i Iran]` albo `[Świat]`. Używaj polskich nazw państw. Dla jednego kraju
-podaj jeden kraj; dla dwóch lub trzech bezpośrednio zaangażowanych państw
-połącz nazwy przez „i” (przy trzech: przecinek oraz „i”); dla spraw naprawdę
-globalnych albo obejmujących wiele państw użyj `[Świat]`. Używaj
-`[Wielka Brytania]`, chyba że wydarzenie dotyczy konkretnie tylko Anglii.
-Nie wpisuj w prefiksie miasta, kontynentu ani ogólnika typu `[Zagranica]`.
+Każdy working_title_pl musi zaczynać się od jednego prefiksu geograficznego
+w nawiasach kwadratowych. Prefiks nie jest listą wszystkich państw
+wspomnianych w artykule, tylko wskazuje główny obszar wydarzenia:
+
+- jeśli historia dotyczy przede wszystkim jednego kraju, użyj wyłącznie tego
+  kraju, np. `[USA]`, nawet jeśli drugi kraj jest tylko wspomniany, jest
+  stroną wypowiedzi albo pojawia się w tle;
+- jeśli historia dotyczy co najmniej dwóch państw europejskich, użyj
+  `[Europa]`;
+- jeśli dotyczy co najmniej dwóch państw, a przynajmniej jedno z nich leży
+  poza Europą, użyj `[Świat]`;
+- dla spraw globalnych, międzynarodowych lub bez jednego głównego kraju użyj
+  `[Świat]`.
+
+Nigdy nie łącz nazw państw w prefiksie — nie używaj form typu `[USA i Iran]`,
+`[USA, Iran]` ani `[Wielka Brytania i USA]`. Używaj polskich nazw państw.
+Używaj `[Wielka Brytania]`, chyba że wydarzenie dotyczy konkretnie tylko
+Anglii. Nie wpisuj w prefiksie miasta ani ogólnika typu `[Zagranica]`.
 grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
 Nigdy nie wpisuj tekstu przykładowego „neutralna nazwa wydarzenia”, „Temat bez
 tytułu” ani żadnego innego placeholdera. Każda grupa musi mieć konkretny tytuł
@@ -696,9 +726,10 @@ faktyczny punkt zaczepienia są zgodne.
 merged_title_pl zachowuje te same zasady co working_title_pl: ma być konkretnym,
 informacyjnym i ciekawym tytułem w jednolitym stylu prasowym, bez clickbaitu,
 krzykliwych ocen i ogólników.
-Musi także zaczynać się od prefiksu geograficznego według zasad:
-`[Polska]`, `[Niemcy]`, `[USA i Iran]` albo `[Świat]`; używaj polskich nazw
-państw i `[Świat]` dla wydarzeń obejmujących wiele krajów.
+Musi także zaczynać się od jednego prefiksu geograficznego. Dla jednego
+głównego kraju użyj jego nazwy, dla co najmniej dwóch państw europejskich
+`[Europa]`, a dla wielu państw, w tym co najmniej jednego spoza Europy,
+`[Świat]`. Nigdy nie wypisuj kilku państw w jednym prefiksie.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"merge_groups":[{"topic_ids":["topic_a","topic_b"],
@@ -722,12 +753,14 @@ połączenia, zwróć dokładnie `{"merge_groups":[]}`.
 
 TITLE_NORMALIZATION_INSTRUCTIONS = """
 Ujednolić tytuły tematów wiadomości. Nie zmieniaj znaczenia ani nie dodawaj
-faktów. Każdy title_pl musi zaczynać się od prefiksu geograficznego:
-`[Polska]`, `[Niemcy]`, `[USA i Iran]` albo `[Świat]`. Używaj polskich nazw
-państw. Dla jednego kraju podaj jeden kraj; dla dwóch lub trzech bezpośrednio
-zaangażowanych państw połącz nazwy przez „i” (przy trzech użyj przecinka i
-„i”); dla spraw globalnych lub obejmujących wiele państw użyj `[Świat]`.
-Używaj `[Wielka Brytania]`, chyba że sprawa dotyczy wyłącznie Anglii.
+faktów. Każdy title_pl musi zaczynać się od jednego prefiksu geograficznego.
+Jeśli sprawa dotyczy jednego głównego kraju, wpisz tylko ten kraj, np.
+`[USA]`. Jeśli dotyczy co najmniej dwóch państw europejskich, wpisz
+`[Europa]`. Jeśli dotyczy wielu państw i choć jedno leży poza Europą, wpisz
+`[Świat]`. Dla spraw globalnych lub bez jednego głównego kraju również użyj
+`[Świat]`. Nigdy nie wpisuj kilku państw w prefiksie, np. `[USA i Iran]` albo
+`[USA, Iran]`. Używaj `[Wielka Brytania]`, chyba że sprawa dotyczy wyłącznie
+Anglii.
 Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu.
 Nie używaj placeholderów typu „neutralna nazwa wydarzenia”, „neutralny wspólny
 tytuł” ani „Temat bez tytułu”.
@@ -1064,11 +1097,13 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "has_multiple_perspectives":false,"overall_confidence":"MEDIUM",
 "limitations_pl":""}}
 
-topic.headline_pl musi zaczynać się od identycznego, spójnego prefiksu
-geograficznego jak tytuł roboczy: np. `[Polska]`, `[Niemcy]`,
-`[Wielka Brytania i USA]`, `[USA i Iran]` lub `[Świat]`. Po prefiksie umieść
-konkretny tytuł wydarzenia. Stosuj polskie nazwy państw; `[Świat]` tylko dla
-spraw globalnych lub obejmujących wiele krajów.
+topic.headline_pl musi zaczynać się od identycznego, pojedynczego prefiksu
+geograficznego jak tytuł roboczy. Jeśli temat dotyczy jednego głównego kraju,
+użyj tylko jego nazwy, np. `[USA]`. Dla co najmniej dwóch państw europejskich
+użyj `[Europa]`, a dla wielu państw, w tym co najmniej jednego spoza Europy,
+użyj `[Świat]`. Dla spraw globalnych lub bez jednego głównego kraju również
+użyj `[Świat]`. Nigdy nie wpisuj kilku państw w prefiksie, np. `[USA i Iran]`
+albo `[USA, Iran]`.
 
 W elementach tablic używaj dokładnie nazw pól pokazanych powyżej. Nie używaj
 zamienników typu agreement_pl, point_pl, difference_pl, tone, signal, reason,
@@ -2264,7 +2299,11 @@ def normalize_topic_titles(
         topic_id: [article_titles[article_id] for article_id in article_ids if article_titles.get(article_id)]
         for topic_id, article_ids in links_by_topic.items()
     }
-    missing = [row for row in topics if not is_usable_topic_title(row.get("headline_pl"))]
+    missing = [
+        row for row in topics
+        if not is_usable_topic_title(row.get("headline_pl"))
+        or has_composite_geo_prefix(row.get("headline_pl"))
+    ]
     changed = 0
     for offset in range(0, len(missing), 100):
         batch = missing[offset:offset + 100]
@@ -2275,6 +2314,9 @@ def normalize_topic_titles(
                 (summaries.get(str(row["topic_id"]), {}).get("topic") or {})
                 .get("what_happened_one_sentence_pl", "")
             ),
+            "summary_pl": str(
+                summaries.get(str(row["topic_id"]), {}).get("summary_pl") or ""
+            )[:1600],
             "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:5],
         } for row in batch]}
         result = call_openai(
@@ -2295,7 +2337,7 @@ def normalize_topic_titles(
                 continue
             row = by_id[topic_id]
             title = format_topic_title_candidate(item.get("title_pl"), row.get("headline_pl"))
-            if not is_usable_topic_title(title):
+            if not is_usable_topic_title(title) or has_composite_geo_prefix(title):
                 continue
             candidate_titles[topic_id] = title
 

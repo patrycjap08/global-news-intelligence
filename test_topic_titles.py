@@ -12,6 +12,7 @@ from ai_pipeline import (
     build_bounded_summary_input,
     choose_merge_canonical_topic_id,
     classify_topic_categories,
+    has_composite_geo_prefix,
     is_article_title_copy,
     merge_active_topics,
     merge_overlapping_candidate_groups,
@@ -52,6 +53,12 @@ class TopicTitleTests(unittest.TestCase):
     def test_accepts_editorial_topic_label_instead_of_article_title(self):
         article_title = "Nie uwierzycie, co Trump powiedział w swoim dzisiejszym wystąpieniu"
         self.assertFalse(is_article_title_copy("[USA] Dzisiejsze wystąpienie Trumpa", [article_title]))
+
+    def test_detects_multi_country_geo_prefix_but_not_single_country_name(self):
+        self.assertTrue(has_composite_geo_prefix("[USA i Iran] Sprawa sankcji"))
+        self.assertTrue(has_composite_geo_prefix("[Niemcy, Francja] Wspólna decyzja"))
+        self.assertFalse(has_composite_geo_prefix("[Bośnia i Hercegowina] Wybory"))
+        self.assertFalse(has_composite_geo_prefix("[USA] Śledztwo na Cornell"))
 
     def test_grouping_prompt_requires_abstraction_for_singletons(self):
         self.assertIn("dotyczy to także grup jednoartykułowych", GROUPING_INSTRUCTIONS)

@@ -103,6 +103,15 @@ powiedział w swoim dzisiejszym wystąpieniu” powinno zostać uogólnione do
 „Wystąpienie Trumpa z datą artykułu” (wstaw właściwą datę). Nie pisz jeszcze
 pełnego podsumowania.
 
+Prefiks geograficzny w `working_title_pl` oznacza główny obszar wydarzenia,
+a nie listę wszystkich państw wspomnianych w artykule. Dla historii dotyczącej
+jednego kraju użyj tylko tego kraju, np. `[USA]`, nawet gdy inny kraj jest
+jedynie wspomniany lub jest stroną wypowiedzi. Dla co najmniej dwóch państw
+europejskich użyj `[Europa]`. Dla wielu państw, w tym co najmniej jednego
+spoza Europy, oraz dla spraw globalnych lub bez jednego głównego kraju użyj
+`[Świat]`. Nigdy nie łącz nazw państw w prefiksie, np. `[USA i Iran]` albo
+`[USA, Iran]`.
+
 Jeżeli dopasowanie do istniejącego tematu nie jest pewne, użyj needs_review albo utwórz nową grupę. Lepiej zostawić dwa tematy do późniejszego sprawdzenia niż połączyć różne wydarzenia.
 
 Zwróć wyłącznie JSON zgodny z poniższą strukturą:
