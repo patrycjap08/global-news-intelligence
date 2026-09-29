@@ -20,7 +20,7 @@ które AI połączy jako duplikaty. Scalony temat nie jest usuwany — dostaje
 status `MERGED`, a aplikacja pokazuje nowy temat zbiorczy.
 
 Uruchom również jednorazowo `supabase_migration_historical_topics.sql`.
-Udostępnia on aplikacji tematy starsze niż 55 godzin, aby mogły pojawić się
+Udostępnia on aplikacji tematy starsze niż 30 godzin, aby mogły pojawić się
 w zakładce „Historyczne”. Tematy `MERGED` nadal pozostają ukryte.
 
 ## Sekrety repozytorium

@@ -1,4 +1,4 @@
--- Udostępnia aplikacji także niepołączone tematy starsze niż 55 godzin.
+-- Udostępnia aplikacji także niepołączone tematy starsze niż 30 godzin.
 -- Status MERGED pozostaje ukryty; is_current jest wyliczane dynamicznie.
 
 drop view if exists public.app_topics;
@@ -17,7 +17,7 @@ select
     merged_into_topic_id,
     merged_at,
     updated_at,
-    (last_seen_at >= now() - interval '55 hours') as is_current
+    (last_seen_at >= now() - interval '30 hours') as is_current
 from public.topics
 where status <> 'MERGED';
 

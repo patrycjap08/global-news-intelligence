@@ -27,7 +27,10 @@ from supabase_client import SupabaseRestClient
 
 
 PROMPT_VERSION = "ai-prompts-v27-collapsed-topic-components"
-TOPIC_LOOKBACK_HOURS = 55
+# Keep a longer matching window than the UI's current-topic window. A topic
+# may leave the "Aktualne" tab after 30 hours and still accept a matching
+# article until it has been quiet for 55 hours.
+TOPIC_MATCH_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
 )
@@ -1768,7 +1771,7 @@ def active_topic_payload(
     excluded_topic_ids: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, list[str]], dict[str, dict[str, Any]]]:
     excluded = excluded_topic_ids or set()
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
         filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
@@ -1878,7 +1881,7 @@ def merge_active_topics(
     model: str = DEFAULT_MODEL,
 ) -> dict[str, int]:
     """Merge duplicate active topics before any final summary is generated."""
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
         columns=(
@@ -1986,7 +1989,7 @@ def merge_active_topics(
             )
             merge_input = {
                 "active_topics": request_topics,
-                "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
+                "topic_memory_window_hours": TOPIC_MATCH_LOOKBACK_HOURS,
             }
             merge_hash = digest(merge_input)
             merge_run_id = "topicrun_" + digest({
@@ -3051,7 +3054,7 @@ def _analyze_pending_batch(
                 for row in articles
             ],
             "active_topics": active_topics,
-            "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
+            "topic_memory_window_hours": TOPIC_MATCH_LOOKBACK_HOURS,
         }
         grouping_hash = digest(grouping_input)
         grouping_topic_run_id = "topicrun_" + digest({

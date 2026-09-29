@@ -15,7 +15,7 @@ from typing import Any
 from ai_pipeline import (
     DEFAULT_MODEL,
     PROMPT_VERSION,
-    TOPIC_LOOKBACK_HOURS,
+    TOPIC_MATCH_LOOKBACK_HOURS,
     call_openai,
     digest,
     empty_update,
@@ -189,7 +189,7 @@ def analyze_x_posts(run_id: str, client: SupabaseRestClient, model: str = DEFAUL
     stats = {"pending": len(posts), "matched": 0, "unassigned": 0, "updated_topics": 0}
     if not posts:
         return stats
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_LOOKBACK_HOURS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all("topics", columns="topic_id,headline_pl,last_seen_at", filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")])
     summaries = {str(row["topic_id"]): row for row in client.select_all("topic_summaries")}
     payload = {
