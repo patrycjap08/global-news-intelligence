@@ -305,7 +305,25 @@ sources:
       - "button[aria-label='Accept all']"
     browser_article_patterns:
       - "/20[0-9]{2}/"
-  - {id: sky_news, name: Sky News, region: United Kingdom, homepage: https://news.sky.com}
+  - id: sky_news
+    name: Sky News
+    region: United Kingdom
+    homepage: https://news.sky.com
+    discover_homepage: false
+    section_urls:
+      - https://news.sky.com/world
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^news\.sky\.com$'
+    candidate_include_url_patterns:
+      - '^/story/[^/?#]+-[0-9]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/story/[^/?#]*(?:-live-|latest-)[^/?#]*-[0-9]+/?$'
+      - '^/(?:video|audio|weather|money)(?:/|$)'
+    candidate_exclude_title_patterns:
+      - '\b(live|latest|sport|sports|football|rugby|cricket|tennis|golf|formula 1|f1|olympics)\b'
+    browser_article_patterns:
+      - '^https://news\.sky\.com/story/[^/?#]+-[0-9]+/?$'
   - id: independent
     name: Independent
     region: United Kingdom

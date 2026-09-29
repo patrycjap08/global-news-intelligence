@@ -433,6 +433,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description and source_id == "bbc":
         lead_node = soup.select_one("main#bbc-main article [data-component='layout-block'] p")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description and source_id == "sky_news":
+        lead_node = soup.select_one("[data-testid='article-header-sub-title']")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -505,6 +508,17 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         ))
         if bbc_authors:
             author = ", ".join(bbc_authors)
+    if source_id == "sky_news":
+        sky_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in soup.select(
+                "[data-testid='article-header'] [class*='author'] a, "
+                "[data-testid='article-header'] [class*='author__name']"
+            )
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if sky_authors:
+            author = ", ".join(sky_authors)
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -514,6 +528,18 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         published = time_node.get("datetime", "") if time_node else ""
     canonical_node = soup.select_one('link[rel="canonical"]')
     canonical = canonical_node.get("href", "") if canonical_node else _json_ld_value(json_ld, "url")
+
+    if source_id == "sky_news" and soup.select_one("[data-testid='liveblog']") is not None:
+        return {
+            "title": title,
+            "description": description,
+            "author": author,
+            "published_at": published,
+            "canonical": canonical,
+            "body": "",
+            "structured": True,
+            "source_kind": "sky_news_live",
+        }
 
     source_kind = "generic"
     content_root = tvn24_main
@@ -571,6 +597,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         content_root = soup.select_one("main#bbc-main article")
         if content_root is not None and content_root.select_one("[data-component='layout-block']"):
             source_kind = "bbc"
+    if content_root is None:
+        content_root = soup.select_one("[data-testid='article-body']")
+        if content_root is not None:
+            source_kind = "sky_news"
     if content_root is None:
         content_root = soup.select_one("article")
         if content_root is not None and content_root.select_one(".duet--article--article-body-component"):
@@ -631,6 +661,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .duet--article--article-byline, .duet--media--caption, .duet--cta--newsletter, [data-native-ad-id], [data-concert], .cnx-marker-cnt-first"
     elif source_kind == "bbc":
         unwanted += ", figure, [data-component='image-block'], [data-component='tag-list-block'], [data-testid='links-grid'], [data-testid*='card'], [data-testid='ad-unit'], [data-component='ad-slot']"
+    elif source_kind == "sky_news":
+        unwanted += ", figure, .sdc-site-share, [data-testid='article-custom-markup'], [data-testid='vendor-outbrain'], [data-testid='app-promo'], [data-testid*='advert'], .ui-video-player, .sdc-article-widget"
     elif source_kind == "abc":
         unwanted += ", .FITT_Article_related, .FITT_Article_recirc, .FITT_Article_comments, .comments, [data-testid='related-content']"
     elif source_kind == "politico":
@@ -685,6 +717,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
             node for node in text_nodes
             if not clean_text(node.get_text(" ", strip=True)).casefold().startswith("get our flagship newsletter")
         ]
+    if source_kind == "sky_news":
+        text_nodes = content_root.select("p, h2, h3, li")
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
@@ -717,7 +751,7 @@ def extract_article(
         if url_date:
             published = "-".join(url_date.groups())
     canonical = structured.get("canonical") or parser.meta.get("canonical") or result.final_url or result.url
-    if source_id == "tvn24":
+    if source_id == "tvn24" or structured.get("source_kind") == "sky_news_live":
         # A TVN24 candidate without the semantic article root is usually a
         # shell, listing, or error page; never turn its global text into body.
         body = structured.get("body", "")
