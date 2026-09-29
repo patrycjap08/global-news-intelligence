@@ -23,6 +23,7 @@ from ai_pipeline import (
     stored_base_summary,
     stored_updates,
 )
+from pipeline_logging import log, short_text
 from supabase_client import SupabaseRestClient
 
 
@@ -92,7 +93,7 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
         "skipped_without_meaningful_text": 0, "skipped_video": 0, "failed": 0,
     }
     if not token:
-        print("[X] Brakuje X_BEARER_TOKEN — pomijam X.", flush=True)
+        log("X", "Brakuje X_BEARER_TOKEN — pomijam pobieranie wpisów.", level="WARN")
         return stats
     existing = {str(row["username"]).lower(): row for row in client.select_all("x_accounts")}
     existing_post_ids = {
@@ -180,7 +181,7 @@ def fetch_x_posts(run_id: str, client: SupabaseRestClient) -> dict[str, int]:
             stats["posts"] += len(rows)
         except Exception as exc:
             stats["failed"] += 1
-            print(f"[X] @{username}: {exc}", flush=True)
+            log("X", f"@{username}: {short_text(exc, 220)}.", level="ERROR")
     return stats
 
 

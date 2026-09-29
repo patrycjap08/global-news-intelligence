@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from article_harvester import open_db
+from pipeline_logging import log
 from supabase_client import SupabaseRestClient
 
 
@@ -209,11 +210,23 @@ def main() -> int:
     args = parser.parse_args()
     client = SupabaseRestClient()
     if args.direction == "pull":
-        print(pull_state(args.db, client))
+        counts = pull_state(args.db, client)
+        log(
+            "SYNC",
+            "Pobrano stan deduplikacji: "
+            + ", ".join(f"{value} {key}" for key, value in counts.items())
+            + ".",
+        )
     else:
         if not args.run_id:
             raise SystemExit("push wymaga --run-id")
-        print(push_run(args.db, args.run_id, client))
+        counts = push_run(args.db, args.run_id, client)
+        log(
+            "SYNC",
+            "Wysłano dane runu: "
+            + ", ".join(f"{value} {key}" for key, value in counts.items())
+            + ".",
+        )
     return 0
 
 

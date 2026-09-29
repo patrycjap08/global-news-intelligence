@@ -23,6 +23,7 @@ from typing import Any
 import unicodedata
 import urllib.parse
 
+from pipeline_logging import log, seconds
 import source_tester as st
 
 try:
@@ -951,7 +952,8 @@ def harvest_source(
     if remaining_daily == 0:
         notes.append(f"daily_limit_reached={args.daily_max_articles_per_source}")
     counts = {
-        "discovered": len(candidates), "fetched": 0, "skipped": 0,
+        "discovered": len(candidates), "fetched": 0,
+        "skipped_existing": 0, "skipped_rejected": 0,
         "valid": 0, "failed": 0, "duplicates": 0, "rejected_short": 0,
     }
 
@@ -996,7 +998,7 @@ def harvest_source(
                 "WHERE source_id = ? AND canonical_url = ?",
                 (now, source_id, canonical),
             )
-            counts["skipped"] += 1
+            counts["skipped_rejected"] += 1
             counts["rejected_short"] += 1
             queue_short_followup(candidate)
             continue
@@ -1014,7 +1016,7 @@ def harvest_source(
                 "(run_id, article_id, discovered_on_homepage, fetched_now) VALUES (?, ?, 1, 0)",
                 (run_id, article_id),
             )
-            counts["skipped"] += 1
+            counts["skipped_existing"] += 1
             continue
         if remaining_daily is not None and counts["fetched"] >= remaining_daily:
             notes.append("daily_limit_stop")
@@ -1069,6 +1071,8 @@ def harvest_source(
             counts["failed"] += 1
     if short_followups:
         notes.append(f"short_followups={short_followups}")
+    if counts["skipped_rejected"]:
+        notes.append(f"previously_rejected_short={counts['skipped_rejected']}")
     if resolved_existing_after_fetch:
         notes.append(f"existing_after_redirect={resolved_existing_after_fetch}")
     if rejected_other:
@@ -1092,7 +1096,7 @@ def harvest_source(
         """,
         (
             run_id, source_id, homepage_result.status, counts["discovered"],
-            counts["fetched"], counts["skipped"], counts["valid"], counts["failed"],
+            counts["fetched"], counts["skipped_existing"], counts["valid"], counts["failed"],
             counts["duplicates"], counts["rejected_short"],
             discovery_duration_ms, fetch_duration_ms, total_duration_ms,
             average_article_fetch_ms,
@@ -1101,6 +1105,7 @@ def harvest_source(
     )
     conn.commit()
     return counts | {
+        "skipped": counts["skipped_existing"] + counts["skipped_rejected"],
         "source_id": source_id,
         "source": source.get("name", source_id),
         "discovery_duration_ms": discovery_duration_ms,
@@ -1244,17 +1249,20 @@ def main() -> int:
             # HTTP discovery still uses st.USER_AGENT separately.
             page_obj = browser_context.new_page()
         totals = {
-            "discovered": 0, "fetched": 0, "skipped": 0, "valid": 0,
+            "discovered": 0, "fetched": 0, "skipped_existing": 0,
+            "skipped_rejected": 0, "valid": 0,
             "failed": 0, "duplicates": 0, "rejected_short": 0,
         }
         for index, source in enumerate(sources, 1):
-            print(f"[{index}/{len(sources)}] {source.get('name', source['id'])} ...", flush=True)
+            source_name = source.get("name", source["id"])
+            log("HARVEST", f"Źródło {index}/{len(sources)}: {source_name} — wyszukuję nowe materiały.")
             try:
                 counts = harvest_source(conn, run_id, source, defaults, args, page_obj)
             except Exception as exc:
                 counts = {
                     "source_id": source["id"], "source": source.get("name", source["id"]),
-                    "discovered": 0, "fetched": 0, "skipped": 0, "valid": 0, "failed": 1,
+                    "discovered": 0, "fetched": 0, "skipped_existing": 0,
+                    "skipped_rejected": 0, "valid": 0, "failed": 1,
                     "duplicates": 0, "rejected_short": 0, "notes": f"source_error:{str(exc)[:300]}",
                 }
                 conn.execute(
@@ -1262,15 +1270,23 @@ def main() -> int:
                     (run_id, source["id"], f"source_error:{str(exc)[:300]}"),
                 )
                 conn.commit()
-            print(
-                f"  discovered={counts['discovered']} fetched={counts['fetched']} "
-                f"skipped={counts['skipped']} valid={counts['valid']} "
-                f"duplicates={counts['duplicates']} short={counts['rejected_short']} "
-                f"failed={counts['failed']}"
-                + (f" duration={counts['total_duration_ms'] / 1000:.1f}s" if counts.get("total_duration_ms") is not None else "")
-                + (f" notes={counts['notes']}" if counts.get("notes") else ""),
-                flush=True,
+            log(
+                "HARVEST",
+                f"Źródło {index}/{len(sources)} zakończone: "
+                f"znaleziono: {counts['discovered']}, pobrano: {counts['fetched']}, "
+                f"zapisano: {counts['valid']}, już zapisane: {counts['skipped_existing']}, "
+                f"wcześniej odrzucone jako za krótkie: {counts['skipped_rejected']}, "
+                f"odrzucone teraz jako za krótkie: {counts['rejected_short']}, "
+                f"duplikaty: {counts['duplicates']}, błędy: {counts['failed']}"
+                + (
+                    f", czas {seconds(counts['total_duration_ms'] / 1000)}"
+                    if counts.get("total_duration_ms") is not None else ""
+                ),
             )
+            if "daily_limit_stop" in counts.get("notes", ""):
+                log("HARVEST", "Osiągnięto limit pobierania dla tego źródła; reszta kandydatów czeka na kolejny przebieg.", level="WARN")
+            if counts.get("notes", "").startswith("source_error:"):
+                log("HARVEST", counts["notes"][len("source_error:"):], level="ERROR")
             for key in totals:
                 totals[key] += counts[key]
         conn.execute(
@@ -1282,12 +1298,19 @@ def main() -> int:
             """,
             (
                 utc_now(), "COMPLETED", totals["discovered"], totals["fetched"],
-                totals["skipped"], totals["valid"], totals["failed"], run_id,
+                totals["skipped_existing"], totals["valid"], totals["failed"], run_id,
             ),
         )
         conn.commit()
         export_files(conn, args.output_dir, run_id)
-        print(json.dumps({"run_id": run_id, **totals}, ensure_ascii=False))
+        log(
+            "HARVEST",
+            f"Zakończono run {run_id}: zapisano: {totals['valid']}; "
+            f"już zapisane: {totals['skipped_existing']}; "
+            f"wcześniej odrzucone jako za krótkie: {totals['skipped_rejected']}; "
+            f"odrzucone teraz jako za krótkie: {totals['rejected_short']}; "
+            f"duplikaty: {totals['duplicates']}; błędy: {totals['failed']}.",
+        )
     finally:
         if browser_context is not None:
             browser_context.close()

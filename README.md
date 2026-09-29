@@ -83,6 +83,22 @@ duplikaty tego samego źródła po znormalizowanym tytule i pierwszych dwóch
 zdaniach. Jeśli tytuł jest taki sam, ale pierwsze dwa zdania są inne, artykuły
 pozostają osobnymi rekordami.
 
+### Jak czytać logi przebiegu
+
+Logi używają krótkich prefiksów: `[RUN]` oznacza cały przebieg, `[HARVEST]`
+pobieranie źródeł, `[AI]` analizę tematów, a `[SYNC]` synchronizację z Supabase.
+W podsumowaniu harvestera:
+
+- `już zapisane` — adres artykułu był już w bazie, więc nie pobierano go ponownie;
+- `wcześniej odrzucone jako za krótkie` — adres był wcześniej sprawdzony i zapisany na liście odrzuconych;
+- `odrzucone teraz jako za krótkie` — pobrany materiał nie przekroczył minimalnej długości;
+- `duplikaty` — materiał został pobrany, ale treść odpowiadała już zapisanemu artykułowi;
+- `błędy` — pobieranie albo zapis konkretnego materiału zakończyły się błędem.
+
+Etap syntez pokazuje postęp w formacie `ukończone/łącznie` oraz liczbę tematów
+pozostałych do wykonania. Surowe odpowiedzi AI nie są wypisywane do konsoli;
+w przypadku błędu można je znaleźć w historii `topic_runs`.
+
 ## Automatyczny profil źródła
 
 Profil redakcyjny jest przypisywany raz do źródła, nie do pojedynczego artykułu.

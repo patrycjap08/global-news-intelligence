@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
-import json
 from pathlib import Path
 import os
 import sqlite3
@@ -13,7 +11,7 @@ import subprocess
 import sys
 
 from ai_pipeline import analyze_run, normalize_topic_titles
-from article_harvester import open_db
+from pipeline_logging import log
 from supabase_client import SupabaseRestClient
 from supabase_sync import pull_state, push_run
 from x_pipeline import analyze_x_posts, fetch_x_posts
@@ -28,6 +26,31 @@ def latest_run_id(db_path: Path) -> str:
         return str(row[0])
     finally:
         conn.close()
+
+
+def count_summary(values: dict[str, int], labels: tuple[tuple[str, str], ...]) -> str:
+    """Render selected counters without dumping an opaque JSON object."""
+    return ", ".join(
+        f"{label}: {values[key]}"
+        for key, label in labels
+        if key in values
+    )
+
+
+def ai_summary(values: dict[str, int]) -> str:
+    labels = (
+        ("pending_articles", "oczekujące artykuły"),
+        ("groups", "grupy tematów"),
+        ("summaries", "gotowe syntezy"),
+        ("topics_rebuilt", "przebudowane syntezy"),
+        ("failed_summaries", "nieudane syntezy"),
+        ("topics_merged", "scalone tematy"),
+        ("categories_classified", "uzupełnione kategorie"),
+        ("excluded", "wykluczone artykuły"),
+        ("repair_candidates", "artykuły do naprawy"),
+        ("singleton_topics_merged", "naprawione osobne tematy"),
+    )
+    return count_summary(values, labels)
 
 
 def main() -> int:
@@ -98,27 +121,43 @@ def main() -> int:
 
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
-    print("[1/4] Pobieram stan deduplikacji z Supabase...", flush=True)
-    print(json.dumps(pull_state(args.db, client), ensure_ascii=False), flush=True)
+    log("RUN", "Etap 1/4 — pobieram stan deduplikacji z Supabase.")
+    pull_counts = pull_state(args.db, client)
+    log(
+        "RUN",
+        "Etap 1/4 zakończony: " + count_summary(
+            pull_counts,
+            (("articles", "artykułów"), ("aliases", "aliasów URL"), ("rejected", "odrzuconych adresów")),
+        ) + ".",
+    )
 
     if args.titles_only:
-        print("[2/4] Pobieranie portali pominięte.", flush=True)
-        print("[3/4] Synchronizacja harvestera pominięta.", flush=True)
-        print("[4/4] Ujednolicam prefiksy geograficzne tytułów...", flush=True)
-        print(json.dumps({"titles_normalized": normalize_topic_titles(client)}, ensure_ascii=False), flush=True)
+        log("RUN", "Etap 2/4 pominięty — tryb tylko tytułów.")
+        log("RUN", "Etap 3/4 pominięty — tryb tylko tytułów.")
+        log("RUN", "Etap 4/4 — ujednolicam prefiksy geograficzne tytułów.")
+        changed = normalize_topic_titles(client)
+        log("RUN", f"Etap 4/4 zakończony: poprawiono {changed} tytułów.")
+        log("RUN", "Cały przebieg zakończony pomyślnie.")
         return 0
     if args.x_only:
         run_id = latest_run_id(args.db)
-        print(f"[2/4] Portale pominięte; używam run {run_id} jako punktu odniesienia...", flush=True)
-        print("[3/4] Pobieram wpisy z X z ostatnich 24 godzin...", flush=True)
-        print(json.dumps(fetch_x_posts(run_id, client), ensure_ascii=False), flush=True)
-        print("[4/4] Dopasowuję wpisy do aktywnych historii...", flush=True)
-        print(json.dumps(analyze_x_posts(run_id, client), ensure_ascii=False), flush=True)
+        log("RUN", f"Etap 2/4 pominięty — używam run {run_id} jako punktu odniesienia.")
+        log("RUN", "Etap 3/4 — pobieram wpisy z X z ostatnich 24 godzin.")
+        fetched_x = fetch_x_posts(run_id, client)
+        log("RUN", "Etap 3/4 zakończony: " + count_summary(
+            fetched_x, (("posts", "nowych wpisów"), ("failed", "błędów"))
+        ) + ".")
+        log("RUN", "Etap 4/4 — dopasowuję wpisy do aktywnych historii.")
+        matched_x = analyze_x_posts(run_id, client)
+        log("RUN", "Etap 4/4 zakończony: " + count_summary(
+            matched_x, (("matched", "dopasowanych"), ("unassigned", "bez dopasowania"), ("updated_topics", "zaktualizowanych tematów"))
+        ) + ".")
+        log("RUN", "Cały przebieg zakończony pomyślnie.")
         return 0
     if args.ai_only:
         run_id = latest_run_id(args.db)
-        print(f"[2/4] Pobieranie źródeł pominięte; używam run {run_id}...", flush=True)
-        print("[3/4] Synchronizacja harvestera pominięta; artykuły są już w Supabase.", flush=True)
+        log("RUN", f"Etap 2/4 pominięty — używam run {run_id}; artykuły są już pobrane.")
+        log("RUN", "Etap 3/4 pominięty — synchronizacja harvestera nie jest potrzebna w trybie AI-only.")
     else:
         command = [
             sys.executable, "article_harvester.py", "--config", str(args.config),
@@ -136,26 +175,37 @@ def main() -> int:
             command.append("--retry-failed")
         if args.retry_rejected:
             command.append("--retry-rejected")
-        print("[2/4] Pobieram strony główne i nowe artykuły...", flush=True)
+        log("RUN", "Etap 2/4 — pobieram strony główne i nowe artykuły.")
         subprocess.run(command, check=True)
         run_id = latest_run_id(args.db)
+        log("RUN", f"Etap 2/4 zakończony: run {run_id} zapisany lokalnie.")
 
-        print(f"[3/4] Zapisuję run {run_id} w Supabase...", flush=True)
-        print(json.dumps(push_run(args.db, run_id, client), ensure_ascii=False), flush=True)
+        log("RUN", f"Etap 3/4 — zapisuję run {run_id} w Supabase.")
+        push_counts = push_run(args.db, run_id, client)
+        log(
+            "RUN",
+            "Etap 3/4 zakończony: " + count_summary(
+                push_counts,
+                (("articles", "artykułów"), ("run_articles", "powiązań z runem"), ("source_run_results", "wyników źródeł")),
+            ) + ".",
+        )
 
         if os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":
-            print("[X] Pobieram wpisy z ostatnich 24 godzin...", flush=True)
-            print(json.dumps(fetch_x_posts(run_id, client), ensure_ascii=False), flush=True)
+            log("X", "Pobieram wpisy z ostatnich 24 godzin.")
+            x_counts = fetch_x_posts(run_id, client)
+            log("X", "Pobieranie zakończone: " + count_summary(
+                x_counts, (("posts", "nowych wpisów"), ("failed", "błędów"))
+            ) + ".")
 
     if args.skip_ai:
-        print("[4/4] AI pominięte przez --skip-ai.", flush=True)
+        log("RUN", "Etap 4/4 pominięty — użyto --skip-ai.")
     else:
         if args.regroup_singletons:
-            print("[4/4] Przegrupowuję singletony utworzone przez fallback AI...", flush=True)
+            log("RUN", "Etap 4/4 — przegrupowuję osobne artykuły utworzone przez fallback AI.")
         elif args.rebuild_summaries:
-            print("[4/4] Przepisuję syntezy istniejących tematów AI...", flush=True)
+            log("RUN", "Etap 4/4 — przebudowuję syntezy istniejących tematów AI.")
         else:
-            print("[4/4] Grupuję tematy i tworzę opracowania AI...", flush=True)
+            log("RUN", "Etap 4/4 — grupuję tematy i tworzę opracowania AI.")
         result = analyze_run(
             args.db, run_id, client,
             max_articles=args.ai_max_articles,
@@ -164,10 +214,14 @@ def main() -> int:
             rebuild_max_topics=args.rebuild_max_topics,
             regroup_singletons_mode=args.regroup_singletons,
         )
-        print(json.dumps(result, ensure_ascii=False), flush=True)
+        log("RUN", "Etap 4/4 zakończony: " + ai_summary(result) + ".")
         if not args.ai_only and os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":
-            print("[X] Dopasowuję wpisy do aktywnych historii...", flush=True)
-            print(json.dumps(analyze_x_posts(run_id, client), ensure_ascii=False), flush=True)
+            log("X", "Dopasowuję wpisy do aktywnych historii.")
+            x_match_counts = analyze_x_posts(run_id, client)
+            log("X", "Dopasowanie zakończone: " + count_summary(
+                x_match_counts, (("matched", "dopasowanych"), ("unassigned", "bez dopasowania"), ("updated_topics", "zaktualizowanych tematów"))
+            ) + ".")
+    log("RUN", "Cały przebieg zakończony pomyślnie.")
     return 0
 
 

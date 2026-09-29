@@ -23,6 +23,7 @@ import time
 from typing import Any
 import unicodedata
 
+from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
@@ -1581,9 +1582,12 @@ def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
 def log_parse_failure(stage: str, exc: Exception) -> None:
     if not isinstance(exc, AIResponseParseError):
         return
-    preview = exc.raw_output[:5000]
-    suffix = "\n...[ucięto w logu; pełna odpowiedź jest w topic_runs.raw_output]" if len(exc.raw_output) > 5000 else ""
-    print(f"[AI] Niepoprawny JSON na etapie {stage}: {exc}\n[AI] Surowa odpowiedź AI:\n{preview}{suffix}", flush=True)
+    log(
+        "AI",
+        f"Etap {stage}: odpowiedź AI była niepoprawna ({short_text(exc, 240)}). "
+        "Szczegóły zapisano w historii topic_runs.",
+        level="ERROR",
+    )
 
 
 def openai_api_key() -> str:
@@ -1631,10 +1635,11 @@ def wait_before_openai_retry(
         except (TypeError, ValueError):
             pass
     delay += random.uniform(0, min(1.0, delay * 0.25))
-    print(
-        f"[AI] Chwilowy błąd OpenAI ({openai_error_details(exc)}); "
-        f"ponawiam za {delay:.1f}s ({attempt + 1}/{retry_limit}).",
-        flush=True,
+    log(
+        "AI",
+        f"Chwilowy błąd OpenAI; ponawiam za {delay:.1f} s "
+        f"(próba {attempt + 1}/{retry_limit}). Szczegóły: {short_text(openai_error_details(exc), 220)}.",
+        level="WARN",
     )
     time.sleep(delay)
 
@@ -1720,9 +1725,11 @@ def call_openai(
             last_parse_error = str(exc)
             if parse_failures >= 2:
                 raise
-            print(
-                f"[AI] Niepoprawny JSON z OpenAI; ponawiam próbę ({parse_failures}/2): {exc}",
-                flush=True,
+            log(
+                "AI",
+                f"Niepoprawny JSON z OpenAI; ponawiam próbę "
+                f"({parse_failures}/2): {short_text(exc, 220)}.",
+                level="WARN",
             )
     assert last_error is not None
     raise last_error
@@ -2027,19 +2034,19 @@ def merge_active_topics(
         stats["local_candidate_groups"] = len(candidate_groups)
         total_merge_requests = len(merge_requests)
         if total_merge_requests > TOPIC_MERGE_MAX_REQUESTS:
-            print(
-                f"[AI] Ograniczam scalanie z {total_merge_requests} do "
-                f"{TOPIC_MERGE_MAX_REQUESTS} żądań; reszta zostaje do kolejnego uruchomienia.",
-                flush=True,
+            log(
+                "AI",
+                f"Scalanie: ograniczam liczbę zapytań z {total_merge_requests} do "
+                f"{TOPIC_MERGE_MAX_REQUESTS}; reszta zostaje na kolejny przebieg.",
+                level="WARN",
             )
             merge_requests = merge_requests[:TOPIC_MERGE_MAX_REQUESTS]
         stats["merge_requests"] = len(merge_requests)
-        print(
-            f"[AI] Lokalna selekcja scalania: {len(payload_topics)} tematów -> "
-            f"{stats['local_candidate_groups']} grup kandydackich -> "
-            f"{len(merge_requests)} małych żądań do AI "
-            f"(limit {TOPIC_MERGE_MAX_REQUESTS}).",
-            flush=True,
+        log(
+            "AI",
+            f"Scalanie: tematów: {len(payload_topics)}, "
+            f"grup kandydackich: {stats['local_candidate_groups']}, "
+            f"zapytań do AI: {len(merge_requests)}.",
         )
         if not merge_requests:
             return stats
@@ -2047,10 +2054,10 @@ def merge_active_topics(
         raw_groups: list[dict[str, Any]] = []
         for request_index, request_topics in enumerate(merge_requests, start=1):
             started_at = time.monotonic()
-            print(
-                f"[AI] Scalanie: żądanie {request_index}/{len(merge_requests)} "
-                f"({len(request_topics)} tematów)...",
-                flush=True,
+            log(
+                "AI",
+                f"Scalanie {request_index}/{len(merge_requests)}: "
+                f"tematów w zapytaniu: {len(request_topics)}.",
             )
             merge_input = {
                 "active_topics": request_topics,
@@ -2088,11 +2095,11 @@ def merge_active_topics(
                     raw_groups.extend(
                         group for group in batch_groups if isinstance(group, dict)
                     )
-                print(
-                    f"[AI] Scalanie: żądanie {request_index}/{len(merge_requests)} "
-                    f"zakończone ({len(batch_groups or [])} grup, "
-                    f"{time.monotonic() - started_at:.1f}s).",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Scalanie {request_index}/{len(merge_requests)} zakończone: "
+                    f"grup: {len(batch_groups or [])}, "
+                    f"czas {seconds(time.monotonic() - started_at)}.",
                 )
             except Exception as exc:
                 log_parse_failure("TOPIC_MERGE", exc)
@@ -2108,11 +2115,11 @@ def merge_active_topics(
                     "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["merge_failed"] += 1
-                print(
-                    f"[AI] Scalanie: żądanie {request_index}/{len(merge_requests)} "
-                    f"nieudane po {time.monotonic() - started_at:.1f}s; "
-                    "przechodzę dalej.",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Scalanie {request_index}/{len(merge_requests)} nieudane po "
+                    f"{seconds(time.monotonic() - started_at)}; przechodzę dalej.",
+                    level="ERROR",
                 )
 
         if not raw_groups:
@@ -2268,10 +2275,12 @@ def merge_active_topics(
                 except Exception as exc:
                     # The status fallback keeps the duplicate out of the app
                     # even before the optional redirect-column migration runs.
-                    print(
-                        f"[AI] Nie zapisano merged_into_topic_id dla {old_topic_id}; "
-                        f"uruchom supabase_migration_topic_merges.sql. ({exc})",
-                        flush=True,
+                    log(
+                        "AI",
+                        "Nie zapisano przekierowania scalonego tematu; "
+                        "uruchom supabase_migration_topic_merges.sql. "
+                        f"Szczegóły: {short_text(exc, 180)}.",
+                        level="WARN",
                     )
                     client.update(
                         "topics",
@@ -2279,11 +2288,10 @@ def merge_active_topics(
                         filters=[("topic_id", f"eq.{old_topic_id}")],
                     )
             stats["topics_merged"] += len(group_ids)
-            print(
-                f"[AI] Scalono tematy {', '.join(group_ids)} → zachowano "
-                f"{canonical_id} (confidence={confidence:.2f}); "
-                "istniejąca synteza zostanie zaktualizowana.",
-                flush=True,
+            log(
+                "AI",
+                f"Scalono grupę tematów: {len(group_ids)} "
+                f"(pewność: {confidence:.2f}); synteza zachowanego tematu zostanie zaktualizowana.",
             )
         return stats
     finally:
@@ -2321,8 +2329,14 @@ def normalize_topic_titles(
         or has_composite_geo_prefix(row.get("headline_pl"))
     ]
     changed = 0
+    if not missing:
+        log("AI", "Tytuły: wszystkie są już w poprawnym formacie.")
+        return 0
+    total_batches = (len(missing) + 99) // 100
+    log("AI", f"Tytuły: poprawiam {len(missing)} tematów w {total_batches} paczkach.")
     for offset in range(0, len(missing), 100):
         batch = missing[offset:offset + 100]
+        log("AI", f"Tytuły {offset // 100 + 1}/{total_batches}: analizuję {len(batch)} tematów.")
         payload = {"topics": [{
             "topic_id": row["topic_id"],
             "current_title_pl": row.get("headline_pl") or "",
@@ -2374,6 +2388,7 @@ def normalize_topic_titles(
                 filters=[("topic_id", f"eq.{topic_id}")],
             )
             changed += 1
+        log("AI", f"Tytuły {offset // 100 + 1}/{total_batches} zakończone.")
 
     remaining = [
         row for row in client.select_all(
@@ -2389,6 +2404,7 @@ def normalize_topic_titles(
             "Quality gate tytułów nie przepuścił tematów bez konkretnego tytułu: "
             f"{bad_ids}"
         )
+    log("AI", f"Tytuły zakończone: poprawiono {changed} tematów.")
     return changed
 
 
@@ -2434,6 +2450,7 @@ def classify_topic_categories(
         and not existing_categories.get(str(row["topic_id"]))
     ]
     if not missing:
+        log("AI", "Kategorie: wszystkie kwalifikujące się tematy mają już kategorię.")
         return 0
 
     summaries = {
@@ -2477,10 +2494,9 @@ def classify_topic_categories(
                 "recent_article_titles": titles[:2],
             })
 
-        print(
-            f"[AI] Kategorie: paczka {label}/{len(batches)} "
-            f"({len(batch)} tematów)...",
-            flush=True,
+        log(
+            "AI",
+            f"Kategorie {label}/{len(batches)}: tematów w paczce: {len(batch)}.",
         )
         try:
             result = call_openai(
@@ -2497,21 +2513,23 @@ def classify_topic_categories(
             retryable = isinstance(exc, AIResponseParseError) or is_retryable_openai_error(exc)
             if retryable and len(batch) > CATEGORY_MIN_RETRY_BATCH_SIZE:
                 midpoint = len(batch) // 2
-                print(
-                    f"[AI] Kategorie: dzielę paczkę {label} po błędzie OpenAI "
-                    f"na {midpoint} + {len(batch) - midpoint} tematów "
-                    f"({openai_error_details(exc)}).",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Kategorie {label}: dzielę paczkę po błędzie na "
+                    f"{midpoint} + {len(batch) - midpoint} tematów "
+                    f"({short_text(openai_error_details(exc), 180)}).",
+                    level="WARN",
                 )
                 process_batch(batch[:midpoint], f"{label}a")
                 process_batch(batch[midpoint:], f"{label}b")
                 return
             if retryable:
-                print(
-                    f"[AI] Kategorie: pomijam paczkę {label} po błędzie "
-                    f"({openai_error_details(exc)}); brakujące kategorie "
-                    "spróbują się uzupełnić przy kolejnym uruchomieniu.",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Kategorie {label}: pomijam paczkę po błędzie "
+                    f"({short_text(openai_error_details(exc), 180)}); "
+                    "spróbuję ponownie przy kolejnym uruchomieniu.",
+                    level="ERROR",
                 )
                 return
             raise
@@ -2536,14 +2554,15 @@ def classify_topic_categories(
                 filters=[("topic_id", f"eq.{topic_id}")],
             )
             classified += 1
-        print(
-            f"[AI] Kategorie: paczka {label}/{len(batches)} zakończona "
-            f"({len(batch)} tematów).",
-            flush=True,
+        log(
+            "AI",
+            f"Kategorie {label}/{len(batches)} zakończone: "
+            f"łącznie przypisano kategorię: {quantity(classified, 'tematowi', 'tematom', 'tematom')}.",
         )
 
     for offset, batch in enumerate(batches, start=1):
         process_batch(batch, str(offset))
+    log("AI", f"Kategorie zakończone: przypisano kategorię: {quantity(classified, 'tematowi', 'tematom', 'tematom')}.")
     return classified
 
 
@@ -2714,10 +2733,11 @@ def persist_summary(
     except Exception as exc:
         # Backwards compatibility: current summaries remain usable even if the
         # optional history migration has not been run yet.
-        print(
-            f"[AI] Nie zapisano historii wersji tematu {topic_id}; "
-            f"uruchom supabase_migration_topic_updates.sql. ({exc})",
-            flush=True,
+        log(
+            "AI",
+            "Nie zapisano historii wersji tematu; uruchom "
+            f"supabase_migration_topic_updates.sql. Szczegóły: {short_text(exc, 180)}.",
+            level="WARN",
         )
     return version
 
@@ -2785,10 +2805,11 @@ def persist_rebuilt_summary(
             "generated_at": timestamp,
         }], on_conflict="topic_id,version")
     except Exception as exc:
-        print(
-            f"[AI] Nie zapisano historii przebudowy tematu {topic_id}; "
-            f"uruchom supabase_migration_topic_updates.sql. ({exc})",
-            flush=True,
+        log(
+            "AI",
+            "Nie zapisano historii przebudowy tematu; uruchom "
+            f"supabase_migration_topic_updates.sql. Szczegóły: {short_text(exc, 180)}.",
+            level="WARN",
         )
     return version
 
@@ -2826,6 +2847,7 @@ def retry_incomplete_summaries(
                 latest_assignment_by_topic[topic_id] = created_at
             assignment_time_by_article[(topic_id, article_id)] = created_at
         summary_by_topic = {str(row["topic_id"]): row for row in summaries}
+        summary_jobs: list[dict[str, Any]] = []
 
         for topic in topics:
             topic_id = str(topic.get("topic_id") or "")
@@ -2860,21 +2882,46 @@ def retry_incomplete_summaries(
                 "previous_aggregation": previous_aggregation,
                 "all_article_ids_in_topic": all_ids,
             }
+            summary_jobs.append({
+                "topic_id": topic_id,
+                "title": str(topic.get("headline_pl") or topic_id),
+                "new_ids": new_ids,
+                "new_rows": new_rows,
+                "all_rows": all_rows,
+                "previous_row": previous_row,
+                "previous_aggregation": previous_aggregation,
+                "summary_input_base": summary_input_base,
+            })
+
+        if not summary_jobs:
+            log("AI", "Syntezy: nie ma tematów oczekujących na nową syntezę.")
+            return stats
+
+        total_jobs = len(summary_jobs)
+        log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania.")
+        for index, job in enumerate(summary_jobs, start=1):
+            topic_id = job["topic_id"]
+            new_ids = job["new_ids"]
+            new_rows = job["new_rows"]
+            all_rows = job["all_rows"]
+            previous_row = job["previous_row"]
+            previous_aggregation = job["previous_aggregation"]
             summary_input, payload_chars, payload_mode = build_bounded_summary_input(
-                summary_input_base,
+                job["summary_input_base"],
                 new_rows,
                 all_rows if previous_aggregation is None else None,
-            )
-            print(
-                f"[AI] Synteza: temat {topic_id} "
-                f"({len(new_rows)} nowych/{len(all_rows)} wszystkich artykułów, "
-                f"payload={payload_chars / 1024:.1f} KiB, {payload_mode})...",
-                flush=True,
             )
             summary_hash = digest(summary_input)
             summary_topic_run_id = "topicrun_" + digest({
                 "topic": topic_id, "stage": "SUMMARY", "input": summary_hash,
             })[:24]
+            log(
+                "AI",
+                f"Synteza {index}/{total_jobs}: {short_text(job['title'])} "
+                f"(nowych: {len(new_rows)}, łącznie: {len(all_rows)}; "
+                f"pozostało: {total_jobs - index + 1}; dane: {payload_mode}, "
+                f"{payload_chars / 1024:.1f} KiB).",
+            )
             try:
                 summary = normalize_summary_response(call_openai(
                     SUMMARY_INSTRUCTIONS,
@@ -2885,10 +2932,11 @@ def retry_incomplete_summaries(
                     response_schema_name="topic_summary",
                 ))
                 if previous_aggregation and update_needs_repair(summary):
-                    print(
-                        f"[AI] Ponawiam aktualizację tematu {topic_id}: "
-                        "odpowiedź zawierała metakomentarz zamiast faktów.",
-                        flush=True,
+                    log(
+                        "AI",
+                        f"Synteza {index}/{total_jobs}: odpowiedź wymaga poprawy, "
+                        "bo zawierała komentarz techniczny zamiast faktów.",
+                        level="WARN",
                     )
                     summary = normalize_summary_response(
                         call_openai(
@@ -2922,8 +2970,18 @@ def retry_incomplete_summaries(
                     "raw_output": response_for_storage(summary), "error": None,
                 }], on_conflict="topic_run_id")
                 stats["summaries"] += 1
+                log(
+                    "AI",
+                    f"Synteza {index}/{total_jobs} gotowa; pozostało {total_jobs - index}.",
+                )
             except Exception as exc:
                 log_parse_failure("SUMMARY", exc)
+                if not isinstance(exc, AIResponseParseError):
+                    log(
+                        "AI",
+                        f"Synteza {index}/{total_jobs} nieudana: {short_text(exc, 220)}.",
+                        level="ERROR",
+                    )
                 client.upsert("topic_runs", [{
                     "topic_run_id": summary_topic_run_id, "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
@@ -3000,14 +3058,19 @@ def rebuild_summaries(
             "failed_summaries": 0,
         }
         total = len(eligible)
+        log(
+            "AI-REBUILD",
+            f"Przebudowa syntez: wybrano {quantity(total, 'temat', 'tematy', 'tematów')} "
+            f"z {quantity(eligible_count, 'kwalifikującego się tematu', 'kwalifikujących się tematów', 'kwalifikujących się tematów')}.",
+        )
         for index, (topic, rows) in enumerate(eligible, start=1):
             topic_id = str(topic["topic_id"])
             article_ids = [str(row["article_id"]) for row in rows]
-            print(
-                f"[AI-REBUILD] Temat {index}/{total}: "
-                f"{str(topic.get('headline_pl') or topic_id)[:120]} "
-                f"({len(rows)} artykułów)...",
-                flush=True,
+            log(
+                "AI-REBUILD",
+                f"Synteza {index}/{total}: "
+                f"{short_text(topic.get('headline_pl') or topic_id)} "
+                f"(artykułów: {len(rows)}; pozostało: {total - index + 1}).",
             )
             summary_input_base = {
                 "mode": "FULL_REBUILD",
@@ -3024,10 +3087,10 @@ def rebuild_summaries(
                 [],
                 rows,
             )
-            print(
-                f"[AI-REBUILD] Payload tematu {topic_id}: "
-                f"{len(rows)} artykułów, {payload_chars / 1024:.1f} KiB, {payload_mode}.",
-                flush=True,
+            log(
+                "AI-REBUILD",
+                f"Przygotowano dane syntezy: artykułów: {len(rows)}, "
+                f"payload: {payload_chars / 1024:.1f} KiB, tryb: {payload_mode}.",
             )
             summary_hash = digest({
                 "mode": "FULL_REBUILD",
@@ -3070,8 +3133,18 @@ def rebuild_summaries(
                     "error": None,
                 }], on_conflict="topic_run_id")
                 stats["topics_rebuilt"] += 1
+                log(
+                    "AI-REBUILD",
+                    f"Synteza {index}/{total} gotowa; pozostało {total - index}.",
+                )
             except Exception as exc:
                 log_parse_failure("REBUILD_SUMMARY", exc)
+                if not isinstance(exc, AIResponseParseError):
+                    log(
+                        "AI-REBUILD",
+                        f"Synteza {index}/{total} nieudana: {short_text(exc, 220)}.",
+                        level="ERROR",
+                    )
                 client.upsert("topic_runs", [{
                     "topic_run_id": summary_topic_run_id,
                     "run_id": run_id,
@@ -3084,6 +3157,11 @@ def rebuild_summaries(
                     "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["failed_summaries"] += 1
+        log(
+            "AI-REBUILD",
+            f"Przebudowa zakończona: gotowe {stats['topics_rebuilt']}, "
+            f"nieudane {stats['failed_summaries']}.",
+        )
         return stats
     finally:
         conn.close()
@@ -3315,10 +3393,10 @@ def _analyze_pending_batch(
 
         group_data = list(group_data_by_topic.values())
         if duplicate_topic_ids:
-            print(
-                "[AI] Scalono grupy wskazujące ten sam topic_id: "
-                + ", ".join(sorted(duplicate_topic_ids)),
-                flush=True,
+            log(
+                "AI",
+                f"Grupowanie: połączono powtarzające się wskazania do "
+                f"{len(duplicate_topic_ids)} tematów przed zapisem.",
             )
 
         topic_rows: list[dict[str, Any]] = []
@@ -3356,10 +3434,11 @@ def _analyze_pending_batch(
         removed_links = len(link_rows) - len(unique_link_rows)
         removed_assignments = len(assignment_rows) - len(unique_assignment_rows)
         if removed_links or removed_assignments:
-            print(
-                f"[AI] Usunięto duplikaty przed zapisem: topic_articles={removed_links}, "
-                f"article_topic_assignments={removed_assignments}.",
-                flush=True,
+            log(
+                "AI",
+                f"Grupowanie: usunięto powtórne przypisania przed zapisem "
+                f"(linki {removed_links}, przypisania {removed_assignments}).",
+                level="WARN",
             )
         client.upsert("topic_articles", unique_link_rows, on_conflict="topic_id,article_id")
         client.upsert("article_topic_assignments", unique_assignment_rows, on_conflict="run_id,article_id")
@@ -3396,11 +3475,10 @@ def _analyze_pending_batch(
                 new_rows,
                 all_rows if previous_aggregation is None else None,
             )
-            print(
-                f"[AI] Synteza: temat {topic_id} "
-                f"({len(new_rows)} nowych/{len(all_rows)} wszystkich artykułów, "
-                f"payload={payload_chars / 1024:.1f} KiB, {payload_mode})...",
-                flush=True,
+            log(
+                "AI",
+                f"Synteza: {short_text(title)} "
+                f"({len(new_rows)} nowych, {len(all_rows)} łącznie; {payload_mode}).",
             )
             summary_hash = digest(summary_input)
             if old and old[0].get("input_hash") == summary_hash:
@@ -3577,25 +3655,24 @@ def regroup_singletons(
         "titles_normalized": 0,
     }
     if not articles:
-        print("[AI-REPAIR] Nie znaleziono singletonów z fallbacku do przegrupowania.", flush=True)
+        log("AI-REPAIR", "Nie znaleziono artykułów wymagających przegrupowania.")
         return stats
 
     batch_size = min(max(1, batch_size), MAX_GROUPING_BATCH_SIZE)
     excluded_topic_ids = set(old_topic_by_article.values())
     total_batches = (len(articles) + batch_size - 1) // batch_size
-    print(
-        f"[AI-REPAIR] Przegrupowuję {len(articles)} singletonów w {total_batches} paczkach...",
-        flush=True,
+    log(
+        "AI-REPAIR",
+        f"Przegrupowuję {len(articles)} osobnych artykułów w {total_batches} paczkach.",
     )
 
     def merge_batch_stats(batch_stats: dict[str, int]) -> None:
         stats["groups"] += batch_stats["groups"]
 
     def process_batch(batch: list[dict[str, Any]], label: str) -> None:
-        print(
-            f"[AI-REPAIR] Paczka {label}/{total_batches}: "
-            f"{len(batch)} singletonów...",
-            flush=True,
+        log(
+            "AI-REPAIR",
+            f"Paczka {label}/{total_batches}: analizuję {len(batch)} artykułów.",
         )
         try:
             batch_stats = _analyze_pending_batch(
@@ -3613,11 +3690,10 @@ def regroup_singletons(
                 run_id, client, old_topic_by_article
             )
             stats["singleton_topics_merged"] += merged_singletons
-            print(
-                f"[AI-REPAIR] Paczka {label}/{total_batches} zakończona: "
-                f"grupy={batch_stats['groups']}, "
-                f"singletony przeniesione={merged_singletons}.",
-                flush=True,
+            log(
+                "AI-REPAIR",
+                f"Paczka {label}/{total_batches} zakończona: "
+                f"grupy {batch_stats['groups']}, przeniesione {merged_singletons} artykułów.",
             )
         except ValueError as exc:
             if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
@@ -3629,10 +3705,11 @@ def regroup_singletons(
             if not is_retryable_openai_error(exc) or len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
                 raise
             midpoint = len(batch) // 2
-            print(
-                f"[AI-REPAIR] Dzielę paczkę {label} po błędzie OpenAI: "
-                f"{openai_error_details(exc)}",
-                flush=True,
+            log(
+                "AI-REPAIR",
+                f"Dzielę paczkę {label} po błędzie OpenAI: "
+                f"{short_text(openai_error_details(exc), 180)}.",
+                level="WARN",
             )
             process_batch(batch[:midpoint], f"{label}a")
             process_batch(batch[midpoint:], f"{label}b")
@@ -3678,6 +3755,7 @@ def analyze_run(
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
     if rebuild_summaries_mode:
+        log("AI", "Tryb przebudowy: pomijam grupowanie nowych artykułów.")
         stats = rebuild_summaries(
             db_path,
             run_id,
@@ -3686,8 +3764,10 @@ def analyze_run(
             max_topics=rebuild_max_topics,
         )
         stats["categories_classified"] = classify_topic_categories(client, model=model)
+        log("AI", "Tryb przebudowy zakończony.")
         return stats
     if regroup_singletons_mode:
+        log("AI", "Tryb naprawczy: przegrupowuję osobne artykuły utworzone przez fallback.")
         stats = regroup_singletons(
             db_path,
             run_id,
@@ -3697,6 +3777,7 @@ def analyze_run(
             batch_size=batch_size,
         )
         stats["categories_classified"] = classify_topic_categories(client, model=model)
+        log("AI", "Tryb naprawczy zakończony.")
         return stats
     requested_batch_size = max(1, batch_size)
     batch_size = min(requested_batch_size, MAX_GROUPING_BATCH_SIZE)
@@ -3716,10 +3797,10 @@ def analyze_run(
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
-        print(
-            f"[AI] Etap 1/3: grupowanie {len(articles)} artykułów w {total_batches} paczkach. "
-            "Syntezy powstaną dopiero po przetworzeniu wszystkich paczek.",
-            flush=True,
+        log(
+            "AI",
+            f"Etap 1/3 — grupowanie: artykułów: {len(articles)}, "
+            f"paczek: {total_batches}. Syntezy powstaną po zakończeniu grupowania.",
         )
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
@@ -3730,9 +3811,9 @@ def analyze_run(
                 stats[key] += batch_stats[key]
 
         def process_batch(batch: list[dict[str, Any]], label: str) -> None:
-            print(
-                f"[AI] Paczka {label}/{total_batches}: {len(batch)} artykułów...",
-                flush=True,
+            log(
+                "AI",
+                f"Grupowanie {label}/{total_batches}: artykułów w paczce: {len(batch)}.",
             )
             try:
                 batch_stats = _analyze_pending_batch(
@@ -3740,19 +3821,20 @@ def analyze_run(
                     batch_index=label, summarize=False,
                 )
                 merge_batch_stats(batch_stats)
-                print(
-                    f"[AI] Paczka {label}/{total_batches} zakończona: "
-                    f"grupy={batch_stats['groups']}.",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Grupowanie {label}/{total_batches} zakończone: "
+                    f"utworzono lub zaktualizowano grup: {batch_stats['groups']}.",
                 )
             except ValueError as exc:
                 if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
                     raise
                 midpoint = len(batch) // 2
-                print(
-                    f"[AI] Niepoprawny JSON dla paczki {label}; dzielę ją na "
-                    f"{midpoint} + {len(batch) - midpoint} artykułów. ({exc})",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Grupowanie {label}: dzielę paczkę po niepoprawnym JSON na "
+                    f"{midpoint} + {len(batch) - midpoint} artykułów.",
+                    level="WARN",
                 )
                 process_batch(batch[:midpoint], f"{label}a")
                 process_batch(batch[midpoint:], f"{label}b")
@@ -3760,35 +3842,44 @@ def analyze_run(
                 if not is_retryable_openai_error(exc) or len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
                     raise
                 midpoint = len(batch) // 2
-                print(
-                    f"[AI] OpenAI nie przetworzyło paczki {label}; dzielę ją na "
-                    f"{midpoint} + {len(batch) - midpoint} artykułów. "
-                    f"({openai_error_details(exc)})",
-                    flush=True,
+                log(
+                    "AI",
+                    f"Grupowanie {label}: dzielę paczkę po błędzie OpenAI na "
+                    f"{midpoint} + {len(batch) - midpoint} artykułów "
+                    f"({short_text(openai_error_details(exc), 180)}).",
+                    level="WARN",
                 )
                 process_batch(batch[:midpoint], f"{label}a")
                 process_batch(batch[midpoint:], f"{label}b")
 
-    for offset in range(0, len(articles), batch_size):
+        for offset in range(0, len(articles), batch_size):
             batch_index = offset // batch_size + 1
             process_batch(articles[offset:offset + batch_size], str(batch_index))
+        log("AI", f"Etap 1/3 zakończony: przetworzono {len(articles)} artykułów.")
+    else:
+        log("AI", "Etap 1/3 pominięty: brak nowych artykułów do grupowania.")
 
-    print("[AI] Etap 2/3: scalanie podobnych tematów z całego przebiegu...", flush=True)
+    log("AI", "Etap 2/3 — porządkowanie tematów: scalanie, tytuły i kategorie.")
     merge_stats = merge_active_topics(db_path, run_id, client, model=model)
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]
-    print("[AI] Ujednolicam prefiksy geograficzne tytułów...", flush=True)
+    log("AI", "Porządkowanie tematów: sprawdzam tytuły.")
     stats["titles_normalized"] = normalize_topic_titles(client, model=model)
-    print("[AI] Uzupełniam kategorie tematów...", flush=True)
+    log("AI", "Porządkowanie tematów: uzupełniam kategorie.")
     stats["categories_classified"] = classify_topic_categories(client, model=model)
-    print(
-        "[AI] Etap 3/3: jedna końcowa synteza lub aktualizacja na temat za cały przebieg...",
-        flush=True,
+    log(
+        "AI",
+        "Etap 3/3 — syntezy: generuję jedną końcową syntezę lub aktualizację na temat.",
     )
     recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
     stats["summaries"] += recovery_stats["summaries"]
     stats["failed_summaries"] += recovery_stats["failed_summaries"]
+    log(
+        "AI",
+        f"Etap 3/3 zakończony: gotowe syntezy {stats['summaries']}, "
+        f"nieudane {stats['failed_summaries']}.",
+    )
     return stats
 
 
@@ -3812,12 +3903,13 @@ def main() -> int:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args()
     client = SupabaseRestClient()
-    print(json.dumps(analyze_run(
+    result = analyze_run(
         args.db, args.run_id, client, model=args.model,
         max_articles=args.max_articles, batch_size=args.batch_size,
         rebuild_summaries_mode=args.rebuild_summaries,
         rebuild_max_topics=args.rebuild_max_topics,
-    ), ensure_ascii=False))
+    )
+    log("AI", f"Wynik: {', '.join(f'{key}={value}' for key, value in result.items())}.")
     return 0
 
 
