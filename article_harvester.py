@@ -516,6 +516,26 @@ def _candidate_allowed(source: dict[str, Any], url: str, title: str) -> bool:
     return st.candidate_allowed(source, url, title)
 
 
+def _strip_candidate_query_keys(source: dict[str, Any], url: str) -> str:
+    """Drop source-specific tracking parameters before deduplication and fetching."""
+    keys = {
+        str(key).strip().lower()
+        for key in source.get("candidate_strip_query_keys", [])
+        if str(key).strip()
+    }
+    if not keys:
+        return url
+    parsed = urllib.parse.urlsplit(url)
+    query = [
+        (key, value)
+        for key, value in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        if key.lower() not in keys
+    ]
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, parsed.netloc, parsed.path, urllib.parse.urlencode(query), "")
+    )
+
+
 def _listing_rows(client: st.HttpClient, source: dict[str, Any]) -> tuple[list[dict[str, str]], st.FetchResult, list[str]]:
     """Read the homepage and configured sections, preserving feed metadata."""
     homepage = str(source["homepage"])
@@ -596,6 +616,8 @@ def _feed_candidates(
             notes.append(f"{kind.lower()}={len(parsed)}")
             for item in parsed:
                 url = st.canonicalize(item.get("url", ""), homepage)
+                if url:
+                    url = _strip_candidate_query_keys(source, url)
                 if url and _same_site_non_asset(url, homepage):
                     rows.append({"url": url, "title": st.clean_text(item.get("title", ""))[:500]})
     return rows, notes

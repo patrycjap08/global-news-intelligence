@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 import source_tester as st
-from article_harvester import _listing_rows, fetch_one
+from article_harvester import _feed_candidates, _listing_rows, fetch_one
 
 
 TVN24_URL = "https://tvn24.pl/polska/przykladowy-tytul-st9259408"
@@ -59,6 +59,19 @@ TVN24_SECTION_HTML = """
 </main>
 """
 
+TVN24_RSS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Najnowsze wiadomości - TVN24</title>
+    <item>
+      <title>Ważne informacje z kraju</title>
+      <link>https://tvn24.pl/polska/wazne-informacje-z-kraju-st9259999?source=rss</link>
+      <description>Opis najnowszego materiału.</description>
+    </item>
+  </channel>
+</rss>
+"""
+
 
 class FakeClient:
     def get(self, url):
@@ -82,6 +95,25 @@ class FakeSectionClient:
         )
 
 
+class FakeBlockedSectionsWithRssClient:
+    def get(self, url, accept=None):
+        if url.endswith("/najnowsze.xml"):
+            return st.FetchResult(
+                url=url,
+                status=200,
+                final_url=url,
+                content_type="text/xml; charset=utf-8",
+                body=TVN24_RSS_XML.encode("utf-8"),
+            )
+        return st.FetchResult(
+            url=url,
+            status=403,
+            final_url=url,
+            content_type="text/html",
+            body=b"",
+        )
+
+
 class FakePage:
     def __init__(self):
         self.url = TVN24_URL
@@ -95,6 +127,27 @@ class FakePage:
 
 
 class TVN24Tests(unittest.TestCase):
+    def test_official_rss_discovers_articles_when_sections_return_403(self):
+        source = {
+            "id": "tvn24",
+            "homepage": "https://tvn24.pl",
+            "rss_urls": ["https://tvn24.pl/najnowsze.xml"],
+            "candidate_strip_query_keys": ["source"],
+            "candidate_include_host_patterns": [r"^tvn24\.pl$"],
+            "candidate_include_url_patterns": [r"^/(?:[^/]+/)+[^/]+-st[0-9]+/?$"],
+        }
+
+        rows, notes = _feed_candidates(
+            FakeBlockedSectionsWithRssClient(), source, listing_rows=[]
+        )
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(
+            rows[0]["url"],
+            "https://tvn24.pl/polska/wazne-informacje-z-kraju-st9259999",
+        )
+        self.assertEqual(notes, ["rss=1"])
+
     def test_section_discovery_keeps_only_tvn24_story_teasers(self):
         source = {
             "id": "tvn24",

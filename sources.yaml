@@ -35,10 +35,14 @@ sources:
     homepage: https://tvn24.pl
     content_method: BROWSER
     discover_homepage: false
+    rss_urls:
+      - https://tvn24.pl/najnowsze.xml
+    candidate_strip_query_keys:
+      - source
     section_urls:
       - https://tvn24.pl/swiat
       - https://tvn24.pl/polska
-    top_articles_per_section: 10
+    top_articles_per_source: 10
     candidate_pool_per_section: 30
     candidate_include_host_patterns:
       - '^tvn24\.pl$'
