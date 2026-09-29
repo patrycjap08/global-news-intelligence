@@ -244,104 +244,6 @@ def is_article_title_copy(candidate: Any, article_titles: list[str]) -> bool:
     )
 
 
-SINGLETON_TITLE_EMERGENCY_FALLBACK = "[Świat] Wydarzenie wymagające doprecyzowania"
-
-
-def emergency_singleton_title(article: dict[str, Any]) -> str:
-    """Create a non-headline placeholder only when AI title generation fails."""
-    article_title = str(article.get("title") or "").strip()
-    opening = str(
-        article.get("opening_text")
-        or article.get("description")
-        or ""
-    ).strip()
-    title_words = set(_headline_key(article_title).split())
-    evidence_candidates = re.split(r"(?<=[.!?…])\s+", opening)
-    evidence_candidates = [
-        sentence.strip()
-        for sentence in evidence_candidates
-        if sentence.strip()
-    ] or [opening]
-    evidence_candidates.sort(
-        key=lambda sentence: (
-            len(title_words.intersection(set(_headline_key(sentence).split()))),
-            -len(sentence),
-        ),
-        reverse=True,
-    )
-    for evidence in evidence_candidates:
-        candidate = format_topic_title_candidate(evidence, "")
-        if (
-            is_usable_topic_title(candidate)
-            and not is_article_title_copy(candidate, [article_title])
-        ):
-            return candidate
-    return SINGLETON_TITLE_EMERGENCY_FALLBACK
-
-
-def generate_singleton_topic_titles(
-    articles: list[dict[str, Any]],
-    *,
-    model: str = DEFAULT_MODEL,
-) -> dict[str, str]:
-    """Ask AI for general Polish names when articles remain as singletons."""
-    if not articles:
-        return {}
-    payload = {
-        "topics": [{
-            "topic_id": str(article["article_id"]),
-            "current_title_pl": "",
-            "one_sentence_pl": "",
-            "summary_pl": "",
-            "article_titles": [str(article.get("title") or "")],
-            "article_openings": [
-                str(
-                    article.get("opening_text")
-                    or article.get("description")
-                    or ""
-                )[:1600]
-            ],
-        } for article in articles],
-    }
-    try:
-        result = call_openai(
-            TITLE_NORMALIZATION_INSTRUCTIONS,
-            payload,
-            model,
-            response_schema=TITLE_RESPONSE_SCHEMA,
-            response_schema_name="singleton_topic_titles",
-        )
-    except Exception as exc:
-        log(
-            "AI",
-            "Singletony: osobne nadawanie nazw przez AI nie powiodło się; "
-            f"używam bezpiecznego fallbacku. Szczegóły: {short_text(exc, 180)}.",
-            level="WARN",
-        )
-        return {}
-
-    article_by_id = {str(article["article_id"]): article for article in articles}
-    titles: dict[str, str] = {}
-    for item in result.get("titles") or []:
-        if not isinstance(item, dict):
-            continue
-        article_id = str(item.get("topic_id") or "")
-        article = article_by_id.get(article_id)
-        if article is None:
-            continue
-        title = format_topic_title_candidate(item.get("title_pl"), "")
-        if (
-            is_usable_topic_title(title)
-            and not is_article_title_copy(title, [str(article.get("title") or "")])
-        ):
-            titles[article_id] = title
-    log(
-        "AI",
-        f"Singletony: AI nadało ogólne nazwy {len(titles)}/{len(articles)} artykułom.",
-    )
-    return titles
-
-
 MERGE_NON_DISTINCTIVE_TOKENS = frozenset({
     # Polish function words and common newsroom language.
     "aby", "albo", "ale", "bez", "byc", "być", "co", "czy", "dla", "do",
@@ -733,9 +635,6 @@ ogólnych słów. Nie wybieraj nazwy wyłącznie na podstawie brzmienia nagłów
 Najważniejsza zasada: working_title_pl jest nazwą wątku redakcyjnego, a nie
 tytułem żadnego artykułu. Ma abstrahować od formy nagłówka i nazywać sedno
 wydarzenia tak, aby pasował także do kolejnych materiałów o tej samej sprawie.
-`working_title_pl` zawsze musi być napisany po polsku, niezależnie od języka
-źródła i języka artykułu. Tłumacz opisowe słowa i czasowniki, zachowując
-oryginalną pisownię nazw własnych, nazw firm, instytucji i miejsc.
 Nigdy nie przepisuj title_original słowo w słowo ani prawie słowo w słowo —
 dotyczy to także grup jednoartykułowych. Usuń clickbait, ciekawość i emocjonalne
 obietnice („Nie uwierzycie…”, „szokujące słowa”, „to zmieni wszystko”), a z
@@ -837,9 +736,6 @@ Nie przepisuj żadnego `recent_article_titles` słowo w słowo ani prawie słowo
 słowo. Nazwa ma opisywać wspólne wydarzenie lub sprawę, a nie jeden konkretny
 artykuł; powinna pozostać trafna także wtedy, gdy do tematu dojdą kolejne
 materiały z innym nagłówkiem.
-`merged_title_pl` zawsze musi być napisany po polsku, niezależnie od języka
-źródeł i artykułów w scalanej grupie. Tłumacz opisowe słowa, zachowując nazwy
-własne i oficjalne nazwy organizacji.
 Musi także zaczynać się od jednego prefiksu geograficznego. Dla jednego
 głównego kraju użyj jego nazwy, dla co najmniej dwóch państw europejskich
 `[Europa]`, a dla wielu państw, w tym co najmniej jednego spoza Europy,
@@ -877,13 +773,9 @@ Jeśli sprawa dotyczy jednego głównego kraju, wpisz tylko ten kraj, np.
 Anglii.
 Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu. Nazwa ma być
 krótką, ogólniejszą nazwą wątku redakcyjnego, a nie kopią nagłówka artykułu.
-Każdy `title_pl` zawsze musi być napisany po polsku, niezależnie od języka
-źródła, tytułu artykułu i `article_openings`. Tłumacz opisową treść na polski,
-pozostawiając nazwy własne, nazwy firm, instytucji i miejsc w poprawnej formie.
-Zawsze zestawiaj `article_titles` z `article_openings` — oba pola są obowiązkowym
-źródłem informacji. Tytuł wskazuje główny temat i aktorów, a początek treści
-wyjaśnia, czego faktycznie dotyczy materiał. Korzystaj również z
-`one_sentence_pl` i `summary_pl`, jeśli są dostępne.
+Korzystaj z `one_sentence_pl`, `summary_pl` i `article_openings`, aby nazwać
+sedno wydarzenia lub sprawy. `article_titles` są tylko materiałem pomocniczym
+do rozpoznania kontekstu.
 Nigdy nie przepisuj żadnego `article_titles` słowo w słowo ani prawie słowo w
 słowo — dotyczy to również tematów mających tylko jeden artykuł. Usuń
 clickbait, pytania retoryczne, emocjonalne obietnice i szczegóły będące tylko
@@ -3532,13 +3424,9 @@ def _analyze_pending_batch(
             article_id for article_id in input_by_id
             if article_id not in excluded_ids and article_id not in assigned_ids
         ]
-        singleton_titles = generate_singleton_topic_titles(
-            [input_by_id[article_id] for article_id in remaining_ids],
-            model=model,
-        )
         for article_id in remaining_ids:
             row = input_by_id[article_id]
-            title = singleton_titles.get(article_id) or emergency_singleton_title(row)
+            title = fallback_topic_title("", "", [str(row.get("title") or "")])
             topic_id = stable_topic_id([article_id], title)
             assigned_ids.add(article_id)
             link_rows.append({"topic_id": topic_id, "article_id": article_id, "confidence": 1.0})
