@@ -83,6 +83,15 @@ OPENAI_RETRY_BASE_SECONDS = max(
 OPENAI_REQUEST_TIMEOUT_SECONDS = max(
     15.0, float(os.environ.get("OPENAI_REQUEST_TIMEOUT_SECONDS", "90"))
 )
+SUMMARY_REQUEST_TIMEOUT_SECONDS = max(
+    30.0, float(os.environ.get("AI_SUMMARY_REQUEST_TIMEOUT_SECONDS", "180"))
+)
+SUMMARY_MAX_PAYLOAD_CHARS = max(
+    50000, int(os.environ.get("AI_SUMMARY_MAX_PAYLOAD_CHARS", "300000"))
+)
+SUMMARY_FALLBACK_EXCERPT_WORDS = max(
+    200, int(os.environ.get("AI_SUMMARY_FALLBACK_EXCERPT_WORDS", "900"))
+)
 AI_BREAK_TAG_RE = re.compile(r"<\s*/?\s*br\s*/?\s*>", re.IGNORECASE)
 
 TITLE_PREFIX_RE = re.compile(r"^\[([^\]\r\n]{2,80})\]\s+(\S.*)$")
@@ -1702,6 +1711,57 @@ def article_for_ai(
     return payload
 
 
+def build_bounded_summary_input(
+    base_input: dict[str, Any],
+    new_rows: list[dict[str, Any]],
+    all_rows: list[dict[str, Any]] | None = None,
+) -> tuple[dict[str, Any], int, str]:
+    """Build a summary payload without allowing article bodies to grow unbounded.
+
+    Full article bodies are useful for small topics, but a first synthesis can
+    otherwise duplicate every article in both ``new_articles`` and
+    ``all_articles``. Reduce body detail only when the serialized request is
+    above the configured limit, preserving article IDs and metadata throughout.
+    """
+
+    def build(excerpt_words: int | None) -> dict[str, Any]:
+        def render(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            if excerpt_words is None:
+                return [article_for_ai(row) for row in rows]
+            if excerpt_words > 0:
+                return [
+                    article_for_ai(row, excerpt_words_limit=excerpt_words)
+                    for row in rows
+                ]
+            metadata_rows = []
+            for row in rows:
+                item = article_for_ai(row, excerpt_words_limit=1)
+                item.pop("body_excerpt_original", None)
+                item.pop("excerpt_word_limit", None)
+                metadata_rows.append(item)
+            return metadata_rows
+
+        payload = dict(base_input)
+        payload["new_articles"] = render(new_rows)
+        if all_rows is not None:
+            payload["all_articles"] = render(all_rows)
+        return payload
+
+    candidates: list[tuple[int | None, str]] = [(None, "pełne treści")]
+    excerpt_words = SUMMARY_FALLBACK_EXCERPT_WORDS
+    while excerpt_words >= 200:
+        candidates.append((excerpt_words, f"wyciągi do {excerpt_words} słów"))
+        excerpt_words //= 2
+    candidates.append((0, "same metadane"))
+
+    for excerpt_limit, mode in candidates:
+        payload = build(excerpt_limit)
+        payload_chars = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+        if payload_chars <= SUMMARY_MAX_PAYLOAD_CHARS or excerpt_limit == 0:
+            return payload, payload_chars, mode
+    raise AssertionError("Nie udało się zbudować ograniczonego payloadu syntezy.")
+
+
 def active_topic_payload(
     client: SupabaseRestClient,
     *,
@@ -2716,18 +2776,26 @@ def retry_incomplete_summaries(
             if len(distinct_source_keys(all_rows)) < 2:
                 continue
             previous_aggregation = previous_aggregation_context(previous_row.get("summary")) if previous_row else None
-            summary_input = {
+            summary_input_base = {
                 "topic": {
                     "topic_id": topic_id,
                     "working_title_pl": str(topic.get("headline_pl") or ""),
                     "topic_action": "DEVELOPMENT" if previous_aggregation else "NEW_TOPIC",
                 },
                 "previous_aggregation": previous_aggregation,
-                "new_articles": [article_for_ai(row) for row in new_rows],
                 "all_article_ids_in_topic": all_ids,
             }
-            if previous_aggregation is None:
-                summary_input["all_articles"] = [article_for_ai(row) for row in all_rows]
+            summary_input, payload_chars, payload_mode = build_bounded_summary_input(
+                summary_input_base,
+                new_rows,
+                all_rows if previous_aggregation is None else None,
+            )
+            print(
+                f"[AI] Synteza: temat {topic_id} "
+                f"({len(new_rows)} nowych/{len(all_rows)} wszystkich artykułów, "
+                f"payload={payload_chars / 1024:.1f} KiB, {payload_mode})...",
+                flush=True,
+            )
             summary_hash = digest(summary_input)
             summary_topic_run_id = "topicrun_" + digest({
                 "topic": topic_id, "stage": "SUMMARY", "input": summary_hash,
@@ -2737,6 +2805,7 @@ def retry_incomplete_summaries(
                     SUMMARY_INSTRUCTIONS,
                     summary_input,
                     model,
+                    timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                     response_schema=SUMMARY_RESPONSE_SCHEMA,
                     response_schema_name="topic_summary",
                 ))
@@ -2751,6 +2820,7 @@ def retry_incomplete_summaries(
                             SUMMARY_UPDATE_REPAIR_INSTRUCTIONS,
                             summary_input,
                             model,
+                            timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                             response_schema=SUMMARY_RESPONSE_SCHEMA,
                             response_schema_name="topic_summary_repair",
                         )
@@ -2864,7 +2934,7 @@ def rebuild_summaries(
                 f"({len(rows)} artykułów)...",
                 flush=True,
             )
-            summary_input = {
+            summary_input_base = {
                 "mode": "FULL_REBUILD",
                 "topic": {
                     "topic_id": topic_id,
@@ -2872,10 +2942,18 @@ def rebuild_summaries(
                     "topic_action": "REBUILD",
                 },
                 "previous_aggregation": None,
-                "new_articles": [],
-                "all_articles": [article_for_ai(row) for row in rows],
                 "all_article_ids_in_topic": article_ids,
             }
+            summary_input, payload_chars, payload_mode = build_bounded_summary_input(
+                summary_input_base,
+                [],
+                rows,
+            )
+            print(
+                f"[AI-REBUILD] Payload tematu {topic_id}: "
+                f"{len(rows)} artykułów, {payload_chars / 1024:.1f} KiB, {payload_mode}.",
+                flush=True,
+            )
             summary_hash = digest({
                 "mode": "FULL_REBUILD",
                 "prompt_version": PROMPT_VERSION,
@@ -2892,6 +2970,7 @@ def rebuild_summaries(
                     REBUILD_SUMMARY_INSTRUCTIONS,
                     summary_input,
                     model,
+                    timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                     response_schema=SUMMARY_RESPONSE_SCHEMA,
                     response_schema_name="topic_summary_rebuild",
                 ))
@@ -3227,7 +3306,7 @@ def _analyze_pending_batch(
                 continue
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)
             previous_aggregation = previous_aggregation_context(old[0].get("summary")) if old else None
-            summary_input = {
+            summary_input_base = {
                 "topic": {
                     "topic_id": topic_id,
                     "working_title_pl": title,
@@ -3235,11 +3314,19 @@ def _analyze_pending_batch(
                     "categories": group.get("categories", []),
                 },
                 "previous_aggregation": previous_aggregation,
-                "new_articles": [article_for_ai(row) for row in new_rows],
                 "all_article_ids_in_topic": all_ids,
             }
-            if previous_aggregation is None:
-                summary_input["all_articles"] = [article_for_ai(row) for row in all_rows]
+            summary_input, payload_chars, payload_mode = build_bounded_summary_input(
+                summary_input_base,
+                new_rows,
+                all_rows if previous_aggregation is None else None,
+            )
+            print(
+                f"[AI] Synteza: temat {topic_id} "
+                f"({len(new_rows)} nowych/{len(all_rows)} wszystkich artykułów, "
+                f"payload={payload_chars / 1024:.1f} KiB, {payload_mode})...",
+                flush=True,
+            )
             summary_hash = digest(summary_input)
             if old and old[0].get("input_hash") == summary_hash:
                 stats["skipped_summaries"] += 1
@@ -3250,6 +3337,7 @@ def _analyze_pending_batch(
                     SUMMARY_INSTRUCTIONS,
                     summary_input,
                     model,
+                    timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                     response_schema=SUMMARY_RESPONSE_SCHEMA,
                     response_schema_name="topic_summary",
                 ))

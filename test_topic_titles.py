@@ -9,6 +9,7 @@ from ai_pipeline import (
     GROUPING_INSTRUCTIONS,
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
+    build_bounded_summary_input,
     choose_merge_canonical_topic_id,
     classify_topic_categories,
     is_article_title_copy,
@@ -320,6 +321,54 @@ class TopicTitleTests(unittest.TestCase):
             ("topic_categories", [("topic_id", "eq.singleton")]),
             client.deletes,
         )
+
+    def test_large_summary_payload_falls_back_to_metadata(self):
+        rows = [
+            {
+                "article_id": "article_one",
+                "title": "Bardzo długi artykuł",
+                "body": "ważne słowo " * 1200,
+                "source_id": "source_a",
+                "source_name": "Źródło A",
+                "source_profile": "CENTRAL",
+                "original_language": "pl",
+                "published_at": "2026-09-29",
+                "canonical_url": "https://example.test/article-one",
+            },
+            {
+                "article_id": "article_two",
+                "title": "Drugi długi artykuł",
+                "body": "inne słowo " * 1200,
+                "source_id": "source_b",
+                "source_name": "Źródło B",
+                "source_profile": "CENTRAL",
+                "original_language": "pl",
+                "published_at": "2026-09-29",
+                "canonical_url": "https://example.test/article-two",
+            },
+        ]
+        original_limit = ai_pipeline.SUMMARY_MAX_PAYLOAD_CHARS
+        ai_pipeline.SUMMARY_MAX_PAYLOAD_CHARS = 500
+        try:
+            payload, payload_chars, payload_mode = build_bounded_summary_input(
+                {
+                    "topic": {"topic_id": "topic_large"},
+                    "previous_aggregation": None,
+                    "all_article_ids_in_topic": ["article_one", "article_two"],
+                },
+                rows,
+                rows,
+            )
+        finally:
+            ai_pipeline.SUMMARY_MAX_PAYLOAD_CHARS = original_limit
+
+        self.assertEqual(payload_mode, "same metadane")
+        self.assertGreater(payload_chars, 0)
+        self.assertEqual(
+            [row["article_id"] for row in payload["all_articles"]],
+            ["article_one", "article_two"],
+        )
+        self.assertNotIn("body_original", payload["all_articles"][0])
 
 
 if __name__ == "__main__":

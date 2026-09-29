@@ -52,6 +52,12 @@ dodać:
   przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
   na pojedynczą odpowiedź OpenAI.
+- `AI_SUMMARY_REQUEST_TIMEOUT_SECONDS`, domyślnie `180`; osobny timeout dla
+  generowania i aktualizacji syntez.
+- `AI_SUMMARY_MAX_PAYLOAD_CHARS`, domyślnie `300000`; po przekroczeniu tej
+  wielkości treści artykułów są automatycznie skracane do wyciągów.
+- `AI_SUMMARY_FALLBACK_EXCERPT_WORDS`, domyślnie `900`; początkowa długość
+  wyciągu używanego dla dużych tematów.
 - `AI_CATEGORY_BATCH_SIZE`, domyślnie `30`; liczba tematów w jednej paczce
   klasyfikacji kategorii.
 - `AI_CATEGORY_REQUEST_TIMEOUT_SECONDS`, domyślnie `45`; timeout klasyfikacji
