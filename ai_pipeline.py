@@ -2077,19 +2077,39 @@ def merge_active_topics(
                 ))[:3]
             if len(source_ids) >= 2 and merged_categories:
                 persist_topic_categories(client, canonical_id, merged_categories)
-            client.upsert("topic_articles", [
+            canonical_article_ids = set(ids_by_topic.get(canonical_id, []))
+            existing_link_rows = [
                 {
                     "topic_id": canonical_id,
                     "article_id": article_id,
                     "confidence": confidence,
-                    **(
-                        {"assigned_at": merge_timestamp}
-                        if article_id not in ids_by_topic.get(canonical_id, [])
-                        else {}
-                    ),
                 }
                 for article_id in article_ids
-            ], on_conflict="topic_id,article_id")
+                if article_id in canonical_article_ids
+            ]
+            moved_link_rows = [
+                {
+                    "topic_id": canonical_id,
+                    "article_id": article_id,
+                    "confidence": confidence,
+                    "assigned_at": merge_timestamp,
+                }
+                for article_id in article_ids
+                if article_id not in canonical_article_ids
+            ]
+            # PostgREST requires every object in one upsert payload to have
+            # the same keys. Keep rows with the optional assigned_at field in
+            # a separate request from links that already existed.
+            client.upsert(
+                "topic_articles",
+                existing_link_rows,
+                on_conflict="topic_id,article_id",
+            )
+            client.upsert(
+                "topic_articles",
+                moved_link_rows,
+                on_conflict="topic_id,article_id",
+            )
 
             for old_topic_id in group_ids:
                 if old_topic_id == canonical_id:

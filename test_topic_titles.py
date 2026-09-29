@@ -270,7 +270,12 @@ class TopicTitleTests(unittest.TestCase):
             if table == "topics" and any("new_topic" in value for _, value in filters)
         )
         self.assertEqual(redirect_update["merged_into_topic_id"], "old_topic")
-        links_upsert = next(rows for table, rows, _ in client.upserts if table == "topic_articles")
+        links_upsert = [
+            row
+            for table, rows, _ in client.upserts
+            if table == "topic_articles"
+            for row in rows
+        ]
         new_link = next(row for row in links_upsert if row["article_id"] == "new_article")
         self.assertEqual(new_link["topic_id"], "old_topic")
         self.assertIn("assigned_at", new_link)
