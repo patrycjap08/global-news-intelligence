@@ -907,7 +907,9 @@ def test_source(source: dict[str, Any], defaults: dict[str, Any], args: argparse
                 from playwright.sync_api import sync_playwright  # type: ignore
                 with sync_playwright() as pw:
                     browser = pw.chromium.launch(headless=True)
-                    page_obj = browser.new_page(user_agent=USER_AGENT)
+                    # Use Chromium's normal user-agent for browser fallbacks.
+                    # The crawler user-agent remains reserved for HTTP requests.
+                    page_obj = browser.new_page()
                     timeout_ms = int(float(source.get("timeout_seconds", defaults.get("timeout_seconds", 15))) * 1000)
                     configured_patterns = source.get("browser_article_patterns", [])
                     if configured_patterns:

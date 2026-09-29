@@ -1082,7 +1082,10 @@ def main() -> int:
             from playwright.sync_api import sync_playwright
             playwright_context = sync_playwright().start()
             browser_context = playwright_context.chromium.launch(headless=True)
-            page_obj = browser_context.new_page(user_agent=st.USER_AGENT)
+            # Keep the normal Chromium user-agent for JS/browser fallbacks.
+            # TVN24 rejects the crawler-identifying HTTP user-agent with 403;
+            # HTTP discovery still uses st.USER_AGENT separately.
+            page_obj = browser_context.new_page()
         totals = {
             "discovered": 0, "fetched": 0, "skipped": 0, "valid": 0,
             "failed": 0, "duplicates": 0, "rejected_short": 0,
