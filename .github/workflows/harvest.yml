@@ -54,6 +54,7 @@ jobs:
       # 0 means process the whole pending queue; the Python code splits it into safe batches.
       AI_MAX_ARTICLES_PER_RUN: ${{ vars.AI_MAX_ARTICLES_PER_RUN || '0' }}
       AI_BATCH_SIZE: ${{ vars.AI_BATCH_SIZE || '25' }}
+      AI_LABEL_EXCERPT_WORDS: ${{ vars.AI_LABEL_EXCERPT_WORDS || '60' }}
       AI_GROUPING_EXCERPT_WORDS: ${{ vars.AI_GROUPING_EXCERPT_WORDS || '100' }}
       AI_TOPIC_MERGE_MIN_CONFIDENCE: ${{ vars.AI_TOPIC_MERGE_MIN_CONFIDENCE || '0.84' }}
       AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST: ${{ vars.AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST || '60' }}

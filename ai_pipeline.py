@@ -79,6 +79,10 @@ GROUPING_EXCERPT_WORDS = min(
     100,
     max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100"))),
 )
+LABEL_EXCERPT_WORDS = min(
+    60,
+    max(20, int(os.environ.get("AI_LABEL_EXCERPT_WORDS", "60"))),
+)
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
@@ -3402,7 +3406,7 @@ def _label_pending_batch(
 
     labeling_input = {
         "articles": [
-            article_for_topic_label(row, excerpt_words_limit=GROUPING_EXCERPT_WORDS)
+            article_for_topic_label(row, excerpt_words_limit=LABEL_EXCERPT_WORDS)
             for row in articles
         ],
     }
