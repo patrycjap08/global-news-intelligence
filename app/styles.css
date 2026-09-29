@@ -273,6 +273,7 @@ button { color: inherit; }
   .stat-cell, .stat-cell + .stat-cell { padding: 10px 8px; }
   .stat-cell:first-child { padding-left: 0; }
   .stat-topic-cell, .stat-split-cell { align-items: stretch; flex-direction: column; gap: 3px; }
+  .stat-cell strong, .stat-topic-value strong { font-size: 24px; }
   .stat-topic-value { gap: 4px; }
   .toolbar { align-items: stretch; flex-direction: column; gap: 15px; padding-top: 22px; }
   .search-field { min-width: 0; }
