@@ -48,6 +48,8 @@ dodać:
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
 - `AI_TOPIC_MERGE_MAX_REQUESTS`, domyślnie `80`; bezpiecznik ograniczający
   liczbę kolejnych żądań scalania w jednym przebiegu.
+- `AI_TOPIC_MERGE_MAX_RECENT_TITLES`, domyślnie `1`; liczba najnowszych tytułów
+  przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
   na pojedynczą odpowiedź OpenAI.
 

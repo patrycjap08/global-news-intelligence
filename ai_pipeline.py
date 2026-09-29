@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v26-faster-topic-merge-json"
+PROMPT_VERSION = "ai-prompts-v27-collapsed-topic-components"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
@@ -41,7 +41,7 @@ TOPIC_MERGE_MAX_TOPICS_PER_REQUEST = max(
     10, int(os.environ.get("AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST", "60"))
 )
 TOPIC_MERGE_MAX_RECENT_TITLES = max(
-    1, int(os.environ.get("AI_TOPIC_MERGE_MAX_RECENT_TITLES", "3"))
+    1, int(os.environ.get("AI_TOPIC_MERGE_MAX_RECENT_TITLES", "1"))
 )
 TOPIC_MERGE_TITLE_CHAR_LIMIT = max(
     80, int(os.environ.get("AI_TOPIC_MERGE_TITLE_CHAR_LIMIT", "220"))
@@ -319,7 +319,7 @@ def build_topic_merge_candidate_groups(
     """Build candidate topic groups before asking the model to merge them."""
     if len(topics) < 2:
         return []
-    edges, neighbors = _topic_merge_candidate_edges(topics)
+    edges, _neighbors = _topic_merge_candidate_edges(topics)
     if not edges:
         return []
 
@@ -352,63 +352,45 @@ def build_topic_merge_candidate_groups(
             groups.append(sorted(component))
             continue
 
-        # A very large component usually means a common actor is shared by many
-        # unrelated stories. Cover its strong edges with bounded, greedy
-        # neighborhoods. The previous one-neighborhood-per-topic strategy
-        # produced hundreds of heavily overlapping groups and API calls.
-        component_set = set(component)
-        remaining_edges = {
-            pair: score
-            for pair, score in edges.items()
-            if pair[0] in component_set and pair[1] in component_set
-        }
-        while remaining_edges:
-            seed_pair, seed_score = max(
-                remaining_edges.items(),
-                key=lambda item: (
-                    item[1],
-                    sum(
-                        score
-                        for pair, score in remaining_edges.items()
-                        if item[0][0] in pair or item[0][1] in pair
-                    ),
-                    tuple(reversed(item[0])),
-                ),
-            )
-            group = set(seed_pair)
-            while len(group) < max_topics_per_group:
-                candidate_scores: dict[str, tuple[float, int]] = {}
-                for pair, score in remaining_edges.items():
-                    if not (group.intersection(pair)):
-                        continue
-                    candidate = pair[1] if pair[0] in group else pair[0]
-                    if candidate in group:
-                        continue
-                    total_score, edge_count = candidate_scores.get(candidate, (0.0, 0))
-                    candidate_scores[candidate] = (
-                        total_score + score,
-                        edge_count + 1,
-                    )
-                if not candidate_scores:
-                    break
-                candidate = max(
-                    candidate_scores,
-                    key=lambda topic_id: (
-                        candidate_scores[topic_id][0],
-                        candidate_scores[topic_id][1],
-                        topic_id,
-                    ),
-                )
-                group.add(candidate)
-
-            covered_edges = [
-                pair for pair in remaining_edges if set(pair).issubset(group)
-            ]
-            for pair in covered_edges:
-                del remaining_edges[pair]
-            if len(group) > 1:
-                groups.append(sorted(group))
+        # A connected component is one logical candidate group. Do not turn a
+        # large component into one neighborhood per topic: that creates many
+        # overlapping groups and repeats the same topic in many AI requests.
+        # The request builder keeps this component together and only packs
+        # separate components into one request.
+        groups.append(sorted(component))
     return groups
+
+
+def merge_overlapping_candidate_groups(
+    groups: list[list[str]],
+) -> list[list[str]]:
+    """Collapse any directly or transitively overlapping groups into unions."""
+    merged: list[set[str]] = []
+    group_by_topic: dict[str, int] = {}
+    for raw_group in groups:
+        group = {str(topic_id) for topic_id in raw_group if str(topic_id)}
+        if len(group) < 2:
+            continue
+        matching_indexes = {
+            group_by_topic[topic_id]
+            for topic_id in group
+            if topic_id in group_by_topic
+        }
+        if not matching_indexes:
+            merged.append(group)
+            group_index = len(merged) - 1
+        else:
+            group_index = min(matching_indexes)
+            for matching_index in sorted(matching_indexes, reverse=True):
+                if matching_index == group_index:
+                    continue
+                group.update(merged[matching_index])
+                merged[matching_index] = set()
+            group.update(merged[group_index])
+            merged[group_index] = group
+        for topic_id in group:
+            group_by_topic[topic_id] = group_index
+    return [sorted(group) for group in merged if group]
 
 
 def compact_topic_merge_record(
@@ -441,24 +423,35 @@ def build_topic_merge_requests(
     max_topics_per_request: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
     candidate_groups: list[list[str]] | None = None,
 ) -> list[list[dict[str, Any]]]:
-    """Pack disjoint candidate components into small AI requests."""
+    """Pack logical candidate components into AI requests without overlap."""
     topic_by_id = {str(topic["topic_id"]): topic for topic in topics}
-    groups = candidate_groups if candidate_groups is not None else build_topic_merge_candidate_groups(
-        topics,
-        max_topics_per_group=max_topics_per_request,
+    groups = merge_overlapping_candidate_groups(
+        candidate_groups
+        if candidate_groups is not None
+        else build_topic_merge_candidate_groups(
+            topics,
+            max_topics_per_group=max_topics_per_request,
+        )
     )
     requests: list[list[dict[str, Any]]] = []
     current_records: dict[str, dict[str, Any]] = {}
     for group_index, group in enumerate(groups, start=1):
         group_ids = list(dict.fromkeys(group))
+        if len(group_ids) > max_topics_per_request:
+            if current_records:
+                requests.append(list(current_records.values()))
+                current_records = {}
+            candidate_group_id = f"local_{group_index}"
+            requests.append([
+                compact_topic_merge_record(
+                    topic_by_id[topic_id],
+                    candidate_group_id=candidate_group_id,
+                )
+                for topic_id in group_ids
+            ])
+            continue
         merged_ids = list(dict.fromkeys([*current_records, *group_ids]))
-        # candidate_group_id is a hard boundary for the model. Never place
-        # overlapping groups in the same request: otherwise a repeated topic
-        # would keep the first group's id and make the later edge invisible.
-        if current_records and (
-            len(merged_ids) > max_topics_per_request
-            or set(current_records).intersection(group_ids)
-        ):
+        if current_records and len(merged_ids) > max_topics_per_request:
             requests.append(list(current_records.values()))
             current_records = {}
         candidate_group_id = f"local_{group_index}"
@@ -625,13 +618,14 @@ istotny wymiar tematu, a nie jako luźne skojarzenie.
 
 TOPIC_MERGE_INSTRUCTIONS = """
 Jesteś modułem porządkowania tematów w aplikacji Global News Intelligence.
-Otrzymujesz małe grupy kandydatów wyłonione wcześniej lokalnie na podstawie
+Otrzymujesz grupy kandydatów wyłonione wcześniej lokalnie na podstawie
 wspólnych charakterystycznych słów, aktorów lub obiektów. Twoim celem jest
 potwierdzić, które z tych tematów opisują tę samą konkretną historię, nawet
 jeśli wcześniejsze grupowanie rozdzieliło je na różne tematy. Porównuj tylko
 tematy przekazane w bieżącym żądaniu; brak tematu w żądaniu nie oznacza, że
 jest on niepowiązany. Jeśli rekordy mają `candidate_group_id`, porównuj i
-scalaj tematy tylko w obrębie tego samego identyfikatora.
+scalaj tematy tylko w obrębie tego samego identyfikatora. Nakładające się
+kandydatury zostały już wcześniej połączone w jeden komponent.
 W tym kroku preferuj wysoką czułość: lepiej połączyć dwa bardzo podobne
 relacje o tej samej historii niż zostawić je jako duplikaty.
 
@@ -1638,7 +1632,9 @@ def merge_active_topics(
                 ],
             })
 
-        candidate_groups = build_topic_merge_candidate_groups(payload_topics)
+        candidate_groups = merge_overlapping_candidate_groups(
+            build_topic_merge_candidate_groups(payload_topics)
+        )
         merge_requests = build_topic_merge_requests(
             payload_topics,
             candidate_groups=candidate_groups,

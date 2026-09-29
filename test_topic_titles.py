@@ -5,6 +5,7 @@ from ai_pipeline import (
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
     is_article_title_copy,
+    merge_overlapping_candidate_groups,
 )
 
 
@@ -75,11 +76,17 @@ class TopicTitleTests(unittest.TestCase):
             for index, actor_name in enumerate(actor_names)
         ]
         groups = build_topic_merge_candidate_groups(topics, max_topics_per_group=20)
-        self.assertGreater(len(groups), 0)
-        self.assertLessEqual(len(groups), 8)
-        self.assertTrue(all(len(group) <= 20 for group in groups))
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(len(groups[0]), 121)
+        requests = build_topic_merge_requests(
+            topics,
+            max_topics_per_request=20,
+            candidate_groups=groups,
+        )
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(len(requests[0]), 121)
 
-    def test_overlapping_candidate_groups_are_not_packed_together(self):
+    def test_overlapping_candidate_groups_are_collapsed(self):
         topics = [
             {"topic_id": topic_id, "headline_pl": topic_id}
             for topic_id in ("a", "b", "c")
@@ -90,8 +97,12 @@ class TopicTitleTests(unittest.TestCase):
             candidate_groups=[["a", "b"], ["a", "c"]],
         )
         self.assertEqual(
+            merge_overlapping_candidate_groups([["a", "b"], ["a", "c"]]),
+            [["a", "b", "c"]],
+        )
+        self.assertEqual(
             [[item["topic_id"] for item in request] for request in requests],
-            [["a", "b"], ["a", "c"]],
+            [["a", "b", "c"]],
         )
 
 
