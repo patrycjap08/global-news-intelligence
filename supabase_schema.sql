@@ -211,7 +211,7 @@ create index if not exists topic_summary_versions_topic_idx on public.topic_summ
 create table if not exists public.topic_categories (
     topic_id text not null references public.topics(topic_id) on delete cascade,
     category text not null check (category in (
-        'POLITYKA', 'SWIAT', 'GOSPODARKA', 'SPOLECZENSTWO',
+        'POLSKA', 'POLITYKA', 'SWIAT', 'GOSPODARKA', 'SPOLECZENSTWO',
         'TECHNOLOGIA', 'ZDROWIE', 'KULTURA_SPORT'
     )),
     primary key (topic_id, category)

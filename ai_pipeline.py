@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v27-collapsed-topic-components"
+PROMPT_VERSION = "ai-prompts-v28-polska-category"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -108,6 +108,7 @@ PLACEHOLDER_TOPIC_TITLES = {
 }
 
 TOPIC_CATEGORY_VALUES = (
+    "POLSKA",
     "POLITYKA",
     "SWIAT",
     "GOSPODARKA",
@@ -118,6 +119,8 @@ TOPIC_CATEGORY_VALUES = (
 )
 
 TOPIC_CATEGORY_ALIASES = {
+    "POLSKA": "POLSKA",
+    "POLAND": "POLSKA",
     "POLITYKA": "POLITYKA",
     "POLITICS": "POLITYKA",
     "SWIAT": "SWIAT",
@@ -634,10 +637,13 @@ Nigdy nie wpisuj tekstu przykładowego „neutralna nazwa wydarzenia”, „Tema
 tytułu” ani żadnego innego placeholdera. Każda grupa musi mieć konkretny tytuł
 wynikający z przekazanych artykułów.
 
-categories wybierz jako jedną lub maksymalnie trzy wartości z listy: POLITYKA,
-SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE albo KULTURA_SPORT.
-To główna tematyka wydarzenia, a nie ocena źródeł ani prefiks geograficzny
-tytułu. SWIAT oznacza przede wszystkim międzynarodowe relacje, geopolitykę lub
+categories wybierz jako jedną lub maksymalnie trzy wartości z listy: POLSKA,
+POLITYKA, SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE albo
+KULTURA_SPORT. POLSKA oznacza, że głównym miejscem, aktorem lub przedmiotem
+wydarzenia jest Polska, polskie instytucje, polskie społeczeństwo albo polskie
+regiony. Może występować razem z kategorią tematyczną, np. POLSKA i POLITYKA.
+To kategorie redakcyjne, a nie ocena źródeł ani prefiks geograficzny tytułu.
+SWIAT oznacza przede wszystkim międzynarodowe relacje, geopolitykę lub
 wydarzenia globalne; nie przypisuj do niej automatycznie każdej historii spoza
 Polski. Dodaj więcej niż jedną kategorię tylko wtedy, gdy każda z nich wnosi
 istotny wymiar tematu, a nie jako luźne skojarzenie.
@@ -705,10 +711,11 @@ jednego tematu w dwóch grupach. confidence ma oznaczać pewność, że chodzi o
 ten sam konkretny incydent lub ciąg dalszy tej samej historii. Używaj wartości
 co najmniej 0.84 dla mocnych, ale niekoniecznie identycznych relacji; wartości
 poniżej 0.84 zostaw osobno. Nie twórz grup z tematów, które są już oznaczone
- jako scalone. categories wybierz z dokładnie tej samej listy siedmiu kategorii
+ jako scalone. categories wybierz z dokładnie tej samej listy ośmiu kategorii
 co w module grupowania. Zwróć jedną lub maksymalnie trzy kategorie, ale dodaj
 więcej niż jedną wyłącznie wtedy, gdy każda opisuje istotny wymiar wspólnej
-historii.
+historii. POLSKA może oznaczać krajowy wymiar historii i może występować razem
+z kategorią tematyczną.
 Nie opisuj tematów, których nie łączysz. Jeśli w tej paczce nie ma pewnego
 połączenia, zwróć dokładnie `{"merge_groups":[]}`.
 """.strip()
@@ -735,7 +742,9 @@ Jesteś redaktorem porządkującym katalog tematów wiadomości. Przypisz każdy
 temat do jednej, dwóch albo maksymalnie trzech kategorii na podstawie tytułu,
 jednozdaniowego opisu
 i tytułów ostatnich artykułów. Nie kieruj się profilem politycznym źródeł ani
-samym krajem opisanym w tytule.
+samym krajem opisanym w tytule przy wyborze kategorii tematycznych; kategorię
+POLSKA przypisz, gdy Polska jest głównym miejscem, aktorem lub przedmiotem
+wydarzenia.
 
 W tej paczce znajdują się wyłącznie tematy wieloźródłowe, dla których aplikacja
 może przygotować syntezę. Nie twórz kategorii dla tematów jednoźródłowych ani
@@ -743,6 +752,9 @@ nie zwracaj topic_id, którego nie ma w wejściu. Zwróć dokładnie jeden wpis 
 każdego topic_id z wejścia, także wtedy, gdy nie ma dodatkowych kategorii.
 
 Dozwolone kategorie:
+- POLSKA — wydarzenia dotyczące Polski, polskich instytucji, polskiego
+  społeczeństwa, prawa, regionów lub firm; może współistnieć z kategorią
+  tematyczną;
 - POLITYKA — decyzje władz, wybory, partie, parlament, administracja i spory
   polityczne;
 - SWIAT — relacje międzynarodowe, geopolityka, konflikty między państwami i
@@ -778,11 +790,7 @@ CATEGORY_RESPONSE_SCHEMA = {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": [
-                                "POLITYKA", "SWIAT", "GOSPODARKA",
-                                "SPOLECZENSTWO", "TECHNOLOGIA", "ZDROWIE",
-                                "KULTURA_SPORT",
-                            ],
+                            "enum": list(TOPIC_CATEGORY_VALUES),
                         },
                     },
                 },
@@ -1025,11 +1033,13 @@ artykuł potwierdza, rozwija albo dokumentuje. Nie wpisuj tam technicznych
 identyfikatorów.
 
 topic.categories musi zawierać jedną, dwie albo maksymalnie trzy kategorie z
-listy POLITYKA, SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE,
+listy POLSKA, POLITYKA, SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE,
 KULTURA_SPORT. Zwracaj pełny aktualny zestaw kategorii także w trybie
-aktualizacji. Nie dodawaj kategorii tylko na podstawie kraju lub profilu
-źródła; każda kategoria musi wynikać z głównego tematu albo jego istotnego
-wymiaru. Jeśli wątek łączy np. politykę i zdrowie publiczne, zwróć obie.
+aktualizacji. Nie dodawaj kategorii tematycznych tylko na podstawie kraju lub
+profilu źródła; każda kategoria musi wynikać z głównego tematu albo jego
+istotnego wymiaru. POLSKA może wskazywać geograficzny wymiar krajowy i może
+łączyć się z kategorią tematyczną. Jeśli wątek łączy np. politykę i zdrowie
+publiczne, zwróć obie.
 
 Przed zwróceniem odpowiedzi sprawdź wewnętrznie, czy:
 - wynik zawiera wyłącznie dozwolone pola;
@@ -1114,10 +1124,7 @@ _JSON_CATEGORY_ARRAY_SCHEMA = {
     "type": "array",
     "items": {
         "type": "string",
-        "enum": [
-            "POLITYKA", "SWIAT", "GOSPODARKA", "SPOLECZENSTWO",
-            "TECHNOLOGIA", "ZDROWIE", "KULTURA_SPORT",
-        ],
+        "enum": list(TOPIC_CATEGORY_VALUES),
     },
 }
 

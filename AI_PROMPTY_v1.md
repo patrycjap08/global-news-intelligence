@@ -332,7 +332,7 @@ Dodatkowe wymagania:
 - nie wymyślaj cytatów;
 - cytat musi pochodzić z przekazanego body_original;
 - `categories` musi zawierać od jednej do trzech wartości z zamkniętej listy:
-  `POLITYKA`, `SWIAT`, `GOSPODARKA`, `SPOLECZENSTWO`, `TECHNOLOGIA`,
+  `POLSKA`, `POLITYKA`, `SWIAT`, `GOSPODARKA`, `SPOLECZENSTWO`, `TECHNOLOGIA`,
   `ZDROWIE`, `KULTURA_SPORT`;
 - article_ids muszą istnieć w wejściu;
 - wszystkie istotne twierdzenia mają mieć ślad do artykułów;
@@ -368,6 +368,7 @@ encyklopedycznych biogramów.
 
 Każdy temat może mieć od jednej do trzech kategorii z zamkniętej listy:
 
+- `POLSKA`
 - `POLITYKA`
 - `SWIAT`
 - `GOSPODARKA`
@@ -377,7 +378,10 @@ Każdy temat może mieć od jednej do trzech kategorii z zamkniętej listy:
 - `KULTURA_SPORT`
 
 Kategorie dotyczą głównej osi tematu, a nie profilu politycznego źródła ani
-geograficznego prefiksu tytułu. Nowe syntezy zwracają je w `topic.categories`.
+geograficznego prefiksu tytułu. `POLSKA` oznacza, że głównym miejscem,
+aktorem lub przedmiotem wydarzenia jest Polska; może występować razem z
+kategorią tematyczną, np. `POLSKA` i `POLITYKA`. Nowe syntezy zwracają je w
+`topic.categories`.
 Tematy historyczne bez kategorii są uzupełniane osobnym wywołaniem AI. Jeżeli
 kategoria została już przypisana ręcznie w tabeli relacyjnej, kolejne odświeżenie
 syntezy jej nie nadpisuje.

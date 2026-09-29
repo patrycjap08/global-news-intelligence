@@ -47,6 +47,7 @@ const PROFILE_COLORS = {
 
 const CATEGORY_LABELS = {
   ALL: 'Wszystkie kategorie',
+  POLSKA: 'Polska',
   POLITYKA: 'Polityka',
   SWIAT: 'Świat',
   GOSPODARKA: 'Gospodarka',
@@ -58,6 +59,7 @@ const CATEGORY_LABELS = {
 };
 
 const CATEGORY_COLORS = {
+  POLSKA: 'category-poland',
   POLITYKA: 'category-politics',
   SWIAT: 'category-world',
   GOSPODARKA: 'category-economy',

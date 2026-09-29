@@ -14,6 +14,10 @@ Po wdrożeniu klasyfikacji pokrycia tematów uruchom jednorazowo w SQL Editor
 plik `supabase_migration_topic_coverage.sql`. Doda on `topics.coverage_status`
 oraz widok `source_topic_coverage` do porównywania źródeł.
 
+Przed kolejnym uruchomieniem klasyfikacji kategorii uruchom jednorazowo
+`supabase_migration_topic_category_polska.sql`. Dodaje kategorię `POLSKA` do
+dozwolonej listy kategorii w bazie.
+
 Przed kolejnym pełnym uruchomieniem uruchom także jednorazowo
 `supabase_migration_topic_merges.sql`. Dodaje on przekierowanie dla tematów,
 które AI połączy jako duplikaty. Scalony temat nie jest usuwany — dostaje

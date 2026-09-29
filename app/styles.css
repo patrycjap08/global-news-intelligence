@@ -117,6 +117,7 @@ button { color: inherit; }
 .filter-name .perspective-dot { flex: 0 0 auto; }
 .category-swatch { display: inline-block; width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--line-dark); box-shadow: 0 0 0 1px rgba(36,34,30,.12); }
 .category-all { background: var(--ink); }
+.category-poland { background: #8b786d; }
 .category-politics { background: #a8756d; }
 .category-world { background: #78909e; }
 .category-economy { background: #ae996f; }
@@ -133,6 +134,7 @@ button { color: inherit; }
 .category-tag.category-tech { border-color: #d1c7dc; background: #ece8f0; color: #65577a; }
 .category-tag.category-health { border-color: #dcc3c7; background: #f1e5e7; color: #81565c; }
 .category-tag.category-culture { border-color: #d8c5b5; background: #eee5dc; color: #795c45; }
+.category-tag.category-poland { border-color: #d2c4bb; background: #eee8e3; color: #6f5c50; }
 .category-tag.category-unclassified { border-color: #d5cec3; background: #ebe7e0; color: var(--muted); }
 .card-category-group { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
 .card-category-tag { font-size: 8px; }
