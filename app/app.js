@@ -682,7 +682,6 @@ function dialogHtml(model) {
     <div class="dialog-rule"></div>
     ${updatesHtml}
     ${summary.summary_pl ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>` : ''}
-    ${section('Ustalenia z pojedynczych źródeł', summary.facts, 'insight-facts', 'Informacje obecne tylko w wybranych materiałach.')}
     ${section('Wspólne ustalenia', summary.agreement, 'insight-agreement', 'Punkty, co do których materiały są zgodne.')}
     ${section('Różne dane lub akcenty', summary.differences, 'insight-differences', 'Rozbieżności, które nie muszą oznaczać sprzeczności.')}
     ${section('Sprzeczne relacje', contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}

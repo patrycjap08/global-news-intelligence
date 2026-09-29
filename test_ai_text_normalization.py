@@ -71,6 +71,11 @@ class AITextNormalizationTests(unittest.TestCase):
         self.assertIn("`**...**`", SUMMARY_INSTRUCTIONS)
         self.assertIn("co najmniej 5 akapitów", SUMMARY_INSTRUCTIONS)
 
+    def test_summary_prompt_keeps_all_facts_in_main_summary(self):
+        self.assertIn("kompletnym, samodzielnym opisem wydarzenia", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Nie przenoś żadnego ważnego", SUMMARY_INSTRUCTIONS)
+        self.assertIn("techniczna lista", SUMMARY_INSTRUCTIONS)
+
 
 if __name__ == "__main__":
     unittest.main()

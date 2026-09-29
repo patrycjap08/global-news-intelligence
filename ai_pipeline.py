@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v32-rich-summary-format"
+PROMPT_VERSION = "ai-prompts-v33-complete-summary-hidden-facts"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -900,13 +900,20 @@ dany materiał wniósł albo że nie wniósł nowego ustalenia. Jeśli artykułu
 się logicznie wykorzystać w tym temacie, zaznacz ten problem w
 quality.limitations_pl zamiast tworzyć sztuczne połączenie faktów.
 
-Nie powtarzaj tej samej informacji w kilku zdaniach ani w kilku sekcjach.
-summary_pl ma być pełnym głównym opisem wydarzenia, natomiast facts, agreement,
-differences, potential_manipulation_signals i background_context mogą
-zawierać wyłącznie informacje dodatkowe,
-które nie zostały już jasno przedstawione w summary_pl. Nie przepisuj do
-agreement oczywistych faktów z syntezy i nie twórz sekcji tylko po to, żeby ją
-wypełnić. Każda sekcja może pozostać pusta.
+summary_pl ma być kompletnym, samodzielnym opisem wydarzenia dla czytelnika.
+Muszą się w nim znaleźć wszystkie ważne fakty ze wszystkich artykułów:
+przebieg wydarzeń, daty, liczby, osoby, decyzje, skutki, informacje obecne
+tylko w jednym źródle oraz istotne rozbieżności. Nie przenoś żadnego ważnego
+faktu wyłącznie do pola `facts`, ponieważ ta techniczna lista nie jest
+prezentowana użytkowniczce.
+
+Pole `facts` jest wyłącznie indeksem dowodowym: przypisuje atomowe twierdzenia
+do article_ids i może powtarzać fakty opisane w `summary_pl`. Nie traktuj go
+jako drugiego, alternatywnego podsumowania. `agreement`, `differences`,
+`potential_manipulation_signals` i `background_context` mogą zawierać tylko
+informacje dodatkowe, których nie trzeba przepisywać do głównej narracji;
+każda z tych sekcji może pozostać pusta. Nie powtarzaj tej samej informacji
+w kilku zdaniach głównej syntezy.
 
 differences ma wskazywać konkretną różnicę, a nie ogólnik typu „źródła różnie
 przedstawiają temat”. W każdym wpisie nazwij wymiar różnicy, na przykład

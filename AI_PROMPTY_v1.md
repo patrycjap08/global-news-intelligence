@@ -238,6 +238,14 @@ większej liczby materiałów celuj w 5–8 akapitów i około 550–900 słów,
 2–3 materiałów w 3–5 akapitów i około 350–600 słów. Kompletność faktów ma
 pierwszeństwo przed mechanicznym trzymaniem się limitu.
 
+`summary_pl` musi być kompletne samo w sobie i zawierać wszystkie ważne fakty
+ze wszystkich artykułów: przebieg wydarzeń, daty, liczby, osoby, decyzje,
+skutki, informacje obecne tylko w jednym źródle oraz istotne rozbieżności. Nie
+przenoś ważnych faktów wyłącznie do tablicy `facts`, ponieważ jest ona
+technicznym indeksem dowodowym i nie jest prezentowana użytkowniczce. `facts`
+może powtarzać atomowe twierdzenia z syntezy razem z ich `article_ids`; nie jest
+drugim podsumowaniem. Pozostałe sekcje mają zawierać tylko informacje dodatkowe.
+
 W sekcjach o różnicach pokazuj konkretnie, co się różni: fakt, liczba, źródło
 informacji, dobór kontekstu, język lub ton. Nie używaj ogólników typu
 „źródła przedstawiają sprawę inaczej”. Sygnał możliwej manipulacji opisuj jako
