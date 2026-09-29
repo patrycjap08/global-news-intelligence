@@ -72,11 +72,21 @@ sources:
     name: Onet
     region: Poland
     homepage: https://www.onet.pl
+    discover_homepage: false
     section_urls:
       - https://wiadomosci.onet.pl
       - https://wiadomosci.onet.pl/swiat
       - https://wiadomosci.onet.pl/kraj
       - https://wiadomosci.onet.pl/gospodarka
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^wiadomosci\.onet\.pl$'
+    candidate_include_url_patterns:
+      - '^/(?:[^/]+/){2}[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:autorzy|wideo|video|podcast|quiz|programy)(?:/|$)'
+    browser_article_patterns:
+      - '^https://wiadomosci\.onet\.pl/(?:[^/]+/){2}[^/?#]+/?$'
     browser_click_texts:
       - "Przejdź do serwisu"
     browser_wait_after_click_seconds: 2
@@ -100,7 +110,18 @@ sources:
     enabled: false
     policy_notes: "Wyłączone na życzenie użytkowniczki — strona nie otwiera się lokalnie."
   - {id: niezalezna, name: Niezależna, region: Poland, homepage: https://niezalezna.pl}
-  - {id: krytyka_polityczna, name: Krytyka Polityczna, region: Poland, homepage: https://krytykapolityczna.pl}
+  - id: krytyka_polityczna
+    name: Krytyka Polityczna
+    region: Poland
+    homepage: https://krytykapolityczna.pl
+    discover_homepage: true
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^krytykapolityczna\.pl$'
+    candidate_include_url_patterns:
+      - '^/[^/]+/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:bio|temat|wydawnictwo|multimedia|o-nas|logowanie|wspieraj|sklep)(?:/|$)'
 
   - id: reuters
     name: Reuters

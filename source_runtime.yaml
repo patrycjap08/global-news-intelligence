@@ -57,7 +57,7 @@ sources:
   homepage: https://www.onet.pl
   enabled: true
   runtime_mode: CONTENT
-  discovery_method: RSS
+  discovery_method: SECTION_HTML
   content_method: HTTP_HTML
   technical_status: FULL
   policy_status: REVIEW_REQUIRED
@@ -174,7 +174,7 @@ sources:
   homepage: https://krytykapolityczna.pl
   enabled: true
   runtime_mode: CONTENT
-  discovery_method: RSS
+  discovery_method: SECTION_HTML
   content_method: HTTP_HTML
   technical_status: FULL
   policy_status: REVIEW_REQUIRED

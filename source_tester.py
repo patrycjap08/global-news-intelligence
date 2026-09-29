@@ -412,6 +412,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description:
         meta = soup.select_one('meta[name="description"], meta[property="og:description"]')
         description = clean_text(meta.get("content", "")) if meta else ""
+    if not description:
+        lead_node = soup.select_one("article.ods-article-lead .ods-a-lead-text")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -422,6 +425,26 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
             ),
             author,
         )
+    if not author:
+        onet_author_nodes = soup.select(
+            "article.ods-article-lead [data-section='author-top'] "
+            ".ods-m-author-authorship__author-item a, "
+            "article.ods-article-lead .ods-m-author-authorship__author-item a"
+        )
+        onet_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in onet_author_nodes
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if onet_authors:
+            author = ", ".join(onet_authors)
+    if source_id == "krytyka_polityczna":
+        krytyka_author = soup.select_one(
+            ".article-single-author-name [itemprop='name'], "
+            ".article-single-author-name"
+        )
+        if krytyka_author is not None:
+            author = clean_text(krytyka_author.get_text(" ", strip=True)) or author
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -452,6 +475,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         content_root = soup.select_one("article.ods-article-lead")
         if content_root is not None:
             source_kind = "onet"
+    if content_root is None:
+        content_root = soup.select_one(".entry-content.article-page-content .article-page-text")
+        if content_root is not None:
+            source_kind = "krytyka_polityczna"
     if content_root is None:
         content_root = soup.select_one(".article-body-module__container__oOFyv")
         if content_root is not None:
@@ -491,6 +518,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if content_root is None:
         return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": "", "structured": False, "source_kind": source_kind}
 
+    if not description and source_kind == "krytyka_polityczna":
+        lead_node = content_root.select_one("p")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+
     unwanted = "script, style, noscript, template, svg, canvas, nav, aside, footer, [aria-hidden=\"true\"], [data-testid=\"ad-unit\"], [data-component=\"advertisement-block\"], .ad, .ad__holder, .ad__slot, .videoPlayer, .news__author, .tags, .app-ad"
     if source_kind == "tvn24":
         unwanted += ", header, figure, .ad-ph, [class*='action-buttons'], [class*='article-attribution'], [class*='article-footer'], [data-scope='main-multimedium-video'], yen-vod-embed"
@@ -502,6 +533,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .articleSprawdzamtoHeader, .articleInfo, .socialList, .imageWrapper, .advertisement-block, .embedded-entity, .readMore"
     elif source_kind == "tvp":
         unwanted += ", .article__right-box, .article-recommend, .module-banner-ad, .article-tags, .article-right, .article__see-more, .mb-box, .news-box"
+    elif source_kind == "onet":
+        unwanted += ", .ods-o-authorship-top, .ods-c-share-buttons-wrapper__share, .ods-o-inline-tts-player-wrapper, .ods-o-article-photo, .ods-m-inline-summary-container, .ods-a-emotions-with-counter"
+    elif source_kind == "krytyka_polityczna":
+        unwanted += ", .article-page-read-also, .article-actions, .line-label-slider-wrapper, .product-card, .donate-widget-container, .donate-widget-wrapper, .widget_wc-donation-widget, .article-reactions-container, .comments, .comment-respond"
     elif source_kind == "ap":
         unwanted += ", .PageListEnhancementGeneric, .PageListStandardB, .Page-comments, .vf-tabbed-views, .vf-body-text--deprecated, .PageListRightRailA-content"
     elif source_kind == "washington_post":
