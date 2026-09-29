@@ -430,6 +430,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description and source_id == "vox":
         lead_node = soup.select_one("article .duet--article--lede p")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description and source_id == "bbc":
+        lead_node = soup.select_one("main#bbc-main article [data-component='layout-block'] p")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -494,6 +497,14 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         ))
         if vox_authors:
             author = ", ".join(vox_authors)
+    if source_id == "bbc":
+        bbc_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in soup.select("[data-testid='byline-contributors'] [class*='AuthorName']")
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if bbc_authors:
+            author = ", ".join(bbc_authors)
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -557,6 +568,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is not None:
             source_kind = "axios"
     if content_root is None:
+        content_root = soup.select_one("main#bbc-main article")
+        if content_root is not None and content_root.select_one("[data-component='layout-block']"):
+            source_kind = "bbc"
+    if content_root is None:
         content_root = soup.select_one("article")
         if content_root is not None and content_root.select_one(".duet--article--article-body-component"):
             source_kind = "vox"
@@ -614,6 +629,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", #piano-container, [data-cy='story-go-deeper-content'], [data-cy*='social-share'], .adunitContainer, .adBox"
     elif source_kind == "vox":
         unwanted += ", .duet--article--article-byline, .duet--media--caption, .duet--cta--newsletter, [data-native-ad-id], [data-concert], .cnx-marker-cnt-first"
+    elif source_kind == "bbc":
+        unwanted += ", figure, [data-component='image-block'], [data-component='tag-list-block'], [data-testid='links-grid'], [data-testid*='card'], [data-testid='ad-unit'], [data-component='ad-slot']"
     elif source_kind == "abc":
         unwanted += ", .FITT_Article_related, .FITT_Article_recirc, .FITT_Article_comments, .comments, [data-testid='related-content']"
     elif source_kind == "politico":
@@ -656,6 +673,17 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         text_nodes = [
             node for node in text_nodes
             if not clean_text(node.get_text(" ", strip=True)).casefold().startswith("this story appeared in")
+        ]
+    if source_kind == "bbc":
+        text_nodes = content_root.select(
+            "[data-component='layout-block'] p, "
+            "[data-component='layout-block'] h2, "
+            "[data-component='layout-block'] h3, "
+            "[data-component='layout-block'] li"
+        )
+        text_nodes = [
+            node for node in text_nodes
+            if not clean_text(node.get_text(" ", strip=True)).casefold().startswith("get our flagship newsletter")
         ]
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))

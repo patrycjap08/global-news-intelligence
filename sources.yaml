@@ -261,7 +261,19 @@ sources:
   - {id: new_york_post, name: New York Post, region: USA, homepage: https://nypost.com}
   - {id: mother_jones, name: Mother Jones, region: USA, homepage: https://www.motherjones.com}
 
-  - {id: bbc, name: BBC, region: United Kingdom, homepage: https://www.bbc.com}
+  - id: bbc
+    name: BBC
+    region: United Kingdom
+    homepage: https://www.bbc.com
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^(?:www\.)?bbc\.com$'
+    candidate_include_url_patterns:
+      - '^/news/articles/[a-z0-9]+/?$'
+    candidate_exclude_title_patterns:
+      - '\b(sport|sports|football|rugby|cricket|tennis|golf|formula 1|f1|olympics)\b'
+    browser_article_patterns:
+      - '^https://(?:www\.)?bbc\.com/news/articles/[a-z0-9]+/?$'
   - id: financial_times
     name: Financial Times
     region: United Kingdom
