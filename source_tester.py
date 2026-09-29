@@ -424,6 +424,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description and source_id == "washington_post":
         lead_node = soup.select_one("article.grid-article [data-qa='article-body'] p")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description and source_id == "axios":
+        lead_node = soup.select_one("[data-cy='story-body'] [data-schema='smart-brevity'] p")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -472,6 +475,14 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         ))
         if reuters_authors:
             author = ", ".join(reuters_authors)
+    if source_id == "axios":
+        axios_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in soup.select("[data-cy='byline-author']")
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if axios_authors:
+            author = ", ".join(axios_authors)
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -531,6 +542,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is not None:
             source_kind = "washington_post"
     if content_root is None:
+        content_root = soup.select_one("[data-cy='story-body']")
+        if content_root is not None:
+            source_kind = "axios"
+    if content_root is None:
         content_root = soup.select_one(".FITT_Article_main__body")
         if content_root is not None:
             source_kind = "abc"
@@ -580,6 +595,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .PageListEnhancementGeneric, .PageListStandardB, .Page-comments, .vf-tabbed-views, .vf-body-text--deprecated, .PageListRightRailA-content"
     elif source_kind == "washington_post":
         unwanted += ", .article-footer, .article-bottom-action-bar, .comments, .ad, [data-qa='inline-subs-headline']"
+    elif source_kind == "axios":
+        unwanted += ", #piano-container, [data-cy='story-go-deeper-content'], [data-cy*='social-share'], .adunitContainer, .adBox"
     elif source_kind == "abc":
         unwanted += ", .FITT_Article_related, .FITT_Article_recirc, .FITT_Article_comments, .comments, [data-testid='related-content']"
     elif source_kind == "politico":
@@ -610,6 +627,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         ]
     if source_kind == "washington_post":
         text_nodes = content_root.select("[data-qa='article-body'] p, [data-qa='article-body'] h2, [data-qa='article-body'] h3, [data-qa='article-body'] li")
+    if source_kind == "axios":
+        text_nodes = content_root.select("[data-schema='smart-brevity'] p, [data-schema='smart-brevity'] h2, [data-schema='smart-brevity'] h3, [data-schema='smart-brevity'] li")
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
@@ -637,6 +656,10 @@ def extract_article(
     description = structured.get("description") or parser.meta.get("description") or parser.meta.get("og:description") or parser.meta.get("twitter:description")
     author = structured.get("author") or parser.meta.get("author") or parser.meta.get("article:author")
     published = structured.get("published_at") or parser.meta.get("article:published_time") or parser.meta.get("date") or parser.meta.get("publishdate")
+    if not published and source_id == "axios":
+        url_date = re.search(r"/((?:20)[0-9]{2})/([0-9]{2})/([0-9]{2})/", urllib.parse.urlsplit(result.final_url or result.url).path)
+        if url_date:
+            published = "-".join(url_date.groups())
     canonical = structured.get("canonical") or parser.meta.get("canonical") or result.final_url or result.url
     if source_id == "tvn24":
         # A TVN24 candidate without the semantic article root is usually a

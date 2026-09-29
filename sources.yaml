@@ -218,7 +218,22 @@ sources:
     region: USA
     homepage: https://www.politico.com
     enabled: false
-  - {id: axios, name: Axios, region: USA, homepage: https://www.axios.com}
+  - id: axios
+    name: Axios
+    region: USA
+    homepage: https://www.axios.com
+    discover_homepage: true
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^www\.axios\.com$'
+    candidate_include_url_patterns:
+      - '^/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]*(?:sports?|nfl|nba|mlb|nhl|ncaa|football|baseball|basketball|soccer|golf|tennis|olympics|nil)[^/?#]*/?$'
+    candidate_exclude_title_patterns:
+      - '\b(sport|sports|nfl|nba|mlb|nhl|ncaa|football|baseball|basketball|soccer|golf|tennis|olympics|nil)\b'
+    browser_article_patterns:
+      - '^https://www\.axios\.com/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
   - {id: vox, name: Vox, region: USA, homepage: https://www.vox.com}
   - {id: huffpost, name: HuffPost, region: USA, homepage: https://www.huffpost.com}
   - id: national_review
