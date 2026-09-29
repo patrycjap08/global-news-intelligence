@@ -15,6 +15,7 @@ const state = {
   sort: 'articles',
   hideRead: false,
   profile: 'ALL',
+  category: 'ALL',
   search: '',
   readTopics: loadReadTopics(),
   bookmarkedTopics: loadBookmarkedTopics(),
@@ -42,11 +43,34 @@ const PROFILE_COLORS = {
   UNCLASSIFIED: 'dot-unclassified',
 };
 
+const CATEGORY_LABELS = {
+  ALL: 'Wszystkie kategorie',
+  POLITYKA: 'Polityka',
+  SWIAT: 'Świat',
+  GOSPODARKA: 'Gospodarka',
+  SPOLECZENSTWO: 'Społeczeństwo',
+  TECHNOLOGIA: 'Technologia',
+  ZDROWIE: 'Zdrowie',
+  KULTURA_SPORT: 'Kultura i sport',
+  UNCLASSIFIED: 'Bez kategorii',
+};
+
+const CATEGORY_COLORS = {
+  POLITYKA: 'category-politics',
+  SWIAT: 'category-world',
+  GOSPODARKA: 'category-economy',
+  SPOLECZENSTWO: 'category-society',
+  TECHNOLOGIA: 'category-tech',
+  ZDROWIE: 'category-health',
+  KULTURA_SPORT: 'category-culture',
+  UNCLASSIFIED: 'category-unclassified',
+};
+
 const DEMO = {
   topics: [
-    { topic_id: 'demo-1', headline_pl: 'Przykładowy temat wieloźródłowy', status: 'ACTIVE', article_count: 4, source_count: 3, coverage_status: 'MULTI_SOURCE', last_seen_at: new Date().toISOString() },
-    { topic_id: 'demo-2', headline_pl: 'Jak państwa reagują na nową decyzję gospodarczą?', status: 'ACTIVE', article_count: 3, source_count: 2, coverage_status: 'MULTI_SOURCE', last_seen_at: new Date().toISOString() },
-    { topic_id: 'demo-3', headline_pl: 'Jedno źródło, osobna historia', status: 'ACTIVE', article_count: 1, source_count: 1, coverage_status: 'SINGLE_ARTICLE', last_seen_at: new Date().toISOString() },
+    { topic_id: 'demo-1', headline_pl: 'Przykładowy temat wieloźródłowy', categories: ['POLITYKA'], status: 'ACTIVE', article_count: 4, source_count: 3, coverage_status: 'MULTI_SOURCE', last_seen_at: new Date().toISOString() },
+    { topic_id: 'demo-2', headline_pl: 'Jak państwa reagują na nową decyzję gospodarczą?', categories: ['GOSPODARKA', 'POLITYKA'], status: 'ACTIVE', article_count: 3, source_count: 2, coverage_status: 'MULTI_SOURCE', last_seen_at: new Date().toISOString() },
+    { topic_id: 'demo-3', headline_pl: 'Jedno źródło, osobna historia', categories: ['SWIAT'], status: 'ACTIVE', article_count: 1, source_count: 1, coverage_status: 'SINGLE_ARTICLE', last_seen_at: new Date().toISOString() },
   ],
   articles: [
     { article_id: 'demo-a1', source_id: 'source-a', source_name: 'BBC', source_profile: 'CENTER', title: 'Przykładowy artykuł o głównym wydarzeniu', original_url: 'https://www.bbc.com/', published_at: new Date().toISOString(), word_count: 800 },
@@ -109,8 +133,14 @@ function saveBookmarkedTopics() {
   }
 }
 
+function normalizeDisplayText(value) {
+  return String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/<\s*\/?\s*br\s*\/?\s*>/gi, '\n');
+}
+
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+  return normalizeDisplayText(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 
 function formatDate(value) {
@@ -153,14 +183,19 @@ function topicCountLabel(count) {
 }
 
 function humanProfile(profile) { return PROFILE_LABELS[profile] || PROFILE_LABELS.UNCLASSIFIED; }
-function articleMap() { return new Map(state.articles.map((article) => [article.article_id, article])); }
+function normalizedCategories(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return [...new Set(values.filter((category) => CATEGORY_LABELS[category] && category !== 'ALL' && category !== 'UNCLASSIFIED'))];
+}
+function humanCategory(category) { return CATEGORY_LABELS[category] || CATEGORY_LABELS.UNCLASSIFIED; }
+function articleMap() { return new Map(state.articles.map((article) => [String(article.article_id), article])); }
 function xPostMap() { return new Map(state.xPosts.map((post) => [post.post_id, post])); }
 function updateText(summaryOrUpdate) {
   const nestedUpdate = summaryOrUpdate?.update;
   const update = nestedUpdate && typeof nestedUpdate === 'object'
     ? nestedUpdate
     : (summaryOrUpdate || {});
-  return String(update.new_information_pl || update.what_changed_pl || '').trim();
+  return normalizeDisplayText(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
 function collectTopicUpdates(storedSummary, historyRows) {
@@ -221,13 +256,43 @@ function readRecord(model) {
 }
 
 function readableEvidenceText(value) {
-  return String(value ?? '')
-    .replace(/\b[0-9a-f]{24}\b/gi, (articleId) => articleMap().get(articleId)?.source_name || '')
+  const articles = state.articles || [];
+  const sourceById = new Map();
+  articles.forEach((article) => {
+    if (article.source_id && article.source_name) sourceById.set(String(article.source_id), article.source_name);
+  });
+  const sourceNameForId = (identifier) => {
+    const article = articleMap().get(String(identifier));
+    return article?.source_name || sourceById.get(String(identifier)) || 'źródło';
+  };
+  return normalizeDisplayText(value)
+    .replace(/\b[0-9a-f]{24,64}\b/gi, sourceNameForId)
     .replace(/\(\s*[,;]?\s*\)/g, '')
     .replace(/\(\s*[,;]\s*/g, '(')
     .replace(/\s*[,;]\s*\)/g, ')')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
     .trim();
+}
+
+function richTextHtml(value) {
+  const text = readableEvidenceText(value).trim();
+  if (!text) return '';
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => {
+      const safe = escapeHtml(paragraph)
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br />');
+      return `<p>${safe}</p>`;
+    })
+    .join('');
+}
+
+function itemArticleSources(item) {
+  if (!item || typeof item !== 'object' || !Array.isArray(item.article_ids)) return [];
+  const articles = articleMap();
+  return [...new Set(item.article_ids.map((id) => articles.get(String(id))?.source_name).filter(Boolean))];
 }
 
 function isTopicRead(model) {
@@ -303,6 +368,7 @@ function topicModel(topic) {
   const updates = collectTopicUpdates(storedSummary, storedHistory);
   const latestUpdate = updates[0] || {};
   const summaryTopic = summary.topic || {};
+  const categories = normalizedCategories(topic.categories || topic.category);
   const profileCounts = {};
   const sources = new Set();
   articles.forEach((article) => {
@@ -320,6 +386,7 @@ function topicModel(topic) {
     : topic.last_seen_at;
   return {
     ...topic,
+    categories,
     articles,
     xPosts,
     sources: [...sources],
@@ -335,7 +402,7 @@ function topicModel(topic) {
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
     history: hasAggregation ? storedHistory : [],
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
-    lead: hasAggregation ? (summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
+    lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
 }
 
@@ -451,6 +518,29 @@ function renderProfiles(models) {
   }));
 }
 
+function renderCategories(models) {
+  const counts = {};
+  models.forEach((topic) => {
+    const categories = topic.categories.length ? topic.categories : ['UNCLASSIFIED'];
+    categories.forEach((category) => {
+      counts[category] = (counts[category] || 0) + 1;
+    });
+  });
+  const rows = [
+    ['ALL', CATEGORY_LABELS.ALL, models.length],
+    ...Object.keys(CATEGORY_LABELS)
+      .filter((key) => !['ALL', 'UNCLASSIFIED'].includes(key))
+      .map((key) => [key, CATEGORY_LABELS[key], counts[key] || 0])
+      .filter(([, , count]) => count > 0),
+    ...(counts.UNCLASSIFIED ? [['UNCLASSIFIED', CATEGORY_LABELS.UNCLASSIFIED, counts.UNCLASSIFIED]] : []),
+  ];
+  $('#category-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button category-filter ${state.category === key ? 'is-active' : ''}" data-category="${key}" type="button"><span class="filter-name"><i class="category-swatch ${CATEGORY_COLORS[key] || 'category-all'}" aria-hidden="true"></i><span>${label}</span></span><span>${count}</span></button>`).join('');
+  $('#category-filters').querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => {
+    state.category = button.dataset.category;
+    render();
+  }));
+}
+
 function renderSources(models) {
   const counts = {};
   models.forEach((topic) => {
@@ -478,6 +568,11 @@ function renderSources(models) {
   }).join('') : '<span class="muted">Brak danych</span>';
 }
 
+function categoryBadges(categories, className = '') {
+  const values = categories.length ? categories : ['UNCLASSIFIED'];
+  return values.map((category) => `<span class="category-tag ${className} ${CATEGORY_COLORS[category] || 'category-unclassified'}">${humanCategory(category)}</span>`).join('');
+}
+
 function cardHtml(model, index) {
   const profiles = Object.keys(model.profileCounts);
   const badge = model.hasAggregation
@@ -487,8 +582,9 @@ function cardHtml(model, index) {
   const bookmarked = isTopicBookmarked(model);
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
+  const category = categoryBadges(model.categories, 'card-category-tag');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}</span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
+    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}<span class="card-category-group">${category}</span></span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${escapeHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
@@ -498,33 +594,23 @@ function cardHtml(model, index) {
 function listValue(value) {
   if (!Array.isArray(value)) return '';
   return value.map((item) => {
-    if (typeof item === 'string') return `<li>${escapeHtml(readableEvidenceText(item))}</li>`;
+    if (typeof item === 'string') return `<li class="insight-item">${richTextHtml(item)}</li>`;
     const primary = item.text_pl || item.text || item.fact_pl || item.fact || item.claim || item.description_pl || item.description || item.explanation_pl || item.agreement_pl || item.agreement || item.point_pl || item.point || item.differences_pl || item.difference_pl || item.difference || item.frame || item.tone_pl || item.tone || item.signal_pl || item.signal || item.reason || item.context_pl || item.context || item.unknown_pl || item.unknown || item.contradiction_pl || item.contradiction || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || '';
     const notes = item.notes_pl || item.notes || '';
     const text = primary && notes && primary !== notes ? `${primary} ${notes}` : primary || notes;
     const marker = item.date || item.time || item.period || item.name || item.term || '';
     const rendered = marker && text ? `${marker} — ${text}` : text || marker || JSON.stringify(item);
-    return `<li>${escapeHtml(readableEvidenceText(rendered))}</li>`;
+    const sources = itemArticleSources(item);
+    const sourceHtml = sources.length ? `<div class="insight-sources">${escapeHtml(sources.join(' · '))}</div>` : '';
+    return `<li class="insight-item">${richTextHtml(rendered)}${sourceHtml}</li>`;
   }).join('');
-}
-
-function readerContextHtml(items) {
-  if (!Array.isArray(items) || !items.length) return '';
-  const rows = items.map((item) => {
-    if (typeof item === 'string') return `<div class="reader-context-item"><p>${escapeHtml(readableEvidenceText(item))}</p></div>`;
-    const name = item.name || item.term || item.label || '';
-    const explanation = readableEvidenceText(item.explanation_pl || item.description || item.text_pl || item.text || '');
-    const verification = item.needs_verification ? '<small>Wymaga dodatkowej weryfikacji.</small>' : '';
-    return `<div class="reader-context-item"><strong>${escapeHtml(name)}</strong><p>${escapeHtml(explanation)}</p>${verification}</div>`;
-  }).join('');
-  return `<section class="dialog-section reader-context"><h3>Dla czytelnika</h3><div class="reader-context-list">${rows}</div></section>`;
 }
 
 function dialogHtml(model) {
   const summary = model.summary || {};
   const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
-  const section = (title, items, className = '') => Array.isArray(items) && items.length ? `<section class="dialog-section ${className}"><h3>${title}</h3><ul>${listValue(items)}</ul></section>` : '';
+  const section = (title, items, className = '', subtitle = '') => Array.isArray(items) && items.length ? `<section class="dialog-section insight-section ${className}"><div class="insight-heading"><div><h3>${title}</h3>${subtitle ? `<p class="insight-subtitle">${subtitle}</p>` : ''}</div><span class="insight-count">${items.length}</span></div><ul class="insight-list">${listValue(items)}</ul></section>` : '';
   const xMaterials = model.xPosts.map((post) => `<div class="evidence-item social-evidence"><strong>${escapeHtml(post.display_name)} · X</strong><span><a href="${escapeHtml(post.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(post.text)}</a><br /><small>@${escapeHtml(post.username)}${post.posted_at ? ` · ${formatDate(post.posted_at)}` : ''} · wypowiedź autora, nie niezależne źródło prasowe</small></span></div>`).join('');
   const updatesHtml = (model.updates || []).map((update, index) => {
     const newXPostIds = Array.isArray(update.new_x_post_ids) ? update.new_x_post_ids.map(String) : [];
@@ -535,20 +621,21 @@ function dialogHtml(model) {
     const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
     const updateCopy = updateText(update);
     const when = update.generated_at ? ` · ${formatDate(update.generated_at)}` : '';
-    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><p>${escapeHtml(readableEvidenceText(updateCopy))}</p>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>`;
+    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>`;
   }).join('');
-  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
+  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${escapeHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
     ${updatesHtml}
-    ${summary.summary_pl ? `<section class="dialog-section"><h3>Synteza</h3><p>${escapeHtml(summary.summary_pl)}</p></section>` : ''}
-    ${section('Co łączy źródła', summary.agreement)}
-    ${section('Różnice i sprzeczności', summary.differences)}
-    ${section('Sposób przedstawienia i ton', summary.framing_and_tone)}
-    ${section('Sygnały języka lub możliwej manipulacji', summary.potential_manipulation_signals)}
-    ${section('Kontekst i niewiadome', summary.background_context)}
-    ${readerContextHtml(summary.reader_context)}
+    ${summary.summary_pl ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>` : ''}
+    ${section('Ustalenia z pojedynczych źródeł', summary.facts, 'insight-facts', 'Informacje obecne tylko w wybranych materiałach.')}
+    ${section('Wspólne ustalenia', summary.agreement, 'insight-agreement', 'Punkty, co do których materiały są zgodne.')}
+    ${section('Różne dane lub akcenty', summary.differences, 'insight-differences', 'Rozbieżności, które nie muszą oznaczać sprzeczności.')}
+    ${section('Sprzeczne relacje', summary.contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}
+    ${section('Jak różni się przekaz', summary.framing_and_tone, 'insight-framing', 'Konkretne różnice w doborze faktów, języku i akcentach.')}
+    ${section('Co warto zweryfikować', summary.potential_manipulation_signals, 'insight-verification', 'Obserwowalne sygnały wymagające dodatkowego sprawdzenia — nie werdykt o źródle.')}
+    ${section('Kontekst i niewiadome', summary.background_context, 'insight-context')}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
     ${xMaterials ? `<section class="dialog-section"><h3>Powiązane wypowiedzi na X</h3><div class="evidence-list">${xMaterials}</div></section>` : ''}
   </div>`;
@@ -574,6 +661,7 @@ function filteredModels() {
     if (state.view === 'saved' && !isTopicBookmarked(topic)) return false;
     if (state.hideRead && isTopicRead(topic)) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
+    if (state.category !== 'ALL' && !topic.categories.includes(state.category)) return false;
     if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;
   }).sort((a, b) => {
@@ -592,6 +680,7 @@ function render() {
   const allModels = state.topics.map(topicModel).filter((topic) => topic.hasAggregation);
   renderStats(allModels);
   renderProfiles(allModels);
+  renderCategories(allModels);
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
   $('#results-heading').textContent = state.view === 'historical'

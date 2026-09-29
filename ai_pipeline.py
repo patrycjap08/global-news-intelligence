@@ -9,8 +9,10 @@ citation-free model narrative.
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 import hashlib
+from itertools import combinations
 import json
 import os
 from pathlib import Path
@@ -19,11 +21,12 @@ import re
 import sqlite3
 import time
 from typing import Any
+import unicodedata
 
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v21-compact-active-topic-context"
+PROMPT_VERSION = "ai-prompts-v25-factual-topic-updates-source-names"
 TOPIC_LOOKBACK_HOURS = 55
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
@@ -33,6 +36,21 @@ UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
 # this threshold leaves room for different headlines and reporting angles.
 TOPIC_MERGE_MIN_CONFIDENCE = float(
     os.environ.get("AI_TOPIC_MERGE_MIN_CONFIDENCE", "0.84")
+)
+TOPIC_MERGE_MAX_TOPICS_PER_REQUEST = max(
+    10, int(os.environ.get("AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST", "60"))
+)
+TOPIC_MERGE_MAX_RECENT_TITLES = max(
+    1, int(os.environ.get("AI_TOPIC_MERGE_MAX_RECENT_TITLES", "3"))
+)
+TOPIC_MERGE_TITLE_CHAR_LIMIT = max(
+    80, int(os.environ.get("AI_TOPIC_MERGE_TITLE_CHAR_LIMIT", "220"))
+)
+TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT = max(
+    160, int(os.environ.get("AI_TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT", "450"))
+)
+TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
+    1000, int(os.environ.get("AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS", "12000"))
 )
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "130")))
@@ -44,6 +62,7 @@ OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
 OPENAI_RETRY_BASE_SECONDS = max(
     0.5, float(os.environ.get("OPENAI_RETRY_BASE_SECONDS", "2"))
 )
+AI_BREAK_TAG_RE = re.compile(r"<\s*/?\s*br\s*/?\s*>", re.IGNORECASE)
 
 TITLE_PREFIX_RE = re.compile(r"^\[([^\]\r\n]{2,80})\]\s+(\S.*)$")
 PLACEHOLDER_TOPIC_TITLES = {
@@ -54,6 +73,54 @@ PLACEHOLDER_TOPIC_TITLES = {
     "konkretny tytuł",
     "konkretny tytuł wydarzenia",
 }
+
+TOPIC_CATEGORY_VALUES = (
+    "POLITYKA",
+    "SWIAT",
+    "GOSPODARKA",
+    "SPOLECZENSTWO",
+    "TECHNOLOGIA",
+    "ZDROWIE",
+    "KULTURA_SPORT",
+)
+
+TOPIC_CATEGORY_ALIASES = {
+    "POLITYKA": "POLITYKA",
+    "POLITICS": "POLITYKA",
+    "SWIAT": "SWIAT",
+    "ŚWIAT": "SWIAT",
+    "WORLD": "SWIAT",
+    "GOSPODARKA": "GOSPODARKA",
+    "ECONOMY": "GOSPODARKA",
+    "SPOLECZENSTWO": "SPOLECZENSTWO",
+    "SPOŁECZEŃSTWO": "SPOLECZENSTWO",
+    "SOCIETY": "SPOLECZENSTWO",
+    "TECHNOLOGIA": "TECHNOLOGIA",
+    "TECHNOLOGY": "TECHNOLOGIA",
+    "ZDROWIE": "ZDROWIE",
+    "HEALTH": "ZDROWIE",
+    "KULTURA_SPORT": "KULTURA_SPORT",
+    "KULTURA I SPORT": "KULTURA_SPORT",
+    "CULTURE_AND_SPORT": "KULTURA_SPORT",
+    "CULTURE_SPORT": "KULTURA_SPORT",
+}
+
+
+def normalize_topic_categories(value: Any) -> list[str]:
+    """Return unique public category keys while preserving model order."""
+    values = value if isinstance(value, list) else [value]
+    categories: list[str] = []
+    for item in values:
+        raw = re.sub(r"\s+", " ", str(item or "").strip()).upper()
+        category = TOPIC_CATEGORY_ALIASES.get(raw)
+        if category and category not in categories:
+            categories.append(category)
+    return categories[:3]
+
+
+def normalize_topic_category(value: Any) -> str | None:
+    """Compatibility helper for older scalar category payloads."""
+    return (normalize_topic_categories(value) or [None])[0]
 
 
 def _title_key(value: Any) -> str:
@@ -94,6 +161,261 @@ def format_topic_title_candidate(candidate: Any, current_title: Any = "") -> str
     current_match = TITLE_PREFIX_RE.match(str(current_title or "").strip())
     prefix = f"[{current_match.group(1)}]" if current_match else "[Świat]"
     return f"{prefix} {text}"[:300]
+
+
+def _topic_title_core(value: Any) -> str:
+    """Return a topic title without its optional geographic prefix."""
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    match = TITLE_PREFIX_RE.match(text)
+    return match.group(2).strip() if match else text
+
+
+def _headline_key(value: Any) -> str:
+    """Normalize a headline enough to detect verbatim topic-title copying."""
+    return re.sub(r"[^\w]+", " ", _topic_title_core(value).casefold()).strip()
+
+
+def is_article_title_copy(candidate: Any, article_titles: list[str]) -> bool:
+    """Detect a topic label that merely repeats one of its article headlines."""
+    candidate_key = _headline_key(candidate)
+    if not candidate_key:
+        return False
+    return any(
+        candidate_key == _headline_key(article_title)
+        for article_title in article_titles
+        if str(article_title or "").strip()
+    )
+
+
+MERGE_NON_DISTINCTIVE_TOKENS = frozenset({
+    # Polish function words and common newsroom language.
+    "aby", "albo", "ale", "bez", "byc", "być", "co", "czy", "dla", "do",
+    "gdzie", "gdy", "jego", "jej", "jest", "juz", "już", "jak", "jako",
+    "jeden", "jedna", "jedno", "jego", "ich", "inne", "inny", "innych",
+    "iż", "ktora", "która", "ktore", "które", "ktory", "który", "miedzy",
+    "między", "na", "nad", "nie", "nim", "niż", "nowe", "nowy", "nowa",
+    "oraz", "po", "pod", "przed", "przez", "się", "swoje", "swoim", "ta",
+    "tak", "takze", "także", "te", "ten", "tej", "temat", "to", "tu", "tylko",
+    "tym", "tytuł", "tytul", "w", "wedlug", "według", "we", "wobec", "z", "za",
+    "ze", "że",
+    # Words that occur in many unrelated news headlines.
+    "aktualizacja", "aktualizacje", "artykul", "artykuł", "decyzja", "decyzje",
+    "dzis", "dzisiaj", "dzisiejszy", "dzisiejsza", "dzisiejsze", "doniesienia",
+    "informacja", "informacje", "komentarz", "kontekst", "kraj", "kraju",
+    "minister", "najnowze", "najnowsze", "nowosci", "nowości", "polityka",
+    "powiedzial", "powiedział", "reakcja", "reakcje", "relacja", "relacje",
+    "raport", "sprawa", "sprawie", "sytuacja", "slowa", "słowa", "wazne",
+    "ważne", "wiadomosci", "wiadomości", "wydarzenie", "wydarzenia", "wystapienie",
+    "wystąpienie", "zapowiedzial", "zapowiedział", "zobacz", "zobaczcie",
+    # Common English headline words from international sources.
+    "about", "after", "also", "and", "are", "been", "before", "from", "has",
+    "have", "his", "how", "into", "its", "latest", "more", "new", "news", "not",
+    "over", "said", "says", "that", "the", "their", "these", "this", "today", "what",
+    "when", "where", "which", "while", "with", "will", "would", "government", "president",
+    # Countries, regions and broad institutions should not create a candidate alone.
+    "afryka", "ameryka", "azja", "brytania", "chiny", "chin", "china", "europa",
+    "europejski", "europejska", "iran", "izrael", "izraelski", "niemcy", "niemiecki",
+    "nato", "polska", "polski", "polskie", "rosja", "rosyjski", "ukraina", "ukrainski",
+    "usa", "unii", "unia", "unijne", "swiat", "świat", "swiata", "świata",
+    "wielka", "wegry", "węgry", "wegierski", "węgierski",
+})
+MERGE_WORD_RE = re.compile(r"[^\W\d_][\w'-]{2,}", re.UNICODE)
+
+
+def _merge_token_base(value: str) -> str:
+    folded = unicodedata.normalize("NFKD", value)
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", "", folded.casefold())
+
+
+def _merge_token_forms(value: str) -> set[str]:
+    base = _merge_token_base(value)
+    if len(base) < 4 or base in MERGE_NON_DISTINCTIVE_TOKENS:
+        return set()
+    forms = {base}
+    # Catch simple Polish inflections of names/objects, e.g. Trump/Trumpa,
+    # without stemming every common word in the headline.
+    if len(base) >= 6:
+        forms.add(base[:5])
+    return forms
+
+
+def _topic_merge_features(topic: dict[str, Any]) -> tuple[set[str], set[str]]:
+    """Return informative tokens and likely named-entity tokens for a topic."""
+    fields = [
+        str(topic.get("headline_pl") or ""),
+        str(topic.get("what_happened_one_sentence_pl") or ""),
+        *(str(title) for title in (topic.get("recent_article_titles") or [])),
+    ]
+    text = " ".join(fields)
+    tokens: set[str] = set()
+    entities: set[str] = set()
+    for match in MERGE_WORD_RE.finditer(text):
+        raw = match.group(0)
+        forms = _merge_token_forms(raw)
+        tokens.update(forms)
+        if raw[0].isupper():
+            entities.update(forms)
+    return tokens, entities
+
+
+def _topic_merge_candidate_edges(
+    topics: list[dict[str, Any]],
+) -> tuple[dict[tuple[str, str], float], dict[str, set[str]]]:
+    """Find local topic pairs with enough rare lexical/entity overlap."""
+    features = {
+        str(topic["topic_id"]): _topic_merge_features(topic)
+        for topic in topics
+    }
+    token_postings: dict[str, list[str]] = defaultdict(list)
+    entity_postings: dict[str, list[str]] = defaultdict(list)
+    for topic_id, (tokens, entities) in features.items():
+        for token in tokens:
+            token_postings[token].append(topic_id)
+        for token in entities:
+            entity_postings[token].append(topic_id)
+
+    topic_count = len(topics)
+    max_common_token_frequency = max(8, min(25, topic_count // 5 or 1))
+    max_entity_frequency = max(6, min(20, topic_count // 10 or 1))
+    shared_tokens: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for token, topic_ids in token_postings.items():
+        unique_ids = sorted(set(topic_ids))
+        if len(unique_ids) > max_common_token_frequency:
+            continue
+        for left, right in combinations(unique_ids, 2):
+            shared_tokens[(left, right)].add(token)
+
+    entity_tokens = set(entity_postings)
+    edges: dict[tuple[str, str], float] = {}
+    neighbors: dict[str, set[str]] = defaultdict(set)
+    for pair, overlap in shared_tokens.items():
+        rare_entities = {
+            token for token in overlap
+            if token in entity_tokens
+            and len(set(entity_postings[token])) <= max_entity_frequency
+        }
+        if len(overlap) < 2 and not rare_entities:
+            continue
+        score = float(len(overlap)) + 0.5 * len(rare_entities)
+        edges[pair] = score
+        left, right = pair
+        neighbors[left].add(right)
+        neighbors[right].add(left)
+    return edges, neighbors
+
+
+def build_topic_merge_candidate_groups(
+    topics: list[dict[str, Any]],
+    *,
+    max_topics_per_group: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
+) -> list[list[str]]:
+    """Build candidate topic groups before asking the model to merge them."""
+    if len(topics) < 2:
+        return []
+    edges, neighbors = _topic_merge_candidate_edges(topics)
+    if not edges:
+        return []
+
+    topic_ids = [str(topic["topic_id"]) for topic in topics]
+    parent = {topic_id: topic_id for topic_id in topic_ids}
+
+    def find(topic_id: str) -> str:
+        while parent[topic_id] != topic_id:
+            parent[topic_id] = parent[parent[topic_id]]
+            topic_id = parent[topic_id]
+        return topic_id
+
+    def union(left: str, right: str) -> None:
+        left_root, right_root = find(left), find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+
+    for left, right in edges:
+        union(left, right)
+
+    components: dict[str, list[str]] = defaultdict(list)
+    for topic_id in topic_ids:
+        components[find(topic_id)].append(topic_id)
+
+    groups: list[list[str]] = []
+    for component in components.values():
+        if len(component) < 2:
+            continue
+        if len(component) <= max_topics_per_group:
+            groups.append(sorted(component))
+            continue
+
+        # A very large component usually means a common actor is shared by many
+        # unrelated stories. Use bounded neighborhoods so AI can separate them
+        # while still seeing every strong local edge.
+        component_set = set(component)
+        for topic_id in sorted(component):
+            ranked_neighbors = sorted(
+                (neighbor for neighbor in neighbors[topic_id] if neighbor in component_set),
+                key=lambda neighbor: (-edges.get(tuple(sorted((topic_id, neighbor))), 0), neighbor),
+            )
+            group = [topic_id, *ranked_neighbors[: max_topics_per_group - 1]]
+            if len(group) > 1:
+                groups.append(group)
+    return groups
+
+
+def compact_topic_merge_record(
+    topic: dict[str, Any],
+    *,
+    candidate_group_id: str = "",
+) -> dict[str, Any]:
+    """Keep only the evidence needed by AI after local candidate filtering."""
+    record = {
+        "topic_id": str(topic.get("topic_id") or ""),
+        "headline_pl": str(topic.get("headline_pl") or "")[:TOPIC_MERGE_TITLE_CHAR_LIMIT],
+        "categories": normalize_topic_categories(topic.get("categories") or topic.get("category")),
+        "what_happened_one_sentence_pl": str(
+            topic.get("what_happened_one_sentence_pl") or ""
+        )[:TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT],
+        "recent_article_titles": [
+            str(title)[:TOPIC_MERGE_TITLE_CHAR_LIMIT]
+            for title in (topic.get("recent_article_titles") or [])[:TOPIC_MERGE_MAX_RECENT_TITLES]
+            if str(title or "").strip()
+        ],
+    }
+    if candidate_group_id:
+        record["candidate_group_id"] = candidate_group_id
+    return record
+
+
+def build_topic_merge_requests(
+    topics: list[dict[str, Any]],
+    *,
+    max_topics_per_request: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
+) -> list[list[dict[str, Any]]]:
+    """Pack disjoint candidate components into small AI requests."""
+    topic_by_id = {str(topic["topic_id"]): topic for topic in topics}
+    groups = build_topic_merge_candidate_groups(
+        topics,
+        max_topics_per_group=max_topics_per_request,
+    )
+    requests: list[list[dict[str, Any]]] = []
+    current_records: dict[str, dict[str, Any]] = {}
+    for group_index, group in enumerate(groups, start=1):
+        group_ids = list(dict.fromkeys(group))
+        merged_ids = list(dict.fromkeys([*current_records, *group_ids]))
+        if current_records and len(merged_ids) > max_topics_per_request:
+            requests.append(list(current_records.values()))
+            current_records = {}
+        candidate_group_id = f"local_{group_index}"
+        for topic_id in group_ids:
+            current_records.setdefault(
+                topic_id,
+                compact_topic_merge_record(
+                    topic_by_id[topic_id],
+                    candidate_group_id=candidate_group_id,
+                ),
+            )
+    if current_records:
+        requests.append(list(current_records.values()))
+    return requests
 
 
 def fallback_topic_title(
@@ -140,6 +462,7 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 {"groups":[{"group_id":"new_group_001","existing_topic_id":"",
 "topic_action":"NEW_TOPIC|DEVELOPMENT|BACKGROUND_OR_CONTEXT",
 "working_title_pl":"[Kraj] Konkretny tytuł wydarzenia","article_ids":["..."],
+"categories":["POLITYKA"],
 "confidence":0.0,"needs_review":false,"grouping_reason":"...",
 "topic_anchor_pl":"jednozdaniowa oś wspólnej historii",
 "article_relevance":[{"article_id":"...","why_same_event":"..."}]}],
@@ -202,6 +525,25 @@ clickbaitem, sensacyjną obietnicą, pytaniem retorycznym ani ogólnikiem typu
 zapisów wielkimi literami ani ocen sugerujących, kto ma rację. Stosuj zwykłą
 polską kapitalizację tytułową i nie dodawaj informacji, których nie ma w
 artykułach. Tytuł powinien być zwięzły — zwykle około 8–16 słów.
+
+Najważniejsza zasada: working_title_pl jest nazwą wątku redakcyjnego, a nie
+tytułem żadnego artykułu. Ma abstrahować od formy nagłówka i nazywać sedno
+wydarzenia tak, aby pasował także do kolejnych materiałów o tej samej sprawie.
+Nigdy nie przepisuj title_original słowo w słowo ani prawie słowo w słowo —
+dotyczy to także grup jednoartykułowych. Usuń clickbait, ciekawość i emocjonalne
+obietnice („Nie uwierzycie…”, „szokujące słowa”, „to zmieni wszystko”), a z
+treści artykułu wyciągnij konkretny podmiot, czynność i przedmiot sprawy.
+Zamień określenia niejasne lub chwilowe („co powiedział”, „ten polityk”,
+„dzisiaj”) na nazwę wydarzenia i osobę, a datę dodaj tylko wtedy, gdy pomaga
+odróżnić wydarzenie od innych. Nazwa ma być szersza od pojedynczego nagłówka,
+ale nadal konkretna — nie zastępuj jej nazwą państwa ani ogólną kategorią.
+
+Przykład: dla artykułu zatytułowanego „Nie uwierzycie, co Trump powiedział w
+swoim dzisiejszym wystąpieniu” nie zwracaj tego samego tekstu. Jeśli treść nie
+podaje węższego tematu, zwróć np. „[USA] Dzisiejsze wystąpienie Trumpa” albo
+„[USA] Wystąpienie Trumpa z datą artykułu” (wstaw właściwą datę); jeśli treść
+wskazuje konkretny temat wypowiedzi, nazwij właśnie ten temat. Dla dwóch artykułów wybierz jedną
+wspólną nazwę sedna wydarzenia, a nie jeden z ich nagłówków.
 Każdy working_title_pl musi zaczynać się od jednego spójnego prefiksu
 geograficznego w nawiasach kwadratowych: `[Polska]`, `[Niemcy]`,
 `[USA i Iran]` albo `[Świat]`. Używaj polskich nazw państw. Dla jednego kraju
@@ -214,14 +556,25 @@ grouping_reason ma być krótkie i nie przekraczać około 160 znaków.
 Nigdy nie wpisuj tekstu przykładowego „neutralna nazwa wydarzenia”, „Temat bez
 tytułu” ani żadnego innego placeholdera. Każda grupa musi mieć konkretny tytuł
 wynikający z przekazanych artykułów.
+
+categories wybierz jako jedną lub maksymalnie trzy wartości z listy: POLITYKA,
+SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE albo KULTURA_SPORT.
+To główna tematyka wydarzenia, a nie ocena źródeł ani prefiks geograficzny
+tytułu. SWIAT oznacza przede wszystkim międzynarodowe relacje, geopolitykę lub
+wydarzenia globalne; nie przypisuj do niej automatycznie każdej historii spoza
+Polski. Dodaj więcej niż jedną kategorię tylko wtedy, gdy każda z nich wnosi
+istotny wymiar tematu, a nie jako luźne skojarzenie.
 """.strip()
 
 TOPIC_MERGE_INSTRUCTIONS = """
 Jesteś modułem porządkowania tematów w aplikacji Global News Intelligence.
-Otrzymujesz aktywne tematy z ostatnich kilku dni. Twoim celem jest znaleźć
-wszystkie pary i grupy opisujące tę samą konkretną historię, nawet jeśli
-wcześniejsze grupowanie rozdzieliło je na różne tematy. Rozważ każdą sensowną
-parę tematów, a nie tylko tematy z niemal identycznym tytułem.
+Otrzymujesz małe grupy kandydatów wyłonione wcześniej lokalnie na podstawie
+wspólnych charakterystycznych słów, aktorów lub obiektów. Twoim celem jest
+potwierdzić, które z tych tematów opisują tę samą konkretną historię, nawet
+jeśli wcześniejsze grupowanie rozdzieliło je na różne tematy. Porównuj tylko
+tematy przekazane w bieżącym żądaniu; brak tematu w żądaniu nie oznacza, że
+jest on niepowiązany. Jeśli rekordy mają `candidate_group_id`, porównuj i
+scalaj tematy tylko w obrębie tego samego identyfikatora.
 W tym kroku preferuj wysoką czułość: lepiej połączyć dwa bardzo podobne
 relacje o tej samej historii niż zostawić je jako duplikaty.
 
@@ -266,15 +619,18 @@ państw i `[Świat]` dla wydarzeń obejmujących wiele krajów.
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"merge_groups":[{"topic_ids":["topic_a","topic_b"],
 "merged_title_pl":"[Kraj] Konkretny wspólny tytuł wydarzenia","confidence":0.0,
-"reason":"krótkie wyjaśnienie, dlaczego to to samo wydarzenie"}],
-"keep_separate_topic_ids":[]}
+"categories":["POLITYKA"],
+"reason":"krótkie wyjaśnienie, dlaczego to to samo wydarzenie"}]}
 
 W każdej grupie muszą być co najmniej dwa różne topic_id. Nie umieszczaj
 jednego tematu w dwóch grupach. confidence ma oznaczać pewność, że chodzi o
 ten sam konkretny incydent lub ciąg dalszy tej samej historii. Używaj wartości
 co najmniej 0.84 dla mocnych, ale niekoniecznie identycznych relacji; wartości
 poniżej 0.84 zostaw osobno. Nie twórz grup z tematów, które są już oznaczone
-jako scalone.
+ jako scalone. categories wybierz z dokładnie tej samej listy siedmiu kategorii
+ co w module grupowania. Zwróć jedną lub maksymalnie trzy kategorie, ale dodaj
+ więcej niż jedną wyłącznie wtedy, gdy każda opisuje istotny wymiar wspólnej
+ historii.
 """.strip()
 
 TITLE_NORMALIZATION_INSTRUCTIONS = """
@@ -292,6 +648,35 @@ tytuł” ani „Temat bez tytułu”.
 Zwróć WYŁĄCZNIE JSON:
 {"titles":[{"topic_id":"","title_pl":"[Kraj] Konkretny tytuł"}]}
 Każdy wejściowy topic_id musi wystąpić dokładnie raz.
+""".strip()
+
+CATEGORY_INSTRUCTIONS = """
+Jesteś redaktorem porządkującym katalog tematów wiadomości. Przypisz każdy
+temat do jednej, dwóch albo maksymalnie trzech kategorii na podstawie tytułu,
+jednozdaniowego opisu
+i tytułów ostatnich artykułów. Nie kieruj się profilem politycznym źródeł ani
+samym krajem opisanym w tytule.
+
+Dozwolone kategorie:
+- POLITYKA — decyzje władz, wybory, partie, parlament, administracja i spory
+  polityczne;
+- SWIAT — relacje międzynarodowe, geopolityka, konflikty między państwami i
+  wydarzenia globalne;
+- GOSPODARKA — firmy, rynki, handel, finanse, praca, ceny i budżety;
+- SPOLECZENSTWO — prawo życia codziennego, edukacja, migracja, demografia,
+  protesty i ważne wydarzenia społeczne;
+- TECHNOLOGIA — nauka stosowana, internet, AI, cyberbezpieczeństwo i nowe
+  technologie;
+- ZDROWIE — medycyna, zdrowie publiczne, epidemie i system ochrony zdrowia;
+- KULTURA_SPORT — kultura, media, rozrywka i sport.
+
+Wybierz kategorie głównego tematu, nie przypadkowych pobocznych szczegółów. Jeśli temat
+dotyczy zagranicy, ale jego sednem jest gospodarka, wybierz GOSPODARKA; SWIAT
+nie oznacza automatycznie „wszystkiego poza Polską”.
+
+Zwróć WYŁĄCZNIE poprawny JSON:
+{"categories":[{"topic_id":"...","categories":["POLITYKA"]}]}
+Każdy topic_id z wejścia musi wystąpić dokładnie raz.
 """.strip()
 
 SUMMARY_INSTRUCTIONS = """
@@ -313,13 +698,17 @@ do background_context i oznacz needs_verification=true.
 summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o czym
 piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
 przedstawiają” ani „materiały dotyczą”. Zacznij od tego, co się wydarzyło.
+Stosuj krótkie akapity: każdy powinien rozwijać jeden etap wydarzenia albo
+jedną grupę faktów. Akapity oddzielaj pustą linią (`\\n\\n`). Możesz używać
+wyłącznie ograniczonego Markdown: `**pogrubienie**` dla nazwisk, instytucji,
+liczb lub najważniejszych decyzji. Nie używaj HTML, nagłówków Markdown,
+list, tabel, emotikonów ani innych znaczników formatowania.
 Tekst ma odpowiadać na pytanie „co dokładnie się wydarzyło”, a nie „o czym
-były artykuły”. Przy co najmniej 4 artykułach napisz zwykle 6–10 akapitów,
-oddzielonych znakiem nowej linii, i około 700–1100 słów, a przy 2–3 artykułach
-około 500–700 słów, jeżeli materiały zawierają taką ilość konkretnych
-informacji. Nie skracaj syntezy, gdy artykuły zawierają więcej ustaleń. Liczba
-słów jest orientacyjna i może być niższa lub wyższa zależnie od liczby źródeł
-i ilości informacji w nich.
+były artykuły”. Przy co najmniej 4 artykułach napisz zwykle 5–8 akapitów i
+około 550–900 słów, a przy 2–3 artykułach zwykle 3–5 akapitów i około 350–600
+słów, jeżeli materiały zawierają taką ilość konkretnych informacji. To zakresy
+orientacyjne: kompletność faktów jest ważniejsza niż limit. Nie dopisuj
+wstępu, zakończenia ani kontekstu tylko po to, żeby wydłużyć tekst.
 
 Buduj tekst w tej kolejności, o ile materiał na to pozwala: (1) najważniejsze
 wydarzenie — kto, co, gdzie i kiedy; (2) szczegółowy przebieg i kolejność
@@ -328,6 +717,18 @@ znaczenie i aktualny stan sprawy; (5) rozbieżności oraz informacje
 niepotwierdzone. Zbieraj w tekście konkretne fakty z artykułów, zamiast
 referować ich istnienie. Nie dopisuj faktów tylko po to, żeby osiągnąć limit
 słów.
+
+Wykonaj przed zwróceniem JSON-u dwie osobne kontrole redakcyjne. Najpierw
+sprawdź zgodność faktów, dat, liczb, nazw własnych i relacji przyczynowo-
+skutkowych z artykułami. Następnie zredaguj tekst w naturalnej współczesnej
+polszczyźnie. Nie tłumacz dosłownie składni angielskiej ani nagłówków. Nie
+używaj kalk językowych, spolszczonych anglicyzmów, sztucznych zwrotów,
+niepoprawnej odmiany nazw własnych ani zdań brzmiących jak maszynowe
+tłumaczenie. Popraw interpunkcję, zgodę gramatyczną, szyk zdania, odmianę
+liczb i nazwisk oraz polski zapis dat. Jeśli nie ma pewnego polskiego
+odpowiednika terminu, zachowaj oryginalną nazwę i krótko ją objaśnij zamiast
+tworzyć fałszywe tłumaczenie. Nie zmieniaj przy tym znaczenia ani poziomu
+pewności informacji.
 
 Nie wolno ignorować dostarczonego artykułu. Każdy artykuł należący do tematu
 ma wnieść do opracowania konkretną informację albo zostać jawnie opisany jako
@@ -345,28 +746,40 @@ które nie zostały już jasno przedstawione w summary_pl. Nie przepisuj do
 agreement oczywistych faktów z syntezy i nie twórz sekcji tylko po to, żeby ją
 wypełnić. Każda sekcja może pozostać pusta.
 
-Pisz dla polskiego czytelnika, który może nie znać lokalnego kontekstu. Jeżeli
-temat dotyczy państwa innego niż Polska, już przy pierwszej wzmiance wyjaśnij
-państwo lub region, a także miejsca i instytucje ważne dla zrozumienia sprawy.
-Nie traktuj skrótów, nazwisk, miast ani nazw urzędów jako samowyjaśniających.
-Przy pierwszym użyciu:
-- rozwiń istotny skrót i krótko wyjaśnij, czym jest, zachowując oryginalny
-  skrót w nawiasie;
-- przy osobie podaj — jeśli wynika to z materiałów — imię i nazwisko, funkcję
-  lub rolę oraz państwo albo organizację;
-- przy organizacji lub urzędzie wyjaśnij, jakiego jest rodzaju i z jakim
-  państwem albo obszarem jest związany;
-- przy mieście, bazie lub regionie podaj państwo i — gdy pomaga — szerszy
-  region;
-- przy specjalistycznym pojęciu, procedurze albo modelu sprzętu wyjaśnij jego
-  znaczenie w jednym krótkim zdaniu.
-Nie dopowiadaj biografii, funkcji, przynależności partyjnej ani znaczenia
-skrótów, którego nie da się wiarygodnie ustalić. Jeżeli informacja pochodzi
-wyłącznie z ogólnej wiedzy, umieść ją w background_context lub reader_context
-z needs_verification=true. Jeżeli materiały nie pozwalają ustalić, kim jest
-osoba lub organizacja, napisz to wprost zamiast zgadywać. Nie twórz słownika
-ze wszystkich nazw własnych: reader_context ma zawierać maksymalnie około
-8–12 objaśnień naprawdę potrzebnych do zrozumienia tematu.
+differences ma wskazywać konkretną różnicę, a nie ogólnik typu „źródła różnie
+przedstawiają temat”. W każdym wpisie nazwij wymiar różnicy, na przykład
+liczbę, kolejność wydarzeń, zakres skutków, przypisywaną odpowiedzialność albo
+ocenę znaczenia. Jeśli różnica nie ma znaczenia dla zrozumienia sprawy, pomiń
+ją.
+
+framing_and_tone ma pokazywać konkretny wybór redakcyjny: inny dobór faktów,
+akcent, określenie wartościujące, sposób opisania aktora albo różnicę między
+nagłówkiem a treścią. Nie opisuj tonu słowami „neutralny”, „emocjonalny” lub
+„stronniczy” bez wskazania, co dokładnie w tekście na to wskazuje.
+
+potential_manipulation_signals może zawierać tylko obserwowalny sygnał, który
+czytelnik może sam sprawdzić. Zamiast oceny „artykuł manipuluje” napisz np.
+„Nagłówek sugeruje X, ale treść potwierdza jedynie Y — warto sprawdzić, czy
+wniosek z nagłówka wynika z materiału”. Jeśli nie ma konkretnego sygnału,
+pozostaw tablicę pustą.
+
+Pisz dla polskiego czytelnika, który może nie znać specjalistycznego
+kontekstu, ale nie twórz osobnego słowniczka ani sekcji `reader_context`.
+Objaśnienia mają pojawić się bezpośrednio w `summary_pl`, przy pierwszym
+użyciu danego terminu — najlepiej w krótkim nawiasie. Przykłady:
+`DMDC (Defense Manpower Data Center, amerykański system danych o personelu
+wojskowym)` albo `Defense Builder (ukraiński akcelerator technologii
+obronnych)`. Przy osobie dodaj funkcję lub rolę tylko wtedy, gdy wynika z
+materiałów i pomaga zrozumieć fakt.
+
+Wyjaśniaj tylko terminy, skróty, organizacje, stanowiska i osoby, które mogą
+nie być oczywiste dla polskiego czytelnika. Nie objaśniaj oczywistych nazw
+państw, takich jak Polska, Ukraina, Rosja czy USA, ani zwykłych miast wyłącznie
+dlatego, że występują w tekście. Nie twórz listy haseł, osobnych definicji ani
+encyklopedycznych biogramów. Nie dopowiadaj biografii, funkcji ani znaczenia
+skrótów, którego nie da się wiarygodnie ustalić. Jeśli wyjaśnienie nie wynika
+z artykułów, pomiń je albo zaznacz niepewność w odpowiednim fakcie — nie
+przenoś go do słowniczka.
 
 Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli data
 jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo
@@ -376,7 +789,7 @@ Jeżeli previous_aggregation nie jest null, zawiera `base_summary` oraz
 `prior_updates`. Potraktuj oba elementy jako opublikowaną wcześniej, NIEZMIENNĄ
 historię. Nie przepisuj jej, nie skracaj i nie aktualizuj
 summary_pl, facts, agreement, differences, framing_and_tone,
-potential_manipulation_signals, background_context ani reader_context — program
+potential_manipulation_signals ani background_context — program
 zachowa te pola z poprzedniej wersji. W takim przypadku wygeneruj wyłącznie
 delta-update w polu update, opisujący bieżące new_articles.
 
@@ -389,14 +802,25 @@ przy jednym drobnym fakcie wystarczy krótki akapit, ale przy kilku obszernych
 artykułach aktualizacja może mieć kilka rozwiniętych akapitów i około 300–700
 słów, jeżeli materiał uzasadnia taką długość. Aktualizacja ma przekazywać treść
 nowych materiałów, a nie tylko informować, że pojawiły się nowe doniesienia.
+Zaczynaj od faktów, nie od zdania „najnowszy artykuł dotyczy…”. Zamiast
+opisywać, o czym jest materiał, napisz co konkretnie ustalono: liczby, osoby,
+daty, wyniki badań, decyzje, działania, cytowane stanowiska i ich znaczenie.
+Jeżeli nowy materiał dotyczy pobocznego, ale zaakceptowanego aspektu wątku,
+przedstaw go jako nowy aspekt tej historii, np. „W osobnym aspekcie sprawy…”.
+Nie oceniaj w tekście, czy materiał został dobrze czy źle przypisany do wątku.
+Nie pisz, że artykuł jest „nie na temat”, „nic nie wnosi”, „nie zmienia
+narracji”, jest „logicznym błędem grupowania” ani że trzeba go odrzucić.
+Nie opisuj procesu grupowania ani decyzji systemu — czytelnik ma dostać fakty.
 Nie powtarzaj jednak faktów już zawartych w previous_aggregation.
 Nie powtarzaj także informacji obecnych w żadnym elemencie prior_updates.
 
-Jeżeli nowe artykuły tylko powtarzają wcześniejsze informacje, nadal ustaw
-update.is_update=true i napisz
-wprost, że dodano określoną liczbę materiałów oraz z jakich źródeł, ale nie
-wnoszą one nowych, niezależnie potwierdzonych informacji. Nie pisz wtedy
-„kliknij”, „sprawdź artykuł” ani „źródła opisują temat” bez podania wyniku.
+Jeżeli nowe materiały potwierdzają wcześniejszy fakt, napisz konkretnie, jaki
+fakt został ponownie potwierdzony i jakie nowe szczegóły dodano. Nie zastępuj
+tego zdaniem, że materiały „tylko powtarzają wcześniejsze informacje”.
+Jeśli materiał nie zawiera nowych danych możliwych do rzetelnego wykorzystania,
+nie twórz pustej oceny jego przydatności: wybierz z niego konkretne fakty, a
+gdy rzeczywiście nie ma żadnego faktu do dodania, pozostaw krótką aktualizację
+opartą na tym, co można potwierdzić, bez komentowania dopasowania materiału.
 new_article_ids musi zawierać wyłącznie artykuły z bieżącego zestawu.
 Jeżeli previous_aggregation jest null, utwórz pełną syntezę bazową i ustaw
 update.is_update=false.
@@ -422,6 +846,12 @@ Priorytet zasad jest następujący:
 article_ids muszą być kopiowane dokładnie z wejścia. Nie wolno tworzyć,
 modyfikować ani zgadywać identyfikatorów. Nie wpisuj nazw źródeł do
 article_ids.
+Identyfikatory artykułów są wyłącznie technicznym śladem dowodowym. Nie wolno
+wstawiać ich do summary_pl, update.new_information_pl,
+update.what_changed_pl ani do żadnego innego tekstu przeznaczonego dla
+czytelnika. Jeśli trzeba rozróżnić materiały, użyj `source_name` z wejścia,
+np. „PAP podaje…”, ale zaraz potem przedstaw konkretne fakty, a nie opis
+samego artykułu.
 
 Każdy element tablic facts, agreement, differences, framing_and_tone,
 potential_manipulation_signals, contradictions i unknowns powinien zawierać
@@ -465,16 +895,25 @@ W trybie aktualizacji:
 - update.is_update musi mieć wartość true;
 - update.new_article_ids może zawierać wyłącznie article_id z bieżącego
   new_articles;
-- jeśli nowe artykuły powtarzają wcześniejsze informacje, napisz to
-  wprost w new_information_pl;
-- nie traktuj samego pojawienia się nowego artykułu jako nowej informacji;
+- każdy nowy article_id musi zostać wykorzystany przez konkretny fakt w
+  update.new_information_pl albo w dodatkowym elemencie update, jeśli taki
+  element istnieje w schemacie;
+- nie pisz metakomentarza o tym, czy materiał pasuje do grupy;
 - nie dodawaj do update faktów obecnych już w previous_aggregation lub
   prior_updates.
 
 Każdy artykuł z wejścia musi pojawić się w sources. Jeżeli nie wnosi nowej
-informacji, napisz to w description_pl. Jeżeli jest logicznie niezgodny
-z tematem, wymień ten problem w quality.limitations_pl zamiast dopasowywać
-go sztucznie do syntezy.
+informacji, nie opisuj tego jako wady grupowania ani nie pokazuj takiej oceny
+czytelnikowi. W `sources.description_pl` napisz krótko, jaki fakt lub aspekt
+artykuł potwierdza, rozwija albo dokumentuje. Nie wpisuj tam technicznych
+identyfikatorów.
+
+topic.categories musi zawierać jedną, dwie albo maksymalnie trzy kategorie z
+listy POLITYKA, SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE,
+KULTURA_SPORT. Zwracaj pełny aktualny zestaw kategorii także w trybie
+aktualizacji. Nie dodawaj kategorii tylko na podstawie kraju lub profilu
+źródła; każda kategoria musi wynikać z głównego tematu albo jego istotnego
+wymiaru. Jeśli wątek łączy np. politykę i zdrowie publiczne, zwróć obie.
 
 Przed zwróceniem odpowiedzi sprawdź wewnętrznie, czy:
 - wynik zawiera wyłącznie dozwolone pola;
@@ -488,6 +927,7 @@ Przed zwróceniem odpowiedzi sprawdź wewnętrznie, czy:
 
 Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 {"topic":{"headline_pl":"","what_happened_one_sentence_pl":"",
+"categories":["POLITYKA"],
 "status":"ONGOING","time_scope":""},
 "update":{"is_update":false,"new_information_pl":"",
 "what_changed_pl":"","new_article_ids":[]},"summary_pl":"",
@@ -498,8 +938,6 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "potential_manipulation_signals":[{"text_pl":"","article_ids":[]}],
 "contradictions":[{"text_pl":"","article_ids":[]}],
 "background_context":[{"text_pl":"","article_ids":[],"needs_verification":true}],
-"reader_context":[{"type":"COUNTRY|REGION|PERSON|ORGANIZATION|PLACE|ABBREVIATION|TERM",
-"name":"","explanation_pl":"","article_ids":[],"needs_verification":false}],
 "unknowns":[{"text_pl":"","article_ids":[]}],
 "sources":[{"source_name":"","description_pl":"","article_ids":[]}],
 "quality":{"article_count":0,"source_count":0,
@@ -531,6 +969,42 @@ Nie pomijaj ważnych faktów tylko dlatego, że występują w wielu artykułach 
 połącz je w jeden klarowny opis, a powtórzenia wykorzystaj do oceny zgodności.
 """.strip()
 
+SUMMARY_UPDATE_REPAIR_INSTRUCTIONS = SUMMARY_INSTRUCTIONS + """
+
+TRYB NAPRAWY AKTUALIZACJI: poprzednia odpowiedź nie spełniła wymogu
+faktograficznej aktualizacji. Wygeneruj ponownie pełny JSON z tym samym
+wejściem. W `update.new_information_pl` nie opisuj artykułu, procesu
+grupowania ani tego, czy materiał pasuje do tematu. Nie używaj zdań o tym, że
+artykuł jest „nie na temat”, „nic nie wnosi”, „nie zmienia narracji” albo nie
+zawiera informacji o głównym wątku. Zamiast tego wybierz z każdego nowego
+materiału konkretne, sprawdzalne fakty: osoby, liczby, daty, wyniki, działania,
+stanowiska i skutki. Zaczynaj od faktu, np. „Dwa badania wykazały…”, a nazwę
+źródła dodaj tylko wtedy, gdy pomaga rozróżnić relacje. Nie umieszczaj
+technicznych article_id w żadnym tekście.
+""".strip()
+
+UPDATE_META_PATTERNS = (
+    re.compile(r"\bnajnowsz(?:y|a|e) artykuł\b", re.IGNORECASE),
+    re.compile(r"\bartykuł[^.]{0,80}\bdotycz(?:y|ą)\b", re.IGNORECASE),
+    re.compile(r"\bnie (?:jest|są) na temat\b", re.IGNORECASE),
+    re.compile(r"\bnie wnosi(?:ą)?\b", re.IGNORECASE),
+    re.compile(r"\bnie zmienia(?:ją)? narracji\b", re.IGNORECASE),
+    re.compile(r"\bnie zawiera(?:ją)? informacji\b", re.IGNORECASE),
+    re.compile(r"\bbłęd(?:ne|nie) (?:przypisanie|grupowanie)\b", re.IGNORECASE),
+)
+
+
+def update_text_value(summary: dict[str, Any]) -> str:
+    update = summary.get("update") if isinstance(summary.get("update"), dict) else {}
+    return normalize_generated_text(
+        update.get("new_information_pl") or update.get("what_changed_pl") or ""
+    ).strip()
+
+
+def update_needs_repair(summary: dict[str, Any]) -> bool:
+    text = update_text_value(summary)
+    return not text or any(pattern.search(text) for pattern in UPDATE_META_PATTERNS)
+
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -539,6 +1013,12 @@ def now() -> str:
 def digest(value: Any) -> str:
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def normalize_generated_text(value: Any) -> str:
+    """Keep model text as plain text, including when it emits HTML breaks."""
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return AI_BREAK_TAG_RE.sub("\n", text).strip()
 
 
 class AIResponseParseError(ValueError):
@@ -616,7 +1096,7 @@ def _first_text(item: dict[str, Any], aliases: tuple[str, ...]) -> str:
     for key in aliases:
         value = item.get(key)
         if isinstance(value, str) and value.strip():
-            return value.strip()
+            return normalize_generated_text(value)
     return ""
 
 
@@ -628,7 +1108,7 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
     article_ids = _as_article_ids(item.get("article_ids"))
 
     if field == "reader_context":
-        name = str(item.get("name") or item.get("term") or item.get("label") or "").strip()
+        name = normalize_generated_text(item.get("name") or item.get("term") or item.get("label"))
         explanation = _first_text(item, ("explanation_pl", "text_pl", "description_pl", "description", "context"))
         if not explanation:
             return None
@@ -641,7 +1121,7 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
         }
 
     if field == "sources":
-        source_name = str(item.get("source_name") or item.get("source") or "").strip()
+        source_name = normalize_generated_text(item.get("source_name") or item.get("source"))
         description = _first_text(item, ("description_pl", "text_pl", "stance_or_focus_pl", "tone_pl", "description"))
         if not source_name and not description:
             return None
@@ -670,15 +1150,28 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
 
 def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
     """Convert older/model-variant summary keys to the canonical UI schema."""
+    topic = response.get("topic") if isinstance(response.get("topic"), dict) else {}
+    topic = dict(topic)
+    for key in ("headline_pl", "what_happened_one_sentence_pl"):
+        if key in topic:
+            topic[key] = normalize_generated_text(topic[key])
+    topic["categories"] = normalize_topic_categories(
+        topic.get("categories") or topic.get("category")
+    )
+    raw_update = response.get("update") if isinstance(response.get("update"), dict) else {}
+    update = dict(raw_update)
+    for key in ("new_information_pl", "what_changed_pl"):
+        if key in update:
+            update[key] = normalize_generated_text(update[key])
     normalized: dict[str, Any] = {
-        "topic": response.get("topic") if isinstance(response.get("topic"), dict) else {},
-        "update": response.get("update") if isinstance(response.get("update"), dict) else {
+        "topic": topic,
+        "update": update or {
             "is_update": False,
             "new_information_pl": "",
             "what_changed_pl": "",
             "new_article_ids": [],
         },
-        "summary_pl": str(response.get("summary_pl") or ""),
+        "summary_pl": normalize_generated_text(response.get("summary_pl")),
     }
     for field in SUMMARY_ARRAY_FIELDS:
         raw_items = response.get(field, [])
@@ -823,7 +1316,13 @@ def wait_before_openai_retry(attempt: int, exc: Exception) -> None:
     time.sleep(delay)
 
 
-def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[str, Any]:
+def call_openai(
+    instructions: str,
+    payload: dict[str, Any],
+    model: str,
+    *,
+    max_output_tokens: int | None = None,
+) -> dict[str, Any]:
     from openai import OpenAI
 
     client = OpenAI(api_key=openai_api_key())
@@ -835,12 +1334,15 @@ def call_openai(instructions: str, payload: dict[str, Any], model: str) -> dict[
             + "\n\nReturn only valid JSON. Do not add any commentary outside the JSON object."
         )
         try:
-            response = client.responses.create(
-                model=model,
-                instructions=instructions,
-                input=input_text,
-                text={"format": {"type": "json_object"}},
-            )
+            request = {
+                "model": model,
+                "instructions": instructions,
+                "input": input_text,
+                "text": {"format": {"type": "json_object"}},
+            }
+            if max_output_tokens is not None:
+                request["max_output_tokens"] = max_output_tokens
+            response = client.responses.create(**request)
         except Exception as exc:
             if not is_retryable_openai_error(exc):
                 raise
@@ -927,6 +1429,12 @@ def active_topic_payload(
         filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
     )
     topics = [row for row in topics if str(row.get("topic_id") or "") not in excluded]
+    category_rows = client.select_all("topic_categories", columns="topic_id,category")
+    categories_by_topic: dict[str, list[str]] = {}
+    for row in category_rows:
+        category = normalize_topic_category(row.get("category"))
+        if category:
+            categories_by_topic.setdefault(str(row["topic_id"]), []).append(category)
     summaries = client.select_all("topic_summaries", columns="topic_id,summary")
     summary_by_topic = {
         str(row["topic_id"]): stored_base_summary(row.get("summary"))
@@ -965,11 +1473,13 @@ def active_topic_payload(
             "last_seen_at": row.get("last_seen_at", ""),
             "first_seen_at": row.get("first_seen_at", ""),
             "article_count": row.get("article_count", 0),
+            "categories": categories_by_topic.get(topic_id, []),
             "previous_one_sentence_pl": previous_topic.get("what_happened_one_sentence_pl", ""),
         }
         payload.append({
             "topic_id": topic_id,
             "topic_title_pl": row.get("headline_pl", ""),
+            "categories": context["categories"],
             "one_sentence_description_pl": context["previous_one_sentence_pl"],
             "article_titles": titles_by_topic.get(topic_id, []),
         })
@@ -1002,6 +1512,8 @@ def merge_active_topics(
         "merge_candidates": 0,
         "topics_merged": 0,
         "merge_failed": 0,
+        "local_candidate_groups": 0,
+        "merge_requests": 0,
     }
     if len(topics) < 2:
         return stats
@@ -1018,6 +1530,12 @@ def merge_active_topics(
         ids_by_topic: dict[str, list[str]] = {}
         for row in links:
             ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+        category_rows = client.select_all("topic_categories", columns="topic_id,category")
+        categories_by_topic: dict[str, list[str]] = {}
+        for row in category_rows:
+            category = normalize_topic_category(row.get("category"))
+            if category:
+                categories_by_topic.setdefault(str(row["topic_id"]), []).append(category)
 
         payload_topics: list[dict[str, Any]] = []
         topic_by_id = {str(row["topic_id"]): row for row in topics}
@@ -1037,6 +1555,7 @@ def merge_active_topics(
             payload_topics.append({
                 "topic_id": topic_id,
                 "headline_pl": str(topic.get("headline_pl") or ""),
+                "categories": categories_by_topic.get(topic_id, []),
                 "what_happened_one_sentence_pl": str(
                     previous_topic.get("what_happened_one_sentence_pl") or ""
                 ),
@@ -1051,45 +1570,72 @@ def merge_active_topics(
                 ],
             })
 
-        merge_input = {
-            "active_topics": payload_topics,
-            "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
-        }
-        merge_hash = digest(merge_input)
-        merge_run_id = "topicrun_" + digest({
-            "run": run_id, "stage": "TOPIC_MERGE", "input": merge_hash,
-        })[:24]
-        try:
-            result = call_openai(TOPIC_MERGE_INSTRUCTIONS, merge_input, model)
-            client.upsert("topic_runs", [{
-                "topic_run_id": merge_run_id,
-                "run_id": run_id,
-                "stage": "TOPIC_MERGE",
-                "prompt_version": PROMPT_VERSION,
-                "model": model,
-                "input_hash": merge_hash,
-                "status": "COMPLETED",
-                "raw_output": response_for_storage(result),
-                "error": None,
-            }], on_conflict="topic_run_id")
-        except Exception as exc:
-            log_parse_failure("TOPIC_MERGE", exc)
-            client.upsert("topic_runs", [{
-                "topic_run_id": merge_run_id,
-                "run_id": run_id,
-                "stage": "TOPIC_MERGE",
-                "prompt_version": PROMPT_VERSION,
-                "model": model,
-                "input_hash": merge_hash,
-                "status": "FAILED",
-                "raw_output": parse_failure_for_storage(exc),
-                "error": str(exc)[:2000],
-            }], on_conflict="topic_run_id")
-            stats["merge_failed"] = 1
+        merge_requests = build_topic_merge_requests(payload_topics)
+        stats["local_candidate_groups"] = len(
+            build_topic_merge_candidate_groups(payload_topics)
+        )
+        stats["merge_requests"] = len(merge_requests)
+        print(
+            f"[AI] Lokalna selekcja scalania: {len(payload_topics)} tematów -> "
+            f"{stats['local_candidate_groups']} grup kandydackich -> "
+            f"{len(merge_requests)} małych żądań do AI.",
+            flush=True,
+        )
+        if not merge_requests:
             return stats
 
-        raw_groups = result.get("merge_groups")
-        if not isinstance(raw_groups, list):
+        raw_groups: list[dict[str, Any]] = []
+        for request_index, request_topics in enumerate(merge_requests, start=1):
+            merge_input = {
+                "active_topics": request_topics,
+                "topic_memory_window_hours": TOPIC_LOOKBACK_HOURS,
+            }
+            merge_hash = digest(merge_input)
+            merge_run_id = "topicrun_" + digest({
+                "run": run_id,
+                "stage": "TOPIC_MERGE",
+                "batch": request_index,
+                "input": merge_hash,
+            })[:24]
+            try:
+                result = call_openai(
+                    TOPIC_MERGE_INSTRUCTIONS,
+                    merge_input,
+                    model,
+                    max_output_tokens=TOPIC_MERGE_MAX_OUTPUT_TOKENS,
+                )
+                client.upsert("topic_runs", [{
+                    "topic_run_id": merge_run_id,
+                    "run_id": run_id,
+                    "stage": "TOPIC_MERGE",
+                    "prompt_version": PROMPT_VERSION,
+                    "model": model,
+                    "input_hash": merge_hash,
+                    "status": "COMPLETED",
+                    "raw_output": response_for_storage(result),
+                    "error": None,
+                }], on_conflict="topic_run_id")
+                batch_groups = result.get("merge_groups")
+                if isinstance(batch_groups, list):
+                    raw_groups.extend(
+                        group for group in batch_groups if isinstance(group, dict)
+                    )
+            except Exception as exc:
+                log_parse_failure("TOPIC_MERGE", exc)
+                client.upsert("topic_runs", [{
+                    "topic_run_id": merge_run_id,
+                    "run_id": run_id,
+                    "stage": "TOPIC_MERGE",
+                    "prompt_version": PROMPT_VERSION,
+                    "model": model,
+                    "input_hash": merge_hash,
+                    "status": "FAILED",
+                    "raw_output": parse_failure_for_storage(exc),
+                    "error": str(exc)[:2000],
+                }], on_conflict="topic_run_id")
+                stats["merge_failed"] += 1
+
+        if not raw_groups:
             return stats
 
         used_topic_ids: set[str] = set()
@@ -1162,6 +1708,15 @@ def merge_active_topics(
                 "needs_review": any(bool(topic_by_id[topic_id].get("needs_review")) for topic_id in group_ids),
                 "updated_at": now(),
             }], on_conflict="topic_id")
+            merged_categories = normalize_topic_categories(raw_group.get("categories"))
+            if not merged_categories:
+                merged_categories = list(dict.fromkeys(
+                    category
+                    for topic_id in group_ids
+                    for category in categories_by_topic.get(topic_id, [])
+                ))[:3]
+            if merged_categories:
+                persist_topic_categories(client, canonical_id, merged_categories)
             client.upsert("topic_articles", [
                 {"topic_id": canonical_id, "article_id": article_id, "confidence": confidence}
                 for article_id in article_ids
@@ -1301,6 +1856,90 @@ def normalize_topic_titles(
     return changed
 
 
+def classify_topic_categories(
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+    batch_size: int = 80,
+) -> int:
+    """Fill missing topic categories without overwriting reviewed categories."""
+    topics = client.select_all(
+        "topics",
+        columns="topic_id,headline_pl,status",
+        filters=[("status", "neq.MERGED")],
+    )
+    existing_rows = client.select_all("topic_categories", columns="topic_id,category")
+    existing_categories: dict[str, list[str]] = {}
+    for row in existing_rows:
+        category = normalize_topic_category(row.get("category"))
+        if category:
+            existing_categories.setdefault(str(row["topic_id"]), []).append(category)
+    missing = [
+        row for row in topics
+        if not existing_categories.get(str(row["topic_id"]))
+    ]
+    if not missing:
+        return 0
+
+    summaries = {
+        str(row["topic_id"]): stored_base_summary(row.get("summary"))
+        for row in client.select_all("topic_summaries", columns="topic_id,summary")
+    }
+    links = client.select_all("topic_articles", columns="topic_id,article_id")
+    article_ids_by_topic: dict[str, list[str]] = {}
+    for row in links:
+        article_ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+    article_titles = {
+        str(row["article_id"]): str(row.get("title") or "")
+        for row in client.select_all("articles", columns="article_id,title")
+    }
+
+    classified = 0
+    for offset in range(0, len(missing), max(1, batch_size)):
+        batch = missing[offset:offset + max(1, batch_size)]
+        payload_topics = []
+        for row in batch:
+            topic_id = str(row["topic_id"])
+            summary = summaries.get(topic_id) or {}
+            summary_topic = summary.get("topic") if isinstance(summary.get("topic"), dict) else {}
+            titles = [
+                article_titles[article_id][:220]
+                for article_id in article_ids_by_topic.get(topic_id, [])
+                if article_titles.get(article_id)
+            ]
+            payload_topics.append({
+                "topic_id": topic_id,
+                "headline_pl": str(row.get("headline_pl") or ""),
+                "what_happened_one_sentence_pl": str(
+                    summary_topic.get("what_happened_one_sentence_pl") or ""
+                ),
+                "recent_article_titles": titles[:5],
+            })
+
+        result = call_openai(CATEGORY_INSTRUCTIONS, {"topics": payload_topics}, model)
+        allowed = {str(row["topic_id"]) for row in batch}
+        for item in result.get("categories") or []:
+            if not isinstance(item, dict):
+                continue
+            topic_id = str(item.get("topic_id") or "")
+            categories = normalize_topic_categories(item.get("categories") or item.get("category"))
+            if topic_id not in allowed or not categories:
+                continue
+            client.delete("topic_categories", filters=[("topic_id", f"eq.{topic_id}")])
+            client.upsert(
+                "topic_categories",
+                [{"topic_id": topic_id, "category": category} for category in categories],
+                on_conflict="topic_id,category",
+            )
+            client.update(
+                "topics",
+                {"updated_at": now()},
+                filters=[("topic_id", f"eq.{topic_id}")],
+            )
+            classified += 1
+    return classified
+
+
 def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit: int) -> list[dict[str, Any]]:
     assigned_rows = client.select_all("article_topic_assignments", columns="article_id")
     assigned = {str(row["article_id"]) for row in assigned_rows}
@@ -1362,6 +2001,35 @@ def mark_excluded_articles(
     return excluded_ids
 
 
+def persist_topic_categories(
+    client: SupabaseRestClient,
+    topic_id: str,
+    categories: Any,
+) -> list[str]:
+    """Persist initial categories without overwriting an existing assignment.
+
+    Existing rows may be the result of a manual review, so a later summary
+    refresh must not silently replace them with the model's new suggestion.
+    """
+    normalized = normalize_topic_categories(categories)
+    if not normalized:
+        return []
+    existing_rows = client.select_all(
+        "topic_categories",
+        columns="category",
+        filters=[("topic_id", f"eq.{topic_id}")],
+    )
+    existing = normalize_topic_categories([row.get("category") for row in existing_rows])
+    if existing:
+        return existing
+    client.upsert(
+        "topic_categories",
+        [{"topic_id": topic_id, "category": category} for category in normalized],
+        on_conflict="topic_id,category",
+    )
+    return normalized
+
+
 def persist_summary(
     client: SupabaseRestClient,
     *,
@@ -1374,6 +2042,13 @@ def persist_summary(
     new_article_ids: list[str],
 ) -> int:
     """Save an immutable base and append one cumulative update per full run."""
+    persist_topic_categories(
+        client,
+        topic_id,
+        (summary.get("topic") or {}).get("categories")
+        if isinstance(summary.get("topic"), dict)
+        else [],
+    )
     version = int((previous_row or {}).get("version", 0)) + 1
     timestamp = now()
     previous_stored = previous_row.get("summary") if previous_row else None
@@ -1395,14 +2070,10 @@ def persist_summary(
         or ""
     ).strip()
     if previous_stored and not update_text:
-        count = len(latest_update["new_article_ids"])
-        latest_update["new_information_pl"] = (
-            f"Dodano {count} nowy materiał do tego wątku, ale nie wnosi on nowych, "
-            "niezależnie potwierdzonych informacji względem wcześniejszej syntezy."
-            if count == 1 else
-            f"Dodano {count} nowe materiały do tego wątku, ale nie wnoszą one nowych, "
-            "niezależnie potwierdzonych informacji względem wcześniejszej syntezy."
-        )
+        # A blank AI update is safer than a reader-facing verdict about the
+        # material or the grouping. Normal generation retries before reaching
+        # this branch; this is only a defensive fallback for legacy callers.
+        latest_update["new_information_pl"] = ""
     if previous_stored:
         latest_update["run_id"] = run_id
         latest_update["generated_at"] = timestamp
@@ -1455,6 +2126,13 @@ def persist_rebuilt_summary(
     previous_row: dict[str, Any] | None,
 ) -> int:
     """Replace the current base summary while retaining the previous version."""
+    persist_topic_categories(
+        client,
+        topic_id,
+        (summary.get("topic") or {}).get("categories")
+        if isinstance(summary.get("topic"), dict)
+        else [],
+    )
     version = int((previous_row or {}).get("version", 0)) + 1
     timestamp = now()
     base_summary = dict(summary)
@@ -1584,6 +2262,20 @@ def retry_incomplete_summaries(
             })[:24]
             try:
                 summary = normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, summary_input, model))
+                if previous_aggregation and update_needs_repair(summary):
+                    print(
+                        f"[AI] Ponawiam aktualizację tematu {topic_id}: "
+                        "odpowiedź zawierała metakomentarz zamiast faktów.",
+                        flush=True,
+                    )
+                    summary = normalize_summary_response(
+                        call_openai(SUMMARY_UPDATE_REPAIR_INSTRUCTIONS, summary_input, model)
+                    )
+                    if update_needs_repair(summary):
+                        raise ValueError(
+                            "AI nie wygenerowało faktograficznej aktualizacji "
+                            "bez metakomentarza o grupowaniu materiałów."
+                        )
                 persist_summary(
                     client,
                     topic_id=topic_id,
@@ -1877,11 +2569,20 @@ def _analyze_pending_batch(
 
             assigned_ids.update(ids)
             title = str(group.get("working_title_pl") or "").strip()[:300]
-            if not is_usable_topic_title(title):
-                title = fallback_topic_title(
+            article_titles = [
+                str(input_by_id[article_id].get("title") or "")
+                for article_id in ids
+            ]
+            title_is_article_copy = is_article_title_copy(title, article_titles)
+            if not is_usable_topic_title(title) or title_is_article_copy:
+                anchor_title = format_topic_title_candidate(
+                    str(group.get("topic_anchor_pl") or ""),
                     title,
+                )
+                title = fallback_topic_title(
                     "",
-                    [str(input_by_id[article_id].get("title") or "") for article_id in ids],
+                    anchor_title,
+                    article_titles,
                 )
             topic_id = existing_topic_id or stable_topic_id(ids, title)
             topic_action = str(group.get("topic_action") or ("DEVELOPMENT" if group.get("existing_topic_id") else "NEW_TOPIC")).strip()
@@ -1902,6 +2603,9 @@ def _analyze_pending_batch(
                 group_data_by_topic[topic_id] = {
                     "topic_id": topic_id,
                     "title": title,
+                    "categories": normalize_topic_categories(
+                        group.get("categories") or group.get("category")
+                    ),
                     "all_ids": all_ids,
                     "new_ids": ids,
                     "needs_review": needs_review,
@@ -1914,6 +2618,11 @@ def _analyze_pending_batch(
                 duplicate_topic_ids.add(topic_id)
                 existing_group["all_ids"] = list(dict.fromkeys(existing_group["all_ids"] + ids))
                 existing_group["new_ids"] = list(dict.fromkeys(existing_group["new_ids"] + ids))
+                incoming_categories = normalize_topic_categories(
+                    group.get("categories") or group.get("category")
+                )
+                if incoming_categories:
+                    existing_group["categories"] = incoming_categories
                 existing_group["needs_review"] = existing_group["needs_review"] or needs_review
                 if topic_action == "DEVELOPMENT" or existing_group["topic_action"] == "DEVELOPMENT":
                     existing_group["topic_action"] = "DEVELOPMENT"
@@ -1949,6 +2658,7 @@ def _analyze_pending_batch(
             group_data_by_topic[topic_id] = {
                 "topic_id": topic_id,
                 "title": title,
+                "categories": [],
                 "all_ids": [article_id],
                 "new_ids": [article_id],
                 "needs_review": True,
@@ -1985,6 +2695,10 @@ def _analyze_pending_batch(
             })
 
         client.upsert("topics", topic_rows, on_conflict="topic_id")
+        for group in group_data:
+            categories = normalize_topic_categories(group.get("categories"))
+            if categories:
+                persist_topic_categories(client, group["topic_id"], categories)
         unique_link_rows = list({
             (row["topic_id"], row["article_id"]): row for row in link_rows
         }.values())
@@ -2024,6 +2738,7 @@ def _analyze_pending_batch(
                     "topic_id": topic_id,
                     "working_title_pl": title,
                     "topic_action": group["topic_action"],
+                    "categories": group.get("categories", []),
                 },
                 "previous_aggregation": previous_aggregation,
                 "new_articles": [article_for_ai(row) for row in new_rows],
@@ -2300,15 +3015,17 @@ def analyze_run(
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
     if rebuild_summaries_mode:
-        return rebuild_summaries(
+        stats = rebuild_summaries(
             db_path,
             run_id,
             client,
             model=model,
             max_topics=rebuild_max_topics,
         )
+        stats["categories_classified"] = classify_topic_categories(client, model=model)
+        return stats
     if regroup_singletons_mode:
-        return regroup_singletons(
+        stats = regroup_singletons(
             db_path,
             run_id,
             client,
@@ -2316,6 +3033,8 @@ def analyze_run(
             max_articles=max_articles,
             batch_size=batch_size,
         )
+        stats["categories_classified"] = classify_topic_categories(client, model=model)
+        return stats
     requested_batch_size = max(1, batch_size)
     batch_size = min(requested_batch_size, MAX_GROUPING_BATCH_SIZE)
     conn = sqlite3.connect(db_path)
@@ -2330,7 +3049,7 @@ def analyze_run(
         "summaries": 0, "skipped_summaries": 0,
         "skipped_single_source": 0, "failed_summaries": 0, "excluded": 0,
         "merge_candidates": 0, "topics_merged": 0, "merge_failed": 0,
-        "titles_normalized": 0,
+        "titles_normalized": 0, "categories_classified": 0,
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
@@ -2398,6 +3117,8 @@ def analyze_run(
     stats["merge_failed"] = merge_stats["merge_failed"]
     print("[AI] Ujednolicam prefiksy geograficzne tytułów...", flush=True)
     stats["titles_normalized"] = normalize_topic_titles(client, model=model)
+    print("[AI] Uzupełniam kategorie tematów...", flush=True)
+    stats["categories_classified"] = classify_topic_categories(client, model=model)
     print(
         "[AI] Etap 3/3: jedna końcowa synteza lub aktualizacja na temat za cały przebieg...",
         flush=True,

@@ -208,6 +208,18 @@ create index if not exists topics_last_seen_idx on public.topics(status, last_se
 create index if not exists topic_articles_article_idx on public.topic_articles(article_id);
 create index if not exists topic_summary_versions_topic_idx on public.topic_summary_versions(topic_id, version desc);
 
+create table if not exists public.topic_categories (
+    topic_id text not null references public.topics(topic_id) on delete cascade,
+    category text not null check (category in (
+        'POLITYKA', 'SWIAT', 'GOSPODARKA', 'SPOLECZENSTWO',
+        'TECHNOLOGIA', 'ZDROWIE', 'KULTURA_SPORT'
+    )),
+    primary key (topic_id, category)
+);
+
+create index if not exists topic_categories_category_idx
+    on public.topic_categories(category, topic_id);
+
 -- Recalculate coverage for topics created before coverage_status was added.
 with coverage as (
     select
@@ -256,6 +268,7 @@ alter table public.sources enable row level security;
 alter table public.articles enable row level security;
 alter table public.topics enable row level security;
 alter table public.topic_articles enable row level security;
+alter table public.topic_categories enable row level security;
 alter table public.topic_summaries enable row level security;
 
 drop policy if exists "authenticated users can read sources" on public.sources;
@@ -269,6 +282,9 @@ create policy "authenticated users can read topics" on public.topics
     for select to authenticated using (true);
 drop policy if exists "authenticated users can read topic articles" on public.topic_articles;
 create policy "authenticated users can read topic articles" on public.topic_articles
+    for select to authenticated using (true);
+drop policy if exists "authenticated users can read topic categories" on public.topic_categories;
+create policy "authenticated users can read topic categories" on public.topic_categories
     for select to authenticated using (true);
 drop policy if exists "authenticated users can read summaries" on public.topic_summaries;
 create policy "authenticated users can read summaries" on public.topic_summaries

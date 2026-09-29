@@ -99,7 +99,7 @@ Jeden rekord na każde grupowanie:
 - status;
 - surowy wynik AI 1.
 
-Do AI 1 przekazujemy tytuł i pełną treść każdego nowego artykułu, ponieważ sam nagłówek bywa zbyt ogólny. Wynik AI 1 zawiera jednoznaczną nazwę grupy oraz listę artykułów z ich identyfikatorami i tytułami.
+Do AI 1 przekazujemy tytuł i pełną treść każdego nowego artykułu, ponieważ sam nagłówek bywa zbyt ogólny. Wynik AI 1 zawiera jednoznaczną, redakcyjną nazwę wątku — szerszą niż pojedynczy nagłówek i pozbawioną clickbaitu — oraz listę artykułów z ich identyfikatorami i tytułami. Ta zasada obowiązuje także dla tematów jednoartykułowych.
 
 ### topics
 
@@ -138,6 +138,12 @@ AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 - poprzedni skrót agregacji każdego z tych tematów.
 
 Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do istniejącego tematu, zamiast tworzyć drugi prawie identyczny temat.
+
+Po zakończeniu grupowania AI 1 lokalny filtr wyszukuje kandydackie grupy tematów
+na podstawie charakterystycznych słów, aktorów i obiektów. Dopiero te małe grupy
+są wysyłane do AI do potwierdzenia scalania. Tematy bez lokalnego podobieństwa
+nie trafiają do tego wywołania, a dane każdego kandydata są skrócone do nazwy,
+jednozdaniowego opisu i kilku najnowszych nagłówków.
 
 Temat nie powinien być rozumiany jako „wszystko o tej samej osobie”. Grupa oznacza to samo konkretne wydarzenie, decyzję, wypowiedź albo rozwój tej samej sprawy. Osobny materiał o tej samej osobie, ale o innym wydarzeniu, pozostaje osobnym tematem.
 
