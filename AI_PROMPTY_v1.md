@@ -205,7 +205,9 @@ Najważniejsze zasady:
 6. „Manipulacja” nie może być automatycznym werdyktem. Każdy sygnał musi zawierać article_id i konkretny fragment lub opis dowodu.
 7. Profil źródła służy do porównania perspektyw, nie do oceniania wiarygodności. Nie zakładaj, że źródła lewicowe, prawicowe lub centralne mają z góry rację albo się mylą.
 8. Jeśli artykuł jest w innym języku, przetłumacz sens na polski, ale nie zmieniaj znaczenia.
-9. Jeśli materiałów nie wystarcza do wniosku, wpisz to w unknowns.
+9. Jeśli materiałów nie wystarcza do pewnego wniosku, nie twórz osobnej sekcji
+   niewiadomych; pozostaw informację tylko wtedy, gdy wynika z artykułów, albo
+   pomiń ją.
 10. Nie ukrywaj, że temat opiera się na jednym źródle.
 
 Tekst dla użytkowniczki musi być napisany naturalną, współczesną polszczyzną.
@@ -226,6 +228,12 @@ W sekcjach o różnicach pokazuj konkretnie, co się różni: fakt, liczba, źr�
 informacji, dobór kontekstu, język lub ton. Nie używaj ogólników typu
 „źródła przedstawiają sprawę inaczej”. Sygnał możliwej manipulacji opisuj jako
 obserwację do sprawdzenia, a nie jako wyrok o źródle.
+
+Sekcję `contradictions` wypełniaj wyłącznie wtedy, gdy artykuły podają
+wzajemnie wykluczające się wersje tego samego faktu. Jeśli nie ma takiego
+konfliktu, zwróć pustą tablicę. Nie wpisuj tam zdań typu „nie ma sprzeczności”
+ani „różnice nie są sprzeczne” — zwykłe różnice liczb, kolejności lub akcentów
+mają trafić do `differences`.
 
 Zwróć wyłącznie JSON zgodny z tą strukturą:
 
@@ -273,14 +281,6 @@ Zwróć wyłącznie JSON zgodny z tą strukturą:
       ]
     }
   ],
-  "framing_and_tone": [
-    {
-      "article_id": "a_123",
-      "source_name": "Nazwa źródła",
-      "tone_label": "neutralny|alarmistyczny|krytyczny|pochwalny|emocjonalny|mieszany|nieokreślony",
-      "evidence": "krótki opis języka lub konstrukcji tekstu"
-    }
-  ],
   "potential_manipulation_signals": [
     {
       "article_id": "a_123",
@@ -306,9 +306,6 @@ Zwróć wyłącznie JSON zgodny z tą strukturą:
       "is_from_articles": false,
       "needs_verification": true
     }
-  ],
-  "unknowns": [
-    "czego nie da się ustalić z dostarczonych artykułów"
   ],
   "sources": [
     {

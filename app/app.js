@@ -622,8 +622,24 @@ function listValue(value) {
   }).join('');
 }
 
+function isNonContradictionItem(item) {
+  const text = typeof item === 'string'
+    ? item
+    : item && (
+      item.text_pl || item.text || item.contradiction_pl || item.contradiction
+      || item.reason || item.difference_pl || item.difference || ''
+    );
+  const normalized = String(text || '').toLocaleLowerCase('pl-PL').replace(/\s+/g, ' ');
+  if (!/(sprzecz|kontradyk|wyklucz)/.test(normalized)) return false;
+  return /(?:brak|żadne|nie ma|nie występuj|nie wyłaniaj|nie wynikaj)/.test(normalized)
+    || /(?:różnic|rozbieżn).{0,100}(?:nie oznacz|nie są|nie stanow).{0,60}(?:sprzecz|kontradyk)/.test(normalized);
+}
+
 function dialogHtml(model) {
   const summary = model.summary || {};
+  const contradictions = Array.isArray(summary.contradictions)
+    ? summary.contradictions.filter((item) => !isNonContradictionItem(item))
+    : [];
   const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '', subtitle = '') => Array.isArray(items) && items.length ? `<section class="dialog-section insight-section ${className}"><div class="insight-heading"><div><h3>${title}</h3>${subtitle ? `<p class="insight-subtitle">${subtitle}</p>` : ''}</div><span class="insight-count">${items.length}</span></div><ul class="insight-list">${listValue(items)}</ul></section>` : '';
@@ -648,10 +664,9 @@ function dialogHtml(model) {
     ${section('Ustalenia z pojedynczych źródeł', summary.facts, 'insight-facts', 'Informacje obecne tylko w wybranych materiałach.')}
     ${section('Wspólne ustalenia', summary.agreement, 'insight-agreement', 'Punkty, co do których materiały są zgodne.')}
     ${section('Różne dane lub akcenty', summary.differences, 'insight-differences', 'Rozbieżności, które nie muszą oznaczać sprzeczności.')}
-    ${section('Sprzeczne relacje', summary.contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}
-    ${section('Jak różni się przekaz', summary.framing_and_tone, 'insight-framing', 'Konkretne różnice w doborze faktów, języku i akcentach.')}
+    ${section('Sprzeczne relacje', contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}
     ${section('Co warto zweryfikować', summary.potential_manipulation_signals, 'insight-verification', 'Obserwowalne sygnały wymagające dodatkowego sprawdzenia — nie werdykt o źródle.')}
-    ${section('Kontekst i niewiadome', summary.background_context, 'insight-context')}
+    ${section('Kontekst', summary.background_context, 'insight-context')}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
     ${xMaterials ? `<section class="dialog-section"><h3>Powiązane wypowiedzi na X</h3><div class="evidence-list">${xMaterials}</div></section>` : ''}
   </div>`;

@@ -26,7 +26,7 @@ import unicodedata
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v28-polska-category"
+PROMPT_VERSION = "ai-prompts-v30-context-only"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -864,8 +864,8 @@ quality.limitations_pl zamiast tworzyć sztuczne połączenie faktów.
 
 Nie powtarzaj tej samej informacji w kilku zdaniach ani w kilku sekcjach.
 summary_pl ma być pełnym głównym opisem wydarzenia, natomiast facts, agreement,
-differences, framing_and_tone, potential_manipulation_signals,
-background_context i unknowns mogą zawierać wyłącznie informacje dodatkowe,
+differences, potential_manipulation_signals i background_context mogą
+zawierać wyłącznie informacje dodatkowe,
 które nie zostały już jasno przedstawione w summary_pl. Nie przepisuj do
 agreement oczywistych faktów z syntezy i nie twórz sekcji tylko po to, żeby ją
 wypełnić. Każda sekcja może pozostać pusta.
@@ -875,11 +875,6 @@ przedstawiają temat”. W każdym wpisie nazwij wymiar różnicy, na przykład
 liczbę, kolejność wydarzeń, zakres skutków, przypisywaną odpowiedzialność albo
 ocenę znaczenia. Jeśli różnica nie ma znaczenia dla zrozumienia sprawy, pomiń
 ją.
-
-framing_and_tone ma pokazywać konkretny wybór redakcyjny: inny dobór faktów,
-akcent, określenie wartościujące, sposób opisania aktora albo różnicę między
-nagłówkiem a treścią. Nie opisuj tonu słowami „neutralny”, „emocjonalny” lub
-„stronniczy” bez wskazania, co dokładnie w tekście na to wskazuje.
 
 potential_manipulation_signals może zawierać tylko obserwowalny sygnał, który
 czytelnik może sam sprawdzić. Zamiast oceny „artykuł manipuluje” napisz np.
@@ -912,8 +907,8 @@ differences przy odpowiednim fakcie. W przeciwnym razie pomiń ją.
 Jeżeli previous_aggregation nie jest null, zawiera `base_summary` oraz
 `prior_updates`. Potraktuj oba elementy jako opublikowaną wcześniej, NIEZMIENNĄ
 historię. Nie przepisuj jej, nie skracaj i nie aktualizuj
-summary_pl, facts, agreement, differences, framing_and_tone,
-potential_manipulation_signals ani background_context — program
+summary_pl, facts, agreement, differences, potential_manipulation_signals ani
+background_context — program
 zachowa te pola z poprzedniej wersji. W takim przypadku wygeneruj wyłącznie
 delta-update w polu update, opisujący bieżące new_articles.
 
@@ -977,8 +972,8 @@ czytelnika. Jeśli trzeba rozróżnić materiały, użyj `source_name` z wejści
 np. „PAP podaje…”, ale zaraz potem przedstaw konkretne fakty, a nie opis
 samego artykułu.
 
-Każdy element tablic facts, agreement, differences, framing_and_tone,
-potential_manipulation_signals, contradictions i unknowns powinien zawierać
+Każdy element tablic facts, agreement, differences, potential_manipulation_signals
+i contradictions powinien zawierać
 jedno główne, możliwie atomowe twierdzenie. Jeżeli zdanie zawiera kilka
 niezależnych faktów, podziel je na kilka elementów.
 
@@ -999,12 +994,13 @@ szczegółowości.
 
 contradictions oznacza wyłącznie twierdzenia wzajemnie wykluczające się,
 dotyczące tego samego faktu. Nie rozstrzygaj sprzeczności i nie przenoś do
-contradictions zwykłych różnic akcentów.
+contradictions zwykłych różnic akcentów. Jeśli nie ma rzeczywistego konfliktu,
+zostaw contradictions jako pustą tablicę. Nigdy nie wpisuj tam zdania typu
+„nie ma sprzeczności”, „brak sprzecznych twierdzeń” ani wyjaśnienia, że różnice
+nie są sprzecznością — takie rozbieżności należą do differences.
 
-framing_and_tone opisuje sposób przedstawienia tematu, a nie prawdziwość
-artykułu. Każdy wpis powinien wskazywać konkretny element tekstu, na przykład
-język wartościujący, selekcję faktów, mocniejszy nagłówek albo odmienny
-akcent.
+Nie generuj pola `framing_and_tone` ani osobnej analizy tonu lub sposobu
+przedstawienia materiałów.
 
 potential_manipulation_signals nie jest oceną, że artykuł manipuluje.
 Wpisz wyłącznie obserwowalny sygnał oraz krótko wyjaśnij, dlaczego wymaga
@@ -1060,11 +1056,9 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "facts":[{"text_pl":"","article_ids":[]}],
 "agreement":[{"text_pl":"","article_ids":[]}],
 "differences":[{"text_pl":"","article_ids":[]}],
-"framing_and_tone":[{"text_pl":"","article_ids":[]}],
 "potential_manipulation_signals":[{"text_pl":"","article_ids":[]}],
 "contradictions":[{"text_pl":"","article_ids":[]}],
 "background_context":[{"text_pl":"","article_ids":[],"needs_verification":true}],
-"unknowns":[{"text_pl":"","article_ids":[]}],
 "sources":[{"source_name":"","description_pl":"","article_ids":[]}],
 "quality":{"article_count":0,"source_count":0,
 "has_multiple_perspectives":false,"overall_confidence":"MEDIUM",
@@ -1224,7 +1218,6 @@ SUMMARY_RESPONSE_SCHEMA = _json_schema_object({
     "facts": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
     "agreement": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
     "differences": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
-    "framing_and_tone": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
     "potential_manipulation_signals": {
         "type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA,
     },
@@ -1232,7 +1225,6 @@ SUMMARY_RESPONSE_SCHEMA = _json_schema_object({
     "background_context": {
         "type": "array", "items": _SUMMARY_BACKGROUND_ITEM_SCHEMA,
     },
-    "unknowns": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
     "sources": {"type": "array", "items": _SUMMARY_SOURCE_ITEM_SCHEMA},
     "quality": _json_schema_object({
         "article_count": {"type": "integer"},
@@ -1323,12 +1315,10 @@ SUMMARY_ARRAY_FIELDS = (
     "facts",
     "agreement",
     "differences",
-    "framing_and_tone",
     "potential_manipulation_signals",
     "contradictions",
     "background_context",
     "reader_context",
-    "unknowns",
     "sources",
 )
 
@@ -1336,11 +1326,9 @@ SUMMARY_TEXT_ALIASES = {
     "facts": ("text_pl", "fact_pl", "fact", "claim", "description_pl", "description"),
     "agreement": ("text_pl", "agreement_pl", "agreement", "point_pl", "point", "claim"),
     "differences": ("text_pl", "differences_pl", "difference_pl", "difference", "point_pl", "point"),
-    "framing_and_tone": ("text_pl", "framing_pl", "frame", "tone_pl", "tone", "description_pl", "description"),
     "potential_manipulation_signals": ("text_pl", "signal_pl", "signal", "reason", "description_pl", "description"),
     "contradictions": ("text_pl", "contradiction_pl", "contradiction", "difference_pl", "difference", "reason"),
     "background_context": ("text_pl", "context_pl", "context", "reason", "description_pl", "description", "notes_pl", "notes"),
-    "unknowns": ("text_pl", "unknown_pl", "unknown", "reason", "description_pl", "description", "notes_pl", "notes"),
 }
 
 
@@ -1358,6 +1346,24 @@ def _first_text(item: dict[str, Any], aliases: tuple[str, ...]) -> str:
         if isinstance(value, str) and value.strip():
             return normalize_generated_text(value)
     return ""
+
+
+NON_CONTRADICTION_RE = re.compile(
+    r"(?:\b(?:brak|żadne?|nie\s+ma|nie\s+występuj\w*|nie\s+wyłaniaj\w*|"
+    r"nie\s+wynikaj\w*)\b.{0,120}\b(?:sprzecz|kontradyk|wyklucz)"
+    r"|\b(?:sprzecz|kontradyk|wyklucz)\w*.{0,120}\b(?:brak|nie\s+ma|"
+    r"nie\s+występuj\w*|nie\s+wyłaniaj\w*|nie\s+wynikaj\w*)"
+    r"|\b(?:różnic|rozbieżn)\w*.{0,100}\b(?:nie\s+oznacz|nie\s+są|"
+    r"nie\s+stanow)\w*.{0,60}\b(?:sprzecz|kontradyk)"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_non_contradiction_statement(value: Any) -> bool:
+    """Identify redundant text saying that the sources are not contradictory."""
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    return bool(text and NON_CONTRADICTION_RE.search(text))
 
 
 def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
@@ -1397,9 +1403,6 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
         explanation = _first_text(item, ("explanation_pl",))
         if name and explanation:
             text = f"{name} — {explanation}"
-    notes = _first_text(item, ("notes_pl", "notes"))
-    if field == "framing_and_tone" and text and notes and notes != text:
-        text = f"{text} {notes}"
     if not text:
         return None
     normalized = {"text_pl": text, "article_ids": article_ids}
@@ -1441,6 +1444,10 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
             item for raw_item in raw_items
             if (item := _normalize_summary_item(field, raw_item)) is not None
         ]
+    normalized["contradictions"] = [
+        item for item in normalized["contradictions"]
+        if not is_non_contradiction_statement(item.get("text_pl"))
+    ]
     quality = response.get("quality")
     normalized["quality"] = quality if isinstance(quality, dict) else {
         "article_count": 0,

@@ -27,6 +27,12 @@ Uruchom również jednorazowo `supabase_migration_historical_topics.sql`.
 Udostępnia on aplikacji tematy starsze niż 30 godzin, aby mogły pojawić się
 w zakładce „Historyczne”. Tematy `MERGED` nadal pozostają ukryte.
 
+Po wdrożeniu rozdzielenia widoczności od dopasowywania uruchom także
+`supabase_migration_topic_current_window.sql`. Aplikacja pokazuje temat jako
+aktualny przez 30 godzin bez aktualizacji, ale backend może nadal dopasować do
+niego nowe artykuły przez 55 godzin. Po takim dopasowaniu temat wraca do
+zakładki „Aktualne”.
+
 ## Sekrety repozytorium
 
 W GitHubie wejdź w `Settings -> Secrets and variables -> Actions` i upewnij się,
