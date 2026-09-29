@@ -676,12 +676,23 @@ function dialogHtml(model) {
     const when = update.generated_at ? ` · ${formatDate(update.generated_at)}` : '';
     return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>`;
   }).join('');
+  const summaryPanel = summary.summary_pl
+    ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>`
+    : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
+  const factsPanel = Array.isArray(summary.facts) && summary.facts.length
+    ? section('Fakty', summary.facts, 'insight-facts', 'Szczegółowe ustalenia z przypisaniem do źródeł.')
+    : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
   return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
     ${updatesHtml}
-    ${summary.summary_pl ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>` : ''}
+    <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
+      <button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>
+      <button class="dialog-tab" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="false" aria-controls="dialog-panel-facts">Fakty</button>
+    </div>
+    <div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>
+    <div class="dialog-tab-panel" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" hidden>${factsPanel}</div>
     ${section('Wspólne ustalenia', summary.agreement, 'insight-agreement', 'Punkty, co do których materiały są zgodne.')}
     ${section('Różne dane lub akcenty', summary.differences, 'insight-differences', 'Rozbieżności, które nie muszą oznaczać sprzeczności.')}
     ${section('Sprzeczne relacje', contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}
@@ -774,6 +785,23 @@ async function init() {
 }
 
 document.addEventListener('click', (event) => {
+  const dialogTab = event.target.closest('[data-dialog-tab]');
+  if (dialogTab) {
+    event.preventDefault();
+    const dialogRoot = dialogTab.closest('.story-dialog');
+    const selectedTab = dialogTab.dataset.dialogTab;
+    dialogRoot?.querySelectorAll('[data-dialog-tab]').forEach((tab) => {
+      const isSelected = tab === dialogTab;
+      tab.classList.toggle('is-active', isSelected);
+      tab.setAttribute('aria-selected', String(isSelected));
+    });
+    dialogRoot?.querySelectorAll('[data-dialog-panel]').forEach((panel) => {
+      const isSelected = panel.dataset.dialogPanel === selectedTab;
+      panel.classList.toggle('is-active', isSelected);
+      panel.hidden = !isSelected;
+    });
+    return;
+  }
   const bookmarkButton = event.target.closest('[data-bookmark-topic-id]');
   if (bookmarkButton) {
     event.preventDefault();
