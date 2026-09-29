@@ -415,6 +415,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description:
         lead_node = soup.select_one("article.ods-article-lead .ods-a-lead-text")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description:
+        lead_node = soup.select_one(".article_lead .article_p, .article_lead [data-section='detail-body']")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -445,6 +448,14 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         )
         if krytyka_author is not None:
             author = clean_text(krytyka_author.get_text(" ", strip=True)) or author
+    if source_id == "business_insider_pl":
+        bi_author = soup.select_one(".article-author_container--top .article-author_text")
+        if bi_author is not None:
+            author = re.sub(
+                r"^opracowanie\s*:\s*", "",
+                clean_text(bi_author.get_text(" ", strip=True)),
+                flags=re.I,
+            ) or author
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -475,6 +486,11 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         content_root = soup.select_one("article.ods-article-lead")
         if content_root is not None:
             source_kind = "onet"
+    if content_root is None:
+        candidate_main = soup.select_one("section.main")
+        if candidate_main is not None and candidate_main.select_one(".article_title, h1"):
+            content_root = candidate_main
+            source_kind = "business_insider_pl"
     if content_root is None:
         content_root = soup.select_one(".entry-content.article-page-content .article-page-text")
         if content_root is not None:
@@ -535,6 +551,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .article__right-box, .article-recommend, .module-banner-ad, .article-tags, .article-right, .article__see-more, .mb-box, .news-box"
     elif source_kind == "onet":
         unwanted += ", .ods-o-authorship-top, .ods-c-share-buttons-wrapper__share, .ods-o-inline-tts-player-wrapper, .ods-o-article-photo, .ods-m-inline-summary-container, .ods-a-emotions-with-counter"
+    elif source_kind == "business_insider_pl":
+        unwanted += ", .breadcrumbs, .article-info_container, .article-share, .article_image, .article-recommendations, .article-related, .article-tags, .article-footer, .article-comments, .continue-prompt"
     elif source_kind == "krytyka_polityczna":
         unwanted += ", .article-page-read-also, .article-actions, .line-label-slider-wrapper, .product-card, .donate-widget-container, .donate-widget-wrapper, .widget_wc-donation-widget, .article-reactions-container, .comments, .comment-respond"
     elif source_kind == "ap":

@@ -99,7 +99,25 @@ sources:
     enabled: false
     policy_notes: "Wyłączone na życzenie użytkowniczki — źródło wymaga płatnego dostępu."
   - {id: dg_p, name: Dziennik Gazeta Prawna, region: Poland, homepage: https://www.gazetaprawna.pl}
-  - {id: business_insider_pl, name: Business Insider Polska, region: Poland, homepage: https://businessinsider.com.pl}
+  - id: business_insider_pl
+    name: Business Insider Polska
+    region: Poland
+    homepage: https://businessinsider.com.pl
+    discover_homepage: true
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^(?:www\.)?businessinsider\.com\.pl$'
+    candidate_include_url_patterns:
+      - '^/(?:[^/]+/){2,3}[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:autorzy|wideo|video|podcast|sport|kontakt|subskrypcja)(?:/|$)'
+    browser_article_patterns:
+      - '^https://(?:www\.)?businessinsider\.com\.pl/(?:[^/]+/){2,3}[^/?#]+/?$'
+    browser_click_selectors:
+      - '.continue-prompt-text'
+    browser_click_texts:
+      - 'Zamknij'
+    browser_wait_after_click_seconds: 1
   - {id: bankier, name: Bankier, region: Poland, homepage: https://www.bankier.pl}
   - {id: parkiet, name: Parkiet, region: Poland, homepage: https://www.parkiet.com}
   - {id: do_rzeczy, name: Do Rzeczy, region: Poland, homepage: https://dorzeczy.pl}
