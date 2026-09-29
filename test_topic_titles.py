@@ -160,6 +160,7 @@ class TopicTitleTests(unittest.TestCase):
         self.assertIn("title_original", TOPIC_LABELING_INSTRUCTIONS)
         self.assertIn("body_excerpt_original", TOPIC_LABELING_INSTRUCTIONS)
         self.assertIn("zawsze po polsku", TOPIC_LABELING_INSTRUCTIONS)
+        self.assertNotIn("topic_anchor_pl", TOPIC_LABELING_INSTRUCTIONS)
 
     def test_large_component_uses_bounded_edge_cover_instead_of_one_group_per_topic(self):
         actor_names = [f"Actor{index}" for index in range(120)]

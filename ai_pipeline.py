@@ -75,10 +75,17 @@ CATEGORY_MAX_RETRIES = max(
     1, int(os.environ.get("AI_CATEGORY_MAX_RETRIES", "2"))
 )
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-GROUPING_EXCERPT_WORDS = max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "130")))
+GROUPING_EXCERPT_WORDS = min(
+    100,
+    max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100"))),
+)
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
+# Naming is a separate, larger-output request (title plus topic anchor for
+# every article), so keep its normal payload smaller than the repair grouper.
+MAX_LABEL_BATCH_SIZE = 25
+MIN_LABEL_RETRY_BATCH_SIZE = max(5, MAX_LABEL_BATCH_SIZE // 2)
 GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.70"))
 OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
 OPENAI_RETRY_BASE_SECONDS = max(
@@ -613,16 +620,12 @@ państw europejskich `[Europa]`, a dla spraw międzynarodowych, globalnych lub
 bez jednego głównego kraju `[Świat]`. Nigdy nie wypisuj kilku państw w jednym
 prefiksie.
 
-`topic_anchor_pl` napisz po polsku jako jedno krótkie zdanie opisujące sedno
-artykułu. Posłuży jako kontrola, czy nazwa rzeczywiście wynika także z
-początku tekstu, a nie wyłącznie z nagłówka.
 Zwróć dokładnie jeden wpis w `labels` dla każdego `article_id` z wejścia,
 bez dodawania obcych identyfikatorów.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"labels":[{"article_id":"...","working_title_pl":"[Kraj] Ogólna
-nazwa konkretnej sprawy","topic_anchor_pl":"Jedno zdanie o sednie
-artykułu","needs_review":false}]}
+nazwa konkretnej sprawy","needs_review":false}]}
 """.strip()
 
 GROUPING_INSTRUCTIONS = """
@@ -1296,7 +1299,6 @@ TOPIC_LABEL_RESPONSE_SCHEMA = _json_schema_object({
         "items": _json_schema_object({
             "article_id": {"type": "string"},
             "working_title_pl": {"type": "string"},
-            "topic_anchor_pl": {"type": "string"},
             "needs_review": {"type": "boolean"},
         }),
     },
@@ -1916,6 +1918,24 @@ def article_for_ai(
         payload["body_excerpt_original"] = first_words(row.get("body") or "", excerpt_words_limit)
         payload["excerpt_word_limit"] = excerpt_words_limit
     return payload
+
+
+def article_for_topic_label(
+    row: dict[str, Any],
+    *,
+    excerpt_words_limit: int,
+) -> dict[str, Any]:
+    """Build the minimal payload needed to name one article candidate."""
+    return {
+        "article_id": row["article_id"],
+        "title_original": row["title"],
+        "language": row["original_language"],
+        "body_excerpt_original": first_words(
+            row.get("body") or "",
+            excerpt_words_limit,
+        ),
+        "excerpt_word_limit": excerpt_words_limit,
+    }
 
 
 def build_bounded_summary_input(
@@ -3378,7 +3398,7 @@ def _label_pending_batch(
 
     labeling_input = {
         "articles": [
-            article_for_ai(row, excerpt_words_limit=GROUPING_EXCERPT_WORDS)
+            article_for_topic_label(row, excerpt_words_limit=GROUPING_EXCERPT_WORDS)
             for row in articles
         ],
     }
@@ -3394,6 +3414,7 @@ def _label_pending_batch(
             TOPIC_LABELING_INSTRUCTIONS,
             labeling_input,
             model,
+            max_output_tokens=4000,
             response_schema=TOPIC_LABEL_RESPONSE_SCHEMA,
             response_schema_name="topic_labels",
         )
@@ -3440,20 +3461,13 @@ def _label_pending_batch(
         label = labels_by_article_id.get(article_id, {})
         article_title = str(row.get("title") or "")
         title = format_topic_title_candidate(label.get("working_title_pl"), "")
-        anchor_title = format_topic_title_candidate(label.get("topic_anchor_pl"), "")
         needs_review = bool(label.get("needs_review", False))
         if (
             not is_usable_topic_title(title)
             or is_article_title_copy(title, [article_title])
         ):
-            if (
-                is_usable_topic_title(anchor_title)
-                and not is_article_title_copy(anchor_title, [article_title])
-            ):
-                title = anchor_title
-            else:
-                title = "[Świat] Wymaga doprecyzowania tematu"
-                needs_review = True
+            title = "[Świat] Wymaga doprecyzowania tematu"
+            needs_review = True
         if article_id not in labels_by_article_id:
             needs_review = True
         topic_id = stable_topic_id([article_id], title)
@@ -4109,7 +4123,7 @@ def analyze_run(
         log("AI", "Tryb naprawczy zakończony.")
         return stats
     requested_batch_size = max(1, batch_size)
-    batch_size = min(requested_batch_size, MAX_GROUPING_BATCH_SIZE)
+    batch_size = min(requested_batch_size, MAX_LABEL_BATCH_SIZE)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
@@ -4159,7 +4173,7 @@ def analyze_run(
                     f"do kontroli: {batch_stats['label_needs_review']}.",
                 )
             except ValueError as exc:
-                if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
+                if len(batch) <= MIN_LABEL_RETRY_BATCH_SIZE:
                     raise
                 midpoint = len(batch) // 2
                 log(
@@ -4171,7 +4185,7 @@ def analyze_run(
                 process_batch(batch[:midpoint], f"{label}a")
                 process_batch(batch[midpoint:], f"{label}b")
             except Exception as exc:
-                if not is_retryable_openai_error(exc) or len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
+                if not is_retryable_openai_error(exc) or len(batch) <= MIN_LABEL_RETRY_BATCH_SIZE:
                     raise
                 midpoint = len(batch) // 2
                 log(
