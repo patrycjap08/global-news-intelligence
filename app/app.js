@@ -535,7 +535,10 @@ function renderCategories(models) {
     ...Object.keys(CATEGORY_LABELS)
       .filter((key) => !['ALL', 'UNCLASSIFIED'].includes(key))
       .map((key) => [key, CATEGORY_LABELS[key], counts[key] || 0])
-      .filter(([, , count]) => count > 0),
+      // Keep the Poland filter visible even before the first POLSKA category
+      // has been written to Supabase. Otherwise the filter disappears and
+      // there is no way to tell whether the category is supported.
+      .filter(([key, , count]) => key === 'POLSKA' || count > 0),
     ...(counts.UNCLASSIFIED ? [['UNCLASSIFIED', CATEGORY_LABELS.UNCLASSIFIED, counts.UNCLASSIFIED]] : []),
   ];
   const allCategoriesSelected = state.categories.length === 0;
