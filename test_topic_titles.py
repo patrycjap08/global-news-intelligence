@@ -7,11 +7,14 @@ from unittest.mock import patch
 import ai_pipeline
 from ai_pipeline import (
     GROUPING_INSTRUCTIONS,
+    TITLE_NORMALIZATION_INSTRUCTIONS,
+    TOPIC_MERGE_INSTRUCTIONS,
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
     build_bounded_summary_input,
     choose_merge_canonical_topic_id,
     classify_topic_categories,
+    generate_singleton_topic_titles,
     has_composite_geo_prefix,
     is_article_title_copy,
     merge_active_topics,
@@ -118,6 +121,41 @@ class TopicTitleTests(unittest.TestCase):
     def test_grouping_prompt_requires_abstraction_for_singletons(self):
         self.assertIn("dotyczy to także grup jednoartykułowych", GROUPING_INSTRUCTIONS)
         self.assertIn("Dzisiejsze wystąpienie Trumpa", GROUPING_INSTRUCTIONS)
+
+    def test_all_topic_title_prompts_require_polish_output(self):
+        self.assertIn("zawsze musi być napisany po polsku", GROUPING_INSTRUCTIONS)
+        self.assertIn("zawsze musi być napisany po polsku", TOPIC_MERGE_INSTRUCTIONS)
+        self.assertIn("zawsze musi być napisany po polsku", TITLE_NORMALIZATION_INSTRUCTIONS)
+
+    def test_singleton_title_generation_sends_article_title_and_opening(self):
+        captured = {}
+
+        def fake_call(instructions, payload, model, **kwargs):
+            captured.update(payload)
+            return {
+                "titles": [{
+                    "topic_id": "article_one",
+                    "title_pl": "[Polska] Model działalności platformy XTB",
+                }],
+            }
+
+        with patch.object(ai_pipeline, "call_openai", side_effect=fake_call):
+            titles = generate_singleton_topic_titles([{
+                "article_id": "article_one",
+                "title": "XTB – tu pracują twoje pieniądze",
+                "opening_text": "Materiał analizuje model działalności platformy XTB.",
+            }])
+
+        topic = captured["topics"][0]
+        self.assertEqual(topic["article_titles"], ["XTB – tu pracują twoje pieniądze"])
+        self.assertEqual(
+            topic["article_openings"],
+            ["Materiał analizuje model działalności platformy XTB."],
+        )
+        self.assertEqual(
+            titles["article_one"],
+            "[Polska] Model działalności platformy XTB",
+        )
 
     def test_local_merge_filter_keeps_only_plausible_candidates(self):
         topics = [
