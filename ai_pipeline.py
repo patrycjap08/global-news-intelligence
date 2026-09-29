@@ -27,7 +27,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v36-polish-label-merge"
+PROMPT_VERSION = "ai-prompts-v37-polish-label-merge"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -75,6 +75,7 @@ CATEGORY_MAX_RETRIES = max(
     1, int(os.environ.get("AI_CATEGORY_MAX_RETRIES", "2"))
 )
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+LABEL_MODEL = os.environ.get("OPENAI_LABEL_MODEL", "gpt-4o-mini")
 GROUPING_EXCERPT_WORDS = min(
     100,
     max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100"))),
@@ -86,12 +87,18 @@ LABEL_EXCERPT_WORDS = min(
 MIN_ARTICLE_WORDS = 100
 MAX_GROUPING_BATCH_SIZE = 50
 MIN_GROUPING_RETRY_BATCH_SIZE = 25
-# Naming is a separate, larger-output request (title plus topic anchor for
-# every article), so keep its normal payload smaller than the repair grouper.
+# Naming is a separate, smaller request, so keep its payload below the
+# legacy repair grouper's limit.
 MAX_LABEL_BATCH_SIZE = 25
 MIN_LABEL_RETRY_BATCH_SIZE = max(5, MAX_LABEL_BATCH_SIZE // 2)
 LABEL_MAX_OUTPUT_TOKENS = max(
     16000, int(os.environ.get("AI_LABEL_MAX_OUTPUT_TOKENS", "16000"))
+)
+LABEL_REQUEST_TIMEOUT_SECONDS = max(
+    20.0, float(os.environ.get("AI_LABEL_REQUEST_TIMEOUT_SECONDS", "60"))
+)
+LABEL_MAX_RETRIES = max(
+    1, int(os.environ.get("AI_LABEL_MAX_RETRIES", "2"))
 )
 GROUPING_MIN_CONFIDENCE = float(os.environ.get("AI_GROUPING_MIN_CONFIDENCE", "0.70"))
 OPENAI_MAX_RETRIES = max(2, int(os.environ.get("OPENAI_MAX_RETRIES", "4")))
@@ -1863,6 +1870,15 @@ def call_openai(
             return ParsedAIResponse(extract_json(response.output_text), response.output_text)
         except ValueError as exc:
             last_error = exc
+            # A response stopped at max_output_tokens cannot become complete
+            # by repeating the identical request. Let the caller split the
+            # batch immediately instead of spending another full timeout on
+            # the same deterministic failure.
+            if (
+                isinstance(exc, AIResponseParseError)
+                and "reason=max_output_tokens" in str(exc)
+            ):
+                raise
             parse_failures += 1
             last_parse_error = str(exc)
             if parse_failures >= 2:
@@ -3423,6 +3439,8 @@ def _label_pending_batch(
             labeling_input,
             model,
             max_output_tokens=LABEL_MAX_OUTPUT_TOKENS,
+            timeout_seconds=LABEL_REQUEST_TIMEOUT_SECONDS,
+            retry_limit=LABEL_MAX_RETRIES,
             response_schema=TOPIC_LABEL_RESPONSE_SCHEMA,
             response_schema_name="topic_labels",
         )
@@ -4154,7 +4172,11 @@ def analyze_run(
         log(
             "AI",
             f"Etap 1/3 — nadaję nazwy kandydatom: artykułów: {len(articles)}, "
-            f"paczek: {total_batches}. Grupowanie nastąpi w etapie 2.",
+            f"paczek: {total_batches}, maks. w paczce: {batch_size}, "
+            f"wyciąg: {LABEL_EXCERPT_WORDS} słów, model: {LABEL_MODEL}, "
+            f"timeout: {LABEL_REQUEST_TIMEOUT_SECONDS:.0f} s, "
+            f"próby: {LABEL_MAX_RETRIES}. "
+            "Grupowanie nastąpi w etapie 2.",
         )
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
@@ -4170,7 +4192,7 @@ def analyze_run(
             )
             try:
                 batch_stats = _label_pending_batch(
-                    run_id, client, batch, model=model, batch_index=label,
+                    run_id, client, batch, model=LABEL_MODEL, batch_index=label,
                 )
                 merge_batch_stats(batch_stats)
                 log(
