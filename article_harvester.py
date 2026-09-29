@@ -243,6 +243,22 @@ def source_language(source: dict[str, Any]) -> str:
     }.get(region, "en/original")
 
 
+def is_polish_source(source: dict[str, Any]) -> bool:
+    """Return whether a source is configured as Polish-language or Polish-based."""
+    configured = source.get("language") or source.get("languages")
+    if configured:
+        language = source_language(source).strip().lower().replace("_", "-")
+        return language.split("/", 1)[0] in {"pl", "pl-pl", "polish", "polski"}
+    region = str(source.get("region", "")).strip().lower().replace("_", "-")
+    return region in {"poland", "polska", "pl"}
+
+
+def effective_top_articles_limit(source: dict[str, Any], configured_limit: int) -> int:
+    """Raise only the standard Polish-source window from 10 to 15 articles."""
+    limit = int(configured_limit or 0)
+    return 15 if limit == 10 and is_polish_source(source) else limit
+
+
 def is_candidate_url(url: str, homepage: str, link_text: str) -> bool:
     parsed = urllib.parse.urlsplit(url)
     path = parsed.path.lower()
@@ -923,7 +939,9 @@ def harvest_source(
     discovery_duration_ms = round((time.monotonic() - discovery_started) * 1000)
     candidate_pool = candidates
     next_candidate_index = len(candidate_pool)
-    top_articles_per_section = int(source.get("top_articles_per_section", 0) or 0)
+    top_articles_per_section = effective_top_articles_limit(
+        source, int(source.get("top_articles_per_section", 0) or 0)
+    )
     section_followups: dict[str, list[dict[str, str]]] = {}
     if top_articles_per_section > 0:
         selected_by_section: dict[str, int] = {}
@@ -939,7 +957,9 @@ def harvest_source(
                 section_followups.setdefault(section_key, []).append(candidate)
         candidates = selected
         notes.append(f"section_window={top_articles_per_section}x{len(selected_by_section)}")
-    top_articles_per_source = int(source.get("top_articles_per_source", args.top_articles_per_source) or 0)
+    top_articles_per_source = effective_top_articles_limit(
+        source, int(source.get("top_articles_per_source", args.top_articles_per_source) or 0)
+    )
     if top_articles_per_source > 0 and top_articles_per_section <= 0:
         discovered_before_window = len(candidate_pool)
         candidates = candidate_pool[:top_articles_per_source]
