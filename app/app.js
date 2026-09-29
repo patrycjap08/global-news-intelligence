@@ -693,7 +693,6 @@ function dialogHtml(model) {
     </div>
     <div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>
     <div class="dialog-tab-panel" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" hidden>${factsPanel}</div>
-    ${section('Wspólne ustalenia', summary.agreement, 'insight-agreement', 'Punkty, co do których materiały są zgodne.')}
     ${section('Różne dane lub akcenty', summary.differences, 'insight-differences', 'Rozbieżności, które nie muszą oznaczać sprzeczności.')}
     ${section('Sprzeczne relacje', contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}
     ${section('Co warto zweryfikować', summary.potential_manipulation_signals, 'insight-verification', 'Obserwowalne sygnały wymagające dodatkowego sprawdzenia — nie werdykt o źródle.')}
