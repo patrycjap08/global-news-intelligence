@@ -627,6 +627,11 @@ zapisów wielkimi literami ani ocen sugerujących, kto ma rację. Stosuj zwykł�
 polską kapitalizację tytułową i nie dodawaj informacji, których nie ma w
 artykułach. Tytuł powinien być zwięzły — zwykle około 8–16 słów.
 
+Przy tworzeniu working_title_pl korzystaj łącznie z `title_original` oraz
+`body_excerpt_original`. Początek artykułu ma pomóc ustalić, czego naprawdę
+dotyczy materiał, zwłaszcza gdy nagłówek jest pytaniem, clickbaitem albo używa
+ogólnych słów. Nie wybieraj nazwy wyłącznie na podstawie brzmienia nagłówka.
+
 Najważniejsza zasada: working_title_pl jest nazwą wątku redakcyjnego, a nie
 tytułem żadnego artykułu. Ma abstrahować od formy nagłówka i nazywać sedno
 wydarzenia tak, aby pasował także do kolejnych materiałów o tej samej sprawie.
@@ -727,6 +732,10 @@ faktyczny punkt zaczepienia są zgodne.
 merged_title_pl zachowuje te same zasady co working_title_pl: ma być konkretnym,
 informacyjnym i ciekawym tytułem w jednolitym stylu prasowym, bez clickbaitu,
 krzykliwych ocen i ogólników.
+Nie przepisuj żadnego `recent_article_titles` słowo w słowo ani prawie słowo w
+słowo. Nazwa ma opisywać wspólne wydarzenie lub sprawę, a nie jeden konkretny
+artykuł; powinna pozostać trafna także wtedy, gdy do tematu dojdą kolejne
+materiały z innym nagłówkiem.
 Musi także zaczynać się od jednego prefiksu geograficznego. Dla jednego
 głównego kraju użyj jego nazwy, dla co najmniej dwóch państw europejskich
 `[Europa]`, a dla wielu państw, w tym co najmniej jednego spoza Europy,
@@ -762,7 +771,16 @@ Jeśli sprawa dotyczy jednego głównego kraju, wpisz tylko ten kraj, np.
 `[Świat]`. Nigdy nie wpisuj kilku państw w prefiksie, np. `[USA i Iran]` albo
 `[USA, Iran]`. Używaj `[Wielka Brytania]`, chyba że sprawa dotyczy wyłącznie
 Anglii.
-Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu.
+Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu. Nazwa ma być
+krótką, ogólniejszą nazwą wątku redakcyjnego, a nie kopią nagłówka artykułu.
+Korzystaj z `one_sentence_pl`, `summary_pl` i `article_openings`, aby nazwać
+sedno wydarzenia lub sprawy. `article_titles` są tylko materiałem pomocniczym
+do rozpoznania kontekstu.
+Nigdy nie przepisuj żadnego `article_titles` słowo w słowo ani prawie słowo w
+słowo — dotyczy to również tematów mających tylko jeden artykuł. Usuń
+clickbait, pytania retoryczne, emocjonalne obietnice i szczegóły będące tylko
+formą pojedynczego nagłówka. Nazwa powinna pasować także do kolejnych artykułów
+o tej samej sprawie.
 Nie używaj placeholderów typu „neutralna nazwa wydarzenia”, „neutralny wspólny
 tytuł” ani „Temat bez tytułu”.
 
@@ -2174,17 +2192,22 @@ def merge_active_topics(
                 for topic_id in group_ids
             ]
             title = str(raw_group.get("merged_title_pl") or "").strip()
-            if not is_usable_topic_title(title):
+            article_titles = [
+                str(row.get("title") or "")
+                for row in article_rows
+                if str(row.get("title") or "").strip()
+            ]
+            if (
+                not is_usable_topic_title(title)
+                or is_article_title_copy(title, article_titles)
+            ):
                 title = fallback_topic_title(
-                    title,
+                    "",
                     "",
                     [
-                        str(row.get("title") or "")
-                        for row in article_rows
-                    ] + [
                         str(topic_by_id[topic_id].get("headline_pl") or "")
                         for topic_id in group_ids
-                    ],
+                    ] + article_titles,
                 )
             # Preserve the identity of an established topic. In particular,
             # keep a topic that already has a synthesis so the final summary
@@ -2325,18 +2348,38 @@ def normalize_topic_titles(
     links_by_topic: dict[str, list[str]] = {}
     for row in client.select_all("topic_articles", columns="topic_id,article_id"):
         links_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+    article_rows = client.select_all(
+        "articles",
+        columns="article_id,title,opening_text",
+    )
     article_titles = {
         str(row["article_id"]): str(row.get("title") or "").strip()
-        for row in client.select_all("articles", columns="article_id,title")
+        for row in article_rows
+    }
+    article_openings = {
+        str(row["article_id"]): str(row.get("opening_text") or "").strip()
+        for row in article_rows
     }
     titles_by_topic = {
         topic_id: [article_titles[article_id] for article_id in article_ids if article_titles.get(article_id)]
+        for topic_id, article_ids in links_by_topic.items()
+    }
+    openings_by_topic = {
+        topic_id: [
+            article_openings[article_id][:1600]
+            for article_id in article_ids
+            if article_openings.get(article_id)
+        ]
         for topic_id, article_ids in links_by_topic.items()
     }
     missing = [
         row for row in topics
         if not is_usable_topic_title(row.get("headline_pl"))
         or has_composite_geo_prefix(row.get("headline_pl"))
+        or is_article_title_copy(
+            row.get("headline_pl"),
+            titles_by_topic.get(str(row["topic_id"]), []),
+        )
     ]
     changed = 0
     if not missing:
@@ -2358,6 +2401,7 @@ def normalize_topic_titles(
                 summaries.get(str(row["topic_id"]), {}).get("summary_pl") or ""
             )[:1600],
             "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:5],
+            "article_openings": openings_by_topic.get(str(row["topic_id"]), [])[:3],
         } for row in batch]}
         result = call_openai(
             TITLE_NORMALIZATION_INSTRUCTIONS,
@@ -2377,7 +2421,14 @@ def normalize_topic_titles(
                 continue
             row = by_id[topic_id]
             title = format_topic_title_candidate(item.get("title_pl"), row.get("headline_pl"))
-            if not is_usable_topic_title(title) or has_composite_geo_prefix(title):
+            if (
+                not is_usable_topic_title(title)
+                or has_composite_geo_prefix(title)
+                or is_article_title_copy(
+                    title,
+                    titles_by_topic.get(topic_id, []),
+                )
+            ):
                 continue
             candidate_titles[topic_id] = title
 
@@ -2388,8 +2439,9 @@ def normalize_topic_titles(
                 summary = summaries.get(topic_id, {})
                 topic_summary = summary.get("topic") if isinstance(summary.get("topic"), dict) else {}
                 title = fallback_topic_title(
-                    row.get("headline_pl"),
-                    topic_summary.get("what_happened_one_sentence_pl", ""),
+                    "",
+                    topic_summary.get("what_happened_one_sentence_pl", "")
+                    or (openings_by_topic.get(topic_id) or [""])[0],
                     titles_by_topic.get(topic_id, []),
                 )
             client.update(

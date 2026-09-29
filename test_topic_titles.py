@@ -16,6 +16,7 @@ from ai_pipeline import (
     is_article_title_copy,
     merge_active_topics,
     merge_overlapping_candidate_groups,
+    normalize_topic_titles,
 )
 
 
@@ -40,6 +41,17 @@ class FakeMergeClient:
 
     def update(self, table, values, *, filters):
         self.updates.append((table, values, list(filters)))
+        for row in self.rows.get(table, []):
+            matches = True
+            for column, expression in filters:
+                operator, expected = expression.split(".", 1)
+                actual = str(row.get(column) or "")
+                if operator == "eq" and actual != expected:
+                    matches = False
+                if operator == "neq" and actual == expected:
+                    matches = False
+            if matches:
+                row.update(values)
 
     def delete(self, table, *, filters):
         self.deletes.append((table, list(filters)))
@@ -53,6 +65,49 @@ class TopicTitleTests(unittest.TestCase):
     def test_accepts_editorial_topic_label_instead_of_article_title(self):
         article_title = "Nie uwierzycie, co Trump powiedział w swoim dzisiejszym wystąpieniu"
         self.assertFalse(is_article_title_copy("[USA] Dzisiejsze wystąpienie Trumpa", [article_title]))
+
+    def test_normalization_repairs_topic_that_copies_article_title(self):
+        article_title = "XTB – tu pracują twoje pieniądze. Dobrze, tylko na kogo?"
+        client = FakeMergeClient(
+            topics=[{
+                "topic_id": "topic_one",
+                "headline_pl": f"[Świat] {article_title}",
+                "status": "ACTIVE",
+            }],
+            links=[{"topic_id": "topic_one", "article_id": "article_one"}],
+            summaries=[{
+                "topic_id": "topic_one",
+                "summary": {
+                    "topic": {
+                        "what_happened_one_sentence_pl": "Opis działalności platformy XTB i ryzyk dla inwestorów."
+                    },
+                    "summary_pl": "Opis działalności platformy XTB.",
+                },
+            }],
+            articles=[{
+                "article_id": "article_one",
+                "title": article_title,
+                "opening_text": "Materiał analizuje model działalności platformy XTB i pytania dotyczące bezpieczeństwa inwestowania.",
+            }],
+        )
+
+        with patch.object(
+            ai_pipeline,
+            "call_openai",
+            return_value={
+                "titles": [{
+                    "topic_id": "topic_one",
+                    "title_pl": "[Polska] Model działalności platformy XTB",
+                }],
+            },
+        ):
+            changed = normalize_topic_titles(client)
+
+        self.assertEqual(changed, 1)
+        self.assertEqual(
+            client.rows["topics"][0]["headline_pl"],
+            "[Polska] Model działalności platformy XTB",
+        )
 
     def test_detects_multi_country_geo_prefix_but_not_single_country_name(self):
         self.assertTrue(has_composite_geo_prefix("[USA i Iran] Sprawa sankcji"))
