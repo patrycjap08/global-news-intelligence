@@ -27,7 +27,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v35-polish-label-merge"
+PROMPT_VERSION = "ai-prompts-v36-polish-label-merge"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -616,6 +616,8 @@ tytułu artykułu. Nie przepisuj `title_original` słowo w słowo ani prawie sł
 w słowo. Usuń clickbait i nazwij sedno wydarzenia, decyzji, sporu, śledztwa
 albo innej sprawy tak, aby nazwa pasowała także do kolejnych materiałów.
 Nie używaj placeholderów ani ogólników typu „Nowe informacje” lub „Sytuacja”.
+Nazwa ma mieć zwykle 8–14 słów i maksymalnie 180 znaków. Nie dodawaj
+uzasadnienia, opisu ani żadnego tekstu poza nazwą.
 
 Każda nazwa musi zaczynać się od jednego prefiksu geograficznego w nawiasach
 kwadratowych. Dla jednego głównego kraju użyj jego polskiej nazwy, dla kilku
@@ -628,7 +630,7 @@ bez dodawania obcych identyfikatorów.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"labels":[{"article_id":"...","working_title_pl":"[Kraj] Ogólna
-nazwa konkretnej sprawy","needs_review":false}]}
+nazwa konkretnej sprawy"}]}
 """.strip()
 
 GROUPING_INSTRUCTIONS = """
@@ -1302,7 +1304,6 @@ TOPIC_LABEL_RESPONSE_SCHEMA = _json_schema_object({
         "items": _json_schema_object({
             "article_id": {"type": "string"},
             "working_title_pl": {"type": "string"},
-            "needs_review": {"type": "boolean"},
         }),
     },
 })
@@ -3464,7 +3465,7 @@ def _label_pending_batch(
         label = labels_by_article_id.get(article_id, {})
         article_title = str(row.get("title") or "")
         title = format_topic_title_candidate(label.get("working_title_pl"), "")
-        needs_review = bool(label.get("needs_review", False))
+        needs_review = False
         if (
             not is_usable_topic_title(title)
             or is_article_title_copy(title, [article_title])
