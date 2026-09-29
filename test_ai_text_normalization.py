@@ -76,6 +76,11 @@ class AITextNormalizationTests(unittest.TestCase):
         self.assertIn("Nie przenoś żadnego ważnego", SUMMARY_INSTRUCTIONS)
         self.assertIn("techniczna lista", SUMMARY_INSTRUCTIONS)
 
+    def test_summary_prompt_requires_polish_facts(self):
+        self.assertIn("`facts[].text_pl`", SUMMARY_INSTRUCTIONS)
+        self.assertIn("nie kopiuj angielskiego", SUMMARY_INSTRUCTIONS)
+        self.assertIn("naturalną polszczyzną", SUMMARY_INSTRUCTIONS)
+
 
 if __name__ == "__main__":
     unittest.main()

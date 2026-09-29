@@ -27,7 +27,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v33-complete-summary-hidden-facts"
+PROMPT_VERSION = "ai-prompts-v34-polish-facts"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -846,6 +846,16 @@ odpowiadające im nazwy źródeł, a nie surowe numery lub identyfikatory.
 Pokaż osobno fakty zgodne, informacje jednostkowe, różnice i sprzeczności.
 Nie rozstrzygaj, które źródło ma rację. Profil lewicowe/prawicowe/centralne
 służy wyłącznie do pokazania sposobu przedstawienia tematu.
+
+Wszystkie teksty przeznaczone dla czytelnika muszą być napisane po polsku —
+w szczególności `summary_pl`, `facts[].text_pl`, `agreement[].text_pl`,
+`differences[].text_pl`, `contradictions[].text_pl`, opisy kontekstu,
+`sources[].description_pl` oraz tekst aktualizacji. W `facts[].text_pl` zawsze
+przetłumacz albo sparafrazuj treść faktu po polsku; nie kopiuj angielskiego
+tytułu, zdania ani opisu tylko dlatego, że artykuł źródłowy jest po angielsku.
+Możesz pozostawić oryginalną nazwę własną, skrót lub krótki cytat, ale reszta
+zdania musi być naturalną polszczyzną i wyjaśniać sens faktu. Polskie pola nie
+mogą zawierać angielskich zdań ani technicznych komentarzy.
 
 Nie nazywaj artykułu kłamliwym. Możesz wskazać konkretny sygnał wymagający
 sprawdzenia: wartościujący język, brak kontekstu, nagłówek mocniejszy niż
