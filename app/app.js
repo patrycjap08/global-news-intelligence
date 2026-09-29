@@ -302,6 +302,15 @@ function richTextHtml(value) {
     .join('');
 }
 
+function richInlineHtml(value) {
+  const text = readableEvidenceText(value).trim();
+  if (!text) return '';
+  return escapeHtml(text)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br />');
+}
+
 function itemArticleSources(item) {
   if (!item || typeof item !== 'object' || !Array.isArray(item.article_ids)) return [];
   const articles = articleMap();
@@ -614,7 +623,7 @@ function cardHtml(model, index) {
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
     <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}<span class="card-category-group">${category}</span></span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
     <h4>${escapeHtml(model.title)}</h4>
-    <p class="card-dek">${escapeHtml(model.lead)}</p>
+    <p class="card-dek">${richInlineHtml(model.lead)}</p>
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
   </article>`;
 }
@@ -669,7 +678,7 @@ function dialogHtml(model) {
   }).join('');
   return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
-    <p class="dialog-lead">${escapeHtml(model.lead)}</p>
+    <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     <div class="dialog-rule"></div>
     ${updatesHtml}
     ${summary.summary_pl ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>` : ''}
