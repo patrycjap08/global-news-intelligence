@@ -187,7 +187,7 @@ sources:
   homepage: https://www.reuters.com
   enabled: true
   runtime_mode: CONTENT
-  discovery_method: NEWS_SITEMAP
+  discovery_method: BROWSER
   content_method: HTTP_HTML
   technical_status: FULL
   policy_status: REVIEW_REQUIRED

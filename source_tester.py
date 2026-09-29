@@ -418,6 +418,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description:
         lead_node = soup.select_one(".article_lead .article_p, .article_lead [data-section='detail-body']")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description and source_id == "reuters":
+        lead_node = soup.select_one("[data-testid='ArticleBody'] [data-testid='paragraph-0']")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -456,6 +459,16 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
                 clean_text(bi_author.get_text(" ", strip=True)),
                 flags=re.I,
             ) or author
+    if source_id == "reuters":
+        reuters_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in soup.select(
+                "[data-testid='DefaultArticleHeader'] [data-testid='AuthorNameLink']"
+            )
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if reuters_authors:
+            author = ", ".join(reuters_authors)
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -496,7 +509,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is not None:
             source_kind = "krytyka_polityczna"
     if content_root is None:
-        content_root = soup.select_one(".article-body-module__container__oOFyv")
+        content_root = soup.select_one(
+            "[data-testid='ArticleBody'] [class*='article-body-module__container__'], "
+            ".article-body-module__container__oOFyv"
+        )
         if content_root is not None:
             source_kind = "reuters"
     if content_root is None:
@@ -555,6 +571,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .breadcrumbs, .article-info_container, .article-share, .article_image, .article-recommendations, .article-related, .article-tags, .article-footer, .article-comments, .continue-prompt"
     elif source_kind == "krytyka_polityczna":
         unwanted += ", .article-page-read-also, .article-actions, .line-label-slider-wrapper, .product-card, .donate-widget-container, .donate-widget-wrapper, .widget_wc-donation-widget, .article-reactions-container, .comments, .comment-respond"
+    elif source_kind == "reuters":
+        unwanted += ", [data-testid='ContextWidget'], [data-testid='promo-box'], [data-testid='AuthorBio'], [class*='article-body-module__primary-asset__']"
     elif source_kind == "ap":
         unwanted += ", .PageListEnhancementGeneric, .PageListStandardB, .Page-comments, .vf-tabbed-views, .vf-body-text--deprecated, .PageListRightRailA-content"
     elif source_kind == "washington_post":
@@ -576,7 +594,17 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
             if node.name != "strong" or node.parent is content_root
         ]
     if source_kind == "reuters":
-        text_nodes.extend(content_root.select("[data-testid^='paragraph-']"))
+        text_nodes = content_root.select(
+            "[data-testid^='paragraph-'], [class*='article-body-module__heading__']"
+        )
+        text_nodes = [
+            node for node in text_nodes
+            if not (
+                node.select_one("a") is not None
+                and clean_text(node.get_text(" ", strip=True))
+                == clean_text(" ".join(link.get_text(" ", strip=True) for link in node.select("a")))
+            )
+        ]
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
