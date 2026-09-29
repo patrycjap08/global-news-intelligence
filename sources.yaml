@@ -234,7 +234,21 @@ sources:
       - '\b(sport|sports|nfl|nba|mlb|nhl|ncaa|football|baseball|basketball|soccer|golf|tennis|olympics|nil)\b'
     browser_article_patterns:
       - '^https://www\.axios\.com/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
-  - {id: vox, name: Vox, region: USA, homepage: https://www.vox.com}
+  - id: vox
+    name: Vox
+    region: USA
+    homepage: https://www.vox.com
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^www\.vox\.com$'
+    candidate_include_url_patterns:
+      - '^/[^/]+/[0-9]{4,}/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:podcasts|video|videos|crossword|games)(?:/|$)'
+    candidate_exclude_title_patterns:
+      - '\b(sport|sports|nfl|nba|mlb|nhl|ncaa|football|baseball|basketball|soccer|golf|tennis|olympics)\b'
+    browser_article_patterns:
+      - '^https://www\.vox\.com/[^/]+/[0-9]{4,}/[^/?#]+/?$'
   - {id: huffpost, name: HuffPost, region: USA, homepage: https://www.huffpost.com}
   - id: national_review
     name: National Review

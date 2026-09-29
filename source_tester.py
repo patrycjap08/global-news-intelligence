@@ -427,6 +427,9 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if not description and source_id == "axios":
         lead_node = soup.select_one("[data-cy='story-body'] [data-schema='smart-brevity'] p")
         description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
+    if not description and source_id == "vox":
+        lead_node = soup.select_one("article .duet--article--lede p")
+        description = clean_text(lead_node.get_text(" ", strip=True)) if lead_node else ""
     author = _json_ld_value(json_ld, "author")
     if tvn24_main is not None:
         author = next(
@@ -483,6 +486,14 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         ))
         if axios_authors:
             author = ", ".join(axios_authors)
+    if source_id == "vox":
+        vox_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in soup.select("article .duet--article--article-byline a[href*='/authors/']")
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if vox_authors:
+            author = ", ".join(vox_authors)
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -546,6 +557,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is not None:
             source_kind = "axios"
     if content_root is None:
+        content_root = soup.select_one("article")
+        if content_root is not None and content_root.select_one(".duet--article--article-body-component"):
+            source_kind = "vox"
+    if content_root is None:
         content_root = soup.select_one(".FITT_Article_main__body")
         if content_root is not None:
             source_kind = "abc"
@@ -597,6 +612,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .article-footer, .article-bottom-action-bar, .comments, .ad, [data-qa='inline-subs-headline']"
     elif source_kind == "axios":
         unwanted += ", #piano-container, [data-cy='story-go-deeper-content'], [data-cy*='social-share'], .adunitContainer, .adBox"
+    elif source_kind == "vox":
+        unwanted += ", .duet--article--article-byline, .duet--media--caption, .duet--cta--newsletter, [data-native-ad-id], [data-concert], .cnx-marker-cnt-first"
     elif source_kind == "abc":
         unwanted += ", .FITT_Article_related, .FITT_Article_recirc, .FITT_Article_comments, .comments, [data-testid='related-content']"
     elif source_kind == "politico":
@@ -629,6 +646,17 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         text_nodes = content_root.select("[data-qa='article-body'] p, [data-qa='article-body'] h2, [data-qa='article-body'] h3, [data-qa='article-body'] li")
     if source_kind == "axios":
         text_nodes = content_root.select("[data-schema='smart-brevity'] p, [data-schema='smart-brevity'] h2, [data-schema='smart-brevity'] h3, [data-schema='smart-brevity'] li")
+    if source_kind == "vox":
+        text_nodes = content_root.select(
+            ".duet--article--article-body-component p, "
+            ".duet--article--article-body-component h2, "
+            ".duet--article--article-body-component h3, "
+            ".duet--article--article-body-component li"
+        )
+        text_nodes = [
+            node for node in text_nodes
+            if not clean_text(node.get_text(" ", strip=True)).casefold().startswith("this story appeared in")
+        ]
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
