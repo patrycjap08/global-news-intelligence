@@ -533,7 +533,7 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 "article_relevance":[{"article_id":"...","why_same_event":"..."}]}],
 "unassigned_article_ids":[],"excluded_articles":[{"article_id":"...",
 "category":"SPORT|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
-"reason":"krótkie uzasadnienie"}],"possible_merges":[]}
+"reason":"krótkie uzasadnienie"}]}
 
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
 unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
@@ -725,6 +725,11 @@ jednozdaniowego opisu
 i tytułów ostatnich artykułów. Nie kieruj się profilem politycznym źródeł ani
 samym krajem opisanym w tytule.
 
+W tej paczce znajdują się wyłącznie tematy wieloźródłowe, dla których aplikacja
+może przygotować syntezę. Nie twórz kategorii dla tematów jednoźródłowych ani
+nie zwracaj topic_id, którego nie ma w wejściu. Zwróć dokładnie jeden wpis dla
+każdego topic_id z wejścia, także wtedy, gdy nie ma dodatkowych kategorii.
+
 Dozwolone kategorie:
 - POLITYKA — decyzje władz, wybory, partie, parlament, administracja i spory
   polityczne;
@@ -745,7 +750,38 @@ nie oznacza automatycznie „wszystkiego poza Polską”.
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"categories":[{"topic_id":"...","categories":["POLITYKA"]}]}
 Każdy topic_id z wejścia musi wystąpić dokładnie raz.
+Nie dodawaj komentarza, markdownu, tekstu przed JSON-em ani tekstu po JSON-ie.
 """.strip()
+
+CATEGORY_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "categories": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "topic_id": {"type": "string"},
+                    "categories": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "POLITYKA", "SWIAT", "GOSPODARKA",
+                                "SPOLECZENSTWO", "TECHNOLOGIA", "ZDROWIE",
+                                "KULTURA_SPORT",
+                            ],
+                        },
+                    },
+                },
+                "required": ["topic_id", "categories"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["categories"],
+    "additionalProperties": False,
+}
 
 SUMMARY_INSTRUCTIONS = """
 Jesteś redaktorem analitycznym aplikacji Global News Intelligence. Przygotuj
@@ -1050,6 +1086,143 @@ stanowiska i skutki. Zaczynaj od faktu, np. „Dwa badania wykazały…”, a na
 źródła dodaj tylko wtedy, gdy pomaga rozróżnić relacje. Nie umieszczaj
 technicznych article_id w żadnym tekście.
 """.strip()
+
+
+def _json_schema_object(properties: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
+
+
+_JSON_STRING_ARRAY_SCHEMA = {"type": "array", "items": {"type": "string"}}
+_JSON_CATEGORY_ARRAY_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "string",
+        "enum": [
+            "POLITYKA", "SWIAT", "GOSPODARKA", "SPOLECZENSTWO",
+            "TECHNOLOGIA", "ZDROWIE", "KULTURA_SPORT",
+        ],
+    },
+}
+
+GROUPING_RESPONSE_SCHEMA = _json_schema_object({
+    "groups": {
+        "type": "array",
+        "items": _json_schema_object({
+            "group_id": {"type": "string"},
+            "existing_topic_id": {"type": "string"},
+            "topic_action": {
+                "type": "string",
+                "enum": ["NEW_TOPIC", "DEVELOPMENT", "BACKGROUND_OR_CONTEXT"],
+            },
+            "working_title_pl": {"type": "string"},
+            "article_ids": _JSON_STRING_ARRAY_SCHEMA,
+            "categories": _JSON_CATEGORY_ARRAY_SCHEMA,
+            "confidence": {"type": "number"},
+            "needs_review": {"type": "boolean"},
+            "grouping_reason": {"type": "string"},
+            "topic_anchor_pl": {"type": "string"},
+            "article_relevance": {
+                "type": "array",
+                "items": _json_schema_object({
+                    "article_id": {"type": "string"},
+                    "why_same_event": {"type": "string"},
+                }),
+            },
+        }),
+    },
+    "unassigned_article_ids": _JSON_STRING_ARRAY_SCHEMA,
+    "excluded_articles": {
+        "type": "array",
+        "items": _json_schema_object({
+            "article_id": {"type": "string"},
+            "category": {
+                "type": "string",
+                "enum": ["SPORT", "CELEBRITY", "ENTERTAINMENT", "LIFESTYLE", "OTHER_NON_CORE"],
+            },
+            "reason": {"type": "string"},
+        }),
+    },
+})
+
+TOPIC_MERGE_RESPONSE_SCHEMA = _json_schema_object({
+    "merge_groups": {
+        "type": "array",
+        "items": _json_schema_object({
+            "topic_ids": _JSON_STRING_ARRAY_SCHEMA,
+            "merged_title_pl": {"type": "string"},
+            "confidence": {"type": "number"},
+            "categories": _JSON_CATEGORY_ARRAY_SCHEMA,
+            "reason": {"type": "string"},
+        }),
+    },
+})
+
+TITLE_RESPONSE_SCHEMA = _json_schema_object({
+    "titles": {
+        "type": "array",
+        "items": _json_schema_object({
+            "topic_id": {"type": "string"},
+            "title_pl": {"type": "string"},
+        }),
+    },
+})
+
+_SUMMARY_EVIDENCE_ITEM_SCHEMA = _json_schema_object({
+    "text_pl": {"type": "string"},
+    "article_ids": _JSON_STRING_ARRAY_SCHEMA,
+})
+_SUMMARY_BACKGROUND_ITEM_SCHEMA = _json_schema_object({
+    "text_pl": {"type": "string"},
+    "article_ids": _JSON_STRING_ARRAY_SCHEMA,
+    "needs_verification": {"type": "boolean"},
+})
+_SUMMARY_SOURCE_ITEM_SCHEMA = _json_schema_object({
+    "source_name": {"type": "string"},
+    "description_pl": {"type": "string"},
+    "article_ids": _JSON_STRING_ARRAY_SCHEMA,
+})
+
+SUMMARY_RESPONSE_SCHEMA = _json_schema_object({
+    "topic": _json_schema_object({
+        "headline_pl": {"type": "string"},
+        "what_happened_one_sentence_pl": {"type": "string"},
+        "categories": _JSON_CATEGORY_ARRAY_SCHEMA,
+        "status": {"type": "string"},
+        "time_scope": {"type": "string"},
+    }),
+    "update": _json_schema_object({
+        "is_update": {"type": "boolean"},
+        "new_information_pl": {"type": "string"},
+        "what_changed_pl": {"type": "string"},
+        "new_article_ids": _JSON_STRING_ARRAY_SCHEMA,
+    }),
+    "summary_pl": {"type": "string"},
+    "facts": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "agreement": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "differences": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "framing_and_tone": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "potential_manipulation_signals": {
+        "type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA,
+    },
+    "contradictions": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "background_context": {
+        "type": "array", "items": _SUMMARY_BACKGROUND_ITEM_SCHEMA,
+    },
+    "unknowns": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "sources": {"type": "array", "items": _SUMMARY_SOURCE_ITEM_SCHEMA},
+    "quality": _json_schema_object({
+        "article_count": {"type": "integer"},
+        "source_count": {"type": "integer"},
+        "has_multiple_perspectives": {"type": "boolean"},
+        "overall_confidence": {"type": "string"},
+        "limitations_pl": {"type": "string"},
+    }),
+})
 
 UPDATE_META_PATTERNS = (
     re.compile(r"\bnajnowsz(?:y|a|e) artykuł\b", re.IGNORECASE),
@@ -1397,6 +1570,8 @@ def call_openai(
     max_output_tokens: int | None = None,
     timeout_seconds: float | None = None,
     retry_limit: int | None = None,
+    response_schema: dict[str, Any] | None = None,
+    response_schema_name: str = "structured_response",
 ) -> dict[str, Any]:
     from openai import OpenAI
 
@@ -1408,6 +1583,7 @@ def call_openai(
     )
     last_error: Exception | None = None
     parse_failures = 0
+    last_parse_error = ""
     for attempt in range(effective_retry_limit):
         input_text = (
             json.dumps(payload, ensure_ascii=False)
@@ -1417,13 +1593,25 @@ def call_openai(
             input_text += (
                 "\nThe previous attempt was empty or invalid. Return the requested "
                 "JSON object now, even when there are no matches."
+                + (f" Validation error: {last_parse_error[:500]}" if last_parse_error else "")
             )
         try:
             request = {
                 "model": model,
                 "instructions": instructions,
                 "input": input_text,
-                "text": {"format": {"type": "json_object"}},
+                "text": {
+                    "format": (
+                        {
+                            "type": "json_schema",
+                            "name": response_schema_name,
+                            "strict": True,
+                            "schema": response_schema,
+                        }
+                        if response_schema is not None
+                        else {"type": "json_object"}
+                    )
+                },
             }
             if max_output_tokens is not None:
                 request["max_output_tokens"] = max_output_tokens
@@ -1441,10 +1629,18 @@ def call_openai(
             )
             continue
         try:
+            if getattr(response, "status", None) == "incomplete":
+                incomplete_details = getattr(response, "incomplete_details", None)
+                reason = getattr(incomplete_details, "reason", None) or "unknown"
+                raise AIResponseParseError(
+                    f"OpenAI zwróciło niekompletną odpowiedź (reason={reason}).",
+                    response.output_text,
+                )
             return ParsedAIResponse(extract_json(response.output_text), response.output_text)
         except ValueError as exc:
             last_error = exc
             parse_failures += 1
+            last_parse_error = str(exc)
             if parse_failures >= 2:
                 raise
             print(
@@ -1745,6 +1941,8 @@ def merge_active_topics(
                     merge_input,
                     model,
                     max_output_tokens=TOPIC_MERGE_MAX_OUTPUT_TOKENS,
+                    response_schema=TOPIC_MERGE_RESPONSE_SCHEMA,
+                    response_schema_name="topic_merge",
                 )
                 client.upsert("topic_runs", [{
                     "topic_run_id": merge_run_id,
@@ -1877,7 +2075,7 @@ def merge_active_topics(
                     for topic_id in group_ids
                     for category in categories_by_topic.get(topic_id, [])
                 ))[:3]
-            if merged_categories:
+            if len(source_ids) >= 2 and merged_categories:
                 persist_topic_categories(client, canonical_id, merged_categories)
             client.upsert("topic_articles", [
                 {
@@ -1982,7 +2180,13 @@ def normalize_topic_titles(
             ),
             "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:5],
         } for row in batch]}
-        result = call_openai(TITLE_NORMALIZATION_INSTRUCTIONS, payload, model)
+        result = call_openai(
+            TITLE_NORMALIZATION_INSTRUCTIONS,
+            payload,
+            model,
+            response_schema=TITLE_RESPONSE_SCHEMA,
+            response_schema_name="topic_titles",
+        )
         allowed = {str(row["topic_id"]) for row in batch}
         by_id = {str(row["topic_id"]): row for row in batch}
         candidate_titles: dict[str, str] = {}
@@ -2042,7 +2246,7 @@ def classify_topic_categories(
     """Fill missing topic categories without overwriting reviewed categories."""
     topics = client.select_all(
         "topics",
-        columns="topic_id,headline_pl,status",
+        columns="topic_id,headline_pl,status,source_count",
         filters=[("status", "neq.MERGED")],
     )
     existing_rows = client.select_all("topic_categories", columns="topic_id,category")
@@ -2051,9 +2255,28 @@ def classify_topic_categories(
         category = normalize_topic_category(row.get("category"))
         if category:
             existing_categories.setdefault(str(row["topic_id"]), []).append(category)
+
+    # Categories are presentation metadata for synthesized, multi-source
+    # topics. Do not retain stale categories on singleton/single-source
+    # topics, and never send those topics to the classifier.
+    def has_multiple_sources(row: dict[str, Any]) -> bool:
+        try:
+            return int(row.get("source_count") or 0) >= 2
+        except (TypeError, ValueError):
+            return False
+
+    eligible_topic_ids = {
+        str(row["topic_id"])
+        for row in topics
+        if has_multiple_sources(row)
+    }
+    for topic_id in existing_categories:
+        if topic_id not in eligible_topic_ids:
+            client.delete("topic_categories", filters=[("topic_id", f"eq.{topic_id}")])
     missing = [
         row for row in topics
-        if not existing_categories.get(str(row["topic_id"]))
+        if str(row["topic_id"]) in eligible_topic_ids
+        and not existing_categories.get(str(row["topic_id"]))
     ]
     if not missing:
         return 0
@@ -2112,6 +2335,8 @@ def classify_topic_categories(
                 max_output_tokens=CATEGORY_MAX_OUTPUT_TOKENS,
                 timeout_seconds=CATEGORY_REQUEST_TIMEOUT_SECONDS,
                 retry_limit=CATEGORY_MAX_RETRIES,
+                response_schema=CATEGORY_RESPONSE_SCHEMA,
+                response_schema_name="topic_categories",
             )
         except Exception as exc:
             retryable = isinstance(exc, AIResponseParseError) or is_retryable_openai_error(exc)
@@ -2488,7 +2713,13 @@ def retry_incomplete_summaries(
                 "topic": topic_id, "stage": "SUMMARY", "input": summary_hash,
             })[:24]
             try:
-                summary = normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, summary_input, model))
+                summary = normalize_summary_response(call_openai(
+                    SUMMARY_INSTRUCTIONS,
+                    summary_input,
+                    model,
+                    response_schema=SUMMARY_RESPONSE_SCHEMA,
+                    response_schema_name="topic_summary",
+                ))
                 if previous_aggregation and update_needs_repair(summary):
                     print(
                         f"[AI] Ponawiam aktualizację tematu {topic_id}: "
@@ -2496,7 +2727,13 @@ def retry_incomplete_summaries(
                         flush=True,
                     )
                     summary = normalize_summary_response(
-                        call_openai(SUMMARY_UPDATE_REPAIR_INSTRUCTIONS, summary_input, model)
+                        call_openai(
+                            SUMMARY_UPDATE_REPAIR_INSTRUCTIONS,
+                            summary_input,
+                            model,
+                            response_schema=SUMMARY_RESPONSE_SCHEMA,
+                            response_schema_name="topic_summary_repair",
+                        )
                     )
                     if update_needs_repair(summary):
                         raise ValueError(
@@ -2631,9 +2868,13 @@ def rebuild_summaries(
                 "input": summary_hash,
             })[:24]
             try:
-                summary = normalize_summary_response(
-                    call_openai(REBUILD_SUMMARY_INSTRUCTIONS, summary_input, model)
-                )
+                summary = normalize_summary_response(call_openai(
+                    REBUILD_SUMMARY_INSTRUCTIONS,
+                    summary_input,
+                    model,
+                    response_schema=SUMMARY_RESPONSE_SCHEMA,
+                    response_schema_name="topic_summary_rebuild",
+                ))
                 persist_rebuilt_summary(
                     client,
                     topic_id=topic_id,
@@ -2718,7 +2959,13 @@ def _analyze_pending_batch(
             "run": run_id, "stage": "GROUPING", "batch": batch_index, "input": grouping_hash,
         })[:24]
         try:
-            grouping = call_openai(GROUPING_INSTRUCTIONS, grouping_input, model)
+            grouping = call_openai(
+                GROUPING_INSTRUCTIONS,
+                grouping_input,
+                model,
+                response_schema=GROUPING_RESPONSE_SCHEMA,
+                response_schema_name="article_grouping",
+            )
             client.upsert("topic_runs", [{
                 "topic_run_id": grouping_topic_run_id, "run_id": run_id,
                 "stage": "GROUPING", "prompt_version": PROMPT_VERSION,
@@ -2979,7 +3226,13 @@ def _analyze_pending_batch(
                 continue
             summary_topic_run_id = "topicrun_" + digest({"topic": topic_id, "stage": "SUMMARY", "input": summary_hash})[:24]
             try:
-                summary = normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, summary_input, model))
+                summary = normalize_summary_response(call_openai(
+                    SUMMARY_INSTRUCTIONS,
+                    summary_input,
+                    model,
+                    response_schema=SUMMARY_RESPONSE_SCHEMA,
+                    response_schema_name="topic_summary",
+                ))
                 persist_summary(
                     client,
                     topic_id=topic_id,

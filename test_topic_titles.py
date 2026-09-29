@@ -10,6 +10,7 @@ from ai_pipeline import (
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
     choose_merge_canonical_topic_id,
+    classify_topic_categories,
     is_article_title_copy,
     merge_active_topics,
     merge_overlapping_candidate_groups,
@@ -17,12 +18,13 @@ from ai_pipeline import (
 
 
 class FakeMergeClient:
-    def __init__(self, topics, links, summaries):
+    def __init__(self, topics, links, summaries, articles=None):
         self.rows = {
             "topics": topics,
             "topic_articles": links,
             "topic_summaries": summaries,
             "topic_categories": [],
+            "articles": articles or [],
         }
         self.upserts = []
         self.updates = []
@@ -272,6 +274,47 @@ class TopicTitleTests(unittest.TestCase):
         new_link = next(row for row in links_upsert if row["article_id"] == "new_article")
         self.assertEqual(new_link["topic_id"], "old_topic")
         self.assertIn("assigned_at", new_link)
+
+    def test_categories_only_classify_multi_source_topics(self):
+        topics = [
+            {"topic_id": "singleton", "headline_pl": "Jeden artykuł", "status": "ACTIVE", "source_count": 1},
+            {"topic_id": "multi", "headline_pl": "Wiele źródeł", "status": "ACTIVE", "source_count": 2},
+        ]
+        client = FakeMergeClient(
+            topics,
+            [
+                {"topic_id": "singleton", "article_id": "article_one"},
+                {"topic_id": "multi", "article_id": "article_two"},
+                {"topic_id": "multi", "article_id": "article_three"},
+            ],
+            [],
+            [
+                {"article_id": "article_two", "title": "Decyzja parlamentu", "source_id": "source_a"},
+                {"article_id": "article_three", "title": "Reakcje na decyzję", "source_id": "source_b"},
+            ],
+        )
+        client.rows["topic_categories"] = [
+            {"topic_id": "singleton", "category": "POLITYKA"},
+        ]
+        captured_payload = {}
+
+        def fake_call(instructions, payload, model, **kwargs):
+            captured_payload.update(payload)
+            self.assertIs(kwargs["response_schema"], ai_pipeline.CATEGORY_RESPONSE_SCHEMA)
+            return {"categories": [{"topic_id": "multi", "categories": ["POLITYKA"]}]}
+
+        with patch.object(ai_pipeline, "call_openai", side_effect=fake_call):
+            classified = classify_topic_categories(client)
+
+        self.assertEqual(classified, 1)
+        self.assertEqual(
+            [row["topic_id"] for row in captured_payload["topics"]],
+            ["multi"],
+        )
+        self.assertIn(
+            ("topic_categories", [("topic_id", "eq.singleton")]),
+            client.deletes,
+        )
 
 
 if __name__ == "__main__":
