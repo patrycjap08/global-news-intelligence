@@ -27,7 +27,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v37-polish-label-merge"
+PROMPT_VERSION = "ai-prompts-v39-exclude-weather-sport-celebrities"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -674,9 +674,24 @@ ważnym sygnałem razem z wyciągiem treści — nie odrzucaj zgodnej pary tylko
 dlatego, że pierwsze słowa tekstu nie powtarzają nazwy wydarzenia.
 
 Najpierw odrzuć materiały wyraźnie niezwiązane z głównym zakresem aplikacji:
-sport, celebryci, rozrywka, lifestyle, przepisy, zwykłe treści konsumenckie i
-inne materiały bez znaczenia dla polityki, gospodarki, bezpieczeństwa,
-dyplomacji, konfliktów, prawa publicznego lub istotnych wydarzeń społecznych.
+sport, pogodę i prognozy pogody, celebrytów, rozrywkę, lifestyle, przepisy,
+zwykłe treści konsumenckie i inne materiały bez znaczenia dla polityki,
+gospodarki, bezpieczeństwa, dyplomacji, konfliktów, prawa publicznego lub
+istotnych wydarzeń społecznych.
+
+Materiały, których głównym tematem jest sport, wynik lub przebieg zawodów,
+transfer zawodnika, zwykła prognoza pogody, temperatura, spodziewane opady bez
+istotnych skutków, celebryta albo życie prywatne osoby publicznej, zawsze
+umieść w excluded_articles — nie twórz dla nich grupy, tematu ani syntezy.
+Sama duża popularność materiału nie czyni go istotnym dla aplikacji.
+
+Nie wykluczaj natomiast klęsk żywiołowych i ekstremalnych zjawisk pogodowych,
+jeżeli spowodowały albo bezpośrednio powodują powódź, ofiary, ewakuacje,
+rozległe zniszczenia, poważne awarie infrastruktury, istotne skutki gospodarcze
+lub nadzwyczajne działania władz. Taki materiał jest newsem o skutkach i
+bezpieczeństwie, a nie zwykłą prognozą pogody. Artykuł o decyzji publicznej,
+gospodarce albo bezpieczeństwie może też pozostać, gdy sport, pogoda lub
+celebryta są jedynie tłem, a nie główną osią tekstu.
 Jeżeli związek jest niepewny, nie odrzucaj materiału — zostaw go w grupie lub
 unassigned_article_ids i ustaw needs_review.
 
@@ -692,7 +707,7 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 "topic_anchor_pl":"jednozdaniowa oś wspólnej historii",
 "article_relevance":[{"article_id":"...","why_same_event":"..."}]}],
 "unassigned_article_ids":[],"excluded_articles":[{"article_id":"...",
-"category":"SPORT|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
+"category":"SPORT|WEATHER|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
 "reason":"krótkie uzasadnienie"}]}
 
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
@@ -1371,7 +1386,7 @@ GROUPING_RESPONSE_SCHEMA = _json_schema_object({
             "article_id": {"type": "string"},
             "category": {
                 "type": "string",
-                "enum": ["SPORT", "CELEBRITY", "ENTERTAINMENT", "LIFESTYLE", "OTHER_NON_CORE"],
+                "enum": ["SPORT", "WEATHER", "CELEBRITY", "ENTERTAINMENT", "LIFESTYLE", "OTHER_NON_CORE"],
             },
             "reason": {"type": "string"},
         }),

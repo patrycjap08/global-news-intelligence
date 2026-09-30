@@ -120,6 +120,12 @@ class TopicTitleTests(unittest.TestCase):
         self.assertIn("dotyczy to także grup jednoartykułowych", GROUPING_INSTRUCTIONS)
         self.assertIn("Dzisiejsze wystąpienie Trumpa", GROUPING_INSTRUCTIONS)
 
+    def test_grouping_prompt_excludes_weather_sport_and_celebrities(self):
+        self.assertIn("sport, pogodę i prognozy pogody, celebrytów", GROUPING_INSTRUCTIONS)
+        self.assertIn("zwykła prognoza pogody", GROUPING_INSTRUCTIONS)
+        self.assertIn("Nie wykluczaj natomiast klęsk żywiołowych", GROUPING_INSTRUCTIONS)
+        self.assertIn("SPORT|WEATHER|CELEBRITY", GROUPING_INSTRUCTIONS)
+
     def test_local_merge_filter_keeps_only_plausible_candidates(self):
         topics = [
             {
