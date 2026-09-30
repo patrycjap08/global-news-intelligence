@@ -1009,14 +1009,19 @@ do background_context i oznacz needs_verification=true.
 summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o czym
 piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
 przedstawiają” ani „materiały dotyczą”. Zacznij od tego, co się wydarzyło.
-Formatowanie jest obowiązkowe: nie zwracaj głównej syntezy jako jednego zwartego
-bloku tekstu. Podziel ją na krótkie akapity, z których każdy rozwija jeden etap
-wydarzenia albo jedną grupę faktów. Każdy akapit oddziel pustą linią — w JSON
-zapisz separator jako `\\n\\n`, aby po odczytaniu powstała rzeczywista pusta
-linia. Przy 2–3 artykułach użyj co najmniej 3 akapitów, a przy większej liczbie
-materiałów co najmniej 5 akapitów, o ile treść dostarcza wystarczająco dużo
-faktów. W całej syntezie pogrub `**...**` najważniejsze nazwiska, instytucje,
-liczby, daty i decyzje — zwykle kilka kluczowych elementów, a nie całe zdania.
+Podział na akapity jest obowiązkowy: nie zwracaj głównej syntezy jako jednego
+zwartego bloku tekstu. Podziel ją na krótkie akapity, z których każdy rozwija
+jeden etap wydarzenia albo jedną grupę faktów. Każdy akapit oddziel pustą linią
+— w JSON zapisz separator jako `\\n\\n`, aby po odczytaniu powstała rzeczywista
+pusta linia. Nie zastępuj pustej linii pojedynczym `\\n` ani spacją. Przy 2–3
+artykułach użyj co najmniej 3 akapitów, a przy większej liczbie materiałów co
+najmniej 5 akapitów, o ile treść dostarcza wystarczająco dużo faktów. Ta sama
+zasada dotyczy `update.new_information_pl` i `update.what_changed_pl`: jeśli
+tekst zawiera więcej niż jedno zdanie lub kilka etapów wydarzenia, również
+podziel go na logiczne akapity oddzielone `\\n\\n`.
+Pogrubienia `**...**` są opcjonalne. Jeśli ich używasz, obejmuj nimi tylko
+pojedyncze najważniejsze nazwiska, instytucje, liczby, daty lub decyzje — nigdy
+całe zdania ani większość tekstu.
 Używaj wyłącznie tego ograniczonego Markdownu. Nie używaj HTML, nagłówków
 Markdown, list, tabel, emotikonów ani innych znaczników formatowania.
 Tekst ma odpowiadać na pytanie „co dokładnie się wydarzyło”, a nie „o czym
