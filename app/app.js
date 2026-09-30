@@ -595,27 +595,20 @@ function renderCategories(models) {
 function renderSources(models) {
   const counts = {};
   models.forEach((topic) => {
-    const topicSources = new Set();
     topic.articles.forEach((article) => {
       const source = article.source_name || 'Nieznane źródło';
-      const entry = counts[source] || { topics: 0, articles: 0 };
+      const entry = counts[source] || { articles: 0 };
       entry.articles += 1;
       counts[source] = entry;
-      topicSources.add(source);
-    });
-    topicSources.forEach((source) => {
-      counts[source].topics += 1;
     });
   });
-  const totalTopics = models.length || 1;
-  const topSources = Object.entries(counts)
-    .sort(([, a], [, b]) => (b.topics - a.topics) || (b.articles - a.articles))
-    .slice(0, 5);
-  $('#source-list').innerHTML = topSources.length ? topSources.map(([source, count]) => {
-    const percent = Math.round(count.topics / totalTopics * 100);
-    const topicLabel = count.topics === 1 ? 'temat' : (count.topics < 5 ? 'tematy' : 'tematów');
+  const sources = Object.entries(counts)
+    .sort(([nameA, a], [nameB, b]) => (b.articles - a.articles) || nameA.localeCompare(nameB, 'pl'));
+  const maxArticles = Math.max(1, ...sources.map(([, count]) => count.articles));
+  $('#source-list').innerHTML = sources.length ? sources.map(([source, count]) => {
+    const relativeShare = Math.round(count.articles / maxArticles * 100);
     const articleLabel = count.articles === 1 ? 'artykuł' : (count.articles < 5 ? 'artykuły' : 'artykułów');
-    return `<div class="source-row"><span>${escapeHtml(source)}</span><strong>${count.topics}</strong><small>${count.topics} z ${models.length} ${topicLabel} · ${count.articles} ${articleLabel} · ${percent}% obecności</small><div class="source-bar"><i style="width:${percent}%"></i></div></div>`;
+    return `<div class="source-row"><span>${escapeHtml(source)}</span><small>${count.articles} ${articleLabel}</small><div class="source-bar"><i style="width:${relativeShare}%"></i></div></div>`;
   }).join('') : '<span class="muted">Brak danych</span>';
 }
 

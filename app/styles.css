@@ -150,9 +150,9 @@ button { color: inherit; }
 .category-tag.category-unclassified { border-color: #d5cec3; background: #ebe7e0; color: var(--muted); }
 .card-category-group { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
 .card-category-tag { font-size: 8px; }
-.source-list { display: grid; gap: 10px; margin-top: 13px; }
-.source-row { display: grid; grid-template-columns: 1fr auto; gap: 5px; font-size: 11px; }
-.source-row small { grid-column: 1 / -1; color: var(--muted); font-size: 9px; }
+.source-list { display: grid; gap: 8px; margin-top: 13px; }
+.source-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 11px; }
+.source-row small { color: var(--muted); font-size: 9px; white-space: nowrap; }
 .source-bar { grid-column: 1 / -1; height: 3px; background: var(--paper-deep); overflow: hidden; }
 .source-bar i { display: block; height: 100%; background: var(--red); }
 .column-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
