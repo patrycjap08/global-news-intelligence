@@ -251,6 +251,69 @@ class TopicTitleTests(unittest.TestCase):
             "established_topic",
         )
 
+    def test_existing_summary_repair_preserves_oldest_synthesis(self):
+        topics = {
+            "older_synthesis": {
+                "topic_id": "older_synthesis",
+                "first_seen_at": "2026-09-20T00:00:00+00:00",
+                "article_count": 2,
+            },
+            "newer_synthesis": {
+                "topic_id": "newer_synthesis",
+                "first_seen_at": "2026-09-10T00:00:00+00:00",
+                "article_count": 5,
+            },
+        }
+        summaries = {
+            "older_synthesis": {"topic": {"what_happened_one_sentence_pl": "Starsza synteza"}},
+            "newer_synthesis": {"topic": {"what_happened_one_sentence_pl": "Nowsza synteza"}},
+        }
+        summary_rows = {
+            "older_synthesis": {"generated_at": "2026-09-20T08:00:00+00:00"},
+            "newer_synthesis": {"generated_at": "2026-09-28T08:00:00+00:00"},
+        }
+
+        self.assertEqual(
+            choose_merge_canonical_topic_id(
+                ["older_synthesis", "newer_synthesis"],
+                topics,
+                summaries,
+                summary_metadata_by_topic=summary_rows,
+                prefer_oldest_synthesis=True,
+            ),
+            "older_synthesis",
+        )
+
+    def test_existing_summary_flow_refreshes_only_retained_merged_topics(self):
+        captured = {}
+
+        def fake_merge(*args, **kwargs):
+            captured["merge"] = kwargs
+            kwargs["merged_article_ids_by_topic"]["retained_topic"] = ["new_article"]
+            return {"topics_merged": 2, "merge_failed": 0}
+
+        def fake_retry(*args, **kwargs):
+            captured["retry"] = kwargs
+            return {"summaries": 1, "failed_summaries": 0}
+
+        with patch.object(ai_pipeline, "merge_active_topics", side_effect=fake_merge), \
+                patch.object(ai_pipeline, "retry_incomplete_summaries", side_effect=fake_retry):
+            stats = ai_pipeline.merge_existing_summaries(
+                Path("articles.sqlite3"),
+                "run_existing_merge",
+                object(),
+                max_topics=25,
+            )
+
+        self.assertEqual(stats["summaries"], 1)
+        self.assertTrue(captured["merge"]["existing_summaries_only"])
+        self.assertEqual(captured["merge"]["max_topics"], 25)
+        self.assertEqual(captured["retry"]["only_topic_ids"], {"retained_topic"})
+        self.assertEqual(
+            captured["retry"]["forced_new_article_ids_by_topic"],
+            {"retained_topic": ["new_article"]},
+        )
+
     def test_merge_without_synthesis_preserves_oldest_topic(self):
         topics = {
             "old_topic": {

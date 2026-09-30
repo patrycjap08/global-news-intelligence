@@ -94,6 +94,16 @@ co najmniej dwa różne źródła, nawet jeśli temat ma więcej niż dwa artyku
 Opcjonalna zmienna `AI_REBUILD_MAX_TOPICS` ogranicza
 liczbę przebudowanych tematów; `0` oznacza wszystkie.
 
+Jeżeli istniejące syntezy zostały rozdzielone na kilka osobnych wątków, w
+formularzu `Run workflow` wybierz tryb `merge-existing-summaries`. Ten tryb
+analizuje tylko aktywne wątki z ostatnich 55 godzin, które mają już zapisaną
+syntezę. Najpierw lokalnie tworzy paczki podobnych wątków, potem AI zatwierdza
+scalenia. Po scaleniu zachowywana jest najstarsza synteza, a nowe artykuły są
+przekazywane do osobnego wywołania AI jako aktualizacja tej syntezy. Wątki
+historyczne pozostają poza tym trybem. Opcjonalna zmienna
+`AI_EXISTING_TOPIC_MERGE_MAX_TOPICS` ogranicza liczbę analizowanych wątków;
+`0` oznacza wszystkie aktywne wątki z syntezami.
+
 W zwykłym trybie po grupowaniu nowych artykułów działa dodatkowy szybki etap
 scalania podobnych aktywnych tematów, a dopiero potem generowane są syntezy.
 

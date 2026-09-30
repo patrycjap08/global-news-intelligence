@@ -27,7 +27,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v39-exclude-weather-sport-celebrities"
+PROMPT_VERSION = "ai-prompts-v40-existing-summary-repair"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -52,6 +52,9 @@ TOPIC_MERGE_TITLE_CHAR_LIMIT = max(
 )
 TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT = max(
     160, int(os.environ.get("AI_TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT", "450"))
+)
+TOPIC_MERGE_SUMMARY_CHAR_LIMIT = max(
+    500, int(os.environ.get("AI_TOPIC_MERGE_SUMMARY_CHAR_LIMIT", "1800"))
 )
 TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
     1000, int(os.environ.get("AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS", "12000"))
@@ -542,6 +545,9 @@ def compact_topic_merge_record(
             if str(title or "").strip()
         ],
     }
+    summary = str(topic.get("summary_pl") or "").strip()
+    if summary:
+        record["summary_pl"] = summary[:TOPIC_MERGE_SUMMARY_CHAR_LIMIT]
     if candidate_group_id:
         record["candidate_group_id"] = candidate_group_id
     return record
@@ -864,10 +870,15 @@ różnych etapów tylko dlatego, że mają podobne słowa. Jeżeli nie ma żadne
 konkretnego wspólnego wydarzenia, zostaw tematy osobno.
 
 Porównuj przede wszystkim charakterystyczne nazwy, obiekty, zdarzenia i
-relacje w `recent_article_titles`, a dopiero potem ogólne słowa. Krótkie
-podsumowanie może być nieaktualne lub niedoskonałe; nie pozwól, aby samo
-rozbieżne sformułowanie podsumowania zablokowało połączenie, gdy tytuły i
-faktyczny punkt zaczepienia są zgodne.
+relacje w `recent_article_titles`, `headline_pl` i `what_happened_one_sentence_pl`.
+Jeżeli rekord zawiera `summary_pl`, jest to wcześniejsza synteza całego wątku:
+wykorzystaj ją jako dodatkowe źródło kontekstu, zwłaszcza gdy paczka dotyczy
+istniejących już syntez. Krótkie podsumowanie lub wcześniejsza synteza może być
+nieaktualna albo obejmować szerszy kontekst; nie pozwól, aby samo rozbieżne
+sformułowanie zablokowało połączenie, gdy tytuły i faktyczny punkt zaczepienia
+są zgodne. Dodatkowy kontekst w jednym wątku nie oznacza automatycznie innej
+historii — połącz wątki, jeśli ich głównym wydarzeniem jest ta sama decyzja,
+informacja lub ciąg dalszy tej samej sprawy.
 
 merged_title_pl zachowuje te same zasady co working_title_pl: ma być konkretnym,
 informacyjnym i ciekawym tytułem w jednolitym stylu prasowym, bez clickbaitu,
@@ -2140,6 +2151,8 @@ def choose_merge_canonical_topic_id(
     topic_ids: list[str],
     topic_by_id: dict[str, Any],
     summary_by_topic: dict[str, dict[str, Any]] | None = None,
+    summary_metadata_by_topic: dict[str, dict[str, Any]] | None = None,
+    prefer_oldest_synthesis: bool = False,
 ) -> str:
     """Keep the most established topic as the identity after a merge.
 
@@ -2149,16 +2162,32 @@ def choose_merge_canonical_topic_id(
     topic_id make the choice deterministic for ties.
     """
     summary_by_topic = summary_by_topic or {}
+    summary_metadata_by_topic = summary_metadata_by_topic or {}
 
     def sort_key(topic_id: str) -> tuple[int, int, str, int, str]:
         topic = topic_by_id.get(topic_id, {})
         has_summary = 0 if topic_id in summary_by_topic else 1
+        summary_row = summary_metadata_by_topic.get(topic_id, {})
+        synthesis_created_at = str(
+            summary_row.get("generated_at")
+            or summary_row.get("created_at")
+            or summary_row.get("updated_at")
+            or ""
+        )
         first_seen = str(topic.get("first_seen_at") or "")
         missing_first_seen = 1 if not first_seen else 0
         try:
             article_count = int(topic.get("article_count") or 0)
         except (TypeError, ValueError):
             article_count = 0
+        if prefer_oldest_synthesis and has_summary == 0:
+            return (
+                has_summary,
+                0 if synthesis_created_at else 1,
+                synthesis_created_at or "9999-12-31T23:59:59+00:00",
+                -article_count,
+                topic_id,
+            )
         return (
             has_summary,
             missing_first_seen,
@@ -2176,16 +2205,29 @@ def merge_active_topics(
     client: SupabaseRestClient,
     *,
     model: str = DEFAULT_MODEL,
+    existing_summaries_only: bool = False,
+    max_topics: int = 0,
+    merged_article_ids_by_topic: dict[str, list[str]] | None = None,
 ) -> dict[str, int]:
-    """Merge duplicate active topics before any final summary is generated."""
+    """Merge duplicate active topics before any final summary is generated.
+
+    The repair mode deliberately keeps the normal 55-hour active-topic window,
+    but narrows the input to topics that already have a saved synthesis. This
+    lets it repair historical grouping mistakes without reopening archived
+    topics or creating a first synthesis for a topic that never had one.
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)).isoformat()
+    topic_filters: list[tuple[str, str]] = [
+        ("status", "eq.ACTIVE"),
+        ("last_seen_at", f"gte.{cutoff}"),
+    ]
     topics = client.select_all(
         "topics",
         columns=(
             "topic_id,headline_pl,status,first_seen_at,last_seen_at,"
             "article_count,source_count,coverage_status,needs_review"
         ),
-        filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
+        filters=topic_filters,
     )
     stats = {
         "merge_candidates": 0,
@@ -2203,11 +2245,34 @@ def merge_active_topics(
     conn.row_factory = sqlite3.Row
     try:
         links = client.select_all("topic_articles", columns="topic_id,article_id")
-        summaries = client.select_all("topic_summaries", columns="topic_id,summary")
+        summaries = client.select_all(
+            "topic_summaries",
+            columns="topic_id,summary,input_hash,version,model,generated_at,updated_at",
+        )
+        summary_metadata_by_topic = {
+            str(row["topic_id"]): row
+            for row in summaries
+        }
         summary_by_topic = {
             str(row["topic_id"]): stored_base_summary(row.get("summary"))
             for row in summaries
         }
+        if existing_summaries_only:
+            topics = [
+                topic for topic in topics
+                if str(topic.get("topic_id") or "") in summary_by_topic
+            ]
+            if max_topics > 0:
+                topics = sorted(
+                    topics,
+                    key=lambda topic: (
+                        str(topic.get("last_seen_at") or ""),
+                        str(topic.get("topic_id") or ""),
+                    ),
+                    reverse=True,
+                )[:max_topics]
+            if len(topics) < 2:
+                return stats
         ids_by_topic: dict[str, list[str]] = {}
         for row in links:
             ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
@@ -2233,6 +2298,7 @@ def merge_active_topics(
             )
             previous = summary_by_topic.get(topic_id) or {}
             previous_topic = previous.get("topic") if isinstance(previous.get("topic"), dict) else {}
+            previous_summary = str(previous.get("summary_pl") or "").strip()
             payload_topics.append({
                 "topic_id": topic_id,
                 "headline_pl": str(topic.get("headline_pl") or ""),
@@ -2240,6 +2306,7 @@ def merge_active_topics(
                 "what_happened_one_sentence_pl": str(
                     previous_topic.get("what_happened_one_sentence_pl") or ""
                 ),
+                "summary_pl": previous_summary[:TOPIC_MERGE_SUMMARY_CHAR_LIMIT],
                 "article_count": len(article_ids),
                 "source_count": topic.get("source_count", 0),
                 "first_seen_at": topic.get("first_seen_at", ""),
@@ -2428,6 +2495,8 @@ def merge_active_topics(
                 group_ids,
                 topic_by_id,
                 summary_by_topic,
+                summary_metadata_by_topic=summary_metadata_by_topic,
+                prefer_oldest_synthesis=existing_summaries_only,
             )
             merge_timestamp = now()
             if len(article_ids) == 1:
@@ -2477,6 +2546,10 @@ def merge_active_topics(
                 for article_id in article_ids
                 if article_id not in canonical_article_ids
             ]
+            if merged_article_ids_by_topic is not None and moved_link_rows:
+                merged_article_ids_by_topic.setdefault(canonical_id, []).extend(
+                    row["article_id"] for row in moved_link_rows
+                )
             # PostgREST requires every object in one upsert payload to have
             # the same keys. Keep rows with the optional assigned_at field in
             # a separate request from links that already existed.
@@ -2541,6 +2614,51 @@ def merge_active_topics(
         return stats
     finally:
         conn.close()
+
+
+def merge_existing_summaries(
+    db_path: Path,
+    run_id: str,
+    client: SupabaseRestClient,
+    *,
+    model: str = DEFAULT_MODEL,
+    max_topics: int = 0,
+) -> dict[str, int]:
+    """Repair duplicate active synthesized topics and update retained summaries.
+
+    This is intentionally separate from the normal pending-article pipeline:
+    it never labels articles or considers topics without an existing summary.
+    The merge step records moved article IDs, so the following summary step
+    generates a delta update while preserving the retained topic's original
+    base synthesis.
+    """
+    merged_article_ids_by_topic: dict[str, list[str]] = {}
+    merge_stats = merge_active_topics(
+        db_path,
+        run_id,
+        client,
+        model=model,
+        existing_summaries_only=True,
+        max_topics=max_topics,
+        merged_article_ids_by_topic=merged_article_ids_by_topic,
+    )
+    summary_stats = retry_incomplete_summaries(
+        db_path,
+        run_id,
+        client,
+        model=model,
+        forced_new_article_ids_by_topic=merged_article_ids_by_topic,
+        only_topic_ids=set(merged_article_ids_by_topic),
+    )
+    merge_stats["summaries"] = summary_stats["summaries"]
+    merge_stats["failed_summaries"] = summary_stats["failed_summaries"]
+    log(
+        "AI-REPAIR",
+        f"Istniejące syntezy: scalono tematów: {merge_stats['topics_merged']}; "
+        f"zaktualizowano syntez: {summary_stats['summaries']}; "
+        f"nieudane aktualizacje: {summary_stats['failed_summaries']}.",
+    )
+    return merge_stats
 
 
 def normalize_topic_titles(
@@ -3123,6 +3241,8 @@ def retry_incomplete_summaries(
     client: SupabaseRestClient,
     *,
     model: str = DEFAULT_MODEL,
+    forced_new_article_ids_by_topic: dict[str, list[str]] | None = None,
+    only_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Finalize one summary/update per topic after all batches and merges."""
     conn = sqlite3.connect(db_path)
@@ -3150,19 +3270,27 @@ def retry_incomplete_summaries(
                 latest_assignment_by_topic[topic_id] = created_at
             assignment_time_by_article[(topic_id, article_id)] = created_at
         summary_by_topic = {str(row["topic_id"]): row for row in summaries}
+        forced_new_article_ids_by_topic = forced_new_article_ids_by_topic or {}
         summary_jobs: list[dict[str, Any]] = []
 
         for topic in topics:
             topic_id = str(topic.get("topic_id") or "")
+            if only_topic_ids is not None and topic_id not in only_topic_ids:
+                continue
             all_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
             if not topic_id or len(all_ids) < 2:
                 continue
             previous_row = summary_by_topic.get(topic_id)
+            forced_new_ids = list(dict.fromkeys(
+                str(article_id)
+                for article_id in forced_new_article_ids_by_topic.get(topic_id, [])
+                if str(article_id) in all_ids
+            ))
             previous_updated_at = str((previous_row or {}).get("updated_at") or "")
             latest_assignment = latest_assignment_by_topic.get(topic_id, "")
-            if previous_row and latest_assignment <= previous_updated_at:
+            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids:
                 continue
-            new_ids = [
+            new_ids = forced_new_ids or [
                 article_id for article_id in all_ids
                 if not previous_row
                 or assignment_time_by_article.get((topic_id, article_id), "") > previous_updated_at
@@ -4197,6 +4325,8 @@ def analyze_run(
     rebuild_summaries_mode: bool = False,
     rebuild_max_topics: int = 0,
     regroup_singletons_mode: bool = False,
+    merge_existing_summaries_mode: bool = False,
+    merge_existing_max_topics: int = 0,
 ) -> dict[str, int]:
     """Run the three-stage pipeline: label, merge, then synthesize.
 
@@ -4218,6 +4348,21 @@ def analyze_run(
         )
         stats["categories_classified"] = classify_topic_categories(client, model=model)
         log("AI", "Tryb przebudowy zakończony.")
+        return stats
+    if merge_existing_summaries_mode:
+        log(
+            "AI-REPAIR",
+            "Tryb naprawczy istniejących syntez: analizuję wyłącznie aktywne "
+            f"wątki z ostatnich {TOPIC_MATCH_LOOKBACK_HOURS} godzin, które mają już syntezę.",
+        )
+        stats = merge_existing_summaries(
+            db_path,
+            run_id,
+            client,
+            model=model,
+            max_topics=merge_existing_max_topics,
+        )
+        log("AI-REPAIR", "Tryb naprawczy istniejących syntez zakończony.")
         return stats
     if regroup_singletons_mode:
         log("AI", "Tryb naprawczy: przegrupowuję osobne artykuły utworzone przez fallback.")

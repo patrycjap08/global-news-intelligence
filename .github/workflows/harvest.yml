@@ -13,6 +13,7 @@ on:
           - ai-only
           - regroup-singletons
           - rebuild-summaries
+          - merge-existing-summaries
           - x-only
           - titles-only
       include_x:
@@ -84,6 +85,7 @@ jobs:
       AI_CATEGORY_MAX_RETRIES: ${{ vars.AI_CATEGORY_MAX_RETRIES || '2' }}
       AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS: ${{ vars.AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS || '24' }}
       AI_REBUILD_MAX_TOPICS: ${{ vars.AI_REBUILD_MAX_TOPICS || '0' }}
+      AI_EXISTING_TOPIC_MERGE_MAX_TOPICS: ${{ vars.AI_EXISTING_TOPIC_MERGE_MAX_TOPICS || '0' }}
 
     steps:
       - name: Checkout
@@ -120,6 +122,8 @@ jobs:
             args+=(--titles-only)
           elif [[ "$RUN_MODE" == "rebuild-summaries" ]]; then
             args+=(--ai-only --rebuild-summaries --rebuild-max-topics "$AI_REBUILD_MAX_TOPICS")
+          elif [[ "$RUN_MODE" == "merge-existing-summaries" ]]; then
+            args+=(--ai-only --merge-existing-summaries --merge-existing-max-topics "$AI_EXISTING_TOPIC_MERGE_MAX_TOPICS")
           else
             args+=(--browser)
           fi
