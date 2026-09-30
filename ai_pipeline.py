@@ -42,7 +42,7 @@ TOPIC_MERGE_MIN_CONFIDENCE = float(
     os.environ.get("AI_TOPIC_MERGE_MIN_CONFIDENCE", "0.84")
 )
 TOPIC_MERGE_MAX_TOPICS_PER_REQUEST = max(
-    10, int(os.environ.get("AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST", "60"))
+    10, int(os.environ.get("AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST", "100"))
 )
 TOPIC_MERGE_MAX_RECENT_TITLES = max(
     1, int(os.environ.get("AI_TOPIC_MERGE_MAX_RECENT_TITLES", "1"))
