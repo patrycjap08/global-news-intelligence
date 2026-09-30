@@ -1935,6 +1935,21 @@ def distinct_source_keys(rows: list[dict[str, Any]]) -> set[str]:
     }
 
 
+STATE_SOURCE_PROFILES = {"STATE_ALIGNED", "STATE_MEDIA", "GOVERNMENT_AGENCY"}
+
+
+def is_state_source(row: dict[str, Any]) -> bool:
+    """Return whether an article comes from a state-aligned/state outlet."""
+    profile = str(row.get("source_profile") or "").strip().upper()
+    source_type = str(row.get("source_type") or "").strip().upper()
+    return profile in STATE_SOURCE_PROFILES or source_type in STATE_SOURCE_PROFILES
+
+
+def has_independent_source(rows: list[dict[str, Any]]) -> bool:
+    """Require at least one source outside the state-media classification."""
+    return any(not is_state_source(row) for row in rows)
+
+
 def first_words(text: str, limit: int) -> str:
     words = (text or "").split()
     return " ".join(words[:limit])
@@ -2425,7 +2440,7 @@ def merge_active_topics(
                     for topic_id in group_ids
                     for category in categories_by_topic.get(topic_id, [])
                 ))[:3]
-            if len(source_ids) >= 2 and merged_categories:
+            if len(source_ids) >= 2 and has_independent_source(article_rows) and merged_categories:
                 persist_topic_categories(client, canonical_id, merged_categories)
             canonical_article_ids = set(ids_by_topic.get(canonical_id, []))
             existing_link_rows = [
@@ -2699,10 +2714,21 @@ def classify_topic_categories(
         except (TypeError, ValueError):
             return False
 
+    links = client.select_all("topic_articles", columns="topic_id,article_id")
+    article_rows = client.select_all(
+        "articles",
+        columns="article_id,source_profile,source_type,title",
+    )
+    article_by_id = {str(row["article_id"]): row for row in article_rows}
+    independent_topic_ids = {
+        str(row["topic_id"])
+        for row in links
+        if not is_state_source(article_by_id.get(str(row["article_id"]), {}))
+    }
     eligible_topic_ids = {
         str(row["topic_id"])
         for row in topics
-        if has_multiple_sources(row)
+        if has_multiple_sources(row) and str(row["topic_id"]) in independent_topic_ids
     }
     for topic_id in existing_categories:
         if topic_id not in eligible_topic_ids:
@@ -2720,13 +2746,12 @@ def classify_topic_categories(
         str(row["topic_id"]): stored_base_summary(row.get("summary"))
         for row in client.select_all("topic_summaries", columns="topic_id,summary")
     }
-    links = client.select_all("topic_articles", columns="topic_id,article_id")
     article_ids_by_topic: dict[str, list[str]] = {}
     for row in links:
         article_ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
     article_titles = {
         str(row["article_id"]): str(row.get("title") or "")
-        for row in client.select_all("articles", columns="article_id,title")
+        for row in article_rows
     }
 
     classified = 0
@@ -3133,7 +3158,10 @@ def retry_incomplete_summaries(
             all_rows = local_articles(conn, all_ids)
             if len(new_rows) == 0 or len(all_rows) < 2:
                 continue
-            if len(distinct_source_keys(all_rows)) < 2:
+            if (
+                len(distinct_source_keys(all_rows)) < 2
+                or not has_independent_source(all_rows)
+            ):
                 continue
             previous_aggregation = previous_aggregation_context(previous_row.get("summary")) if previous_row else None
             summary_input_base = {
@@ -3297,7 +3325,7 @@ def rebuild_summaries(
                 if row.get("content_status") in {"COMPLETE", "EXCERPT"}
                 and int(row.get("word_count") or 0) >= MIN_ARTICLE_WORDS
             ]
-            if len(distinct_source_keys(rows)) >= 2:
+            if len(distinct_source_keys(rows)) >= 2 and has_independent_source(rows):
                 rows.sort(key=lambda row: (str(row.get("published_at") or ""), str(row["article_id"])))
                 eligible.append((topic, rows))
 
@@ -3863,7 +3891,10 @@ def _analyze_pending_batch(
             all_rows = local_articles(conn, all_ids)
             if not new_rows or not all_rows:
                 continue
-            if len(distinct_source_keys(all_rows)) < 2:
+            if (
+                len(distinct_source_keys(all_rows)) < 2
+                or not has_independent_source(all_rows)
+            ):
                 stats["skipped_single_source"] += 1
                 continue
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)

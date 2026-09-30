@@ -44,6 +44,7 @@ const PROFILE_COLORS = {
   STATE_ALIGNED: 'dot-state',
   UNCLASSIFIED: 'dot-unclassified',
 };
+const STATE_SOURCE_PROFILES = new Set(['STATE_ALIGNED', 'STATE_MEDIA', 'GOVERNMENT_AGENCY']);
 
 const CATEGORY_LABELS = {
   ALL: 'Wszystkie kategorie',
@@ -196,6 +197,11 @@ function normalizedCategories(value) {
   return [...new Set(values.filter((category) => CATEGORY_LABELS[category] && category !== 'ALL' && category !== 'UNCLASSIFIED'))];
 }
 function humanCategory(category) { return CATEGORY_LABELS[category] || CATEGORY_LABELS.UNCLASSIFIED; }
+function isStateSource(article) {
+  const profile = String(article?.source_profile || '').trim().toUpperCase();
+  const sourceType = String(article?.source_type || '').trim().toUpperCase();
+  return STATE_SOURCE_PROFILES.has(profile) || STATE_SOURCE_PROFILES.has(sourceType);
+}
 function articleMap() { return new Map(state.articles.map((article) => [String(article.article_id), article])); }
 function xPostMap() { return new Map(state.xPosts.map((post) => [post.post_id, post])); }
 function updateText(summaryOrUpdate) {
@@ -399,7 +405,8 @@ function topicModel(topic) {
     if (article.source_name) sources.add(article.source_name);
   });
   const sourceCount = new Set(articles.map((article) => article.source_id || article.source_name).filter(Boolean)).size;
-  const hasAggregation = sourceCount >= 2;
+  const hasIndependentSource = articles.some((article) => !isStateSource(article));
+  const hasAggregation = sourceCount >= 2 && hasIndependentSource;
   const articleTimestamps = articles
     .map((article) => Date.parse(article.published_at || article.fetched_at || ''))
     .filter(Number.isFinite);
