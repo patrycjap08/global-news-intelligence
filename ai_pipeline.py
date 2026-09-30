@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+import heapq
 import hashlib
 from itertools import combinations
 import json
@@ -61,6 +62,32 @@ TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
 )
 TOPIC_MERGE_MAX_REQUESTS = max(
     1, int(os.environ.get("AI_TOPIC_MERGE_MAX_REQUESTS", "80"))
+)
+TOPIC_MERGE_EMBEDDINGS_ENABLED = (
+    os.environ.get("AI_TOPIC_MERGE_EMBEDDINGS_ENABLED", "1").strip().lower()
+    not in {"0", "false", "no", "off"}
+)
+TOPIC_MERGE_EMBEDDING_MODEL = os.environ.get(
+    "OPENAI_TOPIC_EMBEDDING_MODEL", "text-embedding-3-small"
+)
+TOPIC_MERGE_EMBEDDING_BATCH_SIZE = max(
+    25, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_BATCH_SIZE", "100"))
+)
+TOPIC_MERGE_EMBEDDING_DIMENSIONS = max(
+    64, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS", "256"))
+)
+TOPIC_MERGE_EMBEDDING_TOP_K = max(
+    1, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_TOP_K", "5"))
+)
+TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = float(
+    os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.84")
+)
+TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
+    20.0,
+    float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS", "60")),
+)
+TOPIC_MERGE_EMBEDDING_MAX_RETRIES = max(
+    1, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES", "2"))
 )
 CATEGORY_BATCH_SIZE = max(
     10, int(os.environ.get("AI_CATEGORY_BATCH_SIZE", "30"))
@@ -299,6 +326,8 @@ MERGE_NON_DISTINCTIVE_TOKENS = frozenset({
     "dzis", "dzisiaj", "dzisiejszy", "dzisiejsza", "dzisiejsze", "doniesienia",
     "informacja", "informacje", "komentarz", "kontekst", "kraj", "kraju",
     "minister", "najnowze", "najnowsze", "nowosci", "nowości", "polityka",
+    "prezydent", "prezydenci", "wspolna", "wspolne", "wspolny",
+    "wspólna", "wspólne", "wspólny",
     "powiedzial", "powiedział", "reakcja", "reakcje", "relacja", "relacje",
     "raport", "sprawa", "sprawie", "sytuacja", "slowa", "słowa", "wazne",
     "ważne", "wiadomosci", "wiadomości", "wydarzenie", "wydarzenia", "wystapienie",
@@ -324,56 +353,102 @@ def _merge_token_base(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", folded.casefold())
 
 
+MERGE_NON_DISTINCTIVE_BASES = frozenset(
+    _merge_token_base(token) for token in MERGE_NON_DISTINCTIVE_TOKENS
+)
+# These endings cover the most common inflection differences without using a
+# blind five-character prefix.  The old prefix made unrelated words such as
+# "energia" and "energetyczny" look identical.
+MERGE_TOKEN_SUFFIXES = (
+    "owego", "owej", "owych", "owym", "owie", "ami", "ach", "ania",
+    "enie", "enia", "eniu", "owej", "owy", "owa", "owe", "owi",
+    "em", "om", "ie", "ia", "iu", "ą", "ę", "a", "e", "i", "y", "u", "o",
+)
+
+
 def _merge_token_forms(value: str) -> set[str]:
     base = _merge_token_base(value)
-    if len(base) < 4 or base in MERGE_NON_DISTINCTIVE_TOKENS:
+    if len(base) < 4 or base in MERGE_NON_DISTINCTIVE_BASES:
         return set()
     forms = {base}
     # Catch simple Polish inflections of names/objects, e.g. Trump/Trumpa,
-    # without stemming every common word in the headline.
-    if len(base) >= 6:
-        forms.add(base[:5])
+    # without collapsing every word that happens to share its first letters.
+    for suffix in MERGE_TOKEN_SUFFIXES:
+        if base.endswith(suffix) and len(base) - len(suffix) >= 5:
+            stem = base[:-len(suffix)]
+            if stem in MERGE_NON_DISTINCTIVE_BASES:
+                return set()
+            forms.add(stem)
+            break
     return forms
 
 
-def _topic_merge_features(topic: dict[str, Any]) -> tuple[set[str], set[str]]:
-    """Return informative tokens and likely named-entity tokens for a topic."""
+def _topic_merge_features(topic: dict[str, Any]) -> dict[str, set[str]]:
+    """Return exact/stemmed tokens and two-token anchors for a topic.
+
+    A single shared token is deliberately not enough to make two topics local
+    merge candidates.  The two-token anchors are built after removing generic
+    words, so a phrase such as ``sankcje Iran`` is stronger evidence than an
+    isolated word such as ``Trump``.
+    """
     fields = [
         str(topic.get("headline_pl") or ""),
         str(topic.get("what_happened_one_sentence_pl") or ""),
+        str(topic.get("summary_pl") or ""),
         *(str(title) for title in (topic.get("recent_article_titles") or [])),
     ]
-    text = " ".join(fields)
-    tokens: set[str] = set()
-    entities: set[str] = set()
-    for match in MERGE_WORD_RE.finditer(text):
-        raw = match.group(0)
-        forms = _merge_token_forms(raw)
-        tokens.update(forms)
-        if raw[0].isupper():
-            entities.update(forms)
-    return tokens, entities
+    exact_tokens: set[str] = set()
+    stemmed_tokens: set[str] = set()
+    phrases: set[str] = set()
+    for field in fields:
+        content_sequence: list[str] = []
+        for match in MERGE_WORD_RE.finditer(field):
+            raw = match.group(0)
+            forms = _merge_token_forms(raw)
+            if not forms:
+                continue
+            exact = _merge_token_base(raw)
+            stem = min(forms, key=lambda value: (len(value), value))
+            exact_tokens.add(exact)
+            stemmed_tokens.add(stem)
+            content_sequence.append(stem)
+        phrases.update(
+            f"{left} {right}"
+            for left, right in zip(content_sequence, content_sequence[1:])
+            if left != right
+        )
+    return {
+        "exact": exact_tokens,
+        "stems": stemmed_tokens,
+        "phrases": phrases,
+    }
 
 
 def _topic_merge_candidate_edges(
     topics: list[dict[str, Any]],
 ) -> tuple[dict[tuple[str, str], float], dict[str, set[str]]]:
-    """Find local topic pairs with enough rare lexical/entity overlap."""
+    """Find local topic pairs with at least two independent lexical anchors.
+
+    This is a high-precision blocking step before the AI request.  It is not
+    trying to decide whether topics are the same story; it only decides which
+    pairs are worth showing to the model.  In particular, one shared person,
+    country, company or other word can never create an edge by itself.
+    """
     features = {
         str(topic["topic_id"]): _topic_merge_features(topic)
         for topic in topics
     }
     token_postings: dict[str, list[str]] = defaultdict(list)
-    entity_postings: dict[str, list[str]] = defaultdict(list)
-    for topic_id, (tokens, entities) in features.items():
-        for token in tokens:
+    phrase_postings: dict[str, list[str]] = defaultdict(list)
+    for topic_id, topic_features in features.items():
+        for token in topic_features["stems"]:
             token_postings[token].append(topic_id)
-        for token in entities:
-            entity_postings[token].append(topic_id)
+        for phrase in topic_features["phrases"]:
+            phrase_postings[phrase].append(topic_id)
 
     topic_count = len(topics)
-    max_common_token_frequency = max(8, min(25, topic_count // 5 or 1))
-    max_entity_frequency = max(6, min(20, topic_count // 10 or 1))
+    max_common_token_frequency = max(8, min(30, topic_count // 5 or 1))
+    max_common_phrase_frequency = max(5, min(20, topic_count // 10 or 1))
     shared_tokens: dict[tuple[str, str], set[str]] = defaultdict(set)
     for token, topic_ids in token_postings.items():
         unique_ids = sorted(set(topic_ids))
@@ -382,18 +457,31 @@ def _topic_merge_candidate_edges(
         for left, right in combinations(unique_ids, 2):
             shared_tokens[(left, right)].add(token)
 
-    entity_tokens = set(entity_postings)
+    shared_phrases: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for phrase, topic_ids in phrase_postings.items():
+        unique_ids = sorted(set(topic_ids))
+        if len(unique_ids) > max_common_phrase_frequency:
+            continue
+        for left, right in combinations(unique_ids, 2):
+            shared_phrases[(left, right)].add(phrase)
+
     edges: dict[tuple[str, str], float] = {}
     neighbors: dict[str, set[str]] = defaultdict(set)
-    for pair, overlap in shared_tokens.items():
-        rare_entities = {
-            token for token in overlap
-            if token in entity_tokens
-            and len(set(entity_postings[token])) <= max_entity_frequency
-        }
-        if len(overlap) < 2 and not rare_entities:
+    for pair in set(shared_tokens) | set(shared_phrases):
+        overlap = shared_tokens.get(pair, set())
+        phrase_overlap = shared_phrases.get(pair, set())
+        # One common word is never enough.  A shared two-token anchor counts
+        # as two pieces of evidence; otherwise we need two distinct stems.
+        if len(overlap) < 2 and not phrase_overlap:
             continue
-        score = float(len(overlap)) + 0.5 * len(rare_entities)
+        exact_overlap = (
+            features[pair[0]]["exact"] & features[pair[1]]["exact"]
+        )
+        score = (
+            float(len(overlap))
+            + 2.0 * len(phrase_overlap)
+            + 0.25 * len(exact_overlap)
+        )
         edges[pair] = score
         left, right = pair
         neighbors[left].add(right)
@@ -401,23 +489,208 @@ def _topic_merge_candidate_edges(
     return edges, neighbors
 
 
+def _cosine_similarity(left: list[float], right: list[float]) -> float:
+    if len(left) != len(right) or not left:
+        return 0.0
+    left_norm = sum(value * value for value in left) ** 0.5
+    right_norm = sum(value * value for value in right) ** 0.5
+    if left_norm == 0 or right_norm == 0:
+        return 0.0
+    return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
+
+
+def build_embedding_candidate_edges(
+    topic_ids: list[str],
+    embeddings: list[list[float]],
+    *,
+    top_k: int = TOPIC_MERGE_EMBEDDING_TOP_K,
+    min_similarity: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
+) -> dict[tuple[str, str], float]:
+    """Return nearest semantic neighbors that deserve AI verification.
+
+    Embeddings only create *candidate* edges.  The merge prompt remains the
+    final authority and must still identify the same concrete story before a
+    database merge is applied.
+    """
+    if len(topic_ids) != len(embeddings) or len(topic_ids) < 2:
+        return {}
+    edges: dict[tuple[str, str], float] = {}
+    for index, vector in enumerate(embeddings):
+        scored: list[tuple[float, int]] = []
+        for other_index, other_vector in enumerate(embeddings):
+            if index == other_index:
+                continue
+            similarity = _cosine_similarity(vector, other_vector)
+            if similarity >= min_similarity:
+                scored.append((similarity, other_index))
+        for similarity, other_index in heapq.nlargest(top_k, scored):
+            pair = tuple(sorted((str(topic_ids[index]), str(topic_ids[other_index]))))
+            edges[pair] = max(edges.get(pair, 0.0), similarity)
+    return edges
+
+
+def _topic_embedding_text(topic: dict[str, Any]) -> str:
+    recent_titles = [
+        str(title).strip()
+        for title in (topic.get("recent_article_titles") or [])[:3]
+        if str(title or "").strip()
+    ]
+    parts = [
+        f"Tytuł wątku: {str(topic.get('headline_pl') or '').strip()}",
+        f"Opis: {str(topic.get('what_happened_one_sentence_pl') or '').strip()}",
+    ]
+    if recent_titles:
+        parts.append("Ostatnie nagłówki: " + " | ".join(recent_titles))
+    return "\n".join(parts)[:1800]
+
+
+def build_topic_embedding_candidate_edges(
+    topics: list[dict[str, Any]],
+) -> dict[tuple[str, str], float]:
+    """Embed compact topic descriptions and return semantic candidate edges.
+
+    The whole operation is intentionally best-effort.  A temporary embedding
+    outage must leave the older lexical blocking algorithm available rather
+    than stopping ingestion or the merge pass.
+    """
+    if not TOPIC_MERGE_EMBEDDINGS_ENABLED or len(topics) < 2:
+        return {}
+    if not (os.environ.get("OPENAI_API_KEY") or "").strip():
+        return {}
+
+    from openai import OpenAI
+
+    topic_ids = [str(topic.get("topic_id") or "") for topic in topics]
+    texts = [_topic_embedding_text(topic) for topic in topics]
+    client = OpenAI(
+        api_key=openai_api_key(),
+        timeout=TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
+    embeddings: list[list[float]] = []
+    batch_count = (len(texts) + TOPIC_MERGE_EMBEDDING_BATCH_SIZE - 1) // TOPIC_MERGE_EMBEDDING_BATCH_SIZE
+    log(
+        "AI",
+        f"Semantyczna selekcja: tworzę embeddingi dla {len(texts)} tematów "
+        f"w {batch_count} paczkach (model {TOPIC_MERGE_EMBEDDING_MODEL}); "
+        "paczki dotyczą tylko API, potem porównuję wszystkie pary lokalnie.",
+    )
+    for offset in range(0, len(texts), TOPIC_MERGE_EMBEDDING_BATCH_SIZE):
+        batch = texts[offset:offset + TOPIC_MERGE_EMBEDDING_BATCH_SIZE]
+        last_error: Exception | None = None
+        for attempt in range(TOPIC_MERGE_EMBEDDING_MAX_RETRIES):
+            try:
+                response = client.embeddings.create(
+                    input=batch,
+                    model=TOPIC_MERGE_EMBEDDING_MODEL,
+                    dimensions=TOPIC_MERGE_EMBEDDING_DIMENSIONS,
+                )
+                data = sorted(
+                    list(getattr(response, "data", []) or []),
+                    key=lambda item: int(getattr(item, "index", 0)),
+                )
+                if len(data) != len(batch):
+                    raise RuntimeError(
+                        f"Embedding API zwróciło {len(data)} wektorów zamiast {len(batch)}."
+                    )
+                embeddings.extend([
+                    [float(value) for value in item.embedding]
+                    for item in data
+                ])
+                last_error = None
+                break
+            except Exception as exc:
+                last_error = exc
+                if not is_retryable_openai_error(exc) or attempt + 1 >= TOPIC_MERGE_EMBEDDING_MAX_RETRIES:
+                    raise
+                wait_before_openai_retry(
+                    attempt,
+                    exc,
+                    retry_limit=TOPIC_MERGE_EMBEDDING_MAX_RETRIES,
+                )
+        if last_error is not None:
+            raise last_error
+
+    edges = build_embedding_candidate_edges(topic_ids, embeddings)
+    log(
+        "AI",
+        f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
+        f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; "
+        f"AI zweryfikuje je razem z lokalnymi kandydatami.",
+    )
+    return edges
+
+
 def build_topic_merge_candidate_groups(
     topics: list[dict[str, Any]],
     *,
     max_topics_per_group: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
+    semantic_edges: dict[tuple[str, str], float] | None = None,
+    preserve_candidate_edges: bool = False,
 ) -> list[list[str]]:
     """Build bounded candidate groups before asking the model to merge them.
 
-    The lexical graph is useful for finding possible relationships, but its
-    connected components can become enormous through weak transitive bridges
-    (A resembles B, B resembles C, and so on). Split every component into
-    bounded, graph-local chunks before it reaches the model.
+    Lexical and semantic edges are useful for finding possible relationships,
+    but connected components can become enormous through weak transitive
+    bridges (A resembles B, B resembles C, and so on). Split every component
+    into bounded, graph-local chunks before it reaches the model.
     """
     if len(topics) < 2:
         return []
     edges, _neighbors = _topic_merge_candidate_edges(topics)
+    topic_ids_set = {str(topic["topic_id"]) for topic in topics}
+    for raw_pair, score in (semantic_edges or {}).items():
+        if len(raw_pair) != 2:
+            continue
+        left, right = (str(raw_pair[0]), str(raw_pair[1]))
+        if left == right or left not in topic_ids_set or right not in topic_ids_set:
+            continue
+        pair = tuple(sorted((left, right)))
+        edges[pair] = max(edges.get(pair, 0.0), 3.0 + float(score))
+        _neighbors.setdefault(left, set()).add(right)
+        _neighbors.setdefault(right, set()).add(left)
     if not edges:
         return []
+
+    if preserve_candidate_edges:
+        # A component can be larger than one AI request.  Build an overlapping
+        # edge cover instead of cutting it into disjoint chunks, so every pair
+        # that passed the local filter remains together in at least one request.
+        remaining_edges = set(edges)
+        edge_groups: list[list[str]] = []
+        while remaining_edges:
+            seed = max(
+                remaining_edges,
+                key=lambda pair: (edges[pair], pair),
+            )
+            group: set[str] = set(seed)
+            while len(group) < max_topics_per_group:
+                candidate_scores: dict[str, float] = defaultdict(float)
+                candidate_degrees: dict[str, int] = defaultdict(int)
+                for left, right in remaining_edges:
+                    if left in group and right not in group:
+                        candidate_scores[right] += edges[(left, right)]
+                        candidate_degrees[right] += 1
+                    elif right in group and left not in group:
+                        candidate_scores[left] += edges[(left, right)]
+                        candidate_degrees[left] += 1
+                if not candidate_scores:
+                    break
+                candidate = max(
+                    candidate_scores,
+                    key=lambda topic_id: (
+                        candidate_scores[topic_id],
+                        candidate_degrees[topic_id],
+                        topic_id,
+                    ),
+                )
+                group.add(candidate)
+            covered_edges = {
+                pair for pair in remaining_edges if set(pair).issubset(group)
+            }
+            edge_groups.append(sorted(group))
+            remaining_edges.difference_update(covered_edges)
+        return edge_groups
 
     topic_ids = [str(topic["topic_id"]) for topic in topics]
     parent = {topic_id: topic_id for topic_id in topic_ids}
@@ -558,16 +831,21 @@ def build_topic_merge_requests(
     *,
     max_topics_per_request: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
     candidate_groups: list[list[str]] | None = None,
+    preserve_candidate_group_overlap: bool = False,
 ) -> list[list[dict[str, Any]]]:
     """Pack logical candidate components into AI requests without overlap."""
     topic_by_id = {str(topic["topic_id"]): topic for topic in topics}
-    groups = merge_overlapping_candidate_groups(
-        candidate_groups
-        if candidate_groups is not None
-        else build_topic_merge_candidate_groups(
+    raw_groups = candidate_groups
+    if raw_groups is None:
+        raw_groups = build_topic_merge_candidate_groups(
             topics,
             max_topics_per_group=max_topics_per_request,
+            preserve_candidate_edges=preserve_candidate_group_overlap,
         )
+    groups = (
+        raw_groups
+        if preserve_candidate_group_overlap
+        else merge_overlapping_candidate_groups(raw_groups)
     )
     requests: list[list[dict[str, Any]]] = []
     current_records: dict[str, dict[str, Any]] = {}
@@ -583,6 +861,14 @@ def build_topic_merge_requests(
         for chunk_index, chunk in enumerate(chunks, start=1):
             if not chunk:
                 continue
+            if preserve_candidate_group_overlap and current_records:
+                # A topic may occur in several edge-cover groups.  Flush a
+                # request before adding an overlapping group so every record
+                # keeps the correct candidate_group_id and the model compares
+                # all members of that edge-cover group.
+                if set(chunk).intersection(current_records):
+                    requests.append(list(current_records.values()))
+                    current_records = {}
             if len(chunk) >= max_topics_per_request:
                 if current_records:
                     requests.append(list(current_records.values()))
@@ -609,6 +895,9 @@ def build_topic_merge_requests(
                         candidate_group_id=candidate_group_id,
                     ),
                 )
+            if preserve_candidate_group_overlap:
+                requests.append(list(current_records.values()))
+                current_records = {}
     if current_records:
         requests.append(list(current_records.values()))
     return requests
@@ -701,7 +990,7 @@ celebryta są jedynie tłem, a nie główną osią tekstu.
 Jeżeli związek jest niepewny, nie odrzucaj materiału — zostaw go w grupie lub
 unassigned_article_ids i ustaw needs_review.
 
-Treść artykułu w tym etapie jest tylko krótkim wyciągiem pierwszych około 130
+Treść artykułu w tym etapie jest tylko krótkim wyciągiem pierwszych około 100
 słów, więc nie dopowiadaj faktów, których nie ma w tytule ani wyciągu.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
@@ -833,7 +1122,9 @@ istotny wymiar tematu, a nie jako luźne skojarzenie.
 TOPIC_MERGE_INSTRUCTIONS = """
 Jesteś modułem porządkowania tematów w aplikacji Global News Intelligence.
 Otrzymujesz grupy kandydatów wyłonione wcześniej lokalnie na podstawie
-wspólnych charakterystycznych słów, aktorów lub obiektów. Twoim celem jest
+wielu sygnałów: wspólnych charakterystycznych słów lub fraz, podobieństwa
+znaczeniowego opisów i tytułów oraz wspólnych aktorów lub obiektów. Są to
+wyłącznie kandydatury do weryfikacji, a nie decyzje o scaleniu. Twoim celem jest
 potwierdzić, które z tych tematów opisują tę samą konkretną historię, nawet
 jeśli wcześniejsze grupowanie rozdzieliło je na różne tematy. Porównuj tylko
 tematy przekazane w bieżącym żądaniu; brak tematu w żądaniu nie oznacza, że
@@ -2225,6 +2516,7 @@ def merge_active_topics(
         "local_candidate_groups": 0,
         "local_candidate_topics": 0,
         "largest_candidate_group": 0,
+        "semantic_candidate_edges": 0,
         "merge_requests": 0,
     }
     if len(topics) < 2:
@@ -2307,15 +2599,33 @@ def merge_active_topics(
                 ],
             })
 
-        candidate_groups = merge_overlapping_candidate_groups(
-            build_topic_merge_candidate_groups(payload_topics)
+        semantic_edges: dict[tuple[str, str], float] = {}
+        try:
+            semantic_edges = build_topic_embedding_candidate_edges(payload_topics)
+            stats["semantic_candidate_edges"] = len(semantic_edges)
+        except Exception as exc:
+            log(
+                "AI",
+                "Semantyczna selekcja niedostępna; używam lokalnego filtra "
+                f"słów i fraz. Szczegóły: {short_text(exc, 180)}.",
+                level="WARN",
+            )
+        candidate_groups = build_topic_merge_candidate_groups(
+            payload_topics,
+            semantic_edges=semantic_edges,
+            preserve_candidate_edges=True,
         )
         merge_requests = build_topic_merge_requests(
             payload_topics,
             candidate_groups=candidate_groups,
+            preserve_candidate_group_overlap=True,
         )
         stats["local_candidate_groups"] = len(candidate_groups)
-        stats["local_candidate_topics"] = sum(len(group) for group in candidate_groups)
+        stats["local_candidate_topics"] = len({
+            topic_id
+            for group in candidate_groups
+            for topic_id in group
+        })
         stats["largest_candidate_group"] = max(
             (len(group) for group in candidate_groups),
             default=0,
@@ -2336,6 +2646,7 @@ def merge_active_topics(
             f"grup kandydackich: {stats['local_candidate_groups']}, "
             f"kandydatów w grupach: {stats['local_candidate_topics']}, "
             f"największa grupa: {stats['largest_candidate_group']}, "
+            f"par semantycznych: {stats['semantic_candidate_edges']}, "
             f"zapytań do AI: {len(merge_requests)}.",
         )
         if not merge_requests:

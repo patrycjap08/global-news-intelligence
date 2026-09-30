@@ -8,6 +8,7 @@ import ai_pipeline
 from ai_pipeline import (
     GROUPING_INSTRUCTIONS,
     TOPIC_LABELING_INSTRUCTIONS,
+    build_embedding_candidate_edges,
     build_topic_merge_candidate_groups,
     build_topic_merge_requests,
     build_bounded_summary_input,
@@ -161,6 +162,32 @@ class TopicTitleTests(unittest.TestCase):
             {"local_1_1"},
         )
 
+    def test_local_merge_filter_rejects_a_single_shared_word(self):
+        topics = [
+            {
+                "topic_id": "topic_a",
+                "headline_pl": "[USA] Trump komentuje nowe wydarzenia",
+                "what_happened_one_sentence_pl": "Prezydent zabrał głos w sprawie polityki zagranicznej.",
+                "recent_article_titles": ["Trump mówi o aktualnej sytuacji"],
+            },
+            {
+                "topic_id": "topic_b",
+                "headline_pl": "[USA] Trump reaguje na decyzję Kongresu",
+                "what_happened_one_sentence_pl": "Prezydent odniósł się do krajowej decyzji legislacyjnej.",
+                "recent_article_titles": ["Kongres ogłasza decyzję w sprawie ustawy"],
+            },
+        ]
+        self.assertEqual(build_topic_merge_candidate_groups(topics), [])
+
+    def test_embedding_candidates_can_connect_different_wording(self):
+        edges = build_embedding_candidate_edges(
+            ["topic_a", "topic_b", "topic_c"],
+            [[1.0, 0.0], [0.99, 0.1], [0.0, 1.0]],
+            top_k=1,
+            min_similarity=0.98,
+        )
+        self.assertEqual(set(edges), {("topic_a", "topic_b")})
+
     def test_labeling_prompt_separates_naming_from_grouping(self):
         self.assertIn("nie grupuj artykułów", TOPIC_LABELING_INSTRUCTIONS)
         self.assertIn("title_original", TOPIC_LABELING_INSTRUCTIONS)
@@ -169,19 +196,22 @@ class TopicTitleTests(unittest.TestCase):
         self.assertNotIn("topic_anchor_pl", TOPIC_LABELING_INSTRUCTIONS)
 
     def test_large_component_uses_bounded_edge_cover_instead_of_one_group_per_topic(self):
-        actor_names = [f"Actor{index}" for index in range(120)]
+        actor_names = [f"Actor{'x' * (index + 1)}" for index in range(120)]
+        operation_names = [f"Operation{'y' * (index + 1)}" for index in range(120)]
         topics = [
             {
                 "topic_id": "hub",
-                "headline_pl": "[Świat] " + " ".join(actor_names),
-                "what_happened_one_sentence_pl": "Wspólna sprawa.",
+                "headline_pl": "[Świat] " + " ".join(
+                    f"{actor} {operation}" for actor, operation in zip(actor_names, operation_names)
+                ),
+                "what_happened_one_sentence_pl": "Opisuje wiele niezależnych działań.",
                 "recent_article_titles": [],
             }
         ] + [
             {
                 "topic_id": f"topic_{index}",
-                "headline_pl": f"[Świat] {actor_name} wydarzenie",
-                "what_happened_one_sentence_pl": "Wspólna sprawa.",
+                "headline_pl": f"[Świat] {actor_name} {operation_names[index]}",
+                "what_happened_one_sentence_pl": f"Opisuje działanie {actor_name}.",
                 "recent_article_titles": [],
             }
             for index, actor_name in enumerate(actor_names)
@@ -192,6 +222,33 @@ class TopicTitleTests(unittest.TestCase):
         self.assertEqual(
             {topic_id for group in groups for topic_id in group},
             {topic["topic_id"] for topic in topics},
+        )
+        edges, _ = ai_pipeline._topic_merge_candidate_edges(topics)
+        edge_groups = build_topic_merge_candidate_groups(
+            topics,
+            max_topics_per_group=20,
+            preserve_candidate_edges=True,
+        )
+        self.assertTrue(
+            all(
+                any(set(pair).issubset(set(group)) for group in edge_groups)
+                for pair in edges
+            )
+        )
+        edge_requests = build_topic_merge_requests(
+            topics,
+            max_topics_per_request=20,
+            candidate_groups=edge_groups,
+            preserve_candidate_group_overlap=True,
+        )
+        self.assertTrue(
+            all(
+                any(
+                    set(pair).issubset({item["topic_id"] for item in request})
+                    for request in edge_requests
+                )
+                for pair in edges
+            )
         )
         requests = build_topic_merge_requests(
             topics,
