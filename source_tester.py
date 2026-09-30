@@ -70,6 +70,7 @@ SOURCE_EDITORIAL_PROFILES = {
     "bloomberg": "CENTER", "cnn": "CENTER_LEFT", "fox_news": "RIGHT",
     "nbc_news": "CENTER_LEFT", "abc_news": "CENTER", "cbs_news": "CENTER",
     "npr": "CENTER_LEFT", "politico": "CENTER_LEFT", "axios": "CENTER",
+    "daily_signal": "RIGHT",
     "vox": "LEFT", "huffpost": "LEFT", "national_review": "RIGHT",
     "washington_examiner": "RIGHT", "new_york_post": "RIGHT", "mother_jones": "LEFT",
     # United Kingdom and Europe
@@ -519,6 +520,14 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         ))
         if sky_authors:
             author = ", ".join(sky_authors)
+    if source_id == "daily_signal":
+        daily_signal_authors = list(dict.fromkeys(
+            clean_text(node.get_text(" ", strip=True))
+            for node in soup.select(".single-content .ds-author-list a")
+            if clean_text(node.get_text(" ", strip=True))
+        ))
+        if daily_signal_authors:
+            author = ", ".join(daily_signal_authors)
     if not author:
         author_node = soup.select_one('[data-testid="byline-contributors"], [rel="author"], .news__author')
         author = clean_text(author_node.get_text(" ", strip=True)) if author_node else ""
@@ -609,6 +618,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is not None:
             source_kind = "sky_news"
     if content_root is None:
+        content_root = soup.select_one(".single-content .wp-block-kadence-dynamichtml")
+        if content_root is not None and content_root.select_one("p"):
+            source_kind = "daily_signal"
+    if content_root is None:
         content_root = soup.select_one("article")
         if content_root is not None and content_root.select_one(".duet--article--article-body-component"):
             source_kind = "vox"
@@ -670,6 +683,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", figure, [data-component='image-block'], [data-component='tag-list-block'], [data-testid='links-grid'], [data-testid*='card'], [data-testid='ad-unit'], [data-component='ad-slot']"
     elif source_kind == "sky_news":
         unwanted += ", figure, .sdc-site-share, [data-testid='article-custom-markup'], [data-testid='vendor-outbrain'], [data-testid='app-promo'], [data-testid*='advert'], .ui-video-player, .sdc-article-widget"
+    elif source_kind == "daily_signal":
+        unwanted += ", figure, .ds-trending-articles, .author-box, .yarpp-related, .ds-yarpp-related, .newsletter-cta-row, .newsletter-content-row, .wp-block-kadence-dynamichtml script"
     elif source_kind == "abc":
         unwanted += ", .FITT_Article_related, .FITT_Article_recirc, .FITT_Article_comments, .comments, [data-testid='related-content']"
     elif source_kind == "politico":
@@ -725,6 +740,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
             if not clean_text(node.get_text(" ", strip=True)).casefold().startswith("get our flagship newsletter")
         ]
     if source_kind == "sky_news":
+        text_nodes = content_root.select("p, h2, h3, li")
+    if source_kind == "daily_signal":
         text_nodes = content_root.select("p, h2, h3, li")
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))

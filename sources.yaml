@@ -275,6 +275,23 @@ sources:
     browser_accept_selectors:
       - "button[title='Zaakceptować']"
       - "button[aria-label='Zaakceptować']"
+  - id: daily_signal
+    name: The Daily Signal
+    region: USA
+    homepage: https://www.dailysignal.com
+    rss_urls:
+      - https://www.dailysignal.com/feed/
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^www\.dailysignal\.com$'
+    candidate_include_url_patterns:
+      - '^/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:author|category|tag|podcast|video|videos)(?:/|$)'
+    candidate_exclude_title_patterns:
+      - '\b(sport|sports|nfl|nba|mlb|nhl|ncaa|football|baseball|basketball|soccer|golf|tennis|olympics)\b'
+    browser_article_patterns:
+      - '^https://www\.dailysignal\.com/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
   - {id: washington_examiner, name: Washington Examiner, region: USA, homepage: https://www.washingtonexaminer.com}
   - {id: new_york_post, name: New York Post, region: USA, homepage: https://nypost.com}
   - {id: mother_jones, name: Mother Jones, region: USA, homepage: https://www.motherjones.com}
