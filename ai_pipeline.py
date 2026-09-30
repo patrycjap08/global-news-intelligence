@@ -1310,17 +1310,6 @@ text_pl. Jeśli element nie ma oparcia w konkretnym artykule, zostaw
 article_ids jako [] i ustaw needs_verification=true tam, gdzie to pole istnieje.
 """.strip()
 
-REBUILD_SUMMARY_INSTRUCTIONS = SUMMARY_INSTRUCTIONS + """
-
-TRYB PEŁNEJ PRZEBUDOWY: previous_aggregation będzie zawsze null. Opracuj
-pełną, nową syntezę bazową na podstawie wszystkich artykułów w all_articles.
-Nie traktuj tego jako aktualizacji i nie pisz delta-update. Ustaw
-update.is_update=false, pozostaw update.new_information_pl i
-update.what_changed_pl puste oraz update.new_article_ids jako pustą listę.
-Nie pomijaj ważnych faktów tylko dlatego, że występują w wielu artykułach —
-połącz je w jeden klarowny opis, a powtórzenia wykorzystaj do oceny zgodności.
-""".strip()
-
 SUMMARY_UPDATE_REPAIR_INSTRUCTIONS = SUMMARY_INSTRUCTIONS + """
 
 TRYB NAPRAWY AKTUALIZACJI: poprzednia odpowiedź nie spełniła wymogu
@@ -3163,78 +3152,6 @@ def persist_summary(
     return version
 
 
-def persist_rebuilt_summary(
-    client: SupabaseRestClient,
-    *,
-    topic_id: str,
-    run_id: str,
-    model: str,
-    summary: dict[str, Any],
-    summary_hash: str,
-    previous_row: dict[str, Any] | None,
-) -> int:
-    """Replace the current base summary while retaining the previous version."""
-    persist_topic_categories(
-        client,
-        topic_id,
-        (summary.get("topic") or {}).get("categories")
-        if isinstance(summary.get("topic"), dict)
-        else [],
-    )
-    version = int((previous_row or {}).get("version", 0)) + 1
-    timestamp = now()
-    base_summary = dict(summary)
-    base_summary["update"] = empty_update()
-    stored_summary = {
-        "base_summary": base_summary,
-        "updates": [],
-        "latest_update": empty_update(),
-    }
-
-    client.upsert("topic_summaries", [{
-        "topic_id": topic_id,
-        "version": version,
-        "input_hash": summary_hash,
-        "model": model,
-        "summary": stored_summary,
-        "generated_at": timestamp,
-        "updated_at": timestamp,
-    }], on_conflict="topic_id")
-
-    try:
-        # If the history migration was not run before the rebuild, preserve the
-        # summary that was live immediately before the replacement.
-        if previous_row:
-            client.upsert("topic_summary_versions", [{
-                "topic_id": topic_id,
-                "version": int(previous_row.get("version", 0)),
-                "run_id": None,
-                "model": previous_row.get("model") or model,
-                "prompt_version": "BEFORE_REBUILD",
-                "summary": previous_row.get("summary") or {},
-                "new_article_ids": [],
-                "generated_at": previous_row.get("generated_at") or timestamp,
-            }], on_conflict="topic_id,version")
-        client.upsert("topic_summary_versions", [{
-            "topic_id": topic_id,
-            "version": version,
-            "run_id": run_id,
-            "model": model,
-            "prompt_version": PROMPT_VERSION,
-            "summary": stored_summary,
-            "new_article_ids": [],
-            "generated_at": timestamp,
-        }], on_conflict="topic_id,version")
-    except Exception as exc:
-        log(
-            "AI",
-            "Nie zapisano historii przebudowy tematu; uruchom "
-            f"supabase_migration_topic_updates.sql. Szczegóły: {short_text(exc, 180)}.",
-            level="WARN",
-        )
-    return version
-
-
 def retry_incomplete_summaries(
     db_path: Path,
     run_id: str,
@@ -3423,179 +3340,6 @@ def retry_incomplete_summaries(
                     "raw_output": parse_failure_for_storage(exc), "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
                 stats["failed_summaries"] += 1
-        return stats
-    finally:
-        conn.close()
-
-
-def rebuild_summaries(
-    db_path: Path,
-    run_id: str,
-    client: SupabaseRestClient,
-    *,
-    model: str = DEFAULT_MODEL,
-    max_topics: int = 0,
-) -> dict[str, int]:
-    """Regenerate every multi-article topic without harvesting or regrouping."""
-    if not (os.environ.get("OPENAI_API_KEY") or "").strip():
-        raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
-
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    try:
-        topics = client.select_all(
-            "topics",
-            columns="topic_id,headline_pl,status,article_count,source_count,last_seen_at",
-        )
-        links = client.select_all("topic_articles", columns="topic_id,article_id")
-        summaries = client.select_all(
-            "topic_summaries",
-            columns="topic_id,summary,input_hash,version,model,generated_at,updated_at",
-        )
-        summary_by_topic = {str(row["topic_id"]): row for row in summaries}
-        ids_by_topic: dict[str, list[str]] = {}
-        for row in links:
-            ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
-
-        eligible: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
-        for topic in topics:
-            topic_id = str(topic.get("topic_id") or "")
-            if not topic_id:
-                continue
-            article_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
-            rows = [
-                row for row in local_articles(conn, article_ids)
-                if row.get("content_status") in {"COMPLETE", "EXCERPT"}
-                and int(row.get("word_count") or 0) >= MIN_ARTICLE_WORDS
-            ]
-            if len(distinct_source_keys(rows)) >= 2 and has_independent_source(rows):
-                rows.sort(key=lambda row: (str(row.get("published_at") or ""), str(row["article_id"])))
-                eligible.append((topic, rows))
-
-        eligible.sort(
-            key=lambda item: (
-                str(item[0].get("last_seen_at") or ""),
-                str(item[0].get("topic_id") or ""),
-            ),
-            reverse=True,
-        )
-        eligible_count = len(eligible)
-        if max_topics > 0:
-            eligible = eligible[:max_topics]
-
-        stats = {
-            "topics_considered": len(topics),
-            "topics_eligible": eligible_count,
-            "topics_selected": len(eligible),
-            "topics_rebuilt": 0,
-            "topics_not_selected": len(topics) - len(eligible),
-            "failed_summaries": 0,
-        }
-        total = len(eligible)
-        log(
-            "AI-REBUILD",
-            f"Przebudowa syntez: wybrano {quantity(total, 'temat', 'tematy', 'tematów')} "
-            f"z {quantity(eligible_count, 'kwalifikującego się tematu', 'kwalifikujących się tematów', 'kwalifikujących się tematów')}.",
-        )
-        for index, (topic, rows) in enumerate(eligible, start=1):
-            topic_id = str(topic["topic_id"])
-            article_ids = [str(row["article_id"]) for row in rows]
-            log(
-                "AI-REBUILD",
-                f"Synteza {index}/{total}: "
-                f"{short_text(topic.get('headline_pl') or topic_id)} "
-                f"(artykułów: {len(rows)}; pozostało: {total - index + 1}).",
-            )
-            summary_input_base = {
-                "mode": "FULL_REBUILD",
-                "topic": {
-                    "topic_id": topic_id,
-                    "working_title_pl": str(topic.get("headline_pl") or ""),
-                    "topic_action": "REBUILD",
-                },
-                "previous_aggregation": None,
-                "all_article_ids_in_topic": article_ids,
-            }
-            summary_input, payload_chars, payload_mode = build_bounded_summary_input(
-                summary_input_base,
-                [],
-                rows,
-            )
-            log(
-                "AI-REBUILD",
-                f"Przygotowano dane syntezy: artykułów: {len(rows)}, "
-                f"payload: {payload_chars / 1024:.1f} KiB, tryb: {payload_mode}.",
-            )
-            summary_hash = digest({
-                "mode": "FULL_REBUILD",
-                "prompt_version": PROMPT_VERSION,
-                "input": summary_input,
-            })
-            previous_row = summary_by_topic.get(topic_id)
-            summary_topic_run_id = "topicrun_" + digest({
-                "topic": topic_id,
-                "stage": "REBUILD_SUMMARY",
-                "input": summary_hash,
-            })[:24]
-            try:
-                summary = normalize_summary_response(call_openai(
-                    REBUILD_SUMMARY_INSTRUCTIONS,
-                    summary_input,
-                    model,
-                    timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
-                    response_schema=SUMMARY_RESPONSE_SCHEMA,
-                    response_schema_name="topic_summary_rebuild",
-                ))
-                persist_rebuilt_summary(
-                    client,
-                    topic_id=topic_id,
-                    run_id=run_id,
-                    model=model,
-                    summary=summary,
-                    summary_hash=summary_hash,
-                    previous_row=previous_row,
-                )
-                client.upsert("topic_runs", [{
-                    "topic_run_id": summary_topic_run_id,
-                    "run_id": run_id,
-                    "stage": "REBUILD_SUMMARY",
-                    "prompt_version": PROMPT_VERSION,
-                    "model": model,
-                    "input_hash": summary_hash,
-                    "status": "COMPLETED",
-                    "raw_output": response_for_storage(summary),
-                    "error": None,
-                }], on_conflict="topic_run_id")
-                stats["topics_rebuilt"] += 1
-                log(
-                    "AI-REBUILD",
-                    f"Synteza {index}/{total} gotowa; pozostało {total - index}.",
-                )
-            except Exception as exc:
-                log_parse_failure("REBUILD_SUMMARY", exc)
-                if not isinstance(exc, AIResponseParseError):
-                    log(
-                        "AI-REBUILD",
-                        f"Synteza {index}/{total} nieudana: {short_text(exc, 220)}.",
-                        level="ERROR",
-                    )
-                client.upsert("topic_runs", [{
-                    "topic_run_id": summary_topic_run_id,
-                    "run_id": run_id,
-                    "stage": "REBUILD_SUMMARY",
-                    "prompt_version": PROMPT_VERSION,
-                    "model": model,
-                    "input_hash": summary_hash,
-                    "status": "FAILED",
-                    "raw_output": parse_failure_for_storage(exc),
-                    "error": str(exc)[:2000],
-                }], on_conflict="topic_run_id")
-                stats["failed_summaries"] += 1
-        log(
-            "AI-REBUILD",
-            f"Przebudowa zakończona: gotowe {stats['topics_rebuilt']}, "
-            f"nieudane {stats['failed_summaries']}.",
-        )
         return stats
     finally:
         conn.close()
@@ -4107,213 +3851,6 @@ def _analyze_pending_batch(
         conn.close()
 
 
-SINGLETON_REPAIR_REASON_PREFIX = "Artykuł zachowany osobno:"
-
-
-def singleton_repair_candidates(
-    db_path: Path,
-    client: SupabaseRestClient,
-    max_articles: int,
-) -> tuple[dict[str, str], list[dict[str, Any]]]:
-    """Find only singleton topics created by the failed cohesion fallback."""
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    try:
-        links = client.select_all("topic_articles", columns="topic_id,article_id")
-        article_by_topic: dict[str, list[str]] = {}
-        for row in links:
-            article_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
-        topics = {
-            str(row["topic_id"]): row
-            for row in client.select_all("topics", columns="topic_id,status")
-        }
-        assignments = client.select_all(
-            "article_topic_assignments",
-            columns="article_id,topic_id,grouping_reason",
-        )
-        old_topic_by_article: dict[str, str] = {}
-        for row in assignments:
-            topic_id = str(row.get("topic_id") or "")
-            article_id = str(row.get("article_id") or "")
-            reason = str(row.get("grouping_reason") or "")
-            if (
-                article_id
-                and topic_id
-                and reason.startswith(SINGLETON_REPAIR_REASON_PREFIX)
-                and topics.get(topic_id, {}).get("status") == "ACTIVE"
-                and article_by_topic.get(topic_id) == [article_id]
-            ):
-                old_topic_by_article[article_id] = topic_id
-        if max_articles > 0:
-            old_topic_by_article = dict(list(old_topic_by_article.items())[:max_articles])
-        rows = local_articles(conn, list(old_topic_by_article))
-        rows_by_id = {str(row["article_id"]): row for row in rows}
-        old_topic_by_article = {
-            article_id: topic_id
-            for article_id, topic_id in old_topic_by_article.items()
-            if article_id in rows_by_id
-        }
-        return old_topic_by_article, [rows_by_id[article_id] for article_id in old_topic_by_article]
-    finally:
-        conn.close()
-
-
-def cleanup_repaired_singletons(
-    run_id: str,
-    client: SupabaseRestClient,
-    old_topic_by_article: dict[str, str],
-) -> int:
-    """Hide old singleton topics only after their article has a new assignment."""
-    if not old_topic_by_article:
-        return 0
-    assignments = client.select_all(
-        "article_topic_assignments",
-        columns="article_id,topic_id",
-        filters=[("run_id", f"eq.{run_id}")],
-    )
-    topic_status = {
-        str(row.get("topic_id") or ""): str(row.get("status") or "")
-        for row in client.select_all("topics", columns="topic_id,status")
-    }
-    new_topic_by_article = {
-        str(row.get("article_id") or ""): str(row.get("topic_id") or "")
-        for row in assignments
-        if str(row.get("article_id") or "") in old_topic_by_article
-    }
-    merged = 0
-    for article_id, old_topic_id in old_topic_by_article.items():
-        if topic_status.get(old_topic_id) != "ACTIVE":
-            continue
-        new_topic_id = new_topic_by_article.get(article_id, "")
-        if not new_topic_id or new_topic_id == old_topic_id:
-            continue
-        client.delete("topic_articles", filters=[("topic_id", f"eq.{old_topic_id}")])
-        try:
-            client.update(
-                "topics",
-                {
-                    "status": "MERGED",
-                    "merged_into_topic_id": new_topic_id,
-                    "merged_at": now(),
-                    "updated_at": now(),
-                },
-                filters=[("topic_id", f"eq.{old_topic_id}")],
-            )
-        except Exception:
-            # Keep the repair compatible with databases created before the
-            # optional merge redirect columns were installed.
-            client.update(
-                "topics",
-                {"status": "MERGED", "updated_at": now()},
-                filters=[("topic_id", f"eq.{old_topic_id}")],
-            )
-        merged += 1
-    return merged
-
-
-def regroup_singletons(
-    db_path: Path,
-    run_id: str,
-    client: SupabaseRestClient,
-    *,
-    model: str = DEFAULT_MODEL,
-    max_articles: int = 0,
-    batch_size: int = 50,
-) -> dict[str, int]:
-    """Safely regroup singleton fallback topics without deleting source data."""
-    old_topic_by_article, articles = singleton_repair_candidates(
-        db_path, client, max_articles
-    )
-    stats = {
-        "repair_candidates": len(articles),
-        "repair_batches": 0,
-        "groups": 0,
-        "singleton_topics_merged": 0,
-        "summaries": 0,
-        "failed_summaries": 0,
-        "merge_candidates": 0,
-        "topics_merged": 0,
-        "merge_failed": 0,
-        "titles_normalized": 0,
-    }
-    if not articles:
-        log("AI-REPAIR", "Nie znaleziono artykułów wymagających przegrupowania.")
-        return stats
-
-    batch_size = min(max(1, batch_size), MAX_GROUPING_BATCH_SIZE)
-    excluded_topic_ids = set(old_topic_by_article.values())
-    total_batches = (len(articles) + batch_size - 1) // batch_size
-    log(
-        "AI-REPAIR",
-        f"Przegrupowuję {len(articles)} osobnych artykułów w {total_batches} paczkach.",
-    )
-
-    def merge_batch_stats(batch_stats: dict[str, int]) -> None:
-        stats["groups"] += batch_stats["groups"]
-
-    def process_batch(batch: list[dict[str, Any]], label: str) -> None:
-        log(
-            "AI-REPAIR",
-            f"Paczka {label}/{total_batches}: analizuję {len(batch)} artykułów.",
-        )
-        try:
-            batch_stats = _analyze_pending_batch(
-                db_path,
-                run_id,
-                client,
-                batch,
-                model=model,
-                batch_index=f"REPAIR-{label}",
-                summarize=False,
-                excluded_topic_ids=excluded_topic_ids,
-            )
-            merge_batch_stats(batch_stats)
-            merged_singletons = cleanup_repaired_singletons(
-                run_id, client, old_topic_by_article
-            )
-            stats["singleton_topics_merged"] += merged_singletons
-            log(
-                "AI-REPAIR",
-                f"Paczka {label}/{total_batches} zakończona: "
-                f"grupy {batch_stats['groups']}, przeniesione {merged_singletons} artykułów.",
-            )
-        except ValueError as exc:
-            if len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
-                raise
-            midpoint = len(batch) // 2
-            process_batch(batch[:midpoint], f"{label}a")
-            process_batch(batch[midpoint:], f"{label}b")
-        except Exception as exc:
-            if not is_retryable_openai_error(exc) or len(batch) <= MIN_GROUPING_RETRY_BATCH_SIZE:
-                raise
-            midpoint = len(batch) // 2
-            log(
-                "AI-REPAIR",
-                f"Dzielę paczkę {label} po błędzie OpenAI: "
-                f"{short_text(openai_error_details(exc), 180)}.",
-                level="WARN",
-            )
-            process_batch(batch[:midpoint], f"{label}a")
-            process_batch(batch[midpoint:], f"{label}b")
-
-    for offset in range(0, len(articles), batch_size):
-        stats["repair_batches"] += 1
-        process_batch(articles[offset:offset + batch_size], str(stats["repair_batches"]))
-
-    stats["singleton_topics_merged"] += cleanup_repaired_singletons(
-        run_id, client, old_topic_by_article
-    )
-    merge_stats = merge_active_topics(db_path, run_id, client, model=model)
-    stats["merge_candidates"] = merge_stats["merge_candidates"]
-    stats["topics_merged"] = merge_stats["topics_merged"]
-    stats["merge_failed"] = merge_stats["merge_failed"]
-    stats["titles_normalized"] = normalize_topic_titles(client, model=model)
-    recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
-    stats["summaries"] = recovery_stats["summaries"]
-    stats["failed_summaries"] = recovery_stats["failed_summaries"]
-    return stats
-
-
 def analyze_run(
     db_path: Path,
     run_id: str,
@@ -4322,9 +3859,6 @@ def analyze_run(
     model: str = DEFAULT_MODEL,
     max_articles: int = 0,
     batch_size: int = 100,
-    rebuild_summaries_mode: bool = False,
-    rebuild_max_topics: int = 0,
-    regroup_singletons_mode: bool = False,
     merge_existing_summaries_mode: bool = False,
     merge_existing_max_topics: int = 0,
 ) -> dict[str, int]:
@@ -4332,23 +3866,10 @@ def analyze_run(
 
     ``max_articles=0`` means all pending articles. Stage 1 creates one
     independently named candidate per article. Stage 2 is the only stage that
-    decides whether candidates describe the same story. ``rebuild_summaries_mode``
-    bypasses that queue and regenerates existing multi-article summaries.
+    decides whether candidates describe the same story.
     """
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
-    if rebuild_summaries_mode:
-        log("AI", "Tryb przebudowy: pomijam grupowanie nowych artykułów.")
-        stats = rebuild_summaries(
-            db_path,
-            run_id,
-            client,
-            model=model,
-            max_topics=rebuild_max_topics,
-        )
-        stats["categories_classified"] = classify_topic_categories(client, model=model)
-        log("AI", "Tryb przebudowy zakończony.")
-        return stats
     if merge_existing_summaries_mode:
         log(
             "AI-REPAIR",
@@ -4363,19 +3884,6 @@ def analyze_run(
             max_topics=merge_existing_max_topics,
         )
         log("AI-REPAIR", "Tryb naprawczy istniejących syntez zakończony.")
-        return stats
-    if regroup_singletons_mode:
-        log("AI", "Tryb naprawczy: przegrupowuję osobne artykuły utworzone przez fallback.")
-        stats = regroup_singletons(
-            db_path,
-            run_id,
-            client,
-            model=model,
-            max_articles=max_articles,
-            batch_size=batch_size,
-        )
-        stats["categories_classified"] = classify_topic_categories(client, model=model)
-        log("AI", "Tryb naprawczy zakończony.")
         return stats
     requested_batch_size = max(1, batch_size)
     batch_size = min(requested_batch_size, MAX_LABEL_BATCH_SIZE)
@@ -4503,25 +4011,12 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
     parser.add_argument("--batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
-    parser.add_argument(
-        "--rebuild-summaries",
-        action="store_true",
-        help="Przepisz syntezy istniejących tematów z przypiętych artykułów; nie grupuj nowych artykułów.",
-    )
-    parser.add_argument(
-        "--rebuild-max-topics",
-        type=int,
-        default=int(os.environ.get("AI_REBUILD_MAX_TOPICS", "0")),
-        help="Maksymalna liczba tematów w przebudowie; 0 oznacza wszystkie.",
-    )
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args()
     client = SupabaseRestClient()
     result = analyze_run(
         args.db, args.run_id, client, model=args.model,
         max_articles=args.max_articles, batch_size=args.batch_size,
-        rebuild_summaries_mode=args.rebuild_summaries,
-        rebuild_max_topics=args.rebuild_max_topics,
     )
     log("AI", f"Wynik: {', '.join(f'{key}={value}' for key, value in result.items())}.")
     return 0

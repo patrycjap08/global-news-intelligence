@@ -86,20 +86,8 @@ def main() -> int:
         help="Pomiń pobieranie źródeł i uruchom AI na artykułach już zapisanych w Supabase.",
     )
     parser.add_argument(
-        "--x-only", action="store_true",
-        help="Pomiń portale i uruchom wyłącznie pobieranie oraz dopasowanie wpisów z X.",
-    )
-    parser.add_argument(
         "--titles-only", action="store_true",
         help="Pomiń harvesting i ujednolić wyłącznie prefiksy geograficzne tytułów.",
-    )
-    parser.add_argument(
-        "--rebuild-summaries", action="store_true",
-        help="Pomiń harvesting i grupowanie; wygeneruj od nowa syntezy istniejących tematów wieloartykułowych.",
-    )
-    parser.add_argument(
-        "--regroup-singletons", action="store_true",
-        help="Przegrupuj wyłącznie singletony utworzone przez fallback kontroli spójności.",
     )
     parser.add_argument(
         "--merge-existing-summaries", action="store_true",
@@ -111,11 +99,6 @@ def main() -> int:
     parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
     parser.add_argument("--ai-batch-size", type=int, default=int(os.environ.get("AI_BATCH_SIZE", "100")))
     parser.add_argument(
-        "--rebuild-max-topics",
-        type=int,
-        default=int(os.environ.get("AI_REBUILD_MAX_TOPICS", "0")),
-    )
-    parser.add_argument(
         "--merge-existing-max-topics",
         type=int,
         default=int(os.environ.get("AI_EXISTING_TOPIC_MERGE_MAX_TOPICS", "0")),
@@ -125,20 +108,10 @@ def main() -> int:
 
     if args.ai_only and args.skip_ai:
         parser.error("--ai-only nie może być użyte razem z --skip-ai.")
-    if args.x_only and (args.ai_only or args.rebuild_summaries or args.regroup_singletons or args.merge_existing_summaries or args.skip_ai or args.titles_only):
-        parser.error("--x-only jest osobnym trybem i nie łączy się z innymi trybami AI.")
-    if args.titles_only and (args.ai_only or args.rebuild_summaries or args.regroup_singletons or args.merge_existing_summaries or args.skip_ai):
+    if args.titles_only and (args.ai_only or args.merge_existing_summaries or args.skip_ai):
         parser.error("--titles-only jest osobnym trybem.")
-    if args.rebuild_summaries and not args.ai_only:
-        parser.error("--rebuild-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
-    if args.regroup_singletons and not args.ai_only:
-        parser.error("--regroup-singletons wymaga także --ai-only, aby nie uruchomić harvestera.")
     if args.merge_existing_summaries and not args.ai_only:
         parser.error("--merge-existing-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
-    if args.regroup_singletons and args.rebuild_summaries:
-        parser.error("--regroup-singletons nie łączy się z --rebuild-summaries.")
-    if args.merge_existing_summaries and (args.regroup_singletons or args.rebuild_summaries):
-        parser.error("--merge-existing-summaries nie łączy się z innymi trybami naprawczymi.")
 
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
@@ -158,21 +131,6 @@ def main() -> int:
         log("RUN", "Etap 4/4 — ujednolicam prefiksy geograficzne tytułów.")
         changed = normalize_topic_titles(client)
         log("RUN", f"Etap 4/4 zakończony: poprawiono {changed} tytułów.")
-        log("RUN", "Cały przebieg zakończony pomyślnie.")
-        return 0
-    if args.x_only:
-        run_id = latest_run_id(args.db)
-        log("RUN", f"Etap 2/4 pominięty — używam run {run_id} jako punktu odniesienia.")
-        log("RUN", "Etap 3/4 — pobieram wpisy z X z ostatnich 24 godzin.")
-        fetched_x = fetch_x_posts(run_id, client)
-        log("RUN", "Etap 3/4 zakończony: " + count_summary(
-            fetched_x, (("posts", "nowych wpisów"), ("failed", "błędów"))
-        ) + ".")
-        log("RUN", "Etap 4/4 — dopasowuję wpisy do aktywnych historii.")
-        matched_x = analyze_x_posts(run_id, client)
-        log("RUN", "Etap 4/4 zakończony: " + count_summary(
-            matched_x, (("matched", "dopasowanych"), ("unassigned", "bez dopasowania"), ("updated_topics", "zaktualizowanych tematów"))
-        ) + ".")
         log("RUN", "Cały przebieg zakończony pomyślnie.")
         return 0
     if args.ai_only:
@@ -221,21 +179,14 @@ def main() -> int:
     if args.skip_ai:
         log("RUN", "Etap 4/4 pominięty — użyto --skip-ai.")
     else:
-        if args.regroup_singletons:
-            log("RUN", "Etap 4/4 — przegrupowuję osobne artykuły utworzone przez fallback AI.")
-        elif args.merge_existing_summaries:
+        if args.merge_existing_summaries:
             log("RUN", "Etap 4/4 — sprawdzam i aktualizuję istniejące syntezy aktywnych wątków.")
-        elif args.rebuild_summaries:
-            log("RUN", "Etap 4/4 — przebudowuję syntezy istniejących tematów AI.")
         else:
             log("RUN", "Etap 4/4 — grupuję tematy i tworzę opracowania AI.")
         result = analyze_run(
             args.db, run_id, client,
             max_articles=args.ai_max_articles,
             batch_size=args.ai_batch_size,
-            rebuild_summaries_mode=args.rebuild_summaries,
-            rebuild_max_topics=args.rebuild_max_topics,
-            regroup_singletons_mode=args.regroup_singletons,
             merge_existing_summaries_mode=args.merge_existing_summaries,
             merge_existing_max_topics=args.merge_existing_max_topics,
         )

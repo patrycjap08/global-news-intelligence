@@ -84,16 +84,6 @@ Jeżeli artykuły są już w Supabase, a chcesz ponowić tylko grupowanie i
 opracowania AI, w formularzu `Run workflow` wybierz tryb `ai-only`. Ten tryb
 nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
 
-Jeżeli chcesz przepisać od początku pełne syntezy tematów, w formularzu
-`Run workflow` wybierz tryb `rebuild-summaries`. Ten tryb nie uruchamia
-harvestera ani grupowania: bierze artykuły już przypięte do tematów
-wieluźródłowych, generuje nowe syntezy i zapisuje je jako nową wersję.
-Poprzednie wersje pozostają w `topic_summary_versions`. Tematy, w których
-materiały pochodzą tylko z jednego źródła, są pomijane. Do syntezy potrzebne są
-co najmniej dwa różne źródła, nawet jeśli temat ma więcej niż dwa artykuły.
-Opcjonalna zmienna `AI_REBUILD_MAX_TOPICS` ogranicza
-liczbę przebudowanych tematów; `0` oznacza wszystkie.
-
 Jeżeli istniejące syntezy zostały rozdzielone na kilka osobnych wątków, w
 formularzu `Run workflow` wybierz tryb `merge-existing-summaries`. Ten tryb
 analizuje tylko aktywne wątki z ostatnich 55 godzin, które mają już zapisaną
