@@ -21,8 +21,8 @@ on:
         default: false
         type: boolean
   schedule:
-    # Times are Europe/Warsaw; minute 17 avoids the busiest exact-hour slot.
-    - cron: "17 7 * * *"
+    # Times are Europe/Warsaw; minute 08 allows a quick morning verification.
+    - cron: "8 7 * * *"
       timezone: "Europe/Warsaw"
     - cron: "17 16 * * *"
       timezone: "Europe/Warsaw"
