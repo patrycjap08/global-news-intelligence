@@ -24,6 +24,8 @@ on:
     # Times are Europe/Warsaw; minute 12 allows a quick morning verification.
     - cron: "12 7 * * *"
       timezone: "Europe/Warsaw"
+    - cron: "17 12 * * *"
+      timezone: "Europe/Warsaw"
     - cron: "17 16 * * *"
       timezone: "Europe/Warsaw"
 
