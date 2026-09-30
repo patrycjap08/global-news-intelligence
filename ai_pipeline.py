@@ -530,6 +530,7 @@ def build_embedding_candidate_edges(
 
 
 def _topic_embedding_text(topic: dict[str, Any]) -> str:
+    summary = str(topic.get("summary_pl") or "").strip()
     recent_titles = [
         str(title).strip()
         for title in (topic.get("recent_article_titles") or [])[:3]
@@ -539,6 +540,8 @@ def _topic_embedding_text(topic: dict[str, Any]) -> str:
         f"Tytuł wątku: {str(topic.get('headline_pl') or '').strip()}",
         f"Opis: {str(topic.get('what_happened_one_sentence_pl') or '').strip()}",
     ]
+    if summary:
+        parts.append(f"Synteza wątku: {summary[:1200]}")
     if recent_titles:
         parts.append("Ostatnie nagłówki: " + " | ".join(recent_titles))
     return "\n".join(parts)[:1800]
