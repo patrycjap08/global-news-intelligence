@@ -13,11 +13,6 @@ on:
           - ai-only
           - merge-existing-summaries
           - titles-only
-      include_x:
-        description: "Pobierz też wpisy z X (ostatnie 24 h)"
-        required: false
-        default: false
-        type: boolean
   schedule:
     # Times are Europe/Warsaw; minute 12 allows a quick morning verification.
     - cron: "12 7 * * *"
@@ -48,8 +43,6 @@ jobs:
       RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-      X_FETCH_ENABLED: ${{ (github.event_name == 'schedule' && github.event.schedule == '17 16 * * *') || (github.event_name == 'workflow_dispatch' && inputs.include_x) }}
       # Reserved for the future PWA; the server worker never needs it.
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       # The per-run top window is the only fetch cap; repeated manual tests are allowed.
@@ -70,13 +63,14 @@ jobs:
       AI_TOPIC_MERGE_TITLE_CHAR_LIMIT: ${{ vars.AI_TOPIC_MERGE_TITLE_CHAR_LIMIT || '220' }}
       AI_TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT: ${{ vars.AI_TOPIC_MERGE_DESCRIPTION_CHAR_LIMIT || '450' }}
       AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS: ${{ vars.AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS || '12000' }}
-      AI_TOPIC_MERGE_MAX_REQUESTS: ${{ vars.AI_TOPIC_MERGE_MAX_REQUESTS || '80' }}
+      # Python also caps this at 20, including older repository variables.
+      AI_TOPIC_MERGE_MAX_REQUESTS: ${{ vars.AI_TOPIC_MERGE_MAX_REQUESTS || '20' }}
       AI_TOPIC_MERGE_EMBEDDINGS_ENABLED: ${{ vars.AI_TOPIC_MERGE_EMBEDDINGS_ENABLED || '1' }}
       OPENAI_TOPIC_EMBEDDING_MODEL: ${{ vars.OPENAI_TOPIC_EMBEDDING_MODEL || 'text-embedding-3-small' }}
       AI_TOPIC_MERGE_EMBEDDING_BATCH_SIZE: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_BATCH_SIZE || '100' }}
       AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS || '256' }}
-      AI_TOPIC_MERGE_EMBEDDING_TOP_K: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_TOP_K || '5' }}
-      AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY || '0.84' }}
+      AI_TOPIC_MERGE_EMBEDDING_TOP_K: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_TOP_K || '3' }}
+      AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY || '0.90' }}
       AI_TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS || '60' }}
       AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES || '2' }}
       OPENAI_REQUEST_TIMEOUT_SECONDS: ${{ vars.OPENAI_REQUEST_TIMEOUT_SECONDS || '90' }}

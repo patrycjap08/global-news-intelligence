@@ -393,7 +393,7 @@ class TopicTitleTests(unittest.TestCase):
         topics = [
             {
                 "topic_id": "old_topic",
-                "headline_pl": "Stary tytuł",
+                "headline_pl": "[Polska] Protest lekarzy szpitala w Krakowie",
                 "status": "ACTIVE",
                 "first_seen_at": "2026-09-01T00:00:00+00:00",
                 "last_seen_at": "2026-09-28T00:00:00+00:00",
@@ -404,7 +404,7 @@ class TopicTitleTests(unittest.TestCase):
             },
             {
                 "topic_id": "new_topic",
-                "headline_pl": "Nowy tytuł",
+                "headline_pl": "[Polska] Szpital w Krakowie: dalszy protest lekarzy",
                 "status": "ACTIVE",
                 "first_seen_at": "2026-09-29T00:00:00+00:00",
                 "last_seen_at": "2026-09-29T00:00:00+00:00",
@@ -457,7 +457,7 @@ class TopicTitleTests(unittest.TestCase):
                         "categories": ["POLITYKA"],
                     }],
                 },
-            ):
+            ), patch.object(ai_pipeline, "build_topic_embedding_candidate_edges", return_value={}):
                 stats = merge_active_topics(db_path, "run_merge", client)
 
         topic_upsert = next(rows for table, rows, _ in client.upserts if table == "topics")

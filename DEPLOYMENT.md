@@ -56,8 +56,14 @@ dodać:
   niekontrolowanej liczby wywołań API.
 - `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
-- `AI_TOPIC_MERGE_MAX_REQUESTS`, domyślnie `80`; bezpiecznik ograniczający
-  liczbę kolejnych żądań scalania w jednym przebiegu.
+- `AI_TOPIC_MERGE_MAX_REQUESTS`, domyślnie `20`; limit paczek do weryfikacji
+  scalania w jednym przebiegu. Kod wymusza maksymalnie 20 także wtedy, gdy
+  starsza zmienna repozytorium nadal ma wartość 80. Można ustawić mniej.
+- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.90`; minimalne
+  podobieństwo cosinusowe kandydatów semantycznych (wcześniej 0.84).
+  Kod nie dopuszcza wartości poniżej 0.90; można podwyższyć próg.
+- `AI_TOPIC_MERGE_EMBEDDING_TOP_K`, domyślnie `3`; maksymalnie trzech
+  sąsiadów semantycznych na temat (wcześniej pięciu). Można ustawić mniej.
 - `AI_TOPIC_MERGE_MAX_RECENT_TITLES`, domyślnie `1`; liczba najnowszych tytułów
   przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
@@ -96,6 +102,35 @@ historyczne pozostają poza tym trybem. Opcjonalna zmienna
 
 W zwykłym trybie po grupowaniu nowych artykułów działa dodatkowy szybki etap
 scalania podobnych aktywnych tematów, a dopiero potem generowane są syntezy.
+
+Filtr leksykalny wymaga trzech wspólnych charakterystycznych rdzeni słów
+albo jednej wspólnej frazy z dwóch takich słów. Niezależne grupy kandydatów
+są pakowane razem, do 100 tematów na paczkę; AI porównuje wyłącznie tematy
+w obrębie tej samej grupy. Nakładające się grupy zachowują osobne paczki.
+Limit 20 obejmuje paczki weryfikacji scalania, nie etykietowanie, embeddingi,
+kategorie ani syntezy. Retry po błędzie API może ponowić tę samą paczkę.
+To zmniejsza liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
+
+## Aktualizacje bez powtarzania faktów
+
+Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi
+aktualizacjami. Prompt wymaga opisywania tylko nowych ustaleń, szczegółów lub
+korekt; parafraza i kolejne źródło tego samego faktu nie są nową informacją.
+Gdy artykuły wyłącznie potwierdzają znane ustalenia, aktualizacja powinna
+zawierać jedno krótkie potwierdzenie bez ponownego wyliczania szczegółów.
+Ta zasada obowiązuje również podczas ponownego generowania odpowiedzi
+w trybie naprawy. Nie zmienia wcześniej zapisanych tekstów.
+
+## Usunięta integracja X
+
+Worker i aplikacja nie pobierają ani nie dopasowują wpisów z X. Nie ma już
+opcji `include_x` ani workflow testującego konto. Sekret `X_BEARER_TOKEN`
+nie jest używany i można go usunąć w ustawieniach GitHuba.
+
+Istniejąca baza nie wymaga zmian, aby nowy kod działał. Opcjonalny
+`supabase_migration_remove_x.sql` usuwa dawne surowe wpisy, konta,
+powiązania i widoki X. Wcześniej zapisane teksty syntez i historia pozostają
+zachowane; migracja nie przepisuje historycznych opracowań.
 
 ## Harmonogram
 

@@ -17,36 +17,6 @@ where headline_pl = any(array[
     '[Świat] Międzynarodowe i gospodarcze aktualności 27-28 września 2026'
 ]::text[]);
 
--- Jeśli wpisy z X były przypięte do usuwanych tematów, wracają do kolejki X.
-update public.x_posts xp
-set ai_status = 'PENDING'
-where exists (
-    select 1
-    from public.topic_x_posts txp
-    join public.topics t on t.topic_id = txp.topic_id
-    where txp.post_id = xp.post_id
-      and t.headline_pl = any(array[
-          '[Polska] Kraków 2026: I tura i druga tura wyborów na prezydenta miasta',
-          '[Świat] Codzienne ataki Rosji na Ukrainę i bilans września 2026',
-          '[USA i Chiny] Trump i Xi przedłużyli rozejm handlowy i zapowiedzieli dialog o AI',
-          '[Świat] AI: apokalipsa to złudzenie, mówi Le Monde',
-          '[Polska] 13-latek planował atak w szkole; policja zatrzymała go w domu',
-          '[Świat] Międzynarodowe i gospodarcze aktualności 27-28 września 2026'
-      ]::text[])
-);
-
-delete from public.topic_x_posts txp
-using public.topics t
-where txp.topic_id = t.topic_id
-  and t.headline_pl = any(array[
-      '[Polska] Kraków 2026: I tura i druga tura wyborów na prezydenta miasta',
-      '[Świat] Codzienne ataki Rosji na Ukrainę i bilans września 2026',
-      '[USA i Chiny] Trump i Xi przedłużyli rozejm handlowy i zapowiedzieli dialog o AI',
-      '[Świat] AI: apokalipsa to złudzenie, mówi Le Monde',
-      '[Polska] 13-latek planował atak w szkole; policja zatrzymała go w domu',
-      '[Świat] Międzynarodowe i gospodarcze aktualności 27-28 września 2026'
-  ]::text[]);
-
 delete from public.topic_summary_versions v using public.topics t
 where v.topic_id = t.topic_id and t.headline_pl = any(array[
     '[Polska] Kraków 2026: I tura i druga tura wyborów na prezydenta miasta',
