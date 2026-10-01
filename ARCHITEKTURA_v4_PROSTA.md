@@ -25,7 +25,7 @@ Uruchomienia są trzy razy dziennie, np. rano, w południe i wieczorem. Dokładn
 8. Gdy nie ma nowych artykułów, uruchomienie kończy się bez wywołań AI.
 9. Gdy pojawiły się nowe artykuły, uruchamiany jest etap AI 1 — grupowanie po tytułach i treści.
 10. Dla każdej grupy uruchamiany jest etap AI 2 — przygotowanie lub aktualizacja polskiego opracowania.
-11. Dopiero po zapisaniu wszystkich wyników aplikacja pokazuje nowe tematy jako gotowe.
+11. Aplikacja może pokazywać wątki jeszcze bez syntezy. Każda synteza jest zapisywana od razu po wygenerowaniu i dostępna po odświeżeniu danych, bez czekania na pozostałe tematy ani zakończenie całego przebiegu.
 
 ## Reguła niepobierania drugi raz
 

@@ -103,6 +103,12 @@ historyczne pozostają poza tym trybem. Opcjonalna zmienna
 W zwykłym trybie po grupowaniu nowych artykułów działa dodatkowy szybki etap
 scalania podobnych aktywnych tematów, a dopiero potem generowane są syntezy.
 
+Publikacja wyników jest stopniowa: każdy wygenerowany tekst jest od razu
+zapisywany w Supabase. Po odświeżeniu danych aplikacja pokazuje gotowe syntezy
+bez czekania na zakończenie całego przebiegu. Wątki spełniające kryteria źródeł
+mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
+dodatkowego warunku ukrywania wątku.
+
 Filtr leksykalny wymaga trzech wspólnych charakterystycznych rdzeni słów
 albo jednej wspólnej frazy z dwóch takich słów. Niezależne grupy kandydatów
 są pakowane razem, do 100 tematów na paczkę; AI porównuje wyłącznie tematy
