@@ -141,8 +141,11 @@ AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do istniejącego tematu, zamiast tworzyć drugi prawie identyczny temat.
 
 Po zakończeniu grupowania AI 1 lokalny filtr wyszukuje kandydackie grupy tematów
-na podstawie charakterystycznych słów, aktorów i obiektów. Dopiero te małe grupy
-są wysyłane do AI do potwierdzenia scalania. Tematy bez lokalnego podobieństwa
+na podstawie co najmniej trzech wspólnych charakterystycznych rdzeni słów
+albo wspólnej frazy z dwóch takich słów. Embeddingi dodają maksymalnie trzech
+sąsiadów na temat, przy podobieństwie co najmniej 0.90. Niezależne grupy są
+pakowane razem z osobnymi identyfikatorami; do AI trafia maksymalnie 20 paczek
+weryfikacji scalania na przebieg. Tematy bez lokalnego lub semantycznego podobieństwa
 nie trafiają do tego wywołania, a dane każdego kandydata są skrócone do nazwy,
 jednozdaniowego opisu i kilku najnowszych nagłówków.
 

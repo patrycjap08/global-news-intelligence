@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v40-existing-summary-repair"
+PROMPT_VERSION = "ai-prompts-v42-stricter-merges-nonrepeating-updates"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -60,8 +60,8 @@ TOPIC_MERGE_SUMMARY_CHAR_LIMIT = max(
 TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
     1000, int(os.environ.get("AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS", "12000"))
 )
-TOPIC_MERGE_MAX_REQUESTS = max(
-    1, int(os.environ.get("AI_TOPIC_MERGE_MAX_REQUESTS", "80"))
+TOPIC_MERGE_MAX_REQUESTS = min(
+    20, max(1, int(os.environ.get("AI_TOPIC_MERGE_MAX_REQUESTS", "20")))
 )
 TOPIC_MERGE_EMBEDDINGS_ENABLED = (
     os.environ.get("AI_TOPIC_MERGE_EMBEDDINGS_ENABLED", "1").strip().lower()
@@ -76,11 +76,11 @@ TOPIC_MERGE_EMBEDDING_BATCH_SIZE = max(
 TOPIC_MERGE_EMBEDDING_DIMENSIONS = max(
     64, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS", "256"))
 )
-TOPIC_MERGE_EMBEDDING_TOP_K = max(
-    1, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_TOP_K", "5"))
+TOPIC_MERGE_EMBEDDING_TOP_K = min(
+    3, max(1, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_TOP_K", "3")))
 )
-TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = float(
-    os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.84")
+TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = max(
+    0.90, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.90"))
 )
 TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
     20.0,
@@ -427,7 +427,7 @@ def _topic_merge_features(topic: dict[str, Any]) -> dict[str, set[str]]:
 def _topic_merge_candidate_edges(
     topics: list[dict[str, Any]],
 ) -> tuple[dict[tuple[str, str], float], dict[str, set[str]]]:
-    """Find local topic pairs with at least two independent lexical anchors.
+    """Find local pairs with three lexical anchors or a shared two-word phrase.
 
     This is a high-precision blocking step before the AI request.  It is not
     trying to decide whether topics are the same story; it only decides which
@@ -470,9 +470,9 @@ def _topic_merge_candidate_edges(
     for pair in set(shared_tokens) | set(shared_phrases):
         overlap = shared_tokens.get(pair, set())
         phrase_overlap = shared_phrases.get(pair, set())
-        # One common word is never enough.  A shared two-token anchor counts
-        # as two pieces of evidence; otherwise we need two distinct stems.
-        if len(overlap) < 2 and not phrase_overlap:
+        # A shared phrase is a concrete anchor. Scattered words are weaker:
+        # require three distinct stems rather than two to avoid broad matches.
+        if len(overlap) < 3 and not phrase_overlap:
             continue
         exact_overlap = (
             features[pair[0]]["exact"] & features[pair[1]]["exact"]
@@ -836,7 +836,12 @@ def build_topic_merge_requests(
     candidate_groups: list[list[str]] | None = None,
     preserve_candidate_group_overlap: bool = False,
 ) -> list[list[dict[str, Any]]]:
-    """Pack logical candidate components into AI requests without overlap."""
+    """Pack disjoint candidate groups together, preserving each group's scope.
+
+    Overlapping edge-cover groups go into separate requests so each record
+    keeps one candidate_group_id. Disjoint groups can share a request without
+    introducing cross-group comparisons.
+    """
     topic_by_id = {str(topic["topic_id"]): topic for topic in topics}
     raw_groups = candidate_groups
     if raw_groups is None:
@@ -898,9 +903,6 @@ def build_topic_merge_requests(
                         candidate_group_id=candidate_group_id,
                     ),
                 )
-            if preserve_candidate_group_overlap:
-                requests.append(list(current_records.values()))
-                current_records = {}
     if current_records:
         requests.append(list(current_records.values()))
     return requests
@@ -1454,16 +1456,31 @@ Nie oceniaj w tekście, czy materiał został dobrze czy źle przypisany do wąt
 Nie pisz, że artykuł jest „nie na temat”, „nic nie wnosi”, „nie zmienia
 narracji”, jest „logicznym błędem grupowania” ani że trzeba go odrzucić.
 Nie opisuj procesu grupowania ani decyzji systemu — czytelnik ma dostać fakty.
-Nie powtarzaj jednak faktów już zawartych w previous_aggregation.
-Nie powtarzaj także informacji obecnych w żadnym elemencie prior_updates.
+ZASADA BRAKU POWTÓRZEŃ W AKTUALIZACJACH:
+Przed napisaniem update porównaj każdy fakt z całą opublikowaną historią:
+base_summary (w tym summary_pl i wszystkie pola faktograficzne) oraz KAŻDĄ
+wcześniejszą aktualizacją w prior_updates, nie tylko z ostatnią. Porównuj
+znaczenie informacji, a nie brzmienie zdań. Parafraza, inna kolejność zdań,
+tłumaczenie, nowy artykuł lub inne źródło opisujące ten sam fakt NIE czynią
+go nową informacją. Nie powielaj faktów z syntezy w pierwszej aktualizacji
+ani z syntezy lub dowolnej wcześniejszej aktualizacji w kolejnych.
 
-Jeżeli nowe materiały potwierdzają wcześniejszy fakt, napisz konkretnie, jaki
-fakt został ponownie potwierdzony i jakie nowe szczegóły dodano. Nie zastępuj
-tego zdaniem, że materiały „tylko powtarzają wcześniejsze informacje”.
-Jeśli materiał nie zawiera nowych danych możliwych do rzetelnego wykorzystania,
-nie twórz pustej oceny jego przydatności: wybierz z niego konkretne fakty, a
-gdy rzeczywiście nie ma żadnego faktu do dodania, pozostaw krótką aktualizację
-opartą na tym, co można potwierdzić, bez komentowania dopasowania materiału.
+W update.new_information_pl umieść wyłącznie przyrost wiedzy: nowe fakty,
+nowe istotne szczegóły, decyzje, skutki albo rzeczywistą zmianę lub korektę
+wcześniejszych ustaleń. Dla zmiany lub korekty wskaż krótko, co się zmieniło;
+przywołaj poprzednie ustalenie tylko w zakresie koniecznym do zrozumienia
+różnicy. Nie odtwarzaj wcześniejszego opisu wydarzenia jako wprowadzenia.
+
+Jeżeli nowe materiały wyłącznie potwierdzają wcześniejsze ustalenia, wystarczy
+jedno krótkie zdanie, np. „Kolejne artykuły potwierdzają wcześniejsze ustalenia
+o terminie rozpoczęcia protestu”. Nazwij krótko potwierdzony aspekt, ale nie
+wyliczaj ponownie znanych liczb, dat, cytatów i pozostałych szczegółów.
+Nie dopisuj nowych szczegółów, jeśli artykuły ich nie dostarczają. Jeśli tylko
+część materiałów wnosi nowe fakty, opisz te fakty bez streszczania pozostałych
+artykułów; zbiorcze potwierdzenie wcześniejszych ustaleń jest opcjonalne.
+Nie rozciągaj aktualizacji powtórzeniami, aby osiągnąć sugerowaną długość.
+update.what_changed_pl ma krótko nazwać zmianę lub samo potwierdzenie,
+bez kopiowania opisu z update.new_information_pl.
 new_article_ids musi zawierać wyłącznie artykuły z bieżącego zestawu.
 Jeżeli previous_aggregation jest null, utwórz pełną syntezę bazową i ustaw
 update.is_update=false.
@@ -1539,9 +1556,9 @@ W trybie aktualizacji:
 - update.is_update musi mieć wartość true;
 - update.new_article_ids może zawierać wyłącznie article_id z bieżącego
   new_articles;
-- każdy nowy article_id musi zostać wykorzystany przez konkretny fakt w
-  update.new_information_pl albo w dodatkowym elemencie update, jeśli taki
-  element istnieje w schemacie;
+- każdy nowy article_id musi znaleźć się w update.new_article_ids i sources;
+  jeśli artykuł tylko potwierdza znany fakt, opisz ten wkład w sources,
+  bez wymuszania ponownego opisania faktu w update.new_information_pl;
 - nie pisz metakomentarza o tym, czy materiał pasuje do grupy;
 - nie dodawaj do update faktów obecnych już w previous_aggregation lub
   prior_updates.
@@ -1612,8 +1629,12 @@ wejściem. W `update.new_information_pl` nie opisuj artykułu, procesu
 grupowania ani tego, czy materiał pasuje do tematu. Nie używaj zdań o tym, że
 artykuł jest „nie na temat”, „nic nie wnosi”, „nie zmienia narracji” albo nie
 zawiera informacji o głównym wątku. Zamiast tego wybierz z każdego nowego
-materiału konkretne, sprawdzalne fakty: osoby, liczby, daty, wyniki, działania,
-stanowiska i skutki. Zaczynaj od faktu, np. „Dwa badania wykazały…”, a nazwę
+materiału konkretne, sprawdzalne NOWE fakty: osoby, liczby, daty, wyniki,
+działania, stanowiska i skutki, których nie ma w base_summary ani w żadnej
+wcześniejszej aktualizacji prior_updates. Jeśli materiał tylko potwierdza
+znane ustalenia, zastosuj krótkie zbiorcze potwierdzenie zgodnie z zasadą
+braku powtórzeń; nie wymuszaj nowego faktu ani nie przepisuj znanych faktów.
+Zaczynaj od faktu, np. „Dwa badania wykazały…”, a nazwę
 źródła dodaj tylko wtedy, gdy pomaga rozróżnić relacje. Nie umieszczaj
 technicznych article_id w żadnym tekście.
 """.strip()
@@ -2702,9 +2723,27 @@ def merge_active_topics(
                 }], on_conflict="topic_run_id")
                 batch_groups = result.get("merge_groups")
                 if isinstance(batch_groups, list):
-                    raw_groups.extend(
-                        group for group in batch_groups if isinstance(group, dict)
-                    )
+                    request_scope = {
+                        str(topic["topic_id"]): str(topic.get("candidate_group_id") or "")
+                        for topic in request_topics
+                    }
+                    for group in batch_groups:
+                        if not isinstance(group, dict):
+                            continue
+                        raw_ids = group.get("topic_ids")
+                        if not isinstance(raw_ids, list):
+                            continue
+                        ids = set(str(value) for value in raw_ids)
+                        # Several disjoint groups now share one request. Enforce
+                        # the prompt's scope in code too, including foreign IDs.
+                        if (
+                            len(ids) < 2
+                            or not ids.issubset(request_scope)
+                            or len({request_scope[topic_id] for topic_id in ids}) != 1
+                        ):
+                            log("AI", "Pominięto scalenie spoza jednej grupy kandydatów.", level="WARN")
+                            continue
+                        raw_groups.append(group)
                 log(
                     "AI",
                     f"Scalanie {request_index}/{len(merge_requests)} zakończone: "

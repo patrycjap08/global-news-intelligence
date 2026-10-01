@@ -14,7 +14,6 @@ from ai_pipeline import analyze_run, normalize_topic_titles
 from pipeline_logging import log
 from supabase_client import SupabaseRestClient
 from supabase_sync import pull_state, push_run
-from x_pipeline import analyze_x_posts, fetch_x_posts
 
 
 def latest_run_id(db_path: Path) -> str:
@@ -169,13 +168,6 @@ def main() -> int:
             ) + ".",
         )
 
-        if os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":
-            log("X", "Pobieram wpisy z ostatnich 24 godzin.")
-            x_counts = fetch_x_posts(run_id, client)
-            log("X", "Pobieranie zakończone: " + count_summary(
-                x_counts, (("posts", "nowych wpisów"), ("failed", "błędów"))
-            ) + ".")
-
     if args.skip_ai:
         log("RUN", "Etap 4/4 pominięty — użyto --skip-ai.")
     else:
@@ -191,12 +183,6 @@ def main() -> int:
             merge_existing_max_topics=args.merge_existing_max_topics,
         )
         log("RUN", "Etap 4/4 zakończony: " + ai_summary(result) + ".")
-        if not args.ai_only and os.environ.get("X_FETCH_ENABLED", "false").lower() == "true":
-            log("X", "Dopasowuję wpisy do aktywnych historii.")
-            x_match_counts = analyze_x_posts(run_id, client)
-            log("X", "Dopasowanie zakończone: " + count_summary(
-                x_match_counts, (("matched", "dopasowanych"), ("unassigned", "bez dopasowania"), ("updated_topics", "zaktualizowanych tematów"))
-            ) + ".")
     log("RUN", "Cały przebieg zakończony pomyślnie.")
     return 0
 

@@ -9,8 +9,6 @@ const state = {
   topics: [],
   articles: [],
   links: [],
-  xPosts: [],
-  xLinks: [],
   summaries: new Map(),
   history: new Map(),
   view: 'current',
@@ -203,7 +201,6 @@ function isStateSource(article) {
   return STATE_SOURCE_PROFILES.has(profile) || STATE_SOURCE_PROFILES.has(sourceType);
 }
 function articleMap() { return new Map(state.articles.map((article) => [String(article.article_id), article])); }
-function xPostMap() { return new Map(state.xPosts.map((post) => [post.post_id, post])); }
 function updateText(summaryOrUpdate) {
   const nestedUpdate = summaryOrUpdate?.update;
   const update = nestedUpdate && typeof nestedUpdate === 'object'
@@ -237,7 +234,6 @@ function collectTopicUpdates(storedSummary, historyRows) {
     const key = update.run_id || JSON.stringify({
       text: updateText(update),
       articles: update.new_article_ids || [],
-      posts: update.new_x_post_ids || [],
     });
     const previous = unique.get(key);
     if (!previous || String(update.generated_at || '') > String(previous.generated_at || '')) {
@@ -252,7 +248,6 @@ function collectTopicUpdates(storedSummary, historyRows) {
 function topicArticleIds(model) {
   return [
     ...model.articles.map((article) => `article:${article.article_id}`),
-    ...model.xPosts.map((post) => `x:${post.post_id}`),
   ].sort();
 }
 
@@ -384,11 +379,6 @@ function topicModel(topic) {
   const articlesById = articleMap();
   const topicLinks = state.links.filter((link) => link.topic_id === topic.topic_id);
   const articles = topicLinks.map((link) => articlesById.get(link.article_id)).filter(Boolean);
-  const postsById = xPostMap();
-  const xPosts = state.xLinks
-    .filter((link) => link.topic_id === topic.topic_id)
-    .map((link) => postsById.get(link.post_id))
-    .filter(Boolean);
   const summaryRow = state.summaries.get(topic.topic_id) || {};
   const storedSummary = summaryRow.summary || summaryRow;
   const summary = storedSummary.base_summary || storedSummary;
@@ -417,7 +407,6 @@ function topicModel(topic) {
     ...topic,
     categories,
     articles,
-    xPosts,
     sources: [...sources],
     sourceCount,
     hasAggregation,
@@ -467,18 +456,6 @@ async function loadLiveData() {
   state.links = links;
   state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary]));
   try {
-    const [xPosts, xLinks] = await Promise.all([
-      fetchAllRows('app_x_posts', '?select=post_id,username,display_name,category,editorial_profile,text,posted_at,url'),
-      fetchAllRows('app_topic_x_posts', '?select=topic_id,post_id,confidence,assigned_at'),
-    ]);
-    state.xPosts = xPosts;
-    state.xLinks = xLinks;
-  } catch (error) {
-    state.xPosts = [];
-    state.xLinks = [];
-    console.warn('Wpisy z X nie są jeszcze dostępne.', error);
-  }
-  try {
     const latestRuns = await fetchTable('app_latest_harvest', '?select=run_id,started_at&limit=1');
     state.latestHarvestStartedAt = latestRuns[0]?.started_at || null;
   } catch (error) {
@@ -507,8 +484,6 @@ function loadDemoData(message) {
   state.links = DEMO.links;
   state.summaries = new Map(DEMO.summaries);
   state.history = new Map();
-  state.xPosts = [];
-  state.xLinks = [];
   state.demo = true;
   if (message) showToast(message);
 }
@@ -671,17 +646,13 @@ function dialogHtml(model) {
   const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '', subtitle = '') => Array.isArray(items) && items.length ? `<section class="dialog-section insight-section ${className}"><div class="insight-heading"><div><h3>${title}</h3>${subtitle ? `<p class="insight-subtitle">${subtitle}</p>` : ''}</div><span class="insight-count">${items.length}</span></div><ul class="insight-list">${listValue(items)}</ul></section>` : '';
-  const xMaterials = model.xPosts.map((post) => `<div class="evidence-item social-evidence"><strong>${escapeHtml(post.display_name)} · X</strong><span><a href="${escapeHtml(post.url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(post.text)}</a><br /><small>@${escapeHtml(post.username)}${post.posted_at ? ` · ${formatDate(post.posted_at)}` : ''} · wypowiedź autora, nie niezależne źródło prasowe</small></span></div>`).join('');
   const updatesHtml = (model.updates || []).map((update, index) => {
-    const newXPostIds = Array.isArray(update.new_x_post_ids) ? update.new_x_post_ids.map(String) : [];
-    const xPostIdSet = new Set(newXPostIds);
-    const xPostSources = [...new Set(model.xPosts.filter((post) => xPostIdSet.has(String(post.post_id))).map((post) => `@${post.username}`))];
     const newArticleIds = Array.isArray(update.new_article_ids) ? update.new_article_ids.map(String) : [];
     const newArticleIdSet = new Set(newArticleIds);
     const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
     const updateCopy = updateText(update);
     const when = update.generated_at ? ` · ${formatDate(update.generated_at)}` : '';
-    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}${newXPostIds.length ? `<small>Nowe wpisy z X${xPostSources.length ? `: ${escapeHtml(xPostSources.join(', '))}` : ''}</small>` : ''}</section>`;
+    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
   }).join('');
   const summaryPanel = summary.summary_pl
     ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>`
@@ -705,7 +676,6 @@ function dialogHtml(model) {
     ${section('Co warto zweryfikować', summary.potential_manipulation_signals, 'insight-verification', 'Obserwowalne sygnały wymagające dodatkowego sprawdzenia — nie werdykt o źródle.')}
     ${section('Kontekst', summary.background_context, 'insight-context')}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
-    ${xMaterials ? `<section class="dialog-section"><h3>Powiązane wypowiedzi na X</h3><div class="evidence-list">${xMaterials}</div></section>` : ''}
   </div>`;
 }
 
