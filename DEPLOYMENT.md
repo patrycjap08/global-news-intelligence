@@ -127,6 +127,13 @@ zawierać jedno krótkie potwierdzenie bez ponownego wyliczania szczegółów.
 Ta zasada obowiązuje również podczas ponownego generowania odpowiedzi
 w trybie naprawy. Nie zmienia wcześniej zapisanych tekstów.
 
+Istniejące aktualizacje można jednorazowo wygenerować od nowa skryptem
+`rebuild_topic_updates.py` lub ręcznym workflow **Rebuild topic updates once**.
+Zachowuje on syntezę bazową, liczbę aktualizacji, ich kolejność i przypisane
+artykuły; poprawia też historyczne snapshots. Wymaga jednorazowej instalacji
+`supabase_migration_rebuild_updates.sql`. Instrukcja uruchomienia, kopii
+i wznawiania: [REBUILD_TOPIC_UPDATES.md](REBUILD_TOPIC_UPDATES.md).
+
 ## Usunięta integracja X
 
 Worker i aplikacja nie pobierają ani nie dopasowują wpisów z X. Nie ma już

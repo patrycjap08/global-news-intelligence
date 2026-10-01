@@ -1,0 +1,79 @@
+name: Rebuild topic updates once
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Generuj i zapisz nowe aktualizacje (odznacz = tylko kopia i plan)"
+        type: boolean
+        default: true
+      topic_id:
+        description: "Opcjonalny topic_id; puste = wszystkie wątki z aktualizacjami"
+        type: string
+        default: ""
+      resume_run_id:
+        description: "Opcjonalne ID wcześniejszego uruchomienia, z którego wznowić checkpoint"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+# Share the worker's lock; do not rebuild alongside ingestion/analysis.
+concurrency:
+  group: global-news-harvest
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+      AI_SUMMARY_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_SUMMARY_REQUEST_TIMEOUT_SECONDS || '180' }}
+      AI_SUMMARY_MAX_PAYLOAD_CHARS: ${{ vars.AI_SUMMARY_MAX_PAYLOAD_CHARS || '300000' }}
+      REBUILD_TOPIC_ID: ${{ inputs.topic_id }}
+      REBUILD_APPLY: ${{ inputs.apply }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Resume previous checkpoint
+        if: inputs.resume_run_id != ''
+        uses: actions/download-artifact@v5
+        with:
+          name: rebuilt-topic-updates
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.resume_run_id }}
+      - name: Snapshot original summaries and history
+        run: |
+          args=(rebuild_topic_updates.py --state topic-update-rebuild.json)
+          if [[ -n "$REBUILD_TOPIC_ID" ]]; then args+=(--topic-id "$REBUILD_TOPIC_ID"); fi
+          python "${args[@]}"
+      - name: Save backup before any AI generation or database writes
+        uses: actions/upload-artifact@v6
+        with:
+          name: original-topic-updates
+          path: topic-update-rebuild.json
+          retention-days: 30
+      - name: Rebuild chronologically and replace each complete topic
+        if: inputs.apply
+        run: |
+          args=(rebuild_topic_updates.py --state topic-update-rebuild.json --apply)
+          if [[ -n "$REBUILD_TOPIC_ID" ]]; then args+=(--topic-id "$REBUILD_TOPIC_ID"); fi
+          python "${args[@]}"
+      - name: Save rebuilt texts and resume checkpoint
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rebuilt-topic-updates
+          path: topic-update-rebuild.json
+          if-no-files-found: warn
+          retention-days: 30

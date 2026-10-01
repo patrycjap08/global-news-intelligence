@@ -20,3 +20,7 @@ report.json
 report.html
 # Local Supabase frontend configuration; contains the publishable project key.
 app/config.js
+
+# One-off update repair backup/checkpoint; contains saved article summaries.
+topic-update-rebuild.json
+topic-update-rebuild.json.tmp
