@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -24,6 +24,7 @@ RPC = "rpc/rebuild_topic_updates_atomic"
 HISTORY_FIELDS = ("version", "run_id", "model", "prompt_version", "summary", "new_article_ids")
 HISTORY_COLUMNS = ",".join(HISTORY_FIELDS) + ",generated_at"
 CURRENT_FIELDS = ("version", "input_hash", "model", "summary")
+REBUILD_SELECTION = {"status": "ACTIVE", "lookback_hours": 55, "min_updates": 2}
 
 
 def text_of(update: dict[str, Any]) -> str:
@@ -191,10 +192,18 @@ def save_state(path: Path, state: dict[str, Any]) -> None:
 
 
 def snapshot(client: SupabaseRestClient, topic_ids: list[str]) -> dict[str, Any]:
+    captured_at = ai.now()
+    cutoff = time_key(captured_at) - timedelta(hours=REBUILD_SELECTION["lookback_hours"])
     filters = [("topic_id", "in.(" + ",".join(json.dumps(value) for value in topic_ids) + ")")] if topic_ids else []
+    topics = {row["topic_id"]: row for row in client.select_all("topics", filters=[
+        *filters, ("status", "eq.ACTIVE"), ("last_seen_at", f"gt.{cutoff.isoformat()}"),
+    ]) if row.get("status") == "ACTIVE" and time_key(row.get("last_seen_at")) > cutoff}
+    state = {"format": 1, "project_url": client.project_url, "created_at": captured_at,
+             "prompt_version": ai.PROMPT_VERSION, "selection": deepcopy(REBUILD_SELECTION), "jobs": []}
+    if not topics:
+        return state
     current = client.select_all("topic_summaries", filters=filters)
     history_rows = client.select_all("topic_summary_versions", columns="topic_id," + HISTORY_COLUMNS, filters=filters)
-    topics = {row["topic_id"]: row for row in client.select_all("topics", filters=filters)}
     links = client.select_all("topic_articles", columns="topic_id,article_id", filters=filters)
     history_by_topic: dict[str, list[Any]] = {}
     for row in history_rows:
@@ -202,21 +211,28 @@ def snapshot(client: SupabaseRestClient, topic_ids: list[str]) -> dict[str, Any]
     jobs = []
     for row in current:
         topic_id = row["topic_id"]
+        if topic_id not in topics:
+            continue
         history = sorted(history_by_topic.get(topic_id, []), key=lambda item: int(item["version"]))
         job = {"topic_id": topic_id, "title": topics.get(topic_id, {}).get("headline_pl") or topic_id,
                "article_ids": [link["article_id"] for link in links if link["topic_id"] == topic_id],
                "current": deepcopy(row), "history": history, "status": "pending"}
         try:
             updates = collect_updates(row, history)
-            if not updates:
+            if len(updates) < REBUILD_SELECTION["min_updates"]:
                 continue
             job["update_count"] = len(updates)
         except ValueError as exc:
             job["error"] = str(exc)
             job["status"] = "invalid"
         jobs.append(job)
-    return {"format": 1, "project_url": client.project_url, "created_at": ai.now(),
-            "prompt_version": ai.PROMPT_VERSION, "jobs": jobs}
+    state["jobs"] = jobs
+    return state
+
+
+def validate_selection(state: dict[str, Any]) -> None:
+    if state.get("selection") != REBUILD_SELECTION:
+        raise ValueError("Checkpoint ma starszy lub inny zakres naprawy. Rozpocznij nowe uruchomienie bez resume_run_id (lokalnie użyj nowego pliku --state).")
 
 
 def rpc_payload(job: dict[str, Any]) -> dict[str, Any]:
@@ -268,6 +284,7 @@ def main() -> int:
         state = json.loads(args.state.read_text(encoding="utf-8"))
         if state.get("format") != 1 or state.get("project_url") != client.project_url:
             raise ValueError("Plik stanu ma inny format lub pochodzi z innej bazy.")
+        validate_selection(state)
         if state.get("prompt_version") != ai.PROMPT_VERSION or state.get("model", args.model) != args.model:
             raise ValueError("Checkpoint powstał z innym promptem lub modelem; nie mieszaj wersji naprawy.")
         if args.topic_id and set(args.topic_id) != set(state.get("requested_topic_ids", [])):
@@ -277,6 +294,7 @@ def main() -> int:
         state["model"] = args.model
         state["requested_topic_ids"] = args.topic_id
         save_state(args.state, state)
+    print(f"Zakres: ACTIVE, mniej niż 55 godzin od ostatniego artykułu, co najmniej 2 widoczne aktualizacje (stan z {state['created_at']}).", flush=True)
     print(f"Plan: {len(state['jobs'])} wątków, {sum(job.get('update_count', 0) for job in state['jobs'])} aktualizacji. Kopia: {args.state}", flush=True)
     if not args.apply:
         print("Podgląd: nie wywołano AI i nie zmieniono bazy. Dodaj --apply, aby wykonać naprawę.")

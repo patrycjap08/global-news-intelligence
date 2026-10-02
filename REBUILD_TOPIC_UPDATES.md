@@ -1,5 +1,13 @@
 # Jednorazowe wygenerowanie aktualizacji od nowa
 
+Naprawa obejmuje wyłącznie wątki ze statusem `ACTIVE`, w których ostatni
+artykuł pojawił się **mniej niż 55 godzin temu** (`last_seen_at`) i które mają
+**co najmniej dwie widoczne aktualizacje**, liczone bez duplikatów także
+z historii wersji. Synteza bazowa nie liczy się jako aktualizacja, podobnie
+jak techniczne decyzje `NO_NEW_INFORMATION`. Wątki z jedną aktualizacją
+pozostają bez zmian. Opcjonalny `topic_id` również podlega tym filtrom.
+Zakres ustalany jest przy tworzeniu kopii przed wywołaniami AI.
+
 Skrypt `rebuild_topic_updates.py` poprawia istniejące aktualizacje, korzystając
 z obecnego promptu w `ai_pipeline.py`. Nie regeneruje syntezy bazowej ani nie
 zmienia powiązań artykułów, kategorii, dat i numerów wersji. Jeśli wątek ma dwie
@@ -26,8 +34,8 @@ interfejs. Nie tworzy dodatkowych aktualizacji dla samej naprawy.
    samo wykonanie SQL nie regeneruje tekstów ani nie zmienia aktualizacji.
 2. Na GitHubie otwórz repozytorium → **Actions → Rebuild topic updates once**
    → **Run workflow**. Wybierz gałąź `main`. Zostaw `apply` zaznaczone,
-   a `topic_id` i `resume_run_id` puste, aby przebudować wszystkie wątki
-   z aktualizacjami. Kliknij zielone **Run workflow**.
+   a `topic_id` i `resume_run_id` puste, aby przebudować aktywne wątki
+   z co najmniej dwiema aktualizacjami. Kliknij zielone **Run workflow**.
 
 Workflow korzysta z istniejących sekretów `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
 i `OPENAI_API_KEY` oraz zmiennej `OPENAI_MODEL`. Nie trzeba przesyłać kluczy
@@ -48,7 +56,10 @@ Jeżeli uruchomienie przerwie się, ponownie uruchom workflow i w polu
 `resume_run_id` wpisz numer poprzedniego uruchomienia widoczny w jego adresie
 `.../actions/runs/NUMER`. Użyj tego samego modelu i zakresu `topic_id`.
 Wątki już zapisane są pomijane; gotowe teksty oczekujące na zapis są używane
-ponownie. Jeżeli przerwanie nastąpiło podczas generowania danego wątku,
+ponownie. Wznowienie zachowuje zakres z pierwotnej kopii, bez ponownego
+przesuwania okna 55 godzin. Checkpointy utworzone przed wprowadzeniem tych
+filtrów są odrzucane: dla tej naprawy zostaw `resume_run_id` puste.
+Jeżeli przerwanie nastąpiło podczas generowania danego wątku,
 skrypt wygeneruje jego aktualizacje ponownie od początku.
 
 Przy wznowieniu kopia w nowym artefakcie zachowuje także oryginalne dane

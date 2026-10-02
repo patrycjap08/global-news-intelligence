@@ -47,6 +47,69 @@ class Client:
 
 
 class RebuildUpdatesTests(unittest.TestCase):
+    def snapshot_client(self):
+        job = fixtures()
+        rows = {"topics": [], "topic_summaries": [], "topic_summary_versions": [], "topic_articles": []}
+        def add(topic_id, last_seen, count=2, status="ACTIVE"):
+            rows["topics"].append({"topic_id": topic_id, "status": status, "last_seen_at": last_seen})
+            current = deepcopy(job["current"])
+            current["topic_id"] = topic_id
+            current["summary"]["updates"] = current["summary"]["updates"][:count]
+            current["summary"]["latest_update"] = deepcopy(current["summary"]["updates"][-1])
+            rows["topic_summaries"].append(current)
+            for row in job["history"][:count]:
+                rows["topic_summary_versions"].append({"topic_id": topic_id, **deepcopy(row)})
+        add("recent", "2026-10-02T11:00:00Z")
+        add("just-inside", "2026-09-30T05:00:01Z")
+        add("boundary", "2026-09-30T05:00:00Z")
+        add("old", "2026-09-30T04:59:59Z")
+        add("closed", "2026-10-02T11:00:00Z", status="CLOSED")
+        add("single", "2026-10-02T11:00:00Z", count=1)
+        add("unknown-date", None)
+        client = Client()
+        client.select_all = lambda table, **kwargs: deepcopy(rows[table])
+        return client, rows
+
+    def test_snapshot_requires_active_recent_topic_and_two_distinct_visible_updates(self):
+        client, rows = self.snapshot_client()
+        # The first update is stored only in history, but must still count.
+        recent = rows["topic_summaries"][0]
+        recent["summary"]["updates"] = recent["summary"]["updates"][1:]
+        with patch.object(rebuild.ai, "now", return_value="2026-10-02T12:00:00Z"):
+            state = rebuild.snapshot(client, [])
+        self.assertEqual([job["topic_id"] for job in state["jobs"]], ["recent", "just-inside"])
+        self.assertEqual([job["update_count"] for job in state["jobs"]], [2, 2])
+        rebuild.validate_selection(state)
+
+    def test_no_information_decision_does_not_count_towards_two_updates(self):
+        client, rows = self.snapshot_client()
+        for row in [*rows["topic_summaries"], *rows["topic_summary_versions"]]:
+            if row["topic_id"] != "recent":
+                continue
+            for update in [*row["summary"]["updates"], row["summary"]["latest_update"]]:
+                if update["run_id"] == "run2":
+                    update["status"] = "NO_NEW_INFORMATION"
+        with patch.object(rebuild.ai, "now", return_value="2026-10-02T12:00:00Z"):
+            state = rebuild.snapshot(client, [])
+        self.assertNotIn("recent", [job["topic_id"] for job in state["jobs"]])
+
+    def test_explicit_topic_id_still_requires_recency_and_update_count(self):
+        client, rows = self.snapshot_client()
+        def select(table, **kwargs):
+            filters = kwargs.get("filters", [])
+            self.assertIn(("topic_id", 'in.("single")'), filters)
+            if table == "topics":
+                self.assertIn(("status", "eq.ACTIVE"), filters)
+                self.assertTrue(any(field == "last_seen_at" and value.startswith("gt.") for field, value in filters))
+            return deepcopy([row for row in rows[table] if row["topic_id"] == "single"])
+        client.select_all = select
+        with patch.object(rebuild.ai, "now", return_value="2026-10-02T12:00:00Z"):
+            self.assertEqual(rebuild.snapshot(client, ["single"])["jobs"], [])
+
+    def test_old_checkpoint_cannot_bypass_new_selection(self):
+        with self.assertRaisesRegex(ValueError, "bez resume_run_id"):
+            rebuild.validate_selection({"jobs": [fixtures()]})
+
     def test_no_new_information_is_hidden_and_not_passed_as_a_previous_fact(self):
         job = fixtures()
         inputs = []
