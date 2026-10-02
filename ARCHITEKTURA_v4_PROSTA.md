@@ -144,8 +144,8 @@ Po zakończeniu grupowania AI 1 lokalny filtr wyszukuje kandydackie grupy temat�
 na podstawie co najmniej trzech wspólnych charakterystycznych rdzeni słów
 albo wspólnej frazy z dwóch takich słów. Embeddingi dodają maksymalnie trzech
 sąsiadów na temat, przy podobieństwie co najmniej 0.90. Niezależne grupy są
-pakowane razem z osobnymi identyfikatorami; do AI trafia maksymalnie 20 paczek
-weryfikacji scalania na przebieg. Tematy bez lokalnego lub semantycznego podobieństwa
+pakowane razem z osobnymi identyfikatorami; wszystkie utworzone paczki
+weryfikacji scalania trafiają do AI bez ograniczania ich liczby. Tematy bez lokalnego lub semantycznego podobieństwa
 nie trafiają do tego wywołania, a dane każdego kandydata są skrócone do nazwy,
 jednozdaniowego opisu i kilku najnowszych nagłówków.
 

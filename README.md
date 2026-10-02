@@ -20,8 +20,8 @@ Integracja z X została usunięta. Analiza korzysta z artykułów prasowych.
 Selekcja kandydatów semantycznych wymaga podobieństwa co najmniej 0.90 i
 wybiera maksymalnie trzech sąsiadów na temat. Filtr słów wymaga trzech
 charakterystycznych wspólnych rdzeni albo wspólnej frazy. Niezależne grupy
-są pakowane razem, a do AI trafia maksymalnie 20 paczek weryfikacji scalania
-na przebieg. Szczegóły konfiguracji są w `DEPLOYMENT.md`.
+są pakowane razem. Wszystkie utworzone paczki weryfikacji scalania trafiają
+do AI, bez ucinania ich liczby. Szczegóły konfiguracji są w `DEPLOYMENT.md`.
 
 ## Uruchomienie
 

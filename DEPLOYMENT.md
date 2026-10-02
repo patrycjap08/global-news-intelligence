@@ -56,9 +56,6 @@ dodać:
   niekontrolowanej liczby wywołań API.
 - `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
-- `AI_TOPIC_MERGE_MAX_REQUESTS`, domyślnie `20`; limit paczek do weryfikacji
-  scalania w jednym przebiegu. Kod wymusza maksymalnie 20 także wtedy, gdy
-  starsza zmienna repozytorium nadal ma wartość 80. Można ustawić mniej.
 - `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.90`; minimalne
   podobieństwo cosinusowe kandydatów semantycznych (wcześniej 0.84).
   Kod nie dopuszcza wartości poniżej 0.90; można podwyższyć próg.
@@ -113,9 +110,12 @@ Filtr leksykalny wymaga trzech wspólnych charakterystycznych rdzeni słów
 albo jednej wspólnej frazy z dwóch takich słów. Niezależne grupy kandydatów
 są pakowane razem, do 100 tematów na paczkę; AI porównuje wyłącznie tematy
 w obrębie tej samej grupy. Nakładające się grupy zachowują osobne paczki.
-Limit 20 obejmuje paczki weryfikacji scalania, nie etykietowanie, embeddingi,
-kategorie ani syntezy. Retry po błędzie API może ponowić tę samą paczkę.
-To zmniejsza liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
+Wszystkie utworzone paczki weryfikacji scalania trafiają do AI w tym samym
+przebiegu. Ich liczba wynika z ostrzejszej selekcji i pakowania grup, nie
+z twardego limitu zapytań. Dawna zmienna `AI_TOPIC_MERGE_MAX_REQUESTS` nie jest
+już używana, więc pozostawiona w ustawieniach repozytorium nie ucina paczek.
+Retry po błędzie API może ponowić tę samą paczkę. Ostrzejsza selekcja zmniejsza
+liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
 
 ## Aktualizacje bez powtarzania faktów
 

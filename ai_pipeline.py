@@ -60,9 +60,6 @@ TOPIC_MERGE_SUMMARY_CHAR_LIMIT = max(
 TOPIC_MERGE_MAX_OUTPUT_TOKENS = max(
     1000, int(os.environ.get("AI_TOPIC_MERGE_MAX_OUTPUT_TOKENS", "12000"))
 )
-TOPIC_MERGE_MAX_REQUESTS = min(
-    20, max(1, int(os.environ.get("AI_TOPIC_MERGE_MAX_REQUESTS", "20")))
-)
 TOPIC_MERGE_EMBEDDINGS_ENABLED = (
     os.environ.get("AI_TOPIC_MERGE_EMBEDDINGS_ENABLED", "1").strip().lower()
     not in {"0", "false", "no", "off"}
@@ -2654,15 +2651,6 @@ def merge_active_topics(
             (len(group) for group in candidate_groups),
             default=0,
         )
-        total_merge_requests = len(merge_requests)
-        if total_merge_requests > TOPIC_MERGE_MAX_REQUESTS:
-            log(
-                "AI",
-                f"Scalanie: ograniczam liczbę zapytań z {total_merge_requests} do "
-                f"{TOPIC_MERGE_MAX_REQUESTS}; reszta zostaje na kolejny przebieg.",
-                level="WARN",
-            )
-            merge_requests = merge_requests[:TOPIC_MERGE_MAX_REQUESTS]
         stats["merge_requests"] = len(merge_requests)
         log(
             "AI",

@@ -63,7 +63,7 @@ class MergeCandidateLimitTests(unittest.TestCase):
             self.assertTrue(any(set(group).issubset({r["topic_id"] for r in request}) for request in requests))
         self.assertTrue(all(len({r["topic_id"] for r in request}) == len(request) for request in requests))
 
-    def test_old_repository_variables_cannot_restore_liberal_limits(self):
+    def test_old_repository_variables_cannot_loosen_candidate_selection(self):
         env = {
             **os.environ,
             "AI_TOPIC_MERGE_MAX_REQUESTS": "80",
@@ -71,10 +71,10 @@ class MergeCandidateLimitTests(unittest.TestCase):
             "AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY": "0.84",
         }
         result = subprocess.run(
-            [sys.executable, "-c", "import json, ai_pipeline as a; print(json.dumps([a.TOPIC_MERGE_MAX_REQUESTS, a.TOPIC_MERGE_EMBEDDING_TOP_K, a.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY]))"],
+            [sys.executable, "-c", "import json, ai_pipeline as a; print(json.dumps([a.TOPIC_MERGE_EMBEDDING_TOP_K, a.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY]))"],
             cwd=Path(__file__).parent, env=env, check=True, capture_output=True, text=True,
         )
-        self.assertEqual(json.loads(result.stdout), [20, 3, 0.90])
+        self.assertEqual(json.loads(result.stdout), [3, 0.90])
 
     def run_merge(self, topics, requests, response):
         client = FakeMergeClient(topics, [], [])
@@ -86,15 +86,17 @@ class MergeCandidateLimitTests(unittest.TestCase):
             ai.merge_active_topics(Path(temp_dir) / "articles.sqlite3", "run", client)
             return client, call.call_count
 
-    def test_merge_stage_never_sends_more_than_twenty_batches(self):
-        topics = [{"topic_id": f"t{index}", "headline_pl": f"Topic {index}"} for index in range(50)]
-        requests = [
-            [{"topic_id": f"t{index}", "candidate_group_id": str(index)},
-             {"topic_id": f"t{index + 1}", "candidate_group_id": str(index)}]
-            for index in range(0, 50, 2)
-        ]
-        _, count = self.run_merge(topics, requests, {"merge_groups": []})
-        self.assertEqual(count, 20)
+    def test_merge_stage_processes_all_batches_even_with_old_limit_variable(self):
+        for batch_count in (34, 81):
+            with self.subTest(batches=batch_count), patch.dict(os.environ, {"AI_TOPIC_MERGE_MAX_REQUESTS": "20"}):
+                topics = [{"topic_id": f"t{index}", "headline_pl": f"Topic {index}"} for index in range(batch_count * 2)]
+                requests = [
+                    [{"topic_id": f"t{index}", "candidate_group_id": str(index)},
+                     {"topic_id": f"t{index + 1}", "candidate_group_id": str(index)}]
+                    for index in range(0, batch_count * 2, 2)
+                ]
+                _, count = self.run_merge(topics, requests, {"merge_groups": []})
+                self.assertEqual(count, batch_count)
 
     def test_ai_cannot_merge_across_packed_groups_or_use_foreign_ids(self):
         topics = [{"topic_id": topic_id, "headline_pl": topic_id} for topic_id in "abcde"]
