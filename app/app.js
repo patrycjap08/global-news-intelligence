@@ -167,6 +167,7 @@ function formatDateTime(value) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Warsaw',
   }).format(date);
 }
 
@@ -206,6 +207,7 @@ function updateText(summaryOrUpdate) {
   const update = nestedUpdate && typeof nestedUpdate === 'object'
     ? nestedUpdate
     : (summaryOrUpdate || {});
+  if (update.status === 'NO_NEW_INFORMATION') return '';
   return normalizeDisplayText(update.new_information_pl || update.what_changed_pl || '').trim();
 }
 
@@ -231,7 +233,7 @@ function collectTopicUpdates(storedSummary, historyRows) {
   (historyRows || []).forEach((row) => addFromStored(row.summary || {}, row));
   const unique = new Map();
   candidates.forEach((update) => {
-    const key = update.run_id || JSON.stringify({
+    const key = update.update_id || update.run_id || JSON.stringify({
       text: updateText(update),
       articles: update.new_article_ids || [],
     });
@@ -415,6 +417,7 @@ function topicModel(topic) {
     profileCounts,
     summary: hasAggregation ? summary : {},
     latestUpdate: hasAggregation ? latestUpdate : {},
+    latestAnalysisStatus: storedSummary.last_analysis?.status || latestUpdate.status || null,
     updates: hasAggregation ? updates : [],
     summaryVersion: summaryRow.version || 1,
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
@@ -597,7 +600,7 @@ function cardHtml(model, index) {
   const badge = model.hasAggregation
     ? `${articleCountLabel(model.articles.length)} · ${sourceCountLabel(model.sources.length)}`
     : 'Materiał oczekujący na drugie źródło';
-  const hasUpdate = Boolean(updateText(model.latestUpdate));
+  const hasUpdate = model.latestAnalysisStatus !== 'NO_NEW_INFORMATION' && Boolean(updateText(model.latestUpdate));
   const bookmarked = isTopicBookmarked(model);
   const read = isTopicRead(model);
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
@@ -651,7 +654,7 @@ function dialogHtml(model) {
     const newArticleIdSet = new Set(newArticleIds);
     const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
     const updateCopy = updateText(update);
-    const when = update.generated_at ? ` · ${formatDate(update.generated_at)}` : '';
+    const when = update.generated_at ? ` · ${formatDateTime(update.generated_at)}` : '';
     return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
   }).join('');
   const summaryPanel = summary.summary_pl

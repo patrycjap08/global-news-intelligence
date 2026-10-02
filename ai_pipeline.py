@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v42-stricter-merges-nonrepeating-updates"
+PROMPT_VERSION = "ai-prompts-v43-explicit-no-new-information"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -1468,19 +1468,24 @@ wcześniejszych ustaleń. Dla zmiany lub korekty wskaż krótko, co się zmieni�
 przywołaj poprzednie ustalenie tylko w zakresie koniecznym do zrozumienia
 różnicy. Nie odtwarzaj wcześniejszego opisu wydarzenia jako wprowadzenia.
 
-Jeżeli nowe materiały wyłącznie potwierdzają wcześniejsze ustalenia, wystarczy
-jedno krótkie zdanie, np. „Kolejne artykuły potwierdzają wcześniejsze ustalenia
-o terminie rozpoczęcia protestu”. Nazwij krótko potwierdzony aspekt, ale nie
-wyliczaj ponownie znanych liczb, dat, cytatów i pozostałych szczegółów.
-Nie dopisuj nowych szczegółów, jeśli artykuły ich nie dostarczają. Jeśli tylko
-część materiałów wnosi nowe fakty, opisz te fakty bez streszczania pozostałych
-artykułów; zbiorcze potwierdzenie wcześniejszych ustaleń jest opcjonalne.
+Zanim napiszesz tekst, zdecyduj, czy nowe materiały wnoszą jakąkolwiek istotną
+treść poza łącznym stanem wiedzy w base_summary i WSZYSTKICH prior_updates.
+Samo potwierdzenie, przedruk, nowe źródło, parafraza lub nowa data publikacji
+znanego faktu nie uzasadniają nowej aktualizacji.
+Jeżeli nie ma nowych faktów, istotnych szczegółów, zmian ani korekt, ustaw
+update.status="NO_NEW_INFORMATION", update.is_update=false oraz oba pola
+new_information_pl i what_changed_pl na "". Zachowaj new_article_ids.
+Nie pisz nawet krótkiego potwierdzenia ani zdania o braku nowości — ten wynik
+jest techniczną decyzją i NIE BĘDZIE pokazany jako aktualizacja na stronie.
+Jeżeli choć część materiałów wnosi nowe ustalenia, ustaw
+update.status="NEW_INFORMATION" i update.is_update=true; opisz wyłącznie
+te nowe ustalenia bez streszczania pozostałych artykułów.
 Nie rozciągaj aktualizacji powtórzeniami, aby osiągnąć sugerowaną długość.
-update.what_changed_pl ma krótko nazwać zmianę lub samo potwierdzenie,
+update.what_changed_pl ma krótko nazwać rzeczywistą zmianę,
 bez kopiowania opisu z update.new_information_pl.
 new_article_ids musi zawierać wyłącznie artykuły z bieżącego zestawu.
 Jeżeli previous_aggregation jest null, utwórz pełną syntezę bazową i ustaw
-update.is_update=false.
+update.status="BASE_SUMMARY" i update.is_update=false.
 
 Jeżeli wejście zawiera previous_aggregation, nie twórz drugiej pełnej wersji
 tekstu i nie zastępuj wcześniejszej syntezy nową. Zachowaj ją jako bazę na
@@ -1550,7 +1555,8 @@ Nie parafrazuj, nie skracaj, nie poprawiaj stylistycznie i nie aktualizuj
 wcześniejszej syntezy. Nowe ustalenia mogą pojawić się wyłącznie w update.
 
 W trybie aktualizacji:
-- update.is_update musi mieć wartość true;
+- update.status to NEW_INFORMATION (is_update=true) albo
+  NO_NEW_INFORMATION (is_update=false i oba pola tekstowe puste);
 - update.new_article_ids może zawierać wyłącznie article_id z bieżącego
   new_articles;
 - każdy nowy article_id musi znaleźć się w update.new_article_ids i sources;
@@ -1589,7 +1595,7 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 {"topic":{"headline_pl":"","what_happened_one_sentence_pl":"",
 "categories":["POLITYKA"],
 "status":"ONGOING","time_scope":""},
-"update":{"is_update":false,"new_information_pl":"",
+"update":{"status":"BASE_SUMMARY","is_update":false,"new_information_pl":"",
 "what_changed_pl":"","new_article_ids":[]},"summary_pl":"",
 "facts":[{"text_pl":"","article_ids":[]}],
 "agreement":[{"text_pl":"","article_ids":[]}],
@@ -1629,8 +1635,9 @@ zawiera informacji o głównym wątku. Zamiast tego wybierz z każdego nowego
 materiału konkretne, sprawdzalne NOWE fakty: osoby, liczby, daty, wyniki,
 działania, stanowiska i skutki, których nie ma w base_summary ani w żadnej
 wcześniejszej aktualizacji prior_updates. Jeśli materiał tylko potwierdza
-znane ustalenia, zastosuj krótkie zbiorcze potwierdzenie zgodnie z zasadą
-braku powtórzeń; nie wymuszaj nowego faktu ani nie przepisuj znanych faktów.
+znane ustalenia, zwróć status NO_NEW_INFORMATION z pustymi polami tekstowymi;
+nie wymuszaj nowego faktu, nie twórz tekstu potwierdzenia ani nie przepisuj
+znanych faktów. Poprawny NO_NEW_INFORMATION nie jest błędem odpowiedzi.
 Zaczynaj od faktu, np. „Dwa badania wykazały…”, a nazwę
 źródła dodaj tylko wtedy, gdy pomaga rozróżnić relacje. Nie umieszczaj
 technicznych article_id w żadnym tekście.
@@ -1752,6 +1759,7 @@ SUMMARY_RESPONSE_SCHEMA = _json_schema_object({
         "time_scope": {"type": "string"},
     }),
     "update": _json_schema_object({
+        "status": {"type": "string", "enum": ["BASE_SUMMARY", "NEW_INFORMATION", "NO_NEW_INFORMATION"]},
         "is_update": {"type": "boolean"},
         "new_information_pl": {"type": "string"},
         "what_changed_pl": {"type": "string"},
@@ -1797,6 +1805,11 @@ def update_text_value(summary: dict[str, Any]) -> str:
 
 
 def update_needs_repair(summary: dict[str, Any]) -> bool:
+    status = (summary.get("update") or {}).get("status")
+    if status == "NO_NEW_INFORMATION":
+        return False
+    if status is not None and status != "NEW_INFORMATION":
+        return True
     text = update_text_value(summary)
     return not text or any(pattern.search(text) for pattern in UPDATE_META_PATTERNS)
 
@@ -1973,14 +1986,21 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
     for key in ("new_information_pl", "what_changed_pl"):
         if key in update:
             update[key] = normalize_generated_text(update[key])
+    # Backwards compatibility for saved responses predating explicit status.
+    update["status"] = str(update.get("status") or (
+        "NEW_INFORMATION" if update_text_value({"update": update}) or update.get("is_update")
+        else "BASE_SUMMARY"
+    )).upper()
+    if update["status"] in {"NO_NEW_INFORMATION", "BASE_SUMMARY"}:
+        update["is_update"] = False
+        update["new_information_pl"] = ""
+        update["what_changed_pl"] = ""
+    elif update["status"] == "NEW_INFORMATION":
+        update["is_update"] = True
+    update.setdefault("new_article_ids", [])
     normalized: dict[str, Any] = {
         "topic": topic,
-        "update": update or {
-            "is_update": False,
-            "new_information_pl": "",
-            "what_changed_pl": "",
-            "new_article_ids": [],
-        },
+        "update": update,
         "summary_pl": normalize_generated_text(response.get("summary_pl")),
     }
     for field in SUMMARY_ARRAY_FIELDS:
@@ -2045,12 +2065,14 @@ def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
         return None
     return {
         "base_summary": stored_base_summary(value),
-        "prior_updates": stored_updates(value),
+        "prior_updates": [update for update in stored_updates(value)
+                          if update.get("status") != "NO_NEW_INFORMATION"],
     }
 
 
 def empty_update() -> dict[str, Any]:
     return {
+        "status": "BASE_SUMMARY",
         "is_update": False,
         "new_information_pl": "",
         "what_changed_pl": "",
@@ -3418,7 +3440,7 @@ def persist_summary(
     previous_row: dict[str, Any] | None,
     new_article_ids: list[str],
 ) -> int:
-    """Save an immutable base and append one cumulative update per full run."""
+    """Keep the base; append only meaningful updates, record every analysis."""
     persist_topic_categories(
         client,
         topic_id,
@@ -3429,37 +3451,39 @@ def persist_summary(
     version = int((previous_row or {}).get("version", 0)) + 1
     timestamp = now()
     previous_stored = previous_row.get("summary") if previous_row else None
+    article_ids = list(dict.fromkeys(str(article_id) for article_id in new_article_ids))
+    analysis = dict(normalize_summary_response(summary)["update"] if previous_stored else empty_update())
+    analysis.update({"new_article_ids": article_ids, "run_id": run_id, "generated_at": timestamp})
     if previous_stored:
         base_summary = stored_base_summary(previous_stored)
         updates = stored_updates(previous_stored)
-        latest_update = dict(summary.get("update") or empty_update())
-        latest_update["is_update"] = True
+        if analysis["status"] not in {"NEW_INFORMATION", "NO_NEW_INFORMATION"}:
+            raise ValueError("Istniejący temat wymaga decyzji NEW_INFORMATION lub NO_NEW_INFORMATION.")
+        if analysis["status"] == "NEW_INFORMATION":
+            analysis["update_id"] = "update_" + digest({
+                "topic_id": topic_id, "run_id": run_id,
+                "input_hash": summary_hash, "article_ids": article_ids,
+            })[:24]
+            analysis["version"] = version
+            # A run can analyse one topic more than once. Keep its prior facts;
+            # replace only an exact retry, never another update sharing run_id.
+            updates = [item for item in updates if item.get("update_id") != analysis["update_id"]]
+            updates.append(analysis)
+        latest_update = updates[-1] if updates else empty_update()
     else:
         base_summary = dict(summary)
         base_summary["update"] = empty_update()
         updates = []
         latest_update = empty_update()
 
-    latest_update["new_article_ids"] = list(dict.fromkeys(str(article_id) for article_id in new_article_ids))
-    update_text = str(
-        latest_update.get("new_information_pl")
-        or latest_update.get("what_changed_pl")
-        or ""
-    ).strip()
-    if previous_stored and not update_text:
-        # A blank AI update is safer than a reader-facing verdict about the
-        # material or the grouping. Normal generation retries before reaching
-        # this branch; this is only a defensive fallback for legacy callers.
-        latest_update["new_information_pl"] = ""
-    if previous_stored:
-        latest_update["run_id"] = run_id
-        latest_update["generated_at"] = timestamp
-        updates = [item for item in updates if str(item.get("run_id") or "") != run_id]
-        updates.append(latest_update)
     stored_summary = {
         "base_summary": base_summary,
         "updates": updates,
         "latest_update": latest_update,
+        "last_analysis": analysis,
+        "processed_article_ids": list(dict.fromkeys([
+            *(previous_stored or {}).get("processed_article_ids", []), *article_ids,
+        ])),
     }
     client.upsert("topic_summaries", [{
         "topic_id": topic_id,
@@ -3478,7 +3502,7 @@ def persist_summary(
             "model": model,
             "prompt_version": PROMPT_VERSION,
             "summary": stored_summary,
-            "new_article_ids": latest_update["new_article_ids"],
+            "new_article_ids": article_ids,
             "generated_at": timestamp,
         }], on_conflict="topic_id,version")
     except Exception as exc:
@@ -3664,7 +3688,10 @@ def retry_incomplete_summaries(
                 stats["summaries"] += 1
                 log(
                     "AI",
-                    f"Synteza {index}/{total_jobs} gotowa; pozostało {total_jobs - index}.",
+                    (f"Analiza {index}/{total_jobs}: brak nowych informacji; artykuły zapisane bez nowej aktualizacji. "
+                     if previous_aggregation and summary["update"].get("status") == "NO_NEW_INFORMATION"
+                     else f"Synteza {index}/{total_jobs} gotowa; ")
+                    + f"pozostało {total_jobs - index}.",
                 )
             except Exception as exc:
                 log_parse_failure("SUMMARY", exc)

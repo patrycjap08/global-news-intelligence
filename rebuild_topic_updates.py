@@ -27,10 +27,14 @@ CURRENT_FIELDS = ("version", "input_hash", "model", "summary")
 
 
 def text_of(update: dict[str, Any]) -> str:
+    if update.get("status") == "NO_NEW_INFORMATION":
+        return ""
     return ai.update_text_value({"update": update})
 
 
 def identity(update: dict[str, Any]) -> str:
+    if update.get("update_id"):
+        return "update:" + str(update["update_id"])
     if update.get("run_id"):
         return "run:" + str(update["run_id"])
     return "legacy:" + ai.digest({
@@ -91,7 +95,7 @@ def rewrite_stored(stored: dict[str, Any], fallback: dict[str, Any], replacement
             return deepcopy(raw)
         replacement = replacements[identity(dated[0])]
         # Preserve snapshot-specific metadata; copy only the new text.
-        return {**deepcopy(raw), "is_update": True,
+        return {**deepcopy(raw), "status": replacement["status"], "is_update": replacement["is_update"],
                 "new_information_pl": replacement["new_information_pl"],
                 "what_changed_pl": replacement["what_changed_pl"]}
 
@@ -134,7 +138,9 @@ def rebuild_job(job: dict[str, Any], client: SupabaseRestClient, model: str) -> 
         rows = [by_id[value] for value in dict.fromkeys(original["new_article_ids"])]
         payload, _, _ = ai.build_bounded_summary_input({
             "topic": {"topic_id": job["topic_id"], "working_title_pl": job["title"], "topic_action": "DEVELOPMENT"},
-            "previous_aggregation": {"base_summary": base, "prior_updates": deepcopy(rebuilt)},
+            "previous_aggregation": {"base_summary": base, "prior_updates": deepcopy([
+                update for update in rebuilt if update.get("status") != "NO_NEW_INFORMATION"
+            ])},
             "all_article_ids_in_topic": list(dict.fromkeys([*job["article_ids"], *all_ids])),
         }, rows)
         response = None
@@ -150,7 +156,7 @@ def rebuild_job(job: dict[str, Any], client: SupabaseRestClient, model: str) -> 
         if response is None or ai.update_needs_repair(response):
             raise ValueError("Model nie wygenerował poprawnej aktualizacji po ponowieniu.")
         generated = response["update"]
-        update = {**deepcopy(original), "is_update": True,
+        update = {**deepcopy(original), "status": generated["status"], "is_update": generated["is_update"],
                   "new_information_pl": generated["new_information_pl"],
                   "what_changed_pl": generated.get("what_changed_pl") or ""}
         rebuilt.append(update)
@@ -165,7 +171,8 @@ def rebuild_job(job: dict[str, Any], client: SupabaseRestClient, model: str) -> 
         new_history.append(revised)
     new_current = {field: deepcopy(current[field]) for field in CURRENT_FIELDS}
     new_current["summary"] = {**deepcopy(current["summary"]), "base_summary": base,
-                              "updates": rebuilt, "latest_update": deepcopy(rebuilt[-1])}
+                              "updates": rebuilt, "latest_update": deepcopy(rebuilt[-1]),
+                              "last_analysis": deepcopy(rebuilt[-1])}
     # A legacy top-level update would otherwise retain its old text.
     if isinstance(new_current["summary"].get("update"), dict):
         new_current["summary"]["update"] = deepcopy(rebuilt[-1])
@@ -239,7 +246,8 @@ def execute(state: dict[str, Any], path: Path, client: SupabaseRestClient, model
             job["status"] = "completed"
             job.pop("error", None)
             save_state(path, state)
-            print(f"Zapisano {job['topic_id']}: {job['update_count']} aktualizacji.", flush=True)
+            visible = sum(bool(text_of(update)) for update in job["replacement"]["current"]["summary"]["updates"])
+            print(f"Zapisano {job['topic_id']}: oceniono {job['update_count']} aktualizacji; widocznych po naprawie: {visible}.", flush=True)
         except Exception as exc:
             job["error"] = ai.short_text(exc, 400)
             save_state(path, state)
