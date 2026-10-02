@@ -47,6 +47,25 @@ class Client:
 
 
 class RebuildUpdatesTests(unittest.TestCase):
+    def test_no_new_information_is_hidden_and_not_passed_as_a_previous_fact(self):
+        job = fixtures()
+        inputs = []
+        def model(instructions, payload, *args, **kwargs):
+            inputs.append(deepcopy(payload))
+            return {"update": {"status": "NO_NEW_INFORMATION", "is_update": False,
+                               "new_information_pl": "", "what_changed_pl": "", "new_article_ids": []}}
+        with patch.object(rebuild.ai, "call_openai", side_effect=model):
+            replacement = rebuild.rebuild_job(job, Client(), "model")
+        self.assertEqual(len(inputs), 2)
+        self.assertEqual(inputs[1]["previous_aggregation"]["prior_updates"], [])
+        updates = replacement["current"]["summary"]["updates"]
+        self.assertEqual(len(updates), 2)  # preserve original article batches
+        self.assertTrue(all(row["status"] == "NO_NEW_INFORMATION" and not rebuild.text_of(row) for row in updates))
+        self.assertTrue(all(not row["is_update"] for row in updates))
+        self.assertEqual([row["new_article_ids"] for row in updates], [["a1"], ["a2", "a3"]])
+        self.assertNotIn("Stara", json.dumps(replacement, ensure_ascii=False))
+        self.assertEqual(replacement["current"]["summary"]["last_analysis"]["status"], "NO_NEW_INFORMATION")
+
     def generate(self, job=None, client=None):
         job, client = job or fixtures(), client or Client()
         inputs = []

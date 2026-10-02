@@ -23,6 +23,12 @@ charakterystycznych wspólnych rdzeni albo wspólnej frazy. Niezależne grupy
 są pakowane razem. Wszystkie utworzone paczki weryfikacji scalania trafiają
 do AI, bez ucinania ich liczby. Szczegóły konfiguracji są w `DEPLOYMENT.md`.
 
+Aktualizacje powstają tylko wtedy, gdy nowe artykuły dodają fakty do syntezy
+i całej wcześniejszej historii. Wynik `NO_NEW_INFORMATION` zachowuje artykuły
+w źródłach bez nowego tekstu i oznaczenia aktualizacji. Widoczne aktualizacje
+mają datę i godzinę czasu polskiego. Starsze teksty można przebudować według
+[instrukcji jednorazowej naprawy](REBUILD_TOPIC_UPDATES.md).
+
 ## Uruchomienie
 
 ```bash

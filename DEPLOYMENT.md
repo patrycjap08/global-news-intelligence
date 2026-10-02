@@ -122,15 +122,23 @@ liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
 Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi
 aktualizacjami. Prompt wymaga opisywania tylko nowych ustaleń, szczegółów lub
 korekt; parafraza i kolejne źródło tego samego faktu nie są nową informacją.
-Gdy artykuły wyłącznie potwierdzają znane ustalenia, aktualizacja powinna
-zawierać jedno krótkie potwierdzenie bez ponownego wyliczania szczegółów.
+Model najpierw wybiera `NEW_INFORMATION` albo `NO_NEW_INFORMATION`.
+Gdy artykuły wyłącznie potwierdzają znane ustalenia, zwraca
+`NO_NEW_INFORMATION`, `is_update=false` i puste pola tekstowe. Artykuły
+pozostają podpięte i widoczne w źródłach, ale na stronie nie powstaje blok
+aktualizacji ani oznaczenie „AKTUALIZACJA”. Zapis decyzji i czasu analizy
+zapobiega ponownemu analizowaniu tych samych materiałów przy kolejnym runie.
+Widoczne aktualizacje mają pełną datę i godzinę czasu polskiego. Ich daty
+pochodzą z czasu zapisu na serwerze; AI nie wymyśla daty aktualizacji.
 Ta zasada obowiązuje również podczas ponownego generowania odpowiedzi
 w trybie naprawy. Nie zmienia wcześniej zapisanych tekstów.
 
 Istniejące aktualizacje można jednorazowo wygenerować od nowa skryptem
 `rebuild_topic_updates.py` lub ręcznym workflow **Rebuild topic updates once**.
-Zachowuje on syntezę bazową, liczbę aktualizacji, ich kolejność i przypisane
-artykuły; poprawia też historyczne snapshots. Wymaga jednorazowej instalacji
+Zachowuje on syntezę bazową, kolejność i oryginalne paczki artykułów; poprawia
+też historyczne snapshots. Aktualizacje ocenione jako `NO_NEW_INFORMATION`
+pozostają zapisane technicznie z artykułami i datami, ale nie są wyświetlane.
+Wymaga jednorazowej instalacji
 `supabase_migration_rebuild_updates.sql`. Instrukcja uruchomienia, kopii
 i wznawiania: [REBUILD_TOPIC_UPDATES.md](REBUILD_TOPIC_UPDATES.md).
 

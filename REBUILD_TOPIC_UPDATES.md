@@ -3,12 +3,17 @@
 Skrypt `rebuild_topic_updates.py` poprawia istniejące aktualizacje, korzystając
 z obecnego promptu w `ai_pipeline.py`. Nie regeneruje syntezy bazowej ani nie
 zmienia powiązań artykułów, kategorii, dat i numerów wersji. Jeśli wątek ma dwie
-aktualizacje, nadal ma dwie: pierwsza powstaje na podstawie swoich artykułów
+aktualizacje, obie są oceniane kolejno: pierwsza na podstawie swoich artykułów
 i syntezy bazowej, a druga na podstawie swoich artykułów, syntezy bazowej
-i **nowej pierwszej aktualizacji**. Analogicznie działa dla kolejnych.
+i **nowych ustaleń pierwszej aktualizacji**, jeżeli takie były. Analogicznie
+działa dla kolejnych. Każda pierwotna paczka artykułów pozostaje zapisana.
 
-Nowy tekst opisuje nowe ustalenia lub krótko potwierdza wcześniejsze, jeżeli
-artykuły nie dodają nowych faktów. Oryginalne `new_article_ids`, `run_id`
+Nowy tekst powstaje tylko przy statusie `NEW_INFORMATION`. Jeśli artykuły nie
+dodają nowych faktów, model zwraca `NO_NEW_INFORMATION` z pustym tekstem:
+taki rekord zachowuje artykuły i datę, ale nie jest widoczny jako aktualizacja
+ani oznaczenie na stronie. Nie powstaje nawet krótkie potwierdzenie znanych
+ustaleń. Dlatego po naprawie liczba **widocznych** aktualizacji może być mniejsza.
+Oryginalne `new_article_ids`, `run_id`
 i `generated_at` każdej aktualizacji pozostają zachowane. Skrypt uwzględnia
 również aktualizacje przechowywane tylko w historii wersji, które pokazuje
 interfejs. Nie tworzy dodatkowych aktualizacji dla samej naprawy.
