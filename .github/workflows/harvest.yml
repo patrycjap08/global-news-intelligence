@@ -14,12 +14,8 @@ on:
           - merge-existing-summaries
           - titles-only
   schedule:
-    # Times are Europe/Warsaw; minute 12 allows a quick morning verification.
-    - cron: "12 7 * * *"
-      timezone: "Europe/Warsaw"
-    - cron: "17 12 * * *"
-      timezone: "Europe/Warsaw"
-    - cron: "17 16 * * *"
+    # Three daily full runs at 04:00, 12:00 and 20:00 Polish local time.
+    - cron: "0 4,12,20 * * *"
       timezone: "Europe/Warsaw"
 
 permissions:

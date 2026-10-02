@@ -147,7 +147,13 @@ zachowane; migracja nie przepisuje historycznych opracowań.
 
 ## Harmonogram
 
-Workflow uruchamia się dwa razy dziennie o `07:17` i `16:17` czasu
-`Europe/Warsaw`. GitHub Actions obsługuje tę strefę i uwzględnia zmianę czasu
-letniego/zimowego. Harmonogram nie jest związany z laptopem — działa także
-wtedy, gdy komputer jest wyłączony.
+Pełny workflow pobierania i analizy jest zaplanowany trzy razy dziennie:
+`04:00`, `12:00` i `20:00` czasu `Europe/Warsaw`, co osiem godzin według
+lokalnego zegara. Cron to `0 4,12,20 * * *`. GitHub Actions obsługuje tę
+strefę i uwzględnia zmianę czasu letniego/zimowego. Harmonogram nie jest
+związany z laptopem — działa także wtedy, gdy komputer jest wyłączony.
+
+Są to godziny planowanego wyzwolenia, a nie gwarantowany czas faktycznego
+startu lub pojawienia się ostatniej syntezy. GitHub może wyzwolić zadanie
+z opóźnieniem; wspólna blokada `global-news-harvest` może dodatkowo odroczyć
+pracę, jeżeli trwa wcześniejszy harvest albo ręczna przebudowa aktualizacji.
