@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v43-explicit-no-new-information"
+PROMPT_VERSION = "ai-prompts-v44-strict-novelty-no-confirmation-updates"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -1432,18 +1432,20 @@ Jeżeli previous_aggregation nie jest null, zawiera `base_summary` oraz
 historię. Nie przepisuj jej, nie skracaj i nie aktualizuj
 summary_pl, facts, agreement, differences, potential_manipulation_signals ani
 background_context — program
-zachowa te pola z poprzedniej wersji. W takim przypadku wygeneruj wyłącznie
-delta-update w polu update, opisujący bieżące new_articles.
+zachowa te pola z poprzedniej wersji. W takim przypadku najpierw sprawdź,
+czy istnieje przyrost wiedzy. Sam fakt dostarczenia new_articles NIE oznacza,
+że masz napisać aktualizację. Poprawnym i pożądanym wynikiem przy braku
+nowych ustaleń jest NO_NEW_INFORMATION z pustym tekstem.
 
 Jeżeli nowe artykuły dodają istotne fakty, opisz je konkretnie i wyczerpująco
 w update.new_information_pl. Nie skracaj aktualizacji na siłę do kilku zdań
 ani do z góry ustalonej liczby akapitów. Uwzględnij wszystkie istotne nowe
 ustalenia, liczby, decyzje, wypowiedzi, reakcje, skutki i rozbieżności, których
 nie było w previous_aggregation. Długość ma wynikać z ilości nowych informacji:
-przy jednym drobnym fakcie wystarczy krótki akapit, ale przy kilku obszernych
-artykułach aktualizacja może mieć kilka rozwiniętych akapitów i około 300–700
-słów, jeżeli materiał uzasadnia taką długość. Aktualizacja ma przekazywać treść
-nowych materiałów, a nie tylko informować, że pojawiły się nowe doniesienia.
+przy jednym istotnym nowym fakcie wystarczy jedno zdanie. Liczba i długość
+nowych artykułów nigdy nie uzasadniają długości aktualizacji ani jej powstania.
+Aktualizacja ma przekazywać wyłącznie nowe ustalenia, a nie streszczać nowe
+materiały lub informować, że pojawiły się nowe doniesienia.
 Zaczynaj od faktów, nie od zdania „najnowszy artykuł dotyczy…”. Zamiast
 opisywać, o czym jest materiał, napisz co konkretnie ustalono: liczby, osoby,
 daty, wyniki badań, decyzje, działania, cytowane stanowiska i ich znaczenie.
@@ -1470,13 +1472,42 @@ różnicy. Nie odtwarzaj wcześniejszego opisu wydarzenia jako wprowadzenia.
 
 Zanim napiszesz tekst, zdecyduj, czy nowe materiały wnoszą jakąkolwiek istotną
 treść poza łącznym stanem wiedzy w base_summary i WSZYSTKICH prior_updates.
+OBOWIĄZKOWA BRAMKA NOWOŚCI — DOMYŚLNIE NO_NEW_INFORMATION:
+1. Wewnętrznie wyodrębnij konkretne twierdzenia z new_articles, mające
+   bezpośrednie oparcie w treści tych artykułów. Nie zgaduj, nie dopowiadaj
+   skutków ani nowych faktów, aby uzasadnić aktualizację.
+2. Dla każdego twierdzenia sprawdź całą syntezę bazową i KAŻDĄ aktualizację.
+   Usuń wszystko, co było już przekazane choć raz, także innymi słowami.
+3. NEW_INFORMATION jest dozwolone TYLKO gdy po tym odjęciu pozostaje
+   co najmniej jeden konkretny, istotny, potwierdzony w nowych artykułach fakt,
+   rzeczywista zmiana lub korekta. Musisz móc wskazać, CO nowego wiadomo
+   oraz który nowy artykuł bezpośrednio to stwierdza. Sama większa pewność,
+   zgodność źródeł lub potwierdzenie wcześniejszego faktu nie spełniają warunku.
+4. Jeżeli nie możesz wskazać takiego przyrostu wiedzy, wybierz
+   NO_NEW_INFORMATION. Przy niepewności co do nowości również wybierz
+   NO_NEW_INFORMATION. Nie twórz aktualizacji na siłę.
+
 Samo potwierdzenie, przedruk, nowe źródło, parafraza lub nowa data publikacji
 znanego faktu nie uzasadniają nowej aktualizacji.
+NIE są nowymi faktami: „kolejne artykuły potwierdzają wcześniejsze dane”,
+„nowe źródła potwierdzają wcześniejsze ustalenia”, „sytuacja pozostaje bez
+zmian”, „podtrzymano wcześniejsze informacje”, „doniesienia są zgodne”.
+Nie zamieniaj takiego potwierdzenia w rzekomą nową informację o tym, że
+doszło do potwierdzenia. Nowe źródło starej informacji nadal oznacza brak nowości.
 Jeżeli nie ma nowych faktów, istotnych szczegółów, zmian ani korekt, ustaw
 update.status="NO_NEW_INFORMATION", update.is_update=false oraz oba pola
 new_information_pl i what_changed_pl na "". Zachowaj new_article_ids.
 Nie pisz nawet krótkiego potwierdzenia ani zdania o braku nowości — ten wynik
 jest techniczną decyzją i NIE BĘDZIE pokazany jako aktualizacja na stronie.
+Przykłady decyzji:
+- Historia: protest trwa od poniedziałku. Nowe artykuły: protest trwa od
+  poniedziałku, potwierdzają to kolejne redakcje. Wynik: NO_NEW_INFORMATION.
+- Synteza podaje 12 rannych; wcześniejsza aktualizacja podaje zmianę do 15.
+  Nowy artykuł podaje 15 rannych. Wynik: NO_NEW_INFORMATION — fakt był już
+  w aktualizacji, nawet jeśli nie ma go w pierwotnej syntezie.
+- Historia: rozmowy trwają. Nowy artykuł: podpisano porozumienie.
+  Wynik: NEW_INFORMATION; tekst opisuje podpisanie porozumienia, bez
+  ponownego streszczania rozmów i bez dopisywania potwierdzeń starych faktów.
 Jeżeli choć część materiałów wnosi nowe ustalenia, ustaw
 update.status="NEW_INFORMATION" i update.is_update=true; opisz wyłącznie
 te nowe ustalenia bez streszczania pozostałych artykułów.
@@ -1502,8 +1533,9 @@ Priorytet zasad jest następujący:
 1. poprawny JSON i dokładna struktura pól;
 2. zgodność z dostarczonymi artykułami;
 3. brak wymyślania informacji;
-4. kompletność ustaleń;
-5. styl, długość i płynność języka.
+4. bramka nowości i brak powtórzeń w aktualizacjach;
+5. kompletność WYŁĄCZNIE nowych ustaleń w aktualizacji;
+6. styl, długość i płynność języka.
 
 article_ids muszą być kopiowane dokładnie z wejścia. Nie wolno tworzyć,
 modyfikować ani zgadywać identyfikatorów. Nie wpisuj nazw źródeł do
@@ -1626,13 +1658,17 @@ article_ids jako [] i ustaw needs_verification=true tam, gdzie to pole istnieje.
 
 SUMMARY_UPDATE_REPAIR_INSTRUCTIONS = SUMMARY_INSTRUCTIONS + """
 
-TRYB NAPRAWY AKTUALIZACJI: poprzednia odpowiedź nie spełniła wymogu
-faktograficznej aktualizacji. Wygeneruj ponownie pełny JSON z tym samym
+TRYB NAPRAWY DECYZJI: poprzednia odpowiedź nie spełniła wymogów.
+To NIE jest polecenie napisania aktualizacji za wszelką cenę. Najpierw
+ponownie wykonaj bramkę nowości względem syntezy i WSZYSTKICH aktualizacji.
+Brak konkretnego nowego faktu oznacza NO_NEW_INFORMATION z pustym tekstem.
+Wygeneruj ponownie pełny JSON z tym samym
 wejściem. W `update.new_information_pl` nie opisuj artykułu, procesu
 grupowania ani tego, czy materiał pasuje do tematu. Nie używaj zdań o tym, że
 artykuł jest „nie na temat”, „nic nie wnosi”, „nie zmienia narracji” albo nie
-zawiera informacji o głównym wątku. Zamiast tego wybierz z każdego nowego
-materiału konkretne, sprawdzalne NOWE fakty: osoby, liczby, daty, wyniki,
+zawiera informacji o głównym wątku. Nie wymagaj nowego faktu od każdego
+artykułu. Jeżeli takie fakty istnieją, wybierz wyłącznie sprawdzalne NOWE
+fakty: osoby, liczby, daty, wyniki,
 działania, stanowiska i skutki, których nie ma w base_summary ani w żadnej
 wcześniejszej aktualizacji prior_updates. Jeśli materiał tylko potwierdza
 znane ustalenia, zwróć status NO_NEW_INFORMATION z pustymi polami tekstowymi;
@@ -1811,7 +1847,25 @@ def update_needs_repair(summary: dict[str, Any]) -> bool:
     if status is not None and status != "NEW_INFORMATION":
         return True
     text = update_text_value(summary)
-    return not text or any(pattern.search(text) for pattern in UPDATE_META_PATTERNS)
+    return not text or confirmation_only_update(text) or any(pattern.search(text) for pattern in UPDATE_META_PATTERNS)
+
+
+def confirmation_only_update(text: str) -> bool:
+    """Reject explicit confirmation-only prose; novelty still needs model judgment.
+
+    Do not reject a genuine new fact merely because it contains 'confirmed'.
+    Each sentence must explicitly describe confirmation of earlier knowledge.
+    """
+    sentences = [part.strip() for part in re.split(r"[.!?\n]+", text) if part.strip()]
+    pattern = re.compile(
+        r"^(?:(?:kolejne|nowe|najnowsze|dodatkowe)\s+)?"
+        r"(?:artykuły|materiały|źródła|doniesienia|publikacje|raporty)\b"
+        r"[^;:]{0,60}\bpotwierdz\w*\b\s+"
+        r"(?:wcześniejsze|dotychczasowe|znane|poprzednie)\s+"
+        r"(?:ustalenia|dane|informacje|fakty|doniesienia)\b[^;:]*$",
+        re.IGNORECASE,
+    )
+    return bool(sentences) and all(pattern.fullmatch(sentence) for sentence in sentences)
 
 
 def now() -> str:
@@ -3460,6 +3514,8 @@ def persist_summary(
         if analysis["status"] not in {"NEW_INFORMATION", "NO_NEW_INFORMATION"}:
             raise ValueError("Istniejący temat wymaga decyzji NEW_INFORMATION lub NO_NEW_INFORMATION.")
         if analysis["status"] == "NEW_INFORMATION":
+            if update_needs_repair({"update": analysis}):
+                raise ValueError("Aktualizacja nie zawiera poprawnych nowych ustaleń; samo potwierdzenie nie jest aktualizacją.")
             analysis["update_id"] = "update_" + digest({
                 "topic_id": topic_id, "run_id": run_id,
                 "input_hash": summary_hash, "article_ids": article_ids,
@@ -3651,7 +3707,7 @@ def retry_incomplete_summaries(
                     log(
                         "AI",
                         f"Synteza {index}/{total_jobs}: odpowiedź wymaga poprawy, "
-                        "bo zawierała komentarz techniczny zamiast faktów.",
+                        "bo nie zawierała poprawnych nowych ustaleń lub zawierała metakomentarz.",
                         level="WARN",
                     )
                     summary = normalize_summary_response(
@@ -3666,8 +3722,8 @@ def retry_incomplete_summaries(
                     )
                     if update_needs_repair(summary):
                         raise ValueError(
-                            "AI nie wygenerowało faktograficznej aktualizacji "
-                            "bez metakomentarza o grupowaniu materiałów."
+                            "AI nie zwróciło poprawnej decyzji NO_NEW_INFORMATION "
+                            "ani aktualizacji z nowymi ustaleniami."
                         )
                 persist_summary(
                     client,

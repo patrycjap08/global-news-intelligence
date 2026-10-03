@@ -47,6 +47,19 @@ class Client:
 
 
 class RebuildUpdatesTests(unittest.TestCase):
+    def test_rebuild_retries_confirmation_only_and_accepts_no_information(self):
+        responses = [
+            {"update": {"status": "NEW_INFORMATION", "new_information_pl": "Kolejne artykuły potwierdzają wcześniejsze dane."}},
+            {"update": {"status": "NO_NEW_INFORMATION", "new_information_pl": ""}},
+            {"update": {"status": "NO_NEW_INFORMATION", "new_information_pl": ""}},
+        ]
+        with patch.object(rebuild.ai, "call_openai", side_effect=responses) as model:
+            result = rebuild.rebuild_job(fixtures(), Client(), "model")
+        self.assertEqual(model.call_count, 3)
+        self.assertEqual(model.call_args_list[1].args[0], rebuild.ai.SUMMARY_UPDATE_REPAIR_INSTRUCTIONS)
+        self.assertEqual(model.call_args_list[2].args[1]["previous_aggregation"]["prior_updates"], [])
+        self.assertTrue(all(not rebuild.text_of(update) for update in result["current"]["summary"]["updates"]))
+
     def snapshot_client(self):
         job = fixtures()
         rows = {"topics": [], "topic_summaries": [], "topic_summary_versions": [], "topic_articles": []}
@@ -136,8 +149,8 @@ class RebuildUpdatesTests(unittest.TestCase):
         def model(instructions, payload, *args, **kwargs):
             inputs.append(deepcopy(payload))
             return {"update": {"is_update": True, "new_information_pl": "Nowe ustalenie 1." if len(inputs) == 1
-                               else "Kolejne artykuły potwierdzają wcześniejsze ustalenia o proteście.",
-                               "what_changed_pl": "Zmiana" if len(inputs) == 1 else "Potwierdzenie", "new_article_ids": ["invented"]}}
+                               else "Podpisano porozumienie kończące protest.",
+                               "what_changed_pl": "Zmiana" if len(inputs) == 1 else "Porozumienie", "new_article_ids": ["invented"]}}
 
         with patch.object(rebuild.ai, "call_openai", side_effect=model):
             replacement = rebuild.rebuild_job(job, client, "test-model")

@@ -123,6 +123,14 @@ Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi
 aktualizacjami. Prompt wymaga opisywania tylko nowych ustaleń, szczegółów lub
 korekt; parafraza i kolejne źródło tego samego faktu nie są nową informacją.
 Model najpierw wybiera `NEW_INFORMATION` albo `NO_NEW_INFORMATION`.
+Domyślną decyzją jest brak aktualizacji: `NEW_INFORMATION` wymaga konkretnego,
+istotnego nowego faktu, zmiany lub korekty z bezpośrednim oparciem w nowych
+artykułach. Przy niepewności co do nowości model wybiera `NO_NEW_INFORMATION`.
+Większa zgodność źródeł i potwierdzenie wcześniejszych informacji nie tworzą
+przyrostu wiedzy. Także prompt naprawczy zaczyna od tej samej bramki nowości.
+Walidator odrzuca rozpoznawalne teksty złożone wyłącznie z potwierdzeń
+wcześniejszych ustaleń, nawet z błędnym statusem `NEW_INFORMATION`, i żąda
+ponownej decyzji. Nie jest to pełne deterministyczne porównanie znaczenia faktów.
 Gdy artykuły wyłącznie potwierdzają znane ustalenia, zwraca
 `NO_NEW_INFORMATION`, `is_update=false` i puste pola tekstowe. Artykuły
 pozostają podpięte i widoczne w źródłach, ale na stronie nie powstaje blok

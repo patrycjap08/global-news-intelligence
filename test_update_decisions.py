@@ -18,6 +18,27 @@ def previous_row():
 
 
 class UpdateDecisionTests(unittest.TestCase):
+    def test_confirmation_only_is_rejected_even_when_model_claims_new_information(self):
+        for text in (
+            "Kolejne artykuły potwierdzają wcześniejsze dane.",
+            "Nowe źródła potwierdzają wcześniejsze ustalenia o proteście.",
+            "Artykuły potwierdzają znane fakty. Nowe materiały potwierdzają dotychczasowe informacje.",
+        ):
+            with self.subTest(text=text):
+                response = {"update": {"status": "NEW_INFORMATION", "new_information_pl": text}}
+                self.assertTrue(ai.update_needs_repair(response))
+                with self.assertRaisesRegex(ValueError, "samo potwierdzenie"):
+                    self.persist(response, previous_row())
+
+    def test_confirmed_new_event_is_not_mistaken_for_confirmation_only(self):
+        for text in (
+            "Minister potwierdził podpisanie porozumienia kończącego protest.",
+            "Nowe artykuły potwierdzają podpisanie porozumienia.",
+            "Kolejne artykuły potwierdzają wcześniejsze dane. Liczba rannych wzrosła do 18.",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(ai.update_needs_repair({"update": {"status": "NEW_INFORMATION", "new_information_pl": text}}))
+
     def persist(self, response, previous=None, run_id="run3", input_hash="new"):
         client = FakeMergeClient([], [], [])
         with patch.object(ai, "now", return_value="2026-10-02T08:34:00+00:00"):
@@ -84,6 +105,15 @@ class UpdateDecisionTests(unittest.TestCase):
         self.assertEqual(context["prior_updates"], stored["updates"][:2])
 
     def test_normal_run_accepts_no_information_without_retry_or_reprocessing(self):
+        self.check_normal_run([{"update": {"status": "NO_NEW_INFORMATION"}}])
+
+    def test_normal_run_retries_confirmation_then_accepts_no_information(self):
+        self.check_normal_run([
+            {"update": {"status": "NEW_INFORMATION", "new_information_pl": "Kolejne artykuły potwierdzają wcześniejsze dane."}},
+            {"update": {"status": "NO_NEW_INFORMATION"}},
+        ])
+
+    def check_normal_run(self, responses):
         class Client(FakeMergeClient):
             def upsert(self, table, rows, *, on_conflict):
                 super().upsert(table, deepcopy(rows), on_conflict=on_conflict)
@@ -103,13 +133,13 @@ class UpdateDecisionTests(unittest.TestCase):
         def local(conn, ids):
             return [articles[value] for value in ids]
         with TemporaryDirectory() as directory, patch.object(ai, "local_articles", side_effect=local), patch.object(
-            ai, "call_openai", return_value={"update": {"status": "NO_NEW_INFORMATION"}},
+            ai, "call_openai", side_effect=responses,
         ) as call, patch.object(ai, "now", return_value="2026-10-02T08:34:00+00:00"), patch.object(ai, "log"):
             first = ai.retry_incomplete_summaries(Path(directory) / "articles.db", "run3", client)
             second = ai.retry_incomplete_summaries(Path(directory) / "articles.db", "run4", client)
         self.assertEqual(first["failed_summaries"], 0)
         self.assertEqual(second["summaries"], 0)
-        self.assertEqual(call.call_count, 1)
+        self.assertEqual(call.call_count, len(responses))
         context = call.call_args.args[1]["previous_aggregation"]
         self.assertEqual(len(context["prior_updates"]), 2)
         self.assertEqual(context["base_summary"], old["summary"]["base_summary"])
