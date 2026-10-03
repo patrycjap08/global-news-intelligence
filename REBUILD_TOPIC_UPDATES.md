@@ -86,9 +86,19 @@ aktualizację. Funkcję mogą wywołać wyłącznie serwerowe poświadczenia
 `service_role`, nie klucz publiczny aplikacji.
 
 Każda istniejąca aktualizacja wymaga zwykle jednego wywołania AI. W razie
-nieprawidłowej odpowiedzi możliwe jest ponowienie. Naprawa korzysta z modelu
-generatywnego: prompt wymaga braku powtórzeń, a skrypt zapewnia prawidłowy
-kontekst; nie jest to deterministyczne porównanie znaczenia wszystkich faktów.
+braku nowych faktów na tym kończy się ocena. Jeżeli AI wybierze kandydatów,
+drugie, osobne wywołanie sprawdza każdy pojedynczy fakt względem całej syntezy,
+wszystkich wcześniej przebudowanych aktualizacji i nowych artykułów.
+Kod składa tekst wyłącznie z zaakceptowanych faktów, bez kolejnego
+generowania narracji. Zdanie łączące nowy fakt ze starymi też jest odrzucane.
+Odrzucenie wszystkich faktów daje `NO_NEW_INFORMATION`. Błąd lub niekompletna
+kontrola blokuje zapis całego wątku; wcześniejsze poprawnie zapisane wątki
+pozostają zapisane. Ocena semantyczna nadal zależy od AI.
+
+Logi generowania, zapisu i błędów pokazują pełne tytuły wątków, aby można było
+znaleźć je na stronie. Każdy zapis podaje liczbę ocenionych aktualizacji i liczbę
+widocznych po naprawie. W checkpointach zapisane są również wybrane fakty
+i decyzje kontroli nowości (`novelty_audit`).
 
 ## Uruchomienie lokalne
 

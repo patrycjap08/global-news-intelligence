@@ -47,19 +47,6 @@ class Client:
 
 
 class RebuildUpdatesTests(unittest.TestCase):
-    def test_rebuild_retries_confirmation_only_and_accepts_no_information(self):
-        responses = [
-            {"update": {"status": "NEW_INFORMATION", "new_information_pl": "Kolejne artykuły potwierdzają wcześniejsze dane."}},
-            {"update": {"status": "NO_NEW_INFORMATION", "new_information_pl": ""}},
-            {"update": {"status": "NO_NEW_INFORMATION", "new_information_pl": ""}},
-        ]
-        with patch.object(rebuild.ai, "call_openai", side_effect=responses) as model:
-            result = rebuild.rebuild_job(fixtures(), Client(), "model")
-        self.assertEqual(model.call_count, 3)
-        self.assertEqual(model.call_args_list[1].args[0], rebuild.ai.SUMMARY_UPDATE_REPAIR_INSTRUCTIONS)
-        self.assertEqual(model.call_args_list[2].args[1]["previous_aggregation"]["prior_updates"], [])
-        self.assertTrue(all(not rebuild.text_of(update) for update in result["current"]["summary"]["updates"]))
-
     def snapshot_client(self):
         job = fixtures()
         rows = {"topics": [], "topic_summaries": [], "topic_summary_versions": [], "topic_articles": []}
@@ -126,11 +113,11 @@ class RebuildUpdatesTests(unittest.TestCase):
     def test_no_new_information_is_hidden_and_not_passed_as_a_previous_fact(self):
         job = fixtures()
         inputs = []
-        def model(instructions, payload, *args, **kwargs):
+        def model(payload, *args, **kwargs):
             inputs.append(deepcopy(payload))
-            return {"update": {"status": "NO_NEW_INFORMATION", "is_update": False,
-                               "new_information_pl": "", "what_changed_pl": "", "new_article_ids": []}}
-        with patch.object(rebuild.ai, "call_openai", side_effect=model):
+            return rebuild.ai.normalize_summary_response({"update": {"status": "NO_NEW_INFORMATION", "is_update": False,
+                               "new_information_pl": "", "what_changed_pl": "", "new_article_ids": []}})
+        with patch.object(rebuild.ai, "generate_topic_update", side_effect=model):
             replacement = rebuild.rebuild_job(job, Client(), "model")
         self.assertEqual(len(inputs), 2)
         self.assertEqual(inputs[1]["previous_aggregation"]["prior_updates"], [])
@@ -146,13 +133,13 @@ class RebuildUpdatesTests(unittest.TestCase):
         job, client = job or fixtures(), client or Client()
         inputs = []
 
-        def model(instructions, payload, *args, **kwargs):
+        def model(payload, *args, **kwargs):
             inputs.append(deepcopy(payload))
-            return {"update": {"is_update": True, "new_information_pl": "Nowe ustalenie 1." if len(inputs) == 1
+            return rebuild.ai.normalize_summary_response({"update": {"is_update": True, "new_information_pl": "Nowe ustalenie 1." if len(inputs) == 1
                                else "Podpisano porozumienie kończące protest.",
-                               "what_changed_pl": "Zmiana" if len(inputs) == 1 else "Porozumienie", "new_article_ids": ["invented"]}}
+                               "what_changed_pl": "Zmiana" if len(inputs) == 1 else "Porozumienie", "new_article_ids": ["invented"]}})
 
-        with patch.object(rebuild.ai, "call_openai", side_effect=model):
+        with patch.object(rebuild.ai, "generate_topic_update", side_effect=model):
             replacement = rebuild.rebuild_job(job, client, "test-model")
         return replacement, inputs
 
@@ -215,11 +202,12 @@ class RebuildUpdatesTests(unittest.TestCase):
         original = deepcopy(job["current"])
         client = Client()
         state = {"jobs": [job]}
-        with TemporaryDirectory() as directory, patch.object(rebuild.ai, "call_openai", side_effect=[
-            {"update": {"new_information_pl": "Nowe ustalenie.", "what_changed_pl": "", "new_article_ids": []}},
+        with TemporaryDirectory() as directory, patch.object(rebuild.ai, "generate_topic_update", side_effect=[
+            rebuild.ai.normalize_summary_response({"update": {"new_information_pl": "Nowe ustalenie.", "what_changed_pl": "", "new_article_ids": []}}),
             RuntimeError("API failed"),
-        ]):
+        ]) as model:
             self.assertEqual(rebuild.execute(state, Path(directory) / "state.json", client, "model"), 1)
+        self.assertEqual(model.call_count, 2)
         self.assertEqual(client.calls, [])
         self.assertEqual(job["current"], original)
         self.assertNotIn("replacement", job)

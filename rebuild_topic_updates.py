@@ -98,7 +98,8 @@ def rewrite_stored(stored: dict[str, Any], fallback: dict[str, Any], replacement
         # Preserve snapshot-specific metadata; copy only the new text.
         return {**deepcopy(raw), "status": replacement["status"], "is_update": replacement["is_update"],
                 "new_information_pl": replacement["new_information_pl"],
-                "what_changed_pl": replacement["what_changed_pl"]}
+                "what_changed_pl": replacement["what_changed_pl"],
+                "novelty_audit": deepcopy(replacement.get("novelty_audit", {}))}
 
     if isinstance(result.get("updates"), list):
         result["updates"] = [replace(value) for value in result["updates"]]
@@ -135,7 +136,7 @@ def rebuild_job(job: dict[str, Any], client: SupabaseRestClient, model: str) -> 
     by_id = {str(row["article_id"]): row for row in article_rows(client, all_ids)}
     rebuilt = []
     for index, original in enumerate(originals, 1):
-        print(f"{job['topic_id']}: aktualizacja {index}/{len(originals)}", flush=True)
+        print(f"{job['title']}: aktualizacja {index}/{len(originals)}", flush=True)
         rows = [by_id[value] for value in dict.fromkeys(original["new_article_ids"])]
         payload, _, _ = ai.build_bounded_summary_input({
             "topic": {"topic_id": job["topic_id"], "working_title_pl": job["title"], "topic_action": "DEVELOPMENT"},
@@ -144,22 +145,12 @@ def rebuild_job(job: dict[str, Any], client: SupabaseRestClient, model: str) -> 
             ])},
             "all_article_ids_in_topic": list(dict.fromkeys([*job["article_ids"], *all_ids])),
         }, rows)
-        response = None
-        for instructions in (ai.SUMMARY_INSTRUCTIONS, ai.SUMMARY_UPDATE_REPAIR_INSTRUCTIONS):
-            response = ai.normalize_summary_response(ai.call_openai(
-                instructions, payload, model,
-                timeout_seconds=ai.SUMMARY_REQUEST_TIMEOUT_SECONDS,
-                response_schema=ai.SUMMARY_RESPONSE_SCHEMA,
-                response_schema_name="rebuild_topic_update",
-            ))
-            if not ai.update_needs_repair(response):
-                break
-        if response is None or ai.update_needs_repair(response):
-            raise ValueError("Model nie wygenerował poprawnej aktualizacji po ponowieniu.")
+        response = ai.generate_topic_update(payload, model)
         generated = response["update"]
         update = {**deepcopy(original), "status": generated["status"], "is_update": generated["is_update"],
                   "new_information_pl": generated["new_information_pl"],
-                  "what_changed_pl": generated.get("what_changed_pl") or ""}
+                  "what_changed_pl": generated.get("what_changed_pl") or "",
+                  "novelty_audit": deepcopy(generated.get("novelty_audit", {}))}
         rebuilt.append(update)
     replacements = {identity(old): new for old, new in zip(originals, rebuilt)}
     new_history = []
@@ -214,7 +205,7 @@ def snapshot(client: SupabaseRestClient, topic_ids: list[str]) -> dict[str, Any]
         if topic_id not in topics:
             continue
         history = sorted(history_by_topic.get(topic_id, []), key=lambda item: int(item["version"]))
-        job = {"topic_id": topic_id, "title": topics.get(topic_id, {}).get("headline_pl") or topic_id,
+        job = {"topic_id": topic_id, "title": topics.get(topic_id, {}).get("headline_pl") or "Wątek bez zapisanego tytułu",
                "article_ids": [link["article_id"] for link in links if link["topic_id"] == topic_id],
                "current": deepcopy(row), "history": history, "status": "pending"}
         try:
@@ -249,7 +240,7 @@ def execute(state: dict[str, Any], path: Path, client: SupabaseRestClient, model
         if job["status"] == "completed":
             continue
         if job["status"] == "invalid":
-            print(f"Pominięto {job['topic_id']}: {job['error']}", flush=True)
+            print(f"Pominięto {job['title']}: {job['error']}", flush=True)
             failed += 1
             continue
         try:
@@ -263,12 +254,12 @@ def execute(state: dict[str, Any], path: Path, client: SupabaseRestClient, model
             job.pop("error", None)
             save_state(path, state)
             visible = sum(bool(text_of(update)) for update in job["replacement"]["current"]["summary"]["updates"])
-            print(f"Zapisano {job['topic_id']}: oceniono {job['update_count']} aktualizacji; widocznych po naprawie: {visible}.", flush=True)
+            print(f"Zapisano {job['title']}: oceniono {job['update_count']} aktualizacji; widocznych po naprawie: {visible}.", flush=True)
         except Exception as exc:
             job["error"] = ai.short_text(exc, 400)
             save_state(path, state)
             failed += 1
-            print(f"Nie zapisano {job['topic_id']}: {job['error']}", flush=True)
+            print(f"Nie zapisano {job['title']}: {job['error']}", flush=True)
     return failed
 
 

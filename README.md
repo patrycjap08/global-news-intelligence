@@ -28,6 +28,8 @@ i całej wcześniejszej historii. Wynik `NO_NEW_INFORMATION` zachowuje artykuły
 w źródłach bez nowego tekstu i oznaczenia aktualizacji. Widoczne aktualizacje
 mają datę i godzinę czasu polskiego. Starsze teksty można przebudować według
 [instrukcji jednorazowej naprawy](REBUILD_TOPIC_UPDATES.md).
+Aktualizacje są składane z pojedynczych faktów po osobnej kontroli nowości,
+bez ponownego generowania całej narracji. Logi naprawy pokazują tytuły wątków.
 
 ## Uruchomienie
 

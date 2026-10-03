@@ -123,6 +123,15 @@ Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi
 aktualizacjami. Prompt wymaga opisywania tylko nowych ustaleń, szczegółów lub
 korekt; parafraza i kolejne źródło tego samego faktu nie są nową informacją.
 Model najpierw wybiera `NEW_INFORMATION` albo `NO_NEW_INFORMATION`.
+Aktualizacje korzystają z osobnego, małego schematu: AI wybiera atomowe nowe
+fakty z identyfikatorami nowych artykułów i uzasadnieniem nowości. Nie generuje
+ponownie pełnej syntezy. Jeżeli istnieją kandydaci, osobne wywołanie AI
+sprawdza każdy fakt względem pełnej syntezy, wszystkich wcześniejszych
+aktualizacji i nowych artykułów. Kod składa tekst tylko z zaakceptowanych
+faktów, bez końcowego przepisywania przez AI. Niepełna kontrola lub błędne
+identyfikatory blokują zapis; odrzucenie wszystkich faktów daje brak aktualizacji.
+Pierwsza synteza korzysta z dotychczasowego schematu. Obie ścieżki zwykłej
+analizy i jednorazowy rebuild używają tego samego generatora aktualizacji.
 Domyślną decyzją jest brak aktualizacji: `NEW_INFORMATION` wymaga konkretnego,
 istotnego nowego faktu, zmiany lub korekty z bezpośrednim oparciem w nowych
 artykułach. Przy niepewności co do nowości model wybiera `NO_NEW_INFORMATION`.

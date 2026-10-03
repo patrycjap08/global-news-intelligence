@@ -107,12 +107,6 @@ class UpdateDecisionTests(unittest.TestCase):
     def test_normal_run_accepts_no_information_without_retry_or_reprocessing(self):
         self.check_normal_run([{"update": {"status": "NO_NEW_INFORMATION"}}])
 
-    def test_normal_run_retries_confirmation_then_accepts_no_information(self):
-        self.check_normal_run([
-            {"update": {"status": "NEW_INFORMATION", "new_information_pl": "Kolejne artykuły potwierdzają wcześniejsze dane."}},
-            {"update": {"status": "NO_NEW_INFORMATION"}},
-        ])
-
     def check_normal_run(self, responses):
         class Client(FakeMergeClient):
             def upsert(self, table, rows, *, on_conflict):
@@ -133,14 +127,14 @@ class UpdateDecisionTests(unittest.TestCase):
         def local(conn, ids):
             return [articles[value] for value in ids]
         with TemporaryDirectory() as directory, patch.object(ai, "local_articles", side_effect=local), patch.object(
-            ai, "call_openai", side_effect=responses,
+            ai, "generate_topic_update", side_effect=[ai.normalize_summary_response(r) for r in responses],
         ) as call, patch.object(ai, "now", return_value="2026-10-02T08:34:00+00:00"), patch.object(ai, "log"):
             first = ai.retry_incomplete_summaries(Path(directory) / "articles.db", "run3", client)
             second = ai.retry_incomplete_summaries(Path(directory) / "articles.db", "run4", client)
         self.assertEqual(first["failed_summaries"], 0)
         self.assertEqual(second["summaries"], 0)
         self.assertEqual(call.call_count, len(responses))
-        context = call.call_args.args[1]["previous_aggregation"]
+        context = call.call_args.args[0]["previous_aggregation"]
         self.assertEqual(len(context["prior_updates"]), 2)
         self.assertEqual(context["base_summary"], old["summary"]["base_summary"])
         self.assertEqual(client.rows["topic_articles"], [{"topic_id": "topic", "article_id": value} for value in ("old", "new")])
