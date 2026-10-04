@@ -42,7 +42,8 @@ class MergeCandidateLimitTests(unittest.TestCase):
         topics = [{"topic_id": str(index), "headline_pl": str(index)} for index in range(80)]
         groups = [[str(index), str(index + 1)] for index in range(0, 80, 2)]
         requests = ai.build_topic_merge_requests(
-            topics, candidate_groups=groups, preserve_candidate_group_overlap=True,
+            topics, max_topics_per_request=100,
+            candidate_groups=groups, preserve_candidate_group_overlap=True,
         )
         self.assertEqual(len(requests), 1)
         self.assertEqual(len(requests[0]), 80)
@@ -69,12 +70,69 @@ class MergeCandidateLimitTests(unittest.TestCase):
             "AI_TOPIC_MERGE_MAX_REQUESTS": "80",
             "AI_TOPIC_MERGE_EMBEDDING_TOP_K": "5",
             "AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY": "0.84",
+            "AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST": "100",
         }
         result = subprocess.run(
-            [sys.executable, "-c", "import json, ai_pipeline as a; print(json.dumps([a.TOPIC_MERGE_EMBEDDING_TOP_K, a.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY]))"],
+            [sys.executable, "-c", "import json, ai_pipeline as a; print(json.dumps([a.TOPIC_MERGE_EMBEDDING_TOP_K, a.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY, a.TOPIC_MERGE_MAX_TOPICS_PER_REQUEST]))"],
             cwd=Path(__file__).parent, env=env, check=True, capture_output=True, text=True,
         )
-        self.assertEqual(json.loads(result.stdout), [3, 0.90])
+        self.assertEqual(json.loads(result.stdout), [3, 0.90, 80])
+
+    def test_semantic_only_chain_preserves_every_pair_in_groups_and_requests_of_eighty(self):
+        topics = [{"topic_id": str(index), "headline_pl": str(index)} for index in range(200)]
+        edges = {(str(index), str(index + 1)): 0.95 for index in range(199)}
+        with patch.object(ai, "_topic_merge_candidate_edges", side_effect=AssertionError("Lexical filter called")):
+            groups = ai.build_topic_merge_candidate_groups(
+                topics, semantic_edges=edges, preserve_candidate_edges=True,
+                include_lexical_candidates=False,
+            )
+        requests = ai.build_topic_merge_requests(
+            topics, candidate_groups=groups, preserve_candidate_group_overlap=True,
+        )
+        self.assertTrue(groups)
+        self.assertTrue(all(2 <= len(group) <= 80 for group in groups))
+        self.assertTrue(all(len(request) <= 80 for request in requests))
+        for pair in edges:
+            self.assertTrue(any(set(pair).issubset(group) for group in groups))
+            self.assertTrue(any(set(pair).issubset({row["topic_id"] for row in request}) for request in requests))
+
+    def test_normal_selection_uses_words_only_when_embeddings_unavailable(self):
+        topics = [
+            {"topic_id": "a", "headline_pl": "Falcon bada Artemis nad Orion"},
+            {"topic_id": "b", "headline_pl": "Orion obserwuje Artemis razem Falcon"},
+        ]
+        for embedding_result, enabled, expected_calls in (
+            ({}, True, 0),  # A successful zero-match result must remain empty.
+            ({("a", "b"): 0.95}, True, 1),
+            (RuntimeError("Embedding outage"), True, 1),
+            ({}, False, 1),
+        ):
+            with self.subTest(result=embedding_result, enabled=enabled):
+                client = FakeMergeClient(topics, [], [])
+                with TemporaryDirectory() as temp_dir, patch.dict(os.environ, {"OPENAI_API_KEY": "test"}), patch.object(
+                    ai, "TOPIC_MERGE_EMBEDDINGS_ENABLED", enabled,
+                ), patch.object(
+                    ai, "build_topic_embedding_candidate_edges",
+                    **({"side_effect": embedding_result} if isinstance(embedding_result, Exception)
+                       else {"return_value": embedding_result}),
+                ), patch.object(ai, "call_openai", return_value={"merge_groups": []}) as model, patch.object(ai, "log"):
+                    ai.merge_active_topics(Path(temp_dir) / "articles.sqlite3", "run", client, prefer_embeddings=True)
+                self.assertEqual(model.call_count, expected_calls)
+
+    def test_default_pipeline_enables_embedding_primary_selection(self):
+        stats = {key: 0 for key in (
+            "merge_candidates", "topics_merged", "merge_failed", "local_candidate_groups",
+            "local_candidate_topics", "largest_candidate_group", "merge_requests",
+        )}
+        with TemporaryDirectory() as temp_dir, patch.dict(os.environ, {"OPENAI_API_KEY": "test"}), patch.object(
+            ai, "pending_articles", return_value=[],
+        ), patch.object(ai, "merge_active_topics", return_value=stats) as merge, patch.object(
+            ai, "normalize_topic_titles", return_value=0,
+        ), patch.object(ai, "classify_topic_categories", return_value=0), patch.object(
+            ai, "retry_incomplete_summaries", return_value={"summaries": 0, "failed_summaries": 0},
+        ), patch.object(ai, "log"):
+            ai.analyze_run(Path(temp_dir) / "articles.sqlite3", "run", object())
+        self.assertTrue(merge.call_args.kwargs["prefer_embeddings"])
 
     def run_merge(self, topics, requests, response):
         client = FakeMergeClient(topics, [], [])

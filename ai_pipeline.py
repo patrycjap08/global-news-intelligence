@@ -42,8 +42,8 @@ UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
 TOPIC_MERGE_MIN_CONFIDENCE = float(
     os.environ.get("AI_TOPIC_MERGE_MIN_CONFIDENCE", "0.84")
 )
-TOPIC_MERGE_MAX_TOPICS_PER_REQUEST = max(
-    10, int(os.environ.get("AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST", "100"))
+TOPIC_MERGE_MAX_TOPICS_PER_REQUEST = min(
+    80, max(2, int(os.environ.get("AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST", "80")))
 )
 TOPIC_MERGE_MAX_RECENT_TITLES = max(
     1, int(os.environ.get("AI_TOPIC_MERGE_MAX_RECENT_TITLES", "1"))
@@ -616,7 +616,7 @@ def build_topic_embedding_candidate_edges(
         "AI",
         f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
         f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; "
-        f"AI zweryfikuje je razem z lokalnymi kandydatami.",
+        "są to kandydatury wymagające weryfikacji AI.",
     )
     return edges
 
@@ -627,6 +627,7 @@ def build_topic_merge_candidate_groups(
     max_topics_per_group: int = TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
     semantic_edges: dict[tuple[str, str], float] | None = None,
     preserve_candidate_edges: bool = False,
+    include_lexical_candidates: bool = True,
 ) -> list[list[str]]:
     """Build bounded candidate groups before asking the model to merge them.
 
@@ -637,7 +638,10 @@ def build_topic_merge_candidate_groups(
     """
     if len(topics) < 2:
         return []
-    edges, _neighbors = _topic_merge_candidate_edges(topics)
+    edges, _neighbors = (
+        _topic_merge_candidate_edges(topics)
+        if include_lexical_candidates else ({}, {})
+    )
     topic_ids_set = {str(topic["topic_id"]) for topic in topics}
     for raw_pair, score in (semantic_edges or {}).items():
         if len(raw_pair) != 2:
@@ -2802,6 +2806,7 @@ def merge_active_topics(
     existing_summaries_only: bool = False,
     max_topics: int = 0,
     merged_article_ids_by_topic: dict[str, list[str]] | None = None,
+    prefer_embeddings: bool = False,
 ) -> dict[str, int]:
     """Merge duplicate active topics before any final summary is generated.
 
@@ -2914,8 +2919,14 @@ def merge_active_topics(
             })
 
         semantic_edges: dict[tuple[str, str], float] = {}
+        embeddings_available = False
         try:
             semantic_edges = build_topic_embedding_candidate_edges(payload_topics)
+            embeddings_available = (
+                TOPIC_MERGE_EMBEDDINGS_ENABLED
+                and len(payload_topics) >= 2
+                and bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+            )
             stats["semantic_candidate_edges"] = len(semantic_edges)
         except Exception as exc:
             log(
@@ -2924,10 +2935,21 @@ def merge_active_topics(
                 f"słów i fraz. Szczegóły: {short_text(exc, 180)}.",
                 level="WARN",
             )
+        include_lexical_candidates = not (prefer_embeddings and embeddings_available)
+        if prefer_embeddings:
+            log(
+                "AI",
+                "Selekcja kandydatów: " + (
+                    "tylko embeddingi; filtr słów nie dodaje par."
+                    if not include_lexical_candidates
+                    else "awaryjny filtr słów i fraz — embeddingi niedostępne."
+                ),
+            )
         candidate_groups = build_topic_merge_candidate_groups(
             payload_topics,
             semantic_edges=semantic_edges,
             preserve_candidate_edges=True,
+            include_lexical_candidates=include_lexical_candidates,
         )
         merge_requests = build_topic_merge_requests(
             payload_topics,
@@ -3028,7 +3050,7 @@ def merge_active_topics(
                 log(
                     "AI",
                     f"Scalanie {request_index}/{len(merge_requests)} zakończone: "
-                    f"grup: {len(batch_groups or [])}, "
+                    f"propozycji scalenia: {len(batch_groups or [])}, "
                     f"czas {seconds(time.monotonic() - started_at)}.",
                 )
             except Exception as exc:
@@ -4583,7 +4605,7 @@ def analyze_run(
         log("AI", "Etap 1/3 pominięty: brak nowych artykułów do nazwania.")
 
     log("AI", "Etap 2/3 — porządkowanie tematów: scalanie, tytuły i kategorie.")
-    merge_stats = merge_active_topics(db_path, run_id, client, model=model)
+    merge_stats = merge_active_topics(db_path, run_id, client, model=model, prefer_embeddings=True)
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]

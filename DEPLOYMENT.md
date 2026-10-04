@@ -106,14 +106,20 @@ bez czekania na zakończenie całego przebiegu. Wątki spełniające kryteria ź
 mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
 dodatkowego warunku ukrywania wątku.
 
-Filtr leksykalny wymaga trzech wspólnych charakterystycznych rdzeni słów
+Główny przebieg wybiera kandydatów wyłącznie przez embeddingi (podobieństwo
+co najmniej 0,90, do trzech najbliższych sąsiadów). Filtr słów i fraz jest
+używany awaryjnie, gdy embeddingi są wyłączone lub niedostępne. Poprawne
+obliczenie embeddingów z zerem par nie uruchamia dodatkowego filtra słów.
+Filtr awaryjny wymaga trzech wspólnych charakterystycznych rdzeni słów
 albo jednej wspólnej frazy z dwóch takich słów. Niezależne grupy kandydatów
-są pakowane razem, do 100 tematów na paczkę; AI porównuje wyłącznie tematy
+są pakowane razem, do 80 tematów na grupę i paczkę; AI porównuje wyłącznie tematy
 w obrębie tej samej grupy. Nakładające się grupy zachowują osobne paczki.
 Wszystkie utworzone paczki weryfikacji scalania trafiają do AI w tym samym
 przebiegu. Ich liczba wynika z ostrzejszej selekcji i pakowania grup, nie
 z twardego limitu zapytań. Dawna zmienna `AI_TOPIC_MERGE_MAX_REQUESTS` nie jest
 już używana, więc pozostawiona w ustawieniach repozytorium nie ucina paczek.
+Limit `AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST` ma domyślnie 80 i jest
+ograniczony w kodzie do maksimum 80, także przy starej wartości 100 w GitHub.
 Retry po błędzie API może ponowić tę samą paczkę. Ostrzejsza selekcja zmniejsza
 liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
 
