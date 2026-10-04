@@ -1523,9 +1523,11 @@ tekstu i nie zastępuj wcześniejszej syntezy nową. Zachowaj ją jako bazę na
 zawsze, a nowe informacje pokaż tylko w update. Nie twórz drugiego tematu dla
 dalszego ciągu tej samej historii. Dla nowych tematów previous_aggregation
 będzie null.
-Pole new_articles zawiera materiały z bieżącego uruchomienia. Pole
-all_articles jest obecne przy pierwszym opracowaniu tematu; przy aktualizacji
-starsze materiały są reprezentowane przez previous_aggregation i ich article_id.
+Przy pierwszym opracowaniu all_articles zawiera wszystkie materiały tematu,
+każdy tylko raz; new_article_ids wskazuje materiały z bieżącej analizy.
+Nie oczekuj drugiej kopii ich treści w new_articles. Przy aktualizacji
+new_articles zawiera nowe materiały, a starsze są reprezentowane przez
+previous_aggregation i ich article_id.
 
 DODATKOWE ZASADY WYKONANIA:
 
@@ -2314,12 +2316,16 @@ def stored_updates(value: Any) -> list[dict[str, Any]]:
 
 
 def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
+    """Send published history, retaining technical audits only in storage."""
     if not isinstance(value, dict):
         return None
     return {
         "base_summary": stored_base_summary(value),
-        "prior_updates": [update for update in stored_updates(value)
-                          if update.get("status") != "NO_NEW_INFORMATION"],
+        "prior_updates": [
+            {key: item for key, item in update.items() if key != "novelty_audit"}
+            for update in stored_updates(value)
+            if update.get("status") != "NO_NEW_INFORMATION"
+        ],
     }
 
 
@@ -2605,11 +2611,18 @@ def build_bounded_summary_input(
 ) -> tuple[dict[str, Any], int, str]:
     """Build a summary payload without allowing article bodies to grow unbounded.
 
-    Full article bodies are useful for small topics, but a first synthesis can
-    otherwise duplicate every article in both ``new_articles`` and
-    ``all_articles``. Reduce body detail only when the serialized request is
-    above the configured limit, preserving article IDs and metadata throughout.
+    First syntheses carry bodies once in ``all_articles`` and identify the
+    current batch with ``new_article_ids``. Updates carry ``new_articles``.
+    Reduce body detail only above the configured limit, preserving article
+    IDs and metadata throughout.
     """
+    # Preserve older rows when the new batch is a subset, and include any new
+    # rows missing from all_rows. Prefer the current batch's copy of a row.
+    first_summary_rows = None
+    if all_rows is not None:
+        first_summary_rows = list({
+            str(row["article_id"]): row for row in [*all_rows, *new_rows]
+        }.values())
 
     def build(excerpt_words: int | None) -> dict[str, Any]:
         def render(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -2629,9 +2642,14 @@ def build_bounded_summary_input(
             return metadata_rows
 
         payload = dict(base_input)
-        payload["new_articles"] = render(new_rows)
-        if all_rows is not None:
-            payload["all_articles"] = render(all_rows)
+        if first_summary_rows is not None:
+            payload.pop("new_articles", None)
+            payload["new_article_ids"] = list(dict.fromkeys(
+                str(row["article_id"]) for row in new_rows
+            ))
+            payload["all_articles"] = render(first_summary_rows)
+        else:
+            payload["new_articles"] = render(new_rows)
         return payload
 
     candidates: list[tuple[int | None, str]] = [(None, "pełne treści")]

@@ -170,6 +170,15 @@ Istniejąca baza nie wymaga zmian, aby nowy kod działał. Opcjonalny
 powiązania i widoki X. Wcześniej zapisane teksty syntez i historia pozostają
 zachowane; migracja nie przepisuje historycznych opracowań.
 
+## Dane przekazywane do AI
+
+Główny przebieg ogranicza koszt wejścia do AI bez usuwania materiałów:
+pierwsza synteza otrzymuje jedną kopię artykułów w `all_articles` oraz
+identyfikatory bieżącej partii w `new_article_ids`. Aktualizacje otrzymują
+pełną syntezę i wszystkie wcześniejsze opublikowane aktualizacje, ale bez
+archiwalnych `novelty_audit`. Raporty kontroli pozostają w bazie; niezależna
+kontrola nowości nowych faktów nadal działa.
+
 ## Harmonogram
 
 Pełny workflow pobierania i analizy jest zaplanowany cztery razy dziennie:
