@@ -23,6 +23,63 @@ const state = {
   demo: false,
 };
 
+let dataIndexes = null;
+let modelCache = null;
+let searchRenderTimer = null;
+const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
+const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
+  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
+});
+
+function invalidateViewCache() {
+  dataIndexes = null;
+  modelCache = null;
+}
+
+function indexes() {
+  if (!dataIndexes || dataIndexes.articles !== state.articles || dataIndexes.links !== state.links) {
+    const articlesById = new Map();
+    const sourceById = new Map();
+    const linksByTopic = new Map();
+    state.articles.forEach((article) => {
+      articlesById.set(String(article.article_id), article);
+      if (article.source_id && article.source_name) sourceById.set(String(article.source_id), article.source_name);
+    });
+    state.links.forEach((link) => {
+      const links = linksByTopic.get(link.topic_id) || [];
+      links.push(link);
+      linksByTopic.set(link.topic_id, links);
+    });
+    dataIndexes = { articles: state.articles, links: state.links, articlesById, sourceById, linksByTopic };
+  }
+  return dataIndexes;
+}
+
+function allTopicModels() {
+  // Data loaders replace these containers; local read/bookmark state is checked
+  // at render time. Invalidate explicitly if data is changed in place.
+  const inputs = [state.topics, state.articles, state.links, state.summaries, state.history];
+  if (!modelCache || inputs.some((value, index) => value !== modelCache.inputs[index])) {
+    const models = state.topics.map(topicModel);
+    modelCache = { inputs, models, byId: new Map(models.map((model) => [model.topic_id, model])) };
+  }
+  modelCache.models.forEach((model) => { model.isCurrent = topicIsCurrent(model); });
+  return modelCache.models;
+}
+
+function modelForTopic(topicId) {
+  allTopicModels();
+  return modelCache.byId.get(topicId);
+}
+
+function scheduleSearchRender() {
+  window.clearTimeout(searchRenderTimer);
+  searchRenderTimer = window.setTimeout(() => {
+    searchRenderTimer = null;
+    render({ searchOnly: true });
+  }, 100);
+}
+
 const PROFILE_LABELS = {
   LEFT: 'Lewicowe',
   CENTER_LEFT: 'Centrolewicowe',
@@ -154,21 +211,14 @@ function formatDate(value) {
   if (!value) return 'brak daty';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' }).format(date).replace('.', '');
+  return shortDateFormatter.format(date).replace('.', '');
 }
 
 function formatDateTime(value) {
   if (!value) return 'brak danych';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'brak danych';
-  return new Intl.DateTimeFormat('pl-PL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Europe/Warsaw',
-  }).format(date);
+  return updateDateFormatter.format(date);
 }
 
 function polishCount(count, one, few, many) {
@@ -201,7 +251,7 @@ function isStateSource(article) {
   const sourceType = String(article?.source_type || '').trim().toUpperCase();
   return STATE_SOURCE_PROFILES.has(profile) || STATE_SOURCE_PROFILES.has(sourceType);
 }
-function articleMap() { return new Map(state.articles.map((article) => [String(article.article_id), article])); }
+function articleMap() { return indexes().articlesById; }
 function updateText(summaryOrUpdate) {
   const nestedUpdate = summaryOrUpdate?.update;
   const update = nestedUpdate && typeof nestedUpdate === 'object'
@@ -248,6 +298,7 @@ function collectTopicUpdates(storedSummary, historyRows) {
 }
 
 function topicArticleIds(model) {
+  if (model.evidenceIds) return model.evidenceIds;
   return [
     ...model.articles.map((article) => `article:${article.article_id}`),
   ].sort();
@@ -267,13 +318,9 @@ function readRecord(model) {
 }
 
 function readableEvidenceText(value) {
-  const articles = state.articles || [];
-  const sourceById = new Map();
-  articles.forEach((article) => {
-    if (article.source_id && article.source_name) sourceById.set(String(article.source_id), article.source_name);
-  });
+  const { articlesById, sourceById } = indexes();
   const sourceNameForId = (identifier) => {
-    const article = articleMap().get(String(identifier));
+    const article = articlesById.get(String(identifier));
     return article?.source_name || sourceById.get(String(identifier)) || 'źródło';
   };
   return normalizeDisplayText(value)
@@ -349,7 +396,7 @@ function isTopicBookmarked(model) {
 }
 
 function toggleTopicBookmark(topicId) {
-  const model = state.topics.map(topicModel).find((topic) => topic.topic_id === topicId);
+  const model = modelForTopic(topicId);
   if (!model) return;
   const existingKey = bookmarkedKeyForTopic(model);
   if (existingKey) {
@@ -379,8 +426,8 @@ function markTopicRead(model) {
 
 function topicModel(topic) {
   const articlesById = articleMap();
-  const topicLinks = state.links.filter((link) => link.topic_id === topic.topic_id);
-  const articles = topicLinks.map((link) => articlesById.get(link.article_id)).filter(Boolean);
+  const topicLinks = indexes().linksByTopic.get(topic.topic_id) || [];
+  const articles = topicLinks.map((link) => articlesById.get(String(link.article_id))).filter(Boolean);
   const summaryRow = state.summaries.get(topic.topic_id) || {};
   const storedSummary = summaryRow.summary || summaryRow;
   const summary = storedSummary.base_summary || storedSummary;
@@ -405,7 +452,7 @@ function topicModel(topic) {
   const newestArticleAt = articleTimestamps.length
     ? new Date(Math.max(...articleTimestamps)).toISOString()
     : topic.last_seen_at;
-  return {
+  const model = {
     ...topic,
     categories,
     articles,
@@ -425,6 +472,9 @@ function topicModel(topic) {
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
     lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
+  model.searchText = `${model.title} ${model.lead} ${model.sources.join(' ')}`.toLowerCase();
+  model.evidenceIds = articles.map((article) => `article:${article.article_id}`).sort();
+  return model;
 }
 
 async function fetchTable(table, query = '') {
@@ -479,6 +529,7 @@ async function loadLiveData() {
     console.warn('Historia wersji tematów jest jeszcze niedostępna.', error);
   }
   state.demo = false;
+  invalidateViewCache();
 }
 
 function loadDemoData(message) {
@@ -488,6 +539,7 @@ function loadDemoData(message) {
   state.summaries = new Map(DEMO.summaries);
   state.history = new Map();
   state.demo = true;
+  invalidateViewCache();
   if (message) showToast(message);
 }
 
@@ -683,7 +735,7 @@ function dialogHtml(model) {
 }
 
 function openTopic(topicId) {
-  const model = state.topics.map(topicModel).find((topic) => topic.topic_id === topicId);
+  const model = modelForTopic(topicId);
   if (!model || !model.hasAggregation) return;
   markTopicRead(model);
   $('#dialog-content').innerHTML = dialogHtml(model);
@@ -693,9 +745,9 @@ function openTopic(topicId) {
   render();
 }
 
-function filteredModels() {
+function filteredModels(allModels = allTopicModels()) {
   const query = state.search.trim().toLowerCase();
-  return state.topics.map(topicModel).filter((topic) => {
+  return allModels.filter((topic) => {
     if (!topic.hasAggregation) return false;
     if (state.view === 'current' && !topic.isCurrent) return false;
     if (state.view === 'historical' && topic.isCurrent) return false;
@@ -705,7 +757,7 @@ function filteredModels() {
     if (state.categories.length && !state.categories.some((category) => (
       category === 'UNCLASSIFIED' ? !topic.categories.length : topic.categories.includes(category)
     ))) return false;
-    if (query && !`${topic.title} ${topic.lead} ${topic.sources.join(' ')}`.toLowerCase().includes(query)) return false;
+    if (query && !topic.searchText.includes(query)) return false;
     return true;
   }).sort((a, b) => {
     if (state.sort === 'articles') {
@@ -718,12 +770,15 @@ function filteredModels() {
   });
 }
 
-function render() {
-  const models = filteredModels();
-  const allModels = state.topics.map(topicModel).filter((topic) => topic.hasAggregation);
-  renderStats(allModels);
-  renderProfiles(allModels);
-  renderCategories(allModels);
+function render({ searchOnly = false } = {}) {
+  const preparedModels = allTopicModels();
+  const models = filteredModels(preparedModels);
+  if (!searchOnly) {
+    const allModels = preparedModels.filter((topic) => topic.hasAggregation);
+    renderStats(allModels);
+    renderProfiles(allModels);
+    renderCategories(allModels);
+  }
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
   $('#results-heading').textContent = state.view === 'historical'
@@ -788,7 +843,7 @@ document.addEventListener('click', (event) => {
     toggleTopicBookmark(bookmarkButton.dataset.bookmarkTopicId);
     const dialog = $('#story-dialog');
     if (dialog?.open) {
-      const model = state.topics.map(topicModel).find((topic) => topic.topic_id === bookmarkButton.dataset.bookmarkTopicId);
+      const model = modelForTopic(bookmarkButton.dataset.bookmarkTopicId);
       if (model) $('#dialog-content').innerHTML = dialogHtml(model);
     }
     return;
@@ -798,7 +853,7 @@ document.addEventListener('click', (event) => {
   if (event.target === $('#story-dialog')) $('#story-dialog').close();
 });
 
-$('#search-input').addEventListener('input', (event) => { state.search = event.target.value; render(); });
+$('#search-input').addEventListener('input', (event) => { state.search = event.target.value; scheduleSearchRender(); });
 $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; render(); });
 $('#hide-read').addEventListener('change', (event) => {
   state.hideRead = event.target.checked;
