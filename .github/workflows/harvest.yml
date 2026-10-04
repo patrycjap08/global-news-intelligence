@@ -14,8 +14,8 @@ on:
           - merge-existing-summaries
           - titles-only
   schedule:
-    # Every four hours in Polish local time; omit midnight (quiet hours 23–03).
-    - cron: "0 4,8,12,16,20 * * *"
+    # Four daily triggers, one hour before desired 05/09/13/17 Polish local times.
+    - cron: "0 4,8,12,16 * * *"
       timezone: "Europe/Warsaw"
 
 permissions:

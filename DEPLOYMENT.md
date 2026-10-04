@@ -172,10 +172,11 @@ zachowane; migracja nie przepisuje historycznych opracowań.
 
 ## Harmonogram
 
-Pełny workflow pobierania i analizy jest zaplanowany co cztery godziny,
-z pominięciem nocnej przerwy `23:00–03:00`: `04:00`, `08:00`, `12:00`,
-`16:00` i `20:00` czasu `Europe/Warsaw` (pięć razy dziennie, bez północy).
-Cron to `0 4,8,12,16,20 * * *`. GitHub Actions obsługuje tę
+Pełny workflow pobierania i analizy jest zaplanowany cztery razy dziennie:
+`04:00`, `08:00`, `12:00` i `16:00` czasu `Europe/Warsaw`.
+Wyzwolenia przesunięto o godzinę wcześniej względem oczekiwanych pór
+`05:00`, `09:00`, `13:00` i `17:00`, aby uwzględnić obserwowane opóźnienia.
+Cron to `0 4,8,12,16 * * *`. GitHub Actions obsługuje tę
 strefę i uwzględnia zmianę czasu letniego/zimowego. Harmonogram nie jest
 związany z laptopem — działa także wtedy, gdy komputer jest wyłączony.
 
