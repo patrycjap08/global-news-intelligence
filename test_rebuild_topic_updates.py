@@ -47,6 +47,36 @@ class Client:
 
 
 class RebuildUpdatesTests(unittest.TestCase):
+    def test_older_update_without_run_id_does_not_inherit_later_snapshot_run(self):
+        job = fixtures()
+        job['current']['summary']['updates'][0].pop('run_id')
+        job['history'] = job['history'][1:]
+        job['history'][0]['summary']['updates'][0].pop('run_id')
+        original = deepcopy(job)
+        updates = rebuild.collect_updates(job['current'], job['history'])
+        self.assertEqual(len(updates), 2)
+        self.assertIsNone(updates[0].get('run_id'))
+        self.assertEqual(updates[0]['new_article_ids'], ['a1'])
+        self.assertEqual(updates[1]['run_id'], 'run2')
+        self.assertEqual(job, original)
+
+    def test_resume_rechecks_invalid_snapshot_without_reopening_completed_jobs(self):
+        job = fixtures()
+        job['current']['summary']['updates'][0].pop('run_id')
+        job['history'] = job['history'][1:]
+        job['history'][0]['summary']['updates'][0].pop('run_id')
+        job['status'] = 'invalid'
+        job['error'] = 'Old false conflict'
+        completed = deepcopy(fixtures())
+        completed['status'] = 'completed'
+        original_completed = deepcopy(completed)
+        state = {'jobs': [completed, job]}
+        rebuild.refresh_invalid_jobs(state)
+        self.assertEqual(job['status'], 'pending')
+        self.assertEqual(job['update_count'], 2)
+        self.assertNotIn('error', job)
+        self.assertEqual(completed, original_completed)
+
     def snapshot_client(self):
         job = fixtures()
         rows = {"topics": [], "topic_summaries": [], "topic_summary_versions": [], "topic_articles": []}

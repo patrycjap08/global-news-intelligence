@@ -61,6 +61,11 @@ przesuwania okna 55 godzin. Checkpointy utworzone przed wprowadzeniem tych
 filtrów są odrzucane: dla tej naprawy zostaw `resume_run_id` puste.
 Jeżeli przerwanie nastąpiło podczas generowania danego wątku,
 skrypt wygeneruje jego aktualizacje ponownie od początku.
+W wersji z kontrolą atomowych faktów poprawki formatu odpowiedzi pozwalają
+wznowić dotychczasowy checkpoint tego samego promptu. Błędy identyfikacji
+historii są ponownie sprawdzane przy wznowieniu, bez otwierania zakończonych
+wątków. Jeśli normalny run zmienił w międzyczasie dane wątku, bezpieczny zapis
+odmówi nadpisania; taki wątek wymaga nowej kopii.
 
 Przy wznowieniu kopia w nowym artefakcie zachowuje także oryginalne dane
 z pierwszego uruchomienia. Nowe uruchomienie **bez** `resume_run_id` rozpoczyna
@@ -94,6 +99,10 @@ generowania narracji. Zdanie łączące nowy fakt ze starymi też jest odrzucane
 Odrzucenie wszystkich faktów daje `NO_NEW_INFORMATION`. Błąd lub niekompletna
 kontrola blokuje zapis całego wątku; wcześniejsze poprawnie zapisane wątki
 pozostają zapisane. Ocena semantyczna nadal zależy od AI.
+Schemat odpowiedzi ogranicza artykuły dowodowe do bieżącej paczki i wymaga
+osobnej decyzji dla każdego faktu, również odrzuconego. Błędna selekcja lub
+kontrola jest ponawiana raz z opisem błędu. Trwale niepoprawna odpowiedź
+nadal blokuje zapis; skrypt nie dopisuje decyzji za AI.
 
 Logi generowania, zapisu i błędów pokazują pełne tytuły wątków, aby można było
 znaleźć je na stronie. Każdy zapis podaje liczbę ocenionych aktualizacji i liczbę

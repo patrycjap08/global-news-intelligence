@@ -36,6 +36,29 @@ def verdict(index, keep):
 
 
 class AtomicUpdateTests(unittest.TestCase):
+    def test_invalid_evidence_is_retried_with_feedback_then_audited(self):
+        with patch.object(ai, 'call_openai', side_effect=[
+            {'facts': [fact('Nowy fakt.', 'old')]},
+            {'facts': [fact('Nowy fakt.')]},
+            {'verdicts': {'0': {'keep': True, 'reason_pl': 'Potwierdzony nowy fakt.'}}},
+        ]) as model:
+            result = ai.generate_topic_update(payload(), 'model')
+        self.assertEqual(model.call_count, 3)
+        self.assertIn('artykuł spoza bieżącej paczki', model.call_args_list[1].args[0])
+        self.assertEqual(result['update']['new_information_pl'], 'Nowy fakt.')
+
+    def test_missing_verdict_is_retried_without_repeating_selection(self):
+        with patch.object(ai, 'call_openai', side_effect=[
+            {'facts': [fact('Nowy fakt.'), fact('Znany fakt.')]},
+            {'verdicts': {'0': {'keep': True, 'reason_pl': 'Nowy.'}}},
+            {'verdicts': {'0': {'keep': True, 'reason_pl': 'Nowy.'}, '1': {'keep': False, 'reason_pl': 'W syntezie.'}}},
+        ]) as model:
+            result = ai.generate_topic_update(payload(), 'model')
+        self.assertEqual(model.call_count, 3)
+        self.assertEqual(model.call_args_list[1].args[1], model.call_args_list[2].args[1])
+        self.assertIn('brakuje decyzji', model.call_args_list[2].args[0])
+        self.assertEqual(result['update']['new_information_pl'], 'Nowy fakt.')
+
     def test_mixed_article_produces_only_one_approved_new_fact(self):
         original = payload()
         facts = [fact('Samolot wylądował w Tabuku.'), fact('ABC News podaje 182 pasażerów.'),
@@ -44,8 +67,10 @@ class AtomicUpdateTests(unittest.TestCase):
                           {'verdicts': [verdict(3, False), verdict(1, True), verdict(0, False), verdict(2, False)]}]) as model:
             result = ai.generate_topic_update(original, 'model')
         self.assertEqual(model.call_count, 2)  # no prose rewrite after filtering
-        self.assertIs(model.call_args_list[0].kwargs['response_schema'], ai.UPDATE_FACT_RESPONSE_SCHEMA)
-        self.assertIs(model.call_args_list[1].kwargs['response_schema'], ai.UPDATE_AUDIT_RESPONSE_SCHEMA)
+        evidence_schema = model.call_args_list[0].kwargs['response_schema']['properties']['facts']['items']['properties']['article_ids']
+        self.assertEqual(evidence_schema['items']['enum'], ['new'])
+        audit_schema = model.call_args_list[1].kwargs['response_schema']['properties']['verdicts']
+        self.assertEqual(audit_schema['required'], ['0', '1', '2', '3'])
         self.assertEqual(model.call_args_list[1].args[1]['previous_aggregation'], original['previous_aggregation'])
         self.assertEqual(model.call_args_list[1].args[1]['new_articles'], original['new_articles'])
         self.assertEqual(result['update']['new_information_pl'], 'ABC News podaje 182 pasażerów.')
@@ -83,14 +108,14 @@ class AtomicUpdateTests(unittest.TestCase):
             with self.subTest(candidate=candidate), patch.object(ai, 'call_openai', return_value={'facts': [candidate]}) as model:
                 with self.assertRaises(ValueError):
                     ai.generate_topic_update(payload(), 'model')
-                self.assertEqual(model.call_count, 1)
+                self.assertEqual(model.call_count, 2)
 
     def test_incomplete_or_invalid_audit_never_accepts_unchecked_text(self):
         for decisions in [[], [verdict(9, True)], [verdict(True, True)],
                           [{'fact_index': 0, 'keep': 'true', 'reason_pl': 'New'}],
                           [{'fact_index': 0, 'keep': True, 'reason_pl': ''}]]:
             with self.subTest(decisions=decisions), patch.object(ai, 'call_openai', side_effect=[
-                {'facts': [fact('ABC News podaje 182 pasażerów.')]}, {'verdicts': decisions},
+                {'facts': [fact('ABC News podaje 182 pasażerów.')]}, {'verdicts': decisions}, {'verdicts': decisions},
             ]):
                 with self.assertRaises(ValueError):
                     ai.generate_topic_update(payload(), 'model')
@@ -98,6 +123,7 @@ class AtomicUpdateTests(unittest.TestCase):
     def test_duplicate_audit_indices_abort(self):
         with patch.object(ai, 'call_openai', side_effect=[
             {'facts': [fact('Pierwszy fakt.'), fact('Drugi fakt.')]},
+            {'verdicts': [verdict(0, True), verdict(0, True)]},
             {'verdicts': [verdict(0, True), verdict(0, True)]},
         ]):
             with self.assertRaises(ValueError):

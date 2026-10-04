@@ -1889,12 +1889,54 @@ UPDATE_FACT_RESPONSE_SCHEMA = _json_schema_object({
         "why_new_pl": {"type": "string"},
     })},
 })
-UPDATE_AUDIT_RESPONSE_SCHEMA = _json_schema_object({
-    "verdicts": {"type": "array", "items": _json_schema_object({
-        "fact_index": {"type": "integer"}, "keep": {"type": "boolean"},
-        "reason_pl": {"type": "string"},
-    })},
-})
+def validate_update_candidates(response: dict[str, Any], available_ids: set[str]) -> list[dict[str, Any]]:
+    facts = response.get("facts")
+    if not isinstance(facts, list):
+        raise ValueError("Brak listy atomowych faktów w odpowiedzi AI.")
+    candidates = []
+    for index, fact in enumerate(facts):
+        if not isinstance(fact, dict):
+            raise ValueError(f"Fakt {index}: niepoprawny obiekt.")
+        text = normalize_generated_text(fact.get("text_pl"))
+        ids = fact.get("article_ids")
+        why_new = str(fact.get("why_new_pl") or "").strip()
+        errors = []
+        if not text:
+            errors.append("pusty tekst")
+        if not why_new:
+            errors.append("brak uzasadnienia nowości")
+        if not isinstance(ids, list) or not ids:
+            errors.append("brak artykułów dowodowych")
+        elif any(not isinstance(value, str) or value not in available_ids for value in ids):
+            errors.append("artykuł spoza bieżącej paczki")
+        if errors:
+            raise ValueError(f"Fakt {index}: {', '.join(errors)}.")
+        if confirmation_only_update(text) or any(pattern.search(text) for pattern in UPDATE_META_PATTERNS):
+            continue
+        candidates.append({"text_pl": text, "article_ids": list(dict.fromkeys(ids)), "why_new_pl": why_new})
+    return candidates
+
+
+def validate_update_verdicts(audit: dict[str, Any], count: int) -> list[dict[str, Any]]:
+    raw = audit.get("verdicts")
+    if isinstance(raw, dict):
+        if set(raw) != {str(index) for index in range(count)}:
+            raise ValueError("Niekompletna kontrola nowości; brakuje decyzji dla niektórych faktów.")
+        verdicts = [{**raw[str(index)], "fact_index": index} if isinstance(raw[str(index)], dict) else None for index in range(count)]
+    else:
+        # Read legacy array responses too; apply exactly the same full-coverage checks.
+        verdicts = raw
+    if not isinstance(verdicts, list) or len(verdicts) != count:
+        raise ValueError("Niekompletna kontrola nowości; aktualizacja nie zostanie zapisana.")
+    seen = set()
+    for verdict in verdicts:
+        if not isinstance(verdict, dict):
+            raise ValueError("Niepoprawna decyzja kontroli nowości.")
+        index = verdict.get("fact_index")
+        if type(index) is not int or index not in range(count) or index in seen or type(verdict.get("keep")) is not bool or not str(verdict.get("reason_pl") or "").strip():
+            raise ValueError("Niepoprawne lub powtórzone indeksy/decyzje kontroli nowości.")
+        seen.add(index)
+    return verdicts
 
 
 def generate_topic_update(payload: dict[str, Any], model: str) -> ParsedAIResponse:
@@ -1908,45 +1950,51 @@ def generate_topic_update(payload: dict[str, Any], model: str) -> ParsedAIRespon
         raise ValueError("Aktualizacja wymaga pełnej syntezy i historii.")
     new_articles = payload.get("new_articles") or []
     available_ids = {str(article["article_id"]) for article in new_articles}
-    response = call_openai(UPDATE_FACT_INSTRUCTIONS, payload, model,
-        timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
-        response_schema=UPDATE_FACT_RESPONSE_SCHEMA, response_schema_name="update_candidate_facts")
-    facts = response.get("facts")
-    if not isinstance(facts, list):
-        raise ValueError("Brak listy atomowych faktów w odpowiedzi AI.")
-    candidates = []
-    for fact in facts:
-        if not isinstance(fact, dict):
-            raise ValueError("Niepoprawny atomowy fakt.")
-        text = normalize_generated_text(fact.get("text_pl"))
-        ids = fact.get("article_ids")
-        why_new = str(fact.get("why_new_pl") or "").strip()
-        if not text or not why_new or not isinstance(ids, list) or not ids or any(
-            not isinstance(value, str) or value not in available_ids for value in ids
-        ):
-            raise ValueError("Kandydat nie ma nowego faktu, uzasadnienia lub poprawnych nowych artykułów.")
-        if confirmation_only_update(text) or any(pattern.search(text) for pattern in UPDATE_META_PATTERNS):
-            continue
-        candidates.append({"text_pl": text, "article_ids": list(dict.fromkeys(ids)), "why_new_pl": why_new})
+    fact_schema = json.loads(json.dumps(UPDATE_FACT_RESPONSE_SCHEMA))
+    fact_schema["properties"]["facts"]["items"]["properties"]["article_ids"]["items"]["enum"] = sorted(available_ids)
+    if not available_ids:
+        raise ValueError("Aktualizacja nie ma nowych artykułów.")
+    candidates = None
+    selection_instructions = UPDATE_FACT_INSTRUCTIONS
+    for attempt in range(2):
+        response = call_openai(selection_instructions, payload, model,
+            timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
+            response_schema=fact_schema, response_schema_name="update_candidate_facts")
+        try:
+            candidates = validate_update_candidates(response, available_ids)
+            break
+        except ValueError as exc:
+            if attempt:
+                raise
+            log("AI", f"Niepoprawna selekcja faktów; ponawiam: {exc}", level="WARN")
+            selection_instructions = UPDATE_FACT_INSTRUCTIONS + f"\nPopraw poprzednią odpowiedź: {exc} Zwróć pełną listę ponownie, używając wyłącznie identyfikatorów z new_articles i niepustego why_new_pl; nie wymyślaj nowych faktów."
+    assert candidates is not None
     verdicts = []
     approved = []
     if candidates:
-        audit = call_openai(UPDATE_AUDIT_INSTRUCTIONS, {
+        audit_payload = {
             "previous_aggregation": previous, "new_articles": new_articles,
             "candidate_facts": [{"fact_index": index, **fact} for index, fact in enumerate(candidates)],
-        }, model, timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
-            response_schema=UPDATE_AUDIT_RESPONSE_SCHEMA, response_schema_name="update_novelty_audit")
-        verdicts = audit.get("verdicts")
-        if not isinstance(verdicts, list) or len(verdicts) != len(candidates):
-            raise ValueError("Niekompletna kontrola nowości; aktualizacja nie zostanie zapisana.")
-        seen = set()
-        for verdict in verdicts:
-            if not isinstance(verdict, dict):
-                raise ValueError("Niepoprawna decyzja kontroli nowości.")
-            index = verdict.get("fact_index")
-            if type(index) is not int or index not in range(len(candidates)) or index in seen or type(verdict.get("keep")) is not bool or not str(verdict.get("reason_pl") or "").strip():
-                raise ValueError("Niepoprawne lub powtórzone indeksy/decyzje kontroli nowości.")
-            seen.add(index)
+        }
+        # Required object keys enforce one answer per fact; an unconstrained
+        # array allowed the model to silently omit rejected candidates.
+        verdict_schema = _json_schema_object({"keep": {"type": "boolean"}, "reason_pl": {"type": "string"}})
+        audit_schema = _json_schema_object({"verdicts": _json_schema_object({
+            str(index): verdict_schema for index in range(len(candidates))
+        })})
+        audit_instructions = UPDATE_AUDIT_INSTRUCTIONS + "\nZwróć verdicts jako obiekt z obowiązkowymi kluczami indeksów 0, 1, ...; uwzględnij także odrzucone fakty."
+        for attempt in range(2):
+            audit = call_openai(audit_instructions,
+                audit_payload, model, timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
+                response_schema=audit_schema, response_schema_name="update_novelty_audit")
+            try:
+                verdicts = validate_update_verdicts(audit, len(candidates))
+                break
+            except ValueError as exc:
+                if attempt:
+                    raise
+                log("AI", f"Niepoprawna kontrola nowości; ponawiam: {exc}", level="WARN")
+                audit_instructions += f"\nPopraw poprzednią odpowiedź: {exc} Zwróć wszystkie obowiązkowe klucze indeksów i niepuste reason_pl. Także odrzucony fakt wymaga keep=false i uzasadnienia."
         accepted_indexes = {row["fact_index"] for row in verdicts if row["keep"]}
         seen_texts = set()
         for index, fact in enumerate(candidates):

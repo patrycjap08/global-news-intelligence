@@ -50,6 +50,10 @@ def dated_updates(stored: Any, fallback: dict[str, Any]) -> list[dict[str, Any]]
             continue
         update = deepcopy(raw)
         for field in ("run_id", "generated_at", "version", "new_article_ids"):
+            if field == "run_id" and update.get("generated_at") and fallback.get("generated_at") and time_key(update["generated_at"]) != time_key(fallback["generated_at"]):
+                # A cumulative snapshot's run belongs to its latest analysis,
+                # not to an older update with its own recorded timestamp.
+                continue
             if (field not in update or (field != "new_article_ids" and not update.get(field))) and fallback.get(field):
                 update[field] = deepcopy(fallback[field])
         result.append(update)
@@ -226,6 +230,21 @@ def validate_selection(state: dict[str, Any]) -> None:
         raise ValueError("Checkpoint ma starszy lub inny zakres naprawy. Rozpocznij nowe uruchomienie bez resume_run_id (lokalnie użyj nowego pliku --state).")
 
 
+def refresh_invalid_jobs(state: dict[str, Any]) -> None:
+    """Re-evaluate snapshot errors after a parser fix without redoing saved jobs."""
+    for job in state["jobs"]:
+        if job["status"] != "invalid":
+            continue
+        try:
+            updates = collect_updates(job["current"], job["history"])
+        except ValueError:
+            continue
+        if len(updates) >= REBUILD_SELECTION["min_updates"]:
+            job["update_count"] = len(updates)
+            job["status"] = "pending"
+            job.pop("error", None)
+
+
 def rpc_payload(job: dict[str, Any]) -> dict[str, Any]:
     return {"p_topic_id": job["topic_id"],
             "p_expected_current": {field: job["current"][field] for field in CURRENT_FIELDS},
@@ -285,6 +304,7 @@ def main() -> int:
         state["model"] = args.model
         state["requested_topic_ids"] = args.topic_id
         save_state(args.state, state)
+    refresh_invalid_jobs(state)
     print(f"Zakres: ACTIVE, mniej niż 55 godzin od ostatniego artykułu, co najmniej 2 widoczne aktualizacje (stan z {state['created_at']}).", flush=True)
     print(f"Plan: {len(state['jobs'])} wątków, {sum(job.get('update_count', 0) for job in state['jobs'])} aktualizacji. Kopia: {args.state}", flush=True)
     if not args.apply:
