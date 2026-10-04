@@ -172,9 +172,10 @@ zachowane; migracja nie przepisuje historycznych opracowań.
 
 ## Harmonogram
 
-Pełny workflow pobierania i analizy jest zaplanowany trzy razy dziennie:
-`04:00`, `12:00` i `20:00` czasu `Europe/Warsaw`, co osiem godzin według
-lokalnego zegara. Cron to `0 4,12,20 * * *`. GitHub Actions obsługuje tę
+Pełny workflow pobierania i analizy jest zaplanowany co cztery godziny,
+z pominięciem nocnej przerwy `23:00–03:00`: `04:00`, `08:00`, `12:00`,
+`16:00` i `20:00` czasu `Europe/Warsaw` (pięć razy dziennie, bez północy).
+Cron to `0 4,8,12,16,20 * * *`. GitHub Actions obsługuje tę
 strefę i uwzględnia zmianę czasu letniego/zimowego. Harmonogram nie jest
 związany z laptopem — działa także wtedy, gdy komputer jest wyłączony.
 
@@ -182,3 +183,10 @@ Są to godziny planowanego wyzwolenia, a nie gwarantowany czas faktycznego
 startu lub pojawienia się ostatniej syntezy. GitHub może wyzwolić zadanie
 z opóźnieniem; wspólna blokada `global-news-harvest` może dodatkowo odroczyć
 pracę, jeżeli trwa wcześniejszy harvest albo ręczna przebudowa aktualizacji.
+
+Automatyczny przebieg dodatkowo sprawdza rzeczywistą godzinę po otrzymaniu
+blokady oraz ponownie tuż przed uruchomieniem pipeline'u. Jeśli opóźnienie
+przesunie start na `23:00–02:59`, pobieranie, synchronizacja i analiza są
+pomijane. Od `03:00` sprawdzenie dopuszcza pracę; pierwszy planowy start
+pozostaje o `04:00`. Przebieg rozpoczęty przed nocną przerwą może się dokończyć.
+Ręczne uruchomienia nie podlegają nocnej blokadzie.
