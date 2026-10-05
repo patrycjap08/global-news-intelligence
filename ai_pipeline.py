@@ -2434,6 +2434,7 @@ def call_openai(
     retry_limit: int | None = None,
     response_schema: dict[str, Any] | None = None,
     response_schema_name: str = "structured_response",
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
     from openai import OpenAI
 
@@ -2477,6 +2478,8 @@ def call_openai(
             }
             if max_output_tokens is not None:
                 request["max_output_tokens"] = max_output_tokens
+            if reasoning_effort is not None:
+                request["reasoning"] = {"effort": reasoning_effort}
             response = client.responses.create(**request)
         except Exception as exc:
             if not is_retryable_openai_error(exc):
@@ -2490,6 +2493,19 @@ def call_openai(
                 retry_limit=effective_retry_limit,
             )
             continue
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            output_details = getattr(usage, "output_tokens_details", None)
+            input_details = getattr(usage, "input_tokens_details", None)
+            log(
+                "AI",
+                f"Tokeny {response_schema_name}: model {model}, próba {attempt + 1}; "
+                f"wejście: {getattr(usage, 'input_tokens', '?')}, "
+                f"wyjście łącznie: {getattr(usage, 'output_tokens', '?')}, "
+                f"w tym rozumowanie: {getattr(output_details, 'reasoning_tokens', '?')}, "
+                f"wejście z cache: {getattr(input_details, 'cached_tokens', '?')}; "
+                f"status: {getattr(response, 'status', 'unknown')}.",
+            )
         try:
             if getattr(response, "status", None) == "incomplete":
                 incomplete_details = getattr(response, "incomplete_details", None)
@@ -2797,6 +2813,59 @@ def choose_merge_canonical_topic_id(
     return min((str(topic_id) for topic_id in topic_ids), key=sort_key)
 
 
+def merge_reasoning_effort(model: str) -> str | None:
+    """Keep GPT-5's matching step cheap without changing synthesis reasoning."""
+    if model == "gpt-5" or model.startswith(("gpt-5-nano", "gpt-5-mini", "gpt-5-2025-")):
+        return "minimal"
+    if model.startswith(("gpt-5.1", "gpt-5.2", "o3-mini", "o4-mini")) and "pro" not in model:
+        return "low"
+    return None
+
+
+def merge_response_schema(request_topics: list[dict[str, Any]]) -> dict[str, Any]:
+    """Bound output to disjoint groups and IDs actually present in this batch."""
+    schema = json.loads(json.dumps(TOPIC_MERGE_RESPONSE_SCHEMA))
+    groups = schema["properties"]["merge_groups"]
+    groups["maxItems"] = len(request_topics) // 2
+    properties = groups["items"]["properties"]
+    properties["topic_ids"].update({"minItems": 2, "maxItems": len(request_topics)})
+    properties["topic_ids"]["items"]["enum"] = sorted({str(row["topic_id"]) for row in request_topics})
+    properties["reason"]["maxLength"] = 240
+    properties["merged_title_pl"]["maxLength"] = 220
+    return schema
+
+
+def split_topic_merge_request(
+    request_topics: list[dict[str, Any]],
+    candidate_edges: set[tuple[str, str]],
+) -> list[list[dict[str, Any]]]:
+    """Split whole scopes first; subdivide one scope without losing any edge."""
+    if len(request_topics) <= 2:
+        return []
+    by_group: dict[str, list[dict[str, Any]]] = {}
+    for topic in request_topics:
+        by_group.setdefault(str(topic.get("candidate_group_id") or ""), []).append(topic)
+    if len(by_group) > 1:
+        # Balance by record count while keeping every candidate group intact.
+        children: list[list[dict[str, Any]]] = [[], []]
+        for group in sorted(by_group.values(), key=len, reverse=True):
+            children[min(range(2), key=lambda index: len(children[index]))].extend(group)
+        return children
+    ids = {str(topic["topic_id"]) for topic in request_topics}
+    edges = {pair: 1.0 for pair in candidate_edges if set(pair).issubset(ids)}
+    if not edges:
+        return []
+    bound = max(2, len(request_topics) // 2)
+    groups = build_topic_merge_candidate_groups(
+        request_topics, max_topics_per_group=bound, semantic_edges=edges,
+        preserve_candidate_edges=True, include_lexical_candidates=False,
+    )
+    return build_topic_merge_requests(
+        request_topics, max_topics_per_request=bound, candidate_groups=groups,
+        preserve_candidate_group_overlap=True,
+    )
+
+
 def merge_active_topics(
     db_path: Path,
     run_id: str,
@@ -2837,6 +2906,7 @@ def merge_active_topics(
         "largest_candidate_group": 0,
         "semantic_candidate_edges": 0,
         "merge_requests": 0,
+        "merge_split_retries": 0,
     }
     if len(topics) < 2:
         return stats
@@ -2966,7 +3036,6 @@ def merge_active_topics(
             (len(group) for group in candidate_groups),
             default=0,
         )
-        stats["merge_requests"] = len(merge_requests)
         log(
             "AI",
             f"Scalanie: tematów: {len(payload_topics)}, "
@@ -2980,7 +3049,12 @@ def merge_active_topics(
             return stats
 
         raw_groups: list[dict[str, Any]] = []
-        for request_index, request_topics in enumerate(merge_requests, start=1):
+        candidate_edges = set(semantic_edges)
+        if include_lexical_candidates:
+            candidate_edges.update(_topic_merge_candidate_edges(payload_topics)[0])
+
+        def process_merge_request(request_topics: list[dict[str, Any]], request_index: str) -> None:
+            stats["merge_requests"] += 1
             started_at = time.monotonic()
             request_group_ids = {
                 str(topic.get("candidate_group_id") or "")
@@ -3010,8 +3084,9 @@ def merge_active_topics(
                     merge_input,
                     model,
                     max_output_tokens=TOPIC_MERGE_MAX_OUTPUT_TOKENS,
-                    response_schema=TOPIC_MERGE_RESPONSE_SCHEMA,
+                    response_schema=merge_response_schema(request_topics),
                     response_schema_name="topic_merge",
+                    reasoning_effort=merge_reasoning_effort(model),
                 )
                 client.upsert("topic_runs", [{
                     "topic_run_id": merge_run_id,
@@ -3066,6 +3141,20 @@ def merge_active_topics(
                     "raw_output": parse_failure_for_storage(exc),
                     "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
+                if isinstance(exc, AIResponseParseError) and "reason=max_output_tokens" in str(exc):
+                    children = split_topic_merge_request(request_topics, candidate_edges)
+                    if children:
+                        stats["merge_split_retries"] += 1
+                        log(
+                            "AI",
+                            f"Scalanie {request_index}: odpowiedź ucięta; dzielę paczkę "
+                            f"{len(request_topics)} tematów na {len(children)} mniejszych "
+                            "z zachowaniem wszystkich wybranych par.",
+                            level="WARN",
+                        )
+                        for child_index, child in enumerate(children, 1):
+                            process_merge_request(child, f"{request_index}.{child_index}")
+                        return
                 stats["merge_failed"] += 1
                 log(
                     "AI",
@@ -3073,6 +3162,16 @@ def merge_active_topics(
                     f"{seconds(time.monotonic() - started_at)}; przechodzę dalej.",
                     level="ERROR",
                 )
+
+        for request_index, request_topics in enumerate(merge_requests, start=1):
+            process_merge_request(request_topics, str(request_index))
+        log(
+            "AI",
+            f"Scalanie zakończone: wywołań: {stats['merge_requests']}, "
+            f"podziałów po ucięciu: {stats['merge_split_retries']}, "
+            f"nadal nieudanych paczek: {stats['merge_failed']}.",
+            level="ERROR" if stats["merge_failed"] else "INFO",
+        )
 
         if not raw_groups:
             return stats
@@ -4530,6 +4629,7 @@ def analyze_run(
         "local_candidate_groups": 0, "local_candidate_topics": 0,
         "largest_candidate_group": 0, "merge_requests": 0,
         "titles_normalized": 0, "categories_classified": 0,
+        "merge_split_retries": 0,
     }
     if articles:
         total_batches = (len(articles) + batch_size - 1) // batch_size
@@ -4609,6 +4709,7 @@ def analyze_run(
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]
+    stats["merge_split_retries"] = merge_stats.get("merge_split_retries", 0)
     stats["local_candidate_groups"] = merge_stats["local_candidate_groups"]
     stats["local_candidate_topics"] = merge_stats["local_candidate_topics"]
     stats["largest_candidate_group"] = merge_stats["largest_candidate_group"]

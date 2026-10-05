@@ -123,6 +123,25 @@ ograniczony w kodzie do maksimum 80, także przy starej wartości 100 w GitHub.
 Retry po błędzie API może ponowić tę samą paczkę. Ostrzejsza selekcja zmniejsza
 liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
 
+## Ponowienie przerwanego scalania
+
+Scalanie z GPT-5 nano/mini używa `reasoning.effort=minimal`; nie zmienia to
+rozumowania przy syntezach ani selekcji przez embeddingi. Odpowiedź jest
+ograniczona do identyfikatorów z bieżącej paczki i krótkich propozycji scalenia.
+Po `max_output_tokens` program dzieli paczkę, najpierw rozdzielając całe
+grupy. Jeśli trzeba podzielić jedną grupę, zachowuje każdą wybraną parę w
+co najmniej jednej mniejszej paczce. Nie przyjmuje uciętego JSON-u.
+Logi pokazują liczbę rzeczywistych wywołań, podziałów, nierozwiązanych błędów
+oraz tokeny wejścia, wyjścia i rozumowania, także dla uciętych odpowiedzi.
+Pozostałe błędy scalania lub syntez kończą główny workflow kodem 1;
+poprawnie zapisane wyniki są zachowane.
+
+Do ponowienia wybierz nowy `Run workflow` z gałęzi `main` i tryb `ai-only`.
+Nie używaj `Re-run jobs`, który uruchamia kod wcześniejszego commita.
+Już nazwane artykuły nie wymagają ponownego pobierania ani resetowania
+przypisań: ich aktywne kandydatury z okna 55 godzin ponownie trafiają do
+scalania. Nie jest potrzebna migracja SQL ani czyszczenie bazy.
+
 ## Aktualizacje bez powtarzania faktów
 
 Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi

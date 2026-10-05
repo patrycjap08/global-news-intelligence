@@ -44,6 +44,8 @@ def ai_summary(values: dict[str, int]) -> str:
         ("local_candidate_groups", "grupy kandydackie"),
         ("largest_candidate_group", "największa grupa kandydacka"),
         ("merge_requests", "zapytania o scalanie"),
+        ("merge_split_retries", "podziały paczek po ucięciu odpowiedzi"),
+        ("merge_failed", "nieudane paczki scalania"),
         ("summaries", "gotowe syntezy"),
         ("topics_rebuilt", "przebudowane syntezy"),
         ("failed_summaries", "nieudane syntezy"),
@@ -183,6 +185,14 @@ def main() -> int:
             merge_existing_max_topics=args.merge_existing_max_topics,
         )
         log("RUN", "Etap 4/4 zakończony: " + ai_summary(result) + ".")
+        if result.get("merge_failed", 0) or result.get("failed_summaries", 0):
+            log(
+                "RUN",
+                "Przebieg niekompletny: pozostały błędy scalania lub syntez. "
+                "Poprawnie zapisane wyniki pozostają w bazie; ponów tryb ai-only.",
+                level="ERROR",
+            )
+            return 1
     log("RUN", "Cały przebieg zakończony pomyślnie.")
     return 0
 
