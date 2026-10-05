@@ -17,7 +17,7 @@ artykułów przez RSS/sitemapy/sekcje oraz stronę główną jako fallback, zapi
 grupowanie AI 1 i opracowania AI 2. Klucze nie są wpisane do kodu.
 
 Integracja z X została usunięta. Analiza korzysta z artykułów prasowych.
-Selekcja kandydatów semantycznych wymaga podobieństwa co najmniej 0.90 i
+Selekcja kandydatów semantycznych wymaga podobieństwa co najmniej 0.88 i
 wybiera maksymalnie trzech sąsiadów na temat. Filtr słów wymaga trzech
 charakterystycznych wspólnych rdzeni albo wspólnej frazy. Niezależne grupy
 są pakowane razem. Wszystkie utworzone paczki weryfikacji scalania trafiają

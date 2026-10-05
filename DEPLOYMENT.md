@@ -56,9 +56,10 @@ dodać:
   niekontrolowanej liczby wywołań API.
 - `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
-- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.90`; minimalne
-  podobieństwo cosinusowe kandydatów semantycznych (wcześniej 0.84).
-  Kod nie dopuszcza wartości poniżej 0.90; można podwyższyć próg.
+- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.88`; minimalne
+  podobieństwo cosinusowe kandydatów semantycznych, obniżone z 0.90.
+  Kod nie dopuszcza wartości poniżej 0.88; można podwyższyć próg.
+  Główny workflow ustawia jawnie 0.88, niezależnie od starszej zmiennej repozytorium.
 - `AI_TOPIC_MERGE_EMBEDDING_TOP_K`, domyślnie `3`; maksymalnie trzech
   sąsiadów semantycznych na temat (wcześniej pięciu). Można ustawić mniej.
 - `AI_TOPIC_MERGE_MAX_RECENT_TITLES`, domyślnie `1`; liczba najnowszych tytułów
@@ -107,7 +108,7 @@ mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
 dodatkowego warunku ukrywania wątku.
 
 Główny przebieg wybiera kandydatów wyłącznie przez embeddingi (podobieństwo
-co najmniej 0,90, do trzech najbliższych sąsiadów). Filtr słów i fraz jest
+co najmniej 0,88, do trzech najbliższych sąsiadów). Filtr słów i fraz jest
 używany awaryjnie, gdy embeddingi są wyłączone lub niedostępne. Poprawne
 obliczenie embeddingów z zerem par nie uruchamia dodatkowego filtra słów.
 Filtr awaryjny wymaga trzech wspólnych charakterystycznych rdzeni słów
@@ -141,6 +142,12 @@ Nie używaj `Re-run jobs`, który uruchamia kod wcześniejszego commita.
 Już nazwane artykuły nie wymagają ponownego pobierania ani resetowania
 przypisań: ich aktywne kandydatury z okna 55 godzin ponownie trafiają do
 scalania. Nie jest potrzebna migracja SQL ani czyszczenie bazy.
+
+Główny przebieg przekazuje do kolejki syntez także jawny wykaz artykułów
+przeniesionych podczas scalania, tak jak tryb naprawczy istniejących syntez.
+Kolejka loguje liczby odczytanych tematów, powiązań i analiz oraz powody
+pominięcia. Dla wątków scalonych w tym przebiegu podaje też tytuł i konkretny
+powód pominięcia. Jedno źródło nadal nie wystarcza do syntezy.
 
 ## Aktualizacje bez powtarzania faktów
 

@@ -76,7 +76,17 @@ class MergeCandidateLimitTests(unittest.TestCase):
             [sys.executable, "-c", "import json, ai_pipeline as a; print(json.dumps([a.TOPIC_MERGE_EMBEDDING_TOP_K, a.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY, a.TOPIC_MERGE_MAX_TOPICS_PER_REQUEST]))"],
             cwd=Path(__file__).parent, env=env, check=True, capture_output=True, text=True,
         )
-        self.assertEqual(json.loads(result.stdout), [3, 0.90, 80])
+        self.assertEqual(json.loads(result.stdout), [3, 0.88, 80])
+
+    def test_lower_threshold_accepts_new_candidates_but_still_rejects_weaker_pairs(self):
+        self.assertEqual(
+            set(ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.89, (1 - 0.89**2)**0.5]])),
+            {("a", "b")},
+        )
+        self.assertEqual(
+            ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.87, (1 - 0.87**2)**0.5]]),
+            {},
+        )
 
     def test_semantic_only_chain_preserves_every_pair_in_groups_and_requests_of_eighty(self):
         topics = [{"topic_id": str(index), "headline_pl": str(index)} for index in range(200)]

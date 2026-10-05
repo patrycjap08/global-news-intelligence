@@ -77,7 +77,7 @@ TOPIC_MERGE_EMBEDDING_TOP_K = min(
     3, max(1, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_TOP_K", "3")))
 )
 TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = max(
-    0.90, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.90"))
+    0.88, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.88"))
 )
 TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
     20.0,
@@ -3353,7 +3353,7 @@ def merge_active_topics(
             log(
                 "AI",
                 f"Scalono grupę tematów: {len(group_ids)} "
-                f"(pewność: {confidence:.2f}); synteza zachowanego tematu zostanie zaktualizowana.",
+                f"(pewność: {confidence:.2f}); zachowany temat zostanie sprawdzony w kolejce syntez.",
             )
         return stats
     finally:
@@ -3948,6 +3948,14 @@ def retry_incomplete_summaries(
         summary_by_topic = {str(row["topic_id"]): row for row in summaries}
         forced_new_article_ids_by_topic = forced_new_article_ids_by_topic or {}
         summary_jobs: list[dict[str, Any]] = []
+        skip_counts: dict[str, int] = defaultdict(int)
+
+        def skipped(topic: dict[str, Any], reason: str) -> None:
+            skip_counts[reason] += 1
+            # Newly merged topics need an explicit explanation instead of a
+            # promise that their synthesis will unconditionally be updated.
+            if str(topic.get("topic_id") or "") in forced_new_article_ids_by_topic:
+                log("AI", f"Syntezy: pominięto {topic.get('headline_pl') or topic.get('topic_id')}: {reason}.")
 
         for topic in topics:
             topic_id = str(topic.get("topic_id") or "")
@@ -3955,6 +3963,7 @@ def retry_incomplete_summaries(
                 continue
             all_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
             if not topic_id or len(all_ids) < 2:
+                skipped(topic, "mniej niż dwa podpięte artykuły")
                 continue
             previous_row = summary_by_topic.get(topic_id)
             forced_new_ids = list(dict.fromkeys(
@@ -3965,22 +3974,26 @@ def retry_incomplete_summaries(
             previous_updated_at = str((previous_row or {}).get("updated_at") or "")
             latest_assignment = latest_assignment_by_topic.get(topic_id, "")
             if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids:
+                skipped(topic, "brak przypisań nowszych od ostatniej analizy")
                 continue
-            new_ids = forced_new_ids or [
+            new_ids = list(dict.fromkeys(forced_new_ids + [
                 article_id for article_id in all_ids
                 if not previous_row
                 or assignment_time_by_article.get((topic_id, article_id), "") > previous_updated_at
-            ]
+            ]))
             if not new_ids:
+                skipped(topic, "brak nowych artykułów do analizy")
                 continue
             new_rows = local_articles(conn, new_ids)
             all_rows = local_articles(conn, all_ids)
             if len(new_rows) == 0 or len(all_rows) < 2:
+                skipped(topic, f"brak treści w lokalnej bazie (nowych: {len(new_rows)}, wszystkich: {len(all_rows)})")
                 continue
-            if (
-                len(distinct_source_keys(all_rows)) < 2
-                or not has_independent_source(all_rows)
-            ):
+            if len(distinct_source_keys(all_rows)) < 2:
+                skipped(topic, "artykuły pochodzą tylko z jednego źródła")
+                continue
+            if not has_independent_source(all_rows):
+                skipped(topic, "wszystkie źródła sklasyfikowano jako państwowe")
                 continue
             previous_aggregation = previous_aggregation_context(previous_row.get("summary")) if previous_row else None
             summary_input_base = {
@@ -4003,6 +4016,10 @@ def retry_incomplete_summaries(
                 "summary_input_base": summary_input_base,
             })
 
+        log("AI", f"Kolejka syntez: aktywnych tematów: {len(topics)}, "
+            f"powiązań z artykułami: {len(links)}, zapisanych analiz: {len(summaries)}, "
+            f"zakwalifikowanych: {len(summary_jobs)}; powody pominięcia: "
+            + json.dumps(dict(skip_counts), ensure_ascii=False) + ".")
         if not summary_jobs:
             log("AI", "Syntezy: nie ma tematów oczekujących na nową syntezę.")
             return stats
@@ -4705,7 +4722,11 @@ def analyze_run(
         log("AI", "Etap 1/3 pominięty: brak nowych artykułów do nazwania.")
 
     log("AI", "Etap 2/3 — porządkowanie tematów: scalanie, tytuły i kategorie.")
-    merge_stats = merge_active_topics(db_path, run_id, client, model=model, prefer_embeddings=True)
+    merged_article_ids_by_topic: dict[str, list[str]] = {}
+    merge_stats = merge_active_topics(
+        db_path, run_id, client, model=model, prefer_embeddings=True,
+        merged_article_ids_by_topic=merged_article_ids_by_topic,
+    )
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
     stats["merge_failed"] = merge_stats["merge_failed"]
@@ -4722,7 +4743,10 @@ def analyze_run(
         "AI",
         "Etap 3/3 — syntezy: generuję jedną końcową syntezę lub aktualizację na temat.",
     )
-    recovery_stats = retry_incomplete_summaries(db_path, run_id, client, model=model)
+    recovery_stats = retry_incomplete_summaries(
+        db_path, run_id, client, model=model,
+        forced_new_article_ids_by_topic=merged_article_ids_by_topic,
+    )
     stats["summaries"] += recovery_stats["summaries"]
     stats["failed_summaries"] += recovery_stats["failed_summaries"]
     log(

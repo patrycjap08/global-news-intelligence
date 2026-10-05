@@ -143,7 +143,7 @@ Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do i
 Po zakończeniu grupowania AI 1 lokalny filtr wyszukuje kandydackie grupy tematów
 na podstawie co najmniej trzech wspólnych charakterystycznych rdzeni słów
 albo wspólnej frazy z dwóch takich słów. Embeddingi dodają maksymalnie trzech
-sąsiadów na temat, przy podobieństwie co najmniej 0.90. Niezależne grupy są
+sąsiadów na temat, przy podobieństwie co najmniej 0.88. Niezależne grupy są
 pakowane razem z osobnymi identyfikatorami; wszystkie utworzone paczki
 weryfikacji scalania trafiają do AI bez ograniczania ich liczby. Tematy bez lokalnego lub semantycznego podobieństwa
 nie trafiają do tego wywołania, a dane każdego kandydata są skrócone do nazwy,
