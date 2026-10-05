@@ -14,8 +14,9 @@ on:
           - merge-existing-summaries
           - titles-only
   schedule:
-    # Four daily triggers, one hour before desired 05/09/13/17 Polish local times.
-    - cron: "0 4,8,12,16 * * *"
+    # Four daily triggers ahead of desired 05/09/13/17 Polish local times.
+    # Avoid minute zero, when GitHub scheduled workflows are most congested.
+    - cron: "7 4,8,12,16 * * *"
       timezone: "Europe/Warsaw"
 
 permissions:

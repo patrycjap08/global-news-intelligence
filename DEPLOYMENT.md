@@ -188,10 +188,12 @@ kontrola nowości nowych faktów nadal działa.
 ## Harmonogram
 
 Pełny workflow pobierania i analizy jest zaplanowany cztery razy dziennie:
-`04:00`, `08:00`, `12:00` i `16:00` czasu `Europe/Warsaw`.
-Wyzwolenia przesunięto o godzinę wcześniej względem oczekiwanych pór
+`04:07`, `08:07`, `12:07` i `16:07` czasu `Europe/Warsaw`.
+Wyzwolenia przesunięto o 53 minuty wcześniej względem oczekiwanych pór
 `05:00`, `09:00`, `13:00` i `17:00`, aby uwzględnić obserwowane opóźnienia.
-Cron to `0 4,8,12,16 * * *`. GitHub Actions obsługuje tę
+Cron to `7 4,8,12,16 * * *`. Minuta 07 omija szczyt pełnej godziny,
+ale nie gwarantuje punktualności ani dostarczenia każdego wywołania.
+GitHub Actions obsługuje tę
 strefę i uwzględnia zmianę czasu letniego/zimowego. Harmonogram nie jest
 związany z laptopem — działa także wtedy, gdy komputer jest wyłączony.
 
@@ -204,5 +206,5 @@ Automatyczny przebieg dodatkowo sprawdza rzeczywistą godzinę po otrzymaniu
 blokady oraz ponownie tuż przed uruchomieniem pipeline'u. Jeśli opóźnienie
 przesunie start na `23:00–02:59`, pobieranie, synchronizacja i analiza są
 pomijane. Od `03:00` sprawdzenie dopuszcza pracę; pierwszy planowy start
-pozostaje o `04:00`. Przebieg rozpoczęty przed nocną przerwą może się dokończyć.
+pozostaje o `04:07`. Przebieg rozpoczęty przed nocną przerwą może się dokończyć.
 Ręczne uruchomienia nie podlegają nocnej blokadzie.
