@@ -1,4 +1,4 @@
--- Udostępnia aplikacji także niepołączone tematy starsze niż 30 godzin.
+-- Udostępnia aplikacji także niepołączone tematy starsze niż 24 godzin.
 -- Status MERGED pozostaje ukryty; is_current jest wyliczane dynamicznie.
 
 drop view if exists public.app_topics;
@@ -25,7 +25,7 @@ select
         ),
         '{}'::text[]
     ) as categories,
-    (last_seen_at >= now() - interval '30 hours') as is_current
+    (last_seen_at >= now() - interval '24 hours') as is_current
 from public.topics
 where status <> 'MERGED';
 

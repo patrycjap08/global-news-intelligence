@@ -8,7 +8,7 @@ on:
         type: boolean
         default: true
       topic_id:
-        description: "Opcjonalny topic_id; tylko aktywne <55 h i z co najmniej 2 aktualizacjami"
+        description: "Opcjonalny topic_id; tylko aktywne <48 h i z co najmniej 2 aktualizacjami"
         type: string
         default: ""
       resume_run_id:

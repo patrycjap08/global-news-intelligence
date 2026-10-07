@@ -90,9 +90,9 @@ class RebuildUpdatesTests(unittest.TestCase):
             for row in job["history"][:count]:
                 rows["topic_summary_versions"].append({"topic_id": topic_id, **deepcopy(row)})
         add("recent", "2026-10-02T11:00:00Z")
-        add("just-inside", "2026-09-30T05:00:01Z")
-        add("boundary", "2026-09-30T05:00:00Z")
-        add("old", "2026-09-30T04:59:59Z")
+        add("just-inside", "2026-09-30T12:00:01Z")
+        add("boundary", "2026-09-30T12:00:00Z")
+        add("old", "2026-09-30T11:59:59Z")
         add("closed", "2026-10-02T11:00:00Z", status="CLOSED")
         add("single", "2026-10-02T11:00:00Z", count=1)
         add("unknown-date", None)

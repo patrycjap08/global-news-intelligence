@@ -2,7 +2,7 @@
 --
 -- Skrypt NIE usuwa artykułów. Usuwa wyłącznie aktywne tematy, które:
 --   1) mają dokładnie jeden rekord w topic_articles;
---   2) były ostatnio aktualizowane w ciągu ostatnich 55 godzin.
+--   2) były ostatnio aktualizowane w ciągu ostatnich 48 godzin.
 --
 -- Artykuły pozostają w bazie i przy kolejnym pełnym runie mogą zostać
 -- ponownie przypisane od AI 1.
@@ -24,7 +24,7 @@ with singleton_topics as (
     from public.topics t
     join public.topic_articles ta on ta.topic_id = t.topic_id
     where t.status = 'ACTIVE'
-      and t.last_seen_at >= now() - interval '55 hours'
+      and t.last_seen_at >= now() - interval '48 hours'
     group by
         t.topic_id,
         t.headline_pl,
@@ -62,7 +62,7 @@ begin
         from public.topics t
         join public.topic_articles ta on ta.topic_id = t.topic_id
         where t.status = 'ACTIVE'
-          and t.last_seen_at >= now() - interval '55 hours'
+          and t.last_seen_at >= now() - interval '48 hours'
         group by t.topic_id
         having count(*) = 1
     ) candidates;
@@ -106,7 +106,7 @@ with singleton_topics as (
     from public.topics t
     join public.topic_articles ta on ta.topic_id = t.topic_id
     where t.status = 'ACTIVE'
-      and t.last_seen_at >= now() - interval '55 hours'
+      and t.last_seen_at >= now() - interval '48 hours'
     group by t.topic_id
     having count(*) = 1
 )

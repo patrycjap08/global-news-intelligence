@@ -1,7 +1,7 @@
 # Jednorazowe wygenerowanie aktualizacji od nowa
 
 Naprawa obejmuje wyłącznie wątki ze statusem `ACTIVE`, w których ostatni
-artykuł pojawił się **mniej niż 55 godzin temu** (`last_seen_at`) i które mają
+artykuł pojawił się **mniej niż 48 godzin temu** (`last_seen_at`) i które mają
 **co najmniej dwie widoczne aktualizacje**, liczone bez duplikatów także
 z historii wersji. Synteza bazowa nie liczy się jako aktualizacja, podobnie
 jak techniczne decyzje `NO_NEW_INFORMATION`. Wątki z jedną aktualizacją
@@ -57,7 +57,7 @@ Jeżeli uruchomienie przerwie się, ponownie uruchom workflow i w polu
 `.../actions/runs/NUMER`. Użyj tego samego modelu i zakresu `topic_id`.
 Wątki już zapisane są pomijane; gotowe teksty oczekujące na zapis są używane
 ponownie. Wznowienie zachowuje zakres z pierwotnej kopii, bez ponownego
-przesuwania okna 55 godzin. Checkpointy utworzone przed wprowadzeniem tych
+przesuwania okna 48 godzin. Checkpointy utworzone przed wprowadzeniem tych
 filtrów są odrzucane: dla tej naprawy zostaw `resume_run_id` puste.
 Jeżeli przerwanie nastąpiło podczas generowania danego wątku,
 skrypt wygeneruje jego aktualizacje ponownie od początku.
@@ -128,3 +128,6 @@ python rebuild_topic_updates.py --topic-id topic_ID --state repair-one.json --ap
 Nie uruchamiaj lokalnej naprawy równocześnie ze zwykłą analizą. Nie dodawaj
 pliku kopii/checkpointu do repozytorium. Domyślny plik
 `topic-update-rebuild.json` jest objęty `.gitignore`.
+
+Checkpoint zapisany z wcześniejszym zakresem 55 godzin nie pasuje do nowego
+zakresu 48 godzin. Dla nowego zakresu utwórz nowy plan zamiast wznawiać stary.

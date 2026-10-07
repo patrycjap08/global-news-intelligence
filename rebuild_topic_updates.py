@@ -24,7 +24,7 @@ RPC = "rpc/rebuild_topic_updates_atomic"
 HISTORY_FIELDS = ("version", "run_id", "model", "prompt_version", "summary", "new_article_ids")
 HISTORY_COLUMNS = ",".join(HISTORY_FIELDS) + ",generated_at"
 CURRENT_FIELDS = ("version", "input_hash", "model", "summary")
-REBUILD_SELECTION = {"status": "ACTIVE", "lookback_hours": 55, "min_updates": 2}
+REBUILD_SELECTION = {"status": "ACTIVE", "lookback_hours": ai.TOPIC_MATCH_LOOKBACK_HOURS, "min_updates": 2}
 
 
 def text_of(update: dict[str, Any]) -> str:
@@ -305,7 +305,7 @@ def main() -> int:
         state["requested_topic_ids"] = args.topic_id
         save_state(args.state, state)
     refresh_invalid_jobs(state)
-    print(f"Zakres: ACTIVE, mniej niż 55 godzin od ostatniego artykułu, co najmniej 2 widoczne aktualizacje (stan z {state['created_at']}).", flush=True)
+    print(f"Zakres: ACTIVE, mniej niż {REBUILD_SELECTION['lookback_hours']} godzin od ostatniego artykułu, co najmniej 2 widoczne aktualizacje (stan z {state['created_at']}).", flush=True)
     print(f"Plan: {len(state['jobs'])} wątków, {sum(job.get('update_count', 0) for job in state['jobs'])} aktualizacji. Kopia: {args.state}", flush=True)
     if not args.apply:
         print("Podgląd: nie wywołano AI i nie zmieniono bazy. Dodaj --apply, aby wykonać naprawę.")

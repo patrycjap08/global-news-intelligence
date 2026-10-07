@@ -29,7 +29,7 @@ select
         ),
         '{}'::text[]
     ) as categories,
-    (last_seen_at >= now() - interval '30 hours') as is_current
+    (last_seen_at >= now() - interval '24 hours') as is_current
 from public.topics
 where status <> 'MERGED';
 

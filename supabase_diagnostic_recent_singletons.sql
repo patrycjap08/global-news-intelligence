@@ -37,7 +37,7 @@ select
     a.source_name,
     a.published_at,
     a.original_url,
-    (st.last_seen_at >= now() - interval '55 hours') as within_reset_window,
+    (st.last_seen_at >= now() - interval '48 hours') as within_reset_window,
     (
         select count(*)
         from public.article_topic_assignments ata
@@ -71,4 +71,4 @@ select
     min(last_seen_at) as oldest_selected_last_seen_at,
     max(last_seen_at) as newest_selected_last_seen_at
 from singleton_topics
-where last_seen_at >= now() - interval '55 hours';
+where last_seen_at >= now() - interval '48 hours';

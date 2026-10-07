@@ -17,6 +17,11 @@ const context = {
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('app/app.js','utf8').split("document.addEventListener('click'")[0],context);
 vm.runInContext(`
+const savedNow = Date.now;
+Date.now = () => Date.parse('2026-10-07T12:00:00Z');
+assert.strictEqual(topicIsCurrent({last_seen_at:'2026-10-06T11:00:00Z',is_current:true}),false,'older database flag must not extend 24-hour visibility');
+assert.strictEqual(topicIsCurrent({last_seen_at:'2026-10-06T13:00:00Z',is_current:false}),true,'last_seen_at determines current visibility');
+Date.now = savedNow;
 loadDemoData();
 const originalTopicModel = topicModel;
 let modelBuilds=0;
@@ -54,7 +59,7 @@ assert.strictEqual(modelForTopic('demo-1').articles.length,3);
 
 // Time-based current/history classification stays fresh even with cached data.
 const now=Date.now();
-state.topics=state.topics.map(t=>({...t,last_seen_at:new Date(now-29*3600000).toISOString()}));
+state.topics=state.topics.map(t=>({...t,last_seen_at:new Date(now-23*3600000).toISOString()}));
 const clock=Date.now;
 allTopicModels();
 const buildsBeforeClockChange=modelBuilds;

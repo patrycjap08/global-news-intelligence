@@ -1,9 +1,9 @@
 const config = window.GNI_CONFIG || {};
 const READ_STATE_KEY = 'gni.topic-read-state.v1';
 const BOOKMARK_STATE_KEY = 'gni.topic-bookmarks.v1';
-// A topic remains matchable by the backend for 55 hours, but stays in the
-// current view for 30 hours without a new article.
-const TOPIC_VALIDITY_HOURS = 30;
+// A topic remains matchable by the backend for 48 hours, but stays in the
+// current view for 24 hours without a new article.
+const TOPIC_VALIDITY_HOURS = 24;
 
 const state = {
   topics: [],
@@ -305,7 +305,8 @@ function topicArticleIds(model) {
 }
 
 function topicIsCurrent(topic) {
-  if (typeof topic.is_current === 'boolean') return topic.is_current;
+  // Derive from time so an older database view or cached flag cannot keep
+  // a topic current beyond the application's 24-hour window.
   const timestamp = Date.parse(topic.last_seen_at || '');
   return Number.isFinite(timestamp) && Date.now() - timestamp < TOPIC_VALIDITY_HOURS * 60 * 60 * 1000;
 }

@@ -1,13 +1,11 @@
 -- Rozdziela okno widoczności w aplikacji od okna dopasowywania tematów.
 --
 -- Backend nadal może przypisać nowy artykuł do nieaktualizowanego tematu przez
--- 55 godzin. Widok aplikacji oznacza go jako aktualny tylko przez 30 godzin.
+-- 48 godzin. Widok aplikacji oznacza go jako aktualny tylko przez 24 godzin.
 -- Po przypisaniu nowego artykułu last_seen_at zostaje odświeżone, więc temat
 -- wraca do zakładki „Aktualne”.
 
-drop view if exists public.app_topics;
-
-create view public.app_topics as
+create or replace view public.app_topics as
 select
     topic_id,
     headline_pl,
@@ -29,7 +27,7 @@ select
         ),
         '{}'::text[]
     ) as categories,
-    (last_seen_at >= now() - interval '30 hours') as is_current
+    (last_seen_at >= now() - interval '24 hours') as is_current
 from public.topics
 where status <> 'MERGED';
 

@@ -24,13 +24,13 @@ które AI połączy jako duplikaty. Scalony temat nie jest usuwany — dostaje
 status `MERGED`, a aplikacja pokazuje nowy temat zbiorczy.
 
 Uruchom również jednorazowo `supabase_migration_historical_topics.sql`.
-Udostępnia on aplikacji tematy starsze niż 30 godzin, aby mogły pojawić się
+Udostępnia on aplikacji tematy starsze niż 24 godzin, aby mogły pojawić się
 w zakładce „Historyczne”. Tematy `MERGED` nadal pozostają ukryte.
 
 Po wdrożeniu rozdzielenia widoczności od dopasowywania uruchom także
 `supabase_migration_topic_current_window.sql`. Aplikacja pokazuje temat jako
-aktualny przez 30 godzin bez aktualizacji, ale backend może nadal dopasować do
-niego nowe artykuły przez 55 godzin. Po takim dopasowaniu temat wraca do
+aktualny przez 24 godzin bez aktualizacji, ale backend może nadal dopasować do
+niego nowe artykuły przez 48 godzin. Po takim dopasowaniu temat wraca do
 zakładki „Aktualne”.
 
 ## Sekrety repozytorium
@@ -90,7 +90,7 @@ nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
 
 Jeżeli istniejące syntezy zostały rozdzielone na kilka osobnych wątków, w
 formularzu `Run workflow` wybierz tryb `merge-existing-summaries`. Ten tryb
-analizuje tylko aktywne wątki z ostatnich 55 godzin, które mają już zapisaną
+analizuje tylko aktywne wątki z ostatnich 48 godzin, które mają już zapisaną
 syntezę. Najpierw lokalnie tworzy paczki podobnych wątków, potem AI zatwierdza
 scalenia. Po scaleniu zachowywana jest najstarsza synteza, a nowe artykuły są
 przekazywane do osobnego wywołania AI jako aktualizacja tej syntezy. Wątki
