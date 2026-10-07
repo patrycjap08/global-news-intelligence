@@ -44,12 +44,12 @@ class LabelingScopeTests(unittest.TestCase):
             conn.executemany('INSERT INTO articles VALUES(?,?,?,?,?,?,?,?)', [
                 (r['article_id'], r['title'], 'pl', r['body'], '', 'COMPLETE', 300,
                  datetime.now(timezone.utc).isoformat()) for r in self.articles])
-        self.response = {
-            'labels': [dict(article_id='6', working_title_pl='[Polska] Powódź wymusza ewakuację mieszkańców kilku gmin'),
-                       dict(article_id='7', working_title_pl='[Polska] Spór o decyzję władz i skutki dla mieszkańców')],
-            'excluded_articles': [dict(article_id=str(i), category=category, reason='Materiał spoza zakresu')
-                                  for i, category in enumerate(['SPORT', 'WEATHER', 'CELEBRITY', 'ENTERTAINMENT', 'LIFESTYLE', 'OTHER_NON_CORE'])],
-        }
+        self.response = {'decisions': {
+            **{str(i): dict(category=category, working_title_pl='', reason='Materiał spoza zakresu')
+               for i, category in enumerate(['SPORT', 'WEATHER', 'CELEBRITY', 'ENTERTAINMENT', 'LIFESTYLE', 'OTHER_NON_CORE'])},
+            '6': dict(category='KEEP', working_title_pl='[Polska] Powódź wymusza ewakuację mieszkańców kilku gmin', reason=''),
+            '7': dict(category='KEEP', working_title_pl='[Polska] Spór o decyzję władz i skutki dla mieszkańców', reason=''),
+        }}
 
     def run_batch(self, response):
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(ai, 'call_openai', return_value=response) as model, patch.object(ai, 'log'):
@@ -62,7 +62,9 @@ class LabelingScopeTests(unittest.TestCase):
         self.assertEqual(stats['candidate_topics'], 2)
         self.assertEqual(stats['labeled_articles'], 2)
         model.assert_called_once()
-        self.assertIn('excluded_articles', model.call_args.kwargs['response_schema']['required'])
+        schema = model.call_args.kwargs['response_schema']['properties']['decisions']
+        self.assertEqual(set(schema['required']), set('01234567'))
+        self.assertFalse(schema['additionalProperties'])
         links = [r for table, rows in self.client.writes if table == 'topic_articles' for r in rows]
         self.assertEqual({r['article_id'] for r in links}, {'6', '7'})
         self.assertEqual(len(self.client.updates), 6)
@@ -74,21 +76,25 @@ class LabelingScopeTests(unittest.TestCase):
         self.assertEqual(hints['6'], '')
 
     def test_all_excluded_produces_no_topic_or_assignment_writes(self):
-        response = {'labels': [], 'excluded_articles': [dict(article_id=r['article_id'], category='OTHER_NON_CORE', reason='Poza zakresem') for r in self.articles]}
+        response = {'decisions': {r['article_id']: dict(category='OTHER_NON_CORE', working_title_pl='', reason='Poza zakresem') for r in self.articles}}
         stats, _ = self.run_batch(response)
         self.assertEqual(stats['candidate_topics'], 0)
         self.assertEqual(stats['excluded'], 8)
         self.assertEqual({t for t, _ in self.client.writes}, {'topic_runs'})
 
-    def test_conflicting_or_missing_decision_fails_before_any_article_change(self):
+    def test_foreign_or_missing_decision_fails_before_any_article_change_and_preserves_raw_response(self):
+        decisions = self.response['decisions']
         for response in [
-            {'labels': self.response['labels'], 'excluded_articles': self.response['excluded_articles'] + [dict(article_id='6', category='SPORT', reason='Konflikt')]},
-            {'labels': self.response['labels'], 'excluded_articles': self.response['excluded_articles'][:-1]},
+            {'decisions': {**decisions, 'foreign': dict(category='SPORT', working_title_pl='', reason='Poza zakresem')}},
+            {'decisions': {key: value for key, value in decisions.items() if key != '7'}},
         ]:
-            with self.subTest(response=response), self.assertRaises(ValueError):
+            with self.subTest(response=response), self.assertRaises(ai.AIResponseParseError) as failure:
                 self.run_batch(response)
+            self.assertIn('decisions', failure.exception.raw_output)
         self.assertEqual(self.client.updates, [])
         self.assertEqual({t for t, _ in self.client.writes}, {'topic_runs'})
+        self.assertTrue(all(rows[0]['status'] == 'FAILED' for _, rows in self.client.writes))
+        self.assertTrue(all('raw_response' in rows[0]['raw_output'] for _, rows in self.client.writes))
 
     def test_main_flow_counts_exclusions_and_uses_local_database(self):
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(ai, 'call_openai', return_value=self.response) as model, patch.object(ai, 'merge_active_topics', return_value={

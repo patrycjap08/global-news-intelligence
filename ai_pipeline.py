@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v46-labeling-scope-filter"
+PROMPT_VERSION = "ai-prompts-v47-labeling-required-article-decisions"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 48 hours.
@@ -1064,7 +1064,7 @@ istotnych wydarzeń społecznych.
 Materiały, których głównym tematem jest sport, wynik lub przebieg zawodów,
 transfer zawodnika, zwykła prognoza pogody, temperatura, spodziewane opady bez
 istotnych skutków, celebryta albo życie prywatne osoby publicznej, zawsze
-umieść w excluded_articles — nie twórz dla nich grupy, tematu ani syntezy.
+oznacz kategorią odrzucenia — nie twórz dla nich grupy, tematu ani syntezy.
 Sama duża popularność materiału nie czyni go istotnym dla aplikacji.
 
 Nie wykluczaj natomiast klęsk żywiołowych i ekstremalnych zjawisk pogodowych,
@@ -1074,10 +1074,10 @@ lub nadzwyczajne działania władz. Taki materiał jest newsem o skutkach i
 bezpieczeństwie, a nie zwykłą prognozą pogody. Artykuł o decyzji publicznej,
 gospodarce albo bezpieczeństwie może też pozostać, gdy sport, pogoda lub
 celebryta są jedynie tłem, a nie główną osią tekstu.
-Jeżeli związek jest niepewny, nie odrzucaj materiału — zachowaj go w labels.
+Jeżeli związek jest niepewny, nie odrzucaj materiału — oznacz kategorią KEEP.
 
-Dla odrzuconych artykułów nie twórz wpisu w labels. Niepewne przypadki
-zachowaj w labels. Oceń zakres na podstawie tytułu i wyciągu; nie dopowiadaj
+Dla odrzuconych artykułów working_title_pl musi być pusty. Niepewne przypadki
+zachowaj z category=KEEP. Oceń zakres na podstawie tytułu i wyciągu; nie dopowiadaj
 faktów. Nie odrzucaj materiału wyłącznie z powodu nazwy źródła lub osoby.
 
 Nazwę twórz zawsze łącznie na podstawie `title_original` oraz
@@ -1100,15 +1100,21 @@ państw europejskich `[Europa]`, a dla spraw międzynarodowych, globalnych lub
 bez jednego głównego kraju `[Świat]`. Nigdy nie wypisuj kilku państw w jednym
 prefiksie.
 
-Każdy article_id z wejścia musi wystąpić dokładnie raz: w labels albo
-excluded_articles. Nie dodawaj obcych identyfikatorów. Dla materiału
-odrzuconego podaj kategorię i krótkie uzasadnienie po polsku.
+Zwróć decisions jako OBIEKT z obowiązkowym kluczem dla KAŻDEGO article_id
+z wejścia. Każdy identyfikator jest kluczem dokładnie jednego wpisu. Nie
+zwracaj list labels ani excluded_articles, nie skracaj identyfikatorów,
+nie dodawaj obcych kluczy i nie pomijaj odrzuconych artykułów.
 
-Zwróć WYŁĄCZNIE poprawny JSON:
-{"labels":[{"article_id":"...","working_title_pl":"[Kraj] Ogólna
-nazwa konkretnej sprawy"}],"excluded_articles":[{"article_id":"...",
-"category":"SPORT|WEATHER|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
-"reason":"krótkie uzasadnienie"}]}
+Dla zaakceptowanego artykułu: category=KEEP, working_title_pl zawiera nazwę,
+reason="". Dla odrzuconego: category to SPORT, WEATHER, CELEBRITY,
+ENTERTAINMENT, LIFESTYLE albo OTHER_NON_CORE; working_title_pl="", a reason
+zawiera krótkie uzasadnienie po polsku.
+
+Zwróć WYŁĄCZNIE poprawny JSON, np.:
+{"decisions":{"identyfikator_z_wejścia":{"category":"KEEP",
+"working_title_pl":"[Kraj] Ogólna nazwa konkretnej sprawy","reason":""},
+"inny_id_z_wejścia":{"category":"SPORT","working_title_pl":"",
+"reason":"Wynik meczu bez istotnego znaczenia publicznego."}}}
 """.strip()
 
 GROUPING_INSTRUCTIONS = """
@@ -1857,26 +1863,64 @@ _JSON_CATEGORY_ARRAY_SCHEMA = {
     },
 }
 
-TOPIC_LABEL_RESPONSE_SCHEMA = _json_schema_object({
-    "labels": {
-        "type": "array",
-        "items": _json_schema_object({
-            "article_id": {"type": "string"},
+LABEL_DECISION_CATEGORIES = (
+    "KEEP", "SPORT", "WEATHER", "CELEBRITY", "ENTERTAINMENT", "LIFESTYLE", "OTHER_NON_CORE",
+)
+
+
+def topic_label_response_schema(article_ids: list[str]) -> dict[str, Any]:
+    # Required object keys enforce one decision for each input article.
+    # Unlike two arrays, this cannot represent overlapping or missing lists.
+    decision = {"anyOf": [
+        _json_schema_object({
+            "category": {"type": "string", "enum": ["KEEP"]},
             "working_title_pl": {"type": "string"},
+            "reason": {"type": "string", "enum": [""]},
         }),
-    },
-    "excluded_articles": {
-        "type": "array",
-        "items": _json_schema_object({
-            "article_id": {"type": "string"},
-            "category": {"type": "string", "enum": [
-                "SPORT", "WEATHER", "CELEBRITY", "ENTERTAINMENT",
-                "LIFESTYLE", "OTHER_NON_CORE",
-            ]},
+        _json_schema_object({
+            "category": {"type": "string", "enum": list(LABEL_DECISION_CATEGORIES[1:])},
+            "working_title_pl": {"type": "string", "enum": [""]},
             "reason": {"type": "string"},
         }),
-    },
-})
+    ]}
+    return _json_schema_object({
+        "decisions": _json_schema_object({article_id: decision for article_id in article_ids}),
+    })
+
+
+def normalize_topic_label_decisions(response: dict[str, Any], article_ids: list[str]) -> None:
+    """Validate all decisions before exposing labels/exclusions to persistence."""
+    try:
+        decisions = response.get("decisions")
+        expected = set(article_ids)
+        if not isinstance(decisions, dict):
+            raise ValueError("Brak obiektu decisions w odpowiedzi nadawania nazw.")
+        if set(decisions) != expected:
+            missing = sorted(expected - set(decisions))
+            foreign = sorted(set(decisions) - expected)
+            raise ValueError(f"Niekompletne decyzje o zakresie: brakujące={missing}; obce={foreign}.")
+        labels, excluded = [], []
+        for article_id in article_ids:
+            item = decisions[article_id]
+            if not isinstance(item, dict) or set(item) != {"category", "working_title_pl", "reason"}:
+                raise ValueError(f"Niepoprawne pola decyzji dla {article_id}.")
+            category, title, reason = item["category"], item["working_title_pl"], item["reason"]
+            if category not in LABEL_DECISION_CATEGORIES or not isinstance(title, str) or not isinstance(reason, str):
+                raise ValueError(f"Niepoprawna kategoria lub tekst dla {article_id}.")
+            if category == "KEEP":
+                if not title.strip() or reason.strip():
+                    raise ValueError(f"Zaakceptowany artykuł {article_id} wymaga nazwy i pustego reason.")
+                labels.append({"article_id": article_id, "working_title_pl": title})
+            else:
+                if title.strip() or not reason.strip():
+                    raise ValueError(f"Odrzucony artykuł {article_id} wymaga uzasadnienia i pustej nazwy.")
+                excluded.append({"article_id": article_id, "category": category, "reason": reason})
+    except ValueError as exc:
+        raw = getattr(response, "raw_output", None) or json.dumps(response, ensure_ascii=False)
+        raise AIResponseParseError(str(exc), raw) from exc
+    response["labels"] = labels
+    response["excluded_articles"] = excluded
+
 
 GROUPING_RESPONSE_SCHEMA = _json_schema_object({
     "groups": {
@@ -4468,25 +4512,10 @@ def _label_pending_batch(
             max_output_tokens=LABEL_MAX_OUTPUT_TOKENS,
             timeout_seconds=LABEL_REQUEST_TIMEOUT_SECONDS,
             retry_limit=LABEL_MAX_RETRIES,
-            response_schema=TOPIC_LABEL_RESPONSE_SCHEMA,
+            response_schema=topic_label_response_schema([str(row["article_id"]) for row in articles]),
             response_schema_name="topic_labels",
         )
-        # Validate the partition before any exclusion or candidate is persisted.
-        input_ids = {str(row["article_id"]) for row in articles}
-        seen: set[str] = set()
-        for key in ("labels", "excluded_articles"):
-            items = labeling.get(key)
-            if not isinstance(items, list):
-                raise ValueError(f"Brak poprawnej listy {key} w odpowiedzi nadawania nazw.")
-            for item in items:
-                if not isinstance(item, dict):
-                    raise ValueError("Niepoprawny wpis decyzji o zakresie artykułu.")
-                article_id = str(item.get("article_id") or "")
-                if article_id not in input_ids or article_id in seen:
-                    raise ValueError("Obcy lub powtórzony article_id w decyzji o zakresie.")
-                seen.add(article_id)
-        if seen != input_ids:
-            raise ValueError("Brakuje decyzji o zakresie dla części artykułów.")
+        normalize_topic_label_decisions(labeling, [str(row["article_id"]) for row in articles])
         client.upsert("topic_runs", [{
             "topic_run_id": labeling_topic_run_id,
             "run_id": run_id,
@@ -5044,8 +5073,9 @@ def analyze_run(
                 midpoint = len(batch) // 2
                 log(
                     "AI",
-                    f"Nazwy {label}: dzielę paczkę po niepoprawnym JSON na "
-                    f"{midpoint} + {len(batch) - midpoint} artykułów.",
+                    f"Nazwy {label}: dzielę paczkę po niepoprawnej odpowiedzi na "
+                    f"{midpoint} + {len(batch) - midpoint} artykułów "
+                    f"({short_text(exc, 240)}).",
                     level="WARN",
                 )
                 process_batch(batch[:midpoint], f"{label}a")

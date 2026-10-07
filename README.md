@@ -177,3 +177,10 @@ W głównym przebiegu kategorie są uzupełniane po syntezach i aktualizacjach.
 Kategorie zwrócone i zapisane wraz z syntezą nie wymagają osobnego zapytania.
 Końcowy klasyfikator obejmuje tylko kwalifikujące się wątki, które nadal
 nie mają kategorii, zachowując wcześniejsze przypisania.
+
+Nadawanie nazw używa schematu odpowiedzi z obowiązkowym wpisem dla każdego
+konkretnego `article_id` z paczki (`decisions`), zamiast dwóch list dowolnej
+długości. Każdy wpis ma decyzję KEEP z nazwą albo kategorię odrzucenia
+z uzasadnieniem. Kod sprawdza kompletność przed jakimkolwiek zapisem
+artykułów lub kandydatów. Niepoprawne decyzje zapisują surową odpowiedź
+i szczegóły błędu w historii LABELING oraz w logach.
