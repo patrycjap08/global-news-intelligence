@@ -10,17 +10,21 @@ Pierwsze zapytanie pokazuje po pięć przykładów z każdej dostępnej kategori
 - wybrane pary z podobieństwem od progu do progu + 0,03;
 - wybrane pary z większym podobieństwem;
 - pominięte pary od progu - 0,03 do progu;
-- pary nad progiem pominięte przez limit trzech sąsiadów.
+- pary nad progiem pominięte przez limit sąsiadów (tylko historyczne raporty).
 
-Przy progu 0,88 zakres tuż pod progiem to 0,85–0,88. Dokładna wartość
+Przy progu 0,86 zakres tuż pod progiem to 0,83–0,86. Dokładna wartość
 progu jest zapisana w każdym raporcie, więc zmiana konfiguracji nie zmienia
 interpretacji dawnych próbek. Wynik podobieństwa nie jest prawdopodobieństwem
 ani `confidence` oceniającego modelu AI. Wybrana para to kandydatura do oceny,
 a nie decyzja o scaleniu. Podobieństwo bliskie 1 może także wynikać z podobnych
 szablonów tytułów, np. codziennych serwisów informacyjnych.
 
-Pozycje są liczone niezależnie dla obu kierunków. Wystarczy, że para
-przekracza próg i mieści się w limicie sąsiadów z jednej strony. Teksty i
+Pozycje są liczone niezależnie dla obu kierunków. W głównym przebiegu nie
+ma już limitu sąsiadów: każda para nad progiem jest wybierana. `top_k` w
+nowym raporcie wynosi JSON null; zaktualizowany SQL wyświetla „bez limitu”.
+Starszy SQL odczytujący tę wartość jako liczbę nadal działa i pokazuje NULL.
+Kategoria pominięcia przez limit sąsiadów pozostaje do odczytu starszych
+raportów; w nowych powinna mieć zero par. Teksty i
 tytuły są zapisywane przed scalaniem, dokładnie tak, jak wysłano je do API
 embeddingów. Nie przechowujemy wektorów ani pełnych treści artykułów.
 

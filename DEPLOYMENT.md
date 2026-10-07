@@ -56,12 +56,12 @@ dodać:
   niekontrolowanej liczby wywołań API.
 - `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
-- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.88`; minimalne
-  podobieństwo cosinusowe kandydatów semantycznych, obniżone z 0.90.
-  Kod nie dopuszcza wartości poniżej 0.88; można podwyższyć próg.
-  Główny workflow ustawia jawnie 0.88, niezależnie od starszej zmiennej repozytorium.
-- `AI_TOPIC_MERGE_EMBEDDING_TOP_K`, domyślnie `3`; maksymalnie trzech
-  sąsiadów semantycznych na temat (wcześniej pięciu). Można ustawić mniej.
+- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.86`; minimalne
+  podobieństwo cosinusowe kandydatów semantycznych, obniżone z 0.88.
+  Kod nie dopuszcza wartości poniżej 0.86; można podwyższyć próg.
+  Główny workflow ustawia jawnie 0.86, niezależnie od starszej zmiennej repozytorium.
+- Nie ma limitu sąsiadów semantycznych: wybierane są wszystkie pary nad
+  progiem. Starsza zmienna `AI_TOPIC_MERGE_EMBEDDING_TOP_K` jest ignorowana.
 - `AI_TOPIC_MERGE_MAX_RECENT_TITLES`, domyślnie `1`; liczba najnowszych tytułów
   przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
@@ -108,7 +108,7 @@ mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
 dodatkowego warunku ukrywania wątku.
 
 Główny przebieg wybiera kandydatów wyłącznie przez embeddingi (podobieństwo
-co najmniej 0,88, do trzech najbliższych sąsiadów). Filtr słów i fraz jest
+co najmniej 0,86, bez limitu sąsiadów). Filtr słów i fraz jest
 używany awaryjnie, gdy embeddingi są wyłączone lub niedostępne. Poprawne
 obliczenie embeddingów z zerem par nie uruchamia dodatkowego filtra słów.
 Filtr awaryjny wymaga trzech wspólnych charakterystycznych rdzeni słów

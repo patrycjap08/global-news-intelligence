@@ -11,6 +11,16 @@ from test_topic_titles import FakeMergeClient
 
 
 class EmbeddingDiagnosticsTests(unittest.TestCase):
+    def test_normal_selection_keeps_all_pairs_even_beyond_three_neighbors(self):
+        ids = [str(index) for index in range(10)]
+        report = {}
+        edges = ai.build_embedding_candidate_edges(ids, [[1., 0.]] * 10, diagnostics=report)
+        self.assertEqual(len(edges), 45)
+        self.assertIsNone(report['top_k'])
+        self.assertEqual(report['selected_pair_count'], 45)
+        self.assertEqual(report['bucket_pair_counts'].get('ABOVE_THRESHOLD_OUTSIDE_TOP_K', 0), 0)
+        self.assertTrue(all(row['selected_for_ai'] for row in report['samples']))
+
     def test_diagnostics_preserve_selection_and_distinguish_threshold_and_neighbor_limit(self):
         ids = ['a', 'b', 'c', 'd']
         vectors = [[1., 0.]] * 4

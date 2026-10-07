@@ -73,11 +73,10 @@ TOPIC_MERGE_EMBEDDING_BATCH_SIZE = max(
 TOPIC_MERGE_EMBEDDING_DIMENSIONS = max(
     64, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS", "256"))
 )
-TOPIC_MERGE_EMBEDDING_TOP_K = min(
-    3, max(1, int(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_TOP_K", "3")))
-)
+# All pairs above the threshold qualify; old repository TOP_K variables are ignored.
+TOPIC_MERGE_EMBEDDING_TOP_K = None
 TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = max(
-    0.88, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.88"))
+    0.86, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.86"))
 )
 TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
     20.0,
@@ -500,7 +499,7 @@ def build_embedding_candidate_edges(
     topic_ids: list[str],
     embeddings: list[list[float]],
     *,
-    top_k: int = TOPIC_MERGE_EMBEDDING_TOP_K,
+    top_k: int | None = TOPIC_MERGE_EMBEDDING_TOP_K,
     min_similarity: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
     diagnostics: dict[str, Any] | None = None,
 ) -> dict[tuple[str, str], float]:
@@ -529,7 +528,8 @@ def build_embedding_candidate_edges(
                 diagnostic_neighbors.append((similarity, other_index))
                 pair = tuple(sorted((str(topic_ids[index]), str(topic_ids[other_index]))))
                 pair_scores[pair] = similarity
-        for similarity, other_index in heapq.nlargest(top_k, scored):
+        selected_neighbors = scored if top_k is None else heapq.nlargest(top_k, scored)
+        for similarity, other_index in selected_neighbors:
             pair = tuple(sorted((str(topic_ids[index]), str(topic_ids[other_index]))))
             edges[pair] = max(edges.get(pair, 0.0), similarity)
         if diagnostics is not None:
