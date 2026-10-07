@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v48-context-people-organizations-and-background"
+PROMPT_VERSION = "ai-prompts-v49-summary-context-no-repetition"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 48 hours.
@@ -1554,8 +1554,9 @@ do article_ids i może powtarzać fakty opisane w `summary_pl`. Nie traktuj go
 jako drugiego, alternatywnego podsumowania. `agreement`, `differences`,
 `potential_manipulation_signals` i `background_context` mogą zawierać tylko
 informacje dodatkowe, których nie trzeba przepisywać do głównej narracji;
-sekcje te mogą pozostać puste, z wyjątkiem obowiązkowych objaśnień osób
-i organizacji w background_context opisanych poniżej. Nie powtarzaj tej samej informacji
+sekcje te mogą pozostać puste. Objaśnienia osób i organizacji dodawaj do
+background_context tylko w zakresie, którego nie wyjaśnia już synteza lub
+facts, zgodnie z zasadami poniżej. Nie powtarzaj tej samej informacji
 w kilku zdaniach głównej syntezy.
 
 differences ma wskazywać konkretną różnicę, a nie ogólnik typu „źródła różnie
@@ -1576,26 +1577,48 @@ summary_pl dodaj krótkie objaśnienie, jeżeli jest potrzebne do zrozumienia
 zdania. Nie twórz nowego pola reader_context ani osobnej struktury poza
 istniejącym background_context.
 
-OBOWIĄZKOWY KONTEKST OSÓB I ORGANIZACJI:
+PODZIAŁ SYNTEZY I KONTEKSTU — BEZ POWTÓRZEŃ:
+Każde ustalenie opisuj tylko raz w widocznych sekcjach summary_pl oraz
+background_context. Zakaz obejmuje również parafrazy tej samej informacji.
+Najpierw zdecyduj, gdzie informacja jest potrzebna: fakty ważne dla przebiegu,
+skutków i zrozumienia wydarzenia oraz niezbędne objaśnienie roli uczestnika
+umieść w summary_pl, jeżeli mają potwierdzenie w artykułach. Nie chowaj ich
+wyłącznie w kontekście. background_context uzupełnia narrację o dodatkowe
+objaśnienia i tło, zamiast streszczać lub powtarzać summary_pl.
+Jeśli podczas przygotowania kontekstu zauważysz istotny fakt z materiałów,
+którego brakuje w syntezie, przenieś go do summary_pl i usuń z kontekstu.
+Nie przenoś do syntezy niezweryfikowanej wiedzy ogólnej. Techniczny indeks
+facts nadal może powtarzać ustalenia z summary_pl dla przypisania źródeł;
+nie jest to zgoda na ich ponowne opisanie w background_context.
+
+OBJAŚNIENIA OSÓB I ORGANIZACJI:
 Po napisaniu summary_pl oraz facts przejrzyj OBA pola i zbierz wszystkie
 nazwane osoby (imiona i nazwiska) oraz nazwane agencje, firmy, organizacje,
 instytucje, partie, stowarzyszenia i redakcje. Uwzględnij również osoby lub
 organizacje występujące tylko w facts, a nie w głównej narracji. Nie pomijaj
 powszechnie znanych osób ani organizacji: czytelnik może ich nie znać.
 Nie dodawaj wszystkich autorów i źródeł automatycznie; dodaj je, jeśli zostały
-wymienione w summary_pl lub facts. Ujednolić warianty nazwy, skróty i pełne
-nazwy tej samej osoby/organizacji; każdą jednostkę opisz tylko raz.
+wymienione w summary_pl lub facts. Połącz warianty nazwy, skróty i pełne
+nazwy tej samej osoby/organizacji. Sprawdź, które informacje o jej roli lub
+działalności zostały już wyjaśnione w summary_pl lub facts. Nie powtarzaj
+tych informacji w kontekście. Sama wzmianka o nazwie bez wyjaśnienia roli
+nie zastępuje objaśnienia. Jeżeli wszystkie potrzebne objaśnienia są już
+podane w syntezie lub facts, pomiń wpis w kontekście dla tej jednostki.
 
-Dla KAŻDEJ osoby dodaj osobny element background_context, w kolejności
+Dla osoby wymagającej dodatkowego objaśnienia dodaj osobny element
+background_context, w kolejności
 pierwszego wystąpienia: „Osoba — Imię Nazwisko: ...”. W 1–2 krótkich zdaniach
 wyjaśnij, kim jest i jaką funkcję lub rolę pełni w tej sprawie. Nie powtarzaj
 jej wypowiedzi ani przebiegu zdarzeń; nie pisz biogramu.
-Dla KAŻDEJ organizacji dodaj osobny element: „Organizacja — Nazwa (skrót):
+Dla organizacji wymagającej dodatkowego objaśnienia dodaj osobny element:
+„Organizacja — Nazwa (skrót):
 ...”. Krótko wyjaśnij, czym jest, czym się zajmuje oraz jaki związek ma ze
 sprawą, jeżeli wynika to z materiałów. Nie traktuj samej nazwy kraju lub
 miasta jako organizacji. Podaj rozwinięcie skrótu tylko, gdy jest pewne.
-Każda osoba i każda organizacja MUSI być oddzielnym elementem tablicy
-background_context — to lista punktów prezentowana w sekcji Kontekst.
+Każdy potrzebny wpis o osobie lub organizacji ma być oddzielnym elementem
+tablicy background_context — to lista punktów prezentowana w sekcji Kontekst.
+Wpis zawiera tylko brakujące objaśnienie; nie powtarza już opisanej funkcji,
+działalności ani związku ze sprawą, nawet innymi słowami.
 Nie łącz kilku osób w jeden wpis i nie zapisuj całej listy w jednym text_pl.
 
 Role, funkcje i informacje z materiałów poprzyj article_ids tych materiałów
@@ -1619,8 +1642,14 @@ na siłę. Nie przepisuj faktów z syntezy, nie spekuluj o przyszłości i nie
 wyciągaj niepopartych związków przyczynowych. Zachowaj te same zasady
 article_ids i needs_verification jak w objaśnieniach wyżej.
 
-Przed zwróceniem odpowiedzi porównaj listę nazw z summary_pl i facts z listą
-w background_context. Uzupełnij KAŻDĄ pominiętą osobę lub organizację.
+Przed zwróceniem odpowiedzi sprawdź KAŻDĄ osobę i organizację wymienioną
+w summary_pl lub facts: musi być objaśniona w syntezie/faktach albo mieć
+uzupełniający wpis w background_context. Następnie porównaj wszystkie
+twierdzenia z kontekstu z summary_pl i facts. Usuń z kontekstu powtórzenia
+znaczeniowe, również części zdania, a puste po tej kontroli wpisy pomiń.
+Nie zastępuj usuniętych wpisów sztucznym tekstem ani komentarzem, że
+informację podano wcześniej. background_context=[] jest poprawne, jeżeli
+nie ma dodatkowych objaśnień lub tła ponad treść syntezy i facts.
 
 Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli data
 jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo

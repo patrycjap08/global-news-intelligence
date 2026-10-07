@@ -190,10 +190,13 @@ od wątków z największą łączną liczbą unikalnych podpiętych artykułów.
 Przy remisie pierwszeństwo ma nowsze `last_seen_at`, a następnie identyfikator
 wątku dla stabilnej kolejności. Liczba nowych artykułów nie zmienia priorytetu.
 
-Pierwsze syntezy zawierają w `background_context` osobny punkt dla każdej
-nazwanej osoby i organizacji pojawiającej się w syntezie lub faktach, z
-krótkim opisem funkcji/roli albo działalności. Dalej może pojawić się szersze
-tło historyczne, prawne i społeczne, bez powtarzania narracji. Objaśnienia
+Pierwsze syntezy objaśniają osoby i organizacje pojawiające się w syntezie
+lub faktach. `background_context` zawiera osobne punkty tylko z brakującymi
+objaśnieniami funkcji/roli albo działalności oraz dodatkowym tłem historycznym,
+prawnym i społecznym. Nie powtarza informacji już podanych w syntezie lub
+faktach, także innymi słowami. Istotne ustalenia z artykułów mają trafiać
+do syntezy, a nie pozostawać wyłącznie w kontekście; gdy wszystko potrzebne
+już wyjaśniono, kontekst może być pusty. Objaśnienia
 z artykułów mają przypisane źródła; wiedza ogólna i niepewne role są oznaczone
 `needs_verification=true`. Aktualizacje nadal zachowują istniejącą bazową
 syntezę i kontekst. Zmiana promptu dotyczy kolejnych generowanych syntez.

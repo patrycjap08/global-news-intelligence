@@ -63,8 +63,10 @@ class AITextNormalizationTests(unittest.TestCase):
 
     def test_summary_prompt_explains_named_people_and_organizations_in_context(self):
         self.assertIn("Po napisaniu summary_pl oraz facts przejrzyj OBA pola", SUMMARY_INSTRUCTIONS)
-        self.assertIn("Dla KAŻDEJ osoby dodaj osobny element background_context", SUMMARY_INSTRUCTIONS)
-        self.assertIn("Dla KAŻDEJ organizacji dodaj osobny element", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Dla osoby wymagającej dodatkowego objaśnienia dodaj osobny element", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Dla organizacji wymagającej dodatkowego objaśnienia dodaj osobny element", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Zakaz obejmuje również parafrazy tej samej informacji", SUMMARY_INSTRUCTIONS)
+        self.assertIn("przenieś go do summary_pl i usuń z kontekstu", SUMMARY_INSTRUCTIONS)
         self.assertIn("Nie traktuj samej nazwy kraju lub", SUMMARY_INSTRUCTIONS)
         self.assertIn("Nie zgaduj tożsamości na podstawie nazwiska", SUMMARY_INSTRUCTIONS)
 
