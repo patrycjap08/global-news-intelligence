@@ -142,7 +142,7 @@ class UpdateDecisionTests(unittest.TestCase):
                     self.rows[table] = deepcopy(rows)
 
         old = previous_row()
-        client = Client([{"topic_id": "topic", "headline_pl": "[Polska] Wątek", "status": "ACTIVE"}],
+        client = Client([{"topic_id": "topic", "headline_pl": "[Polska] Wątek", "status": "ACTIVE", "last_seen_at": "2026-10-02T08:00:00Z"}],
                        [{"topic_id": "topic", "article_id": value} for value in ("old", "new")], [old])
         client.rows["article_topic_assignments"] = [
             {"topic_id": "topic", "article_id": "old", "created_at": "2026-10-01T00:00:00+00:00"},

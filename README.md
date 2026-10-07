@@ -166,3 +166,9 @@ AI-only nadrabia starsze artykuły. Ponowna analiza istniejącej syntezy bez
 nowych informacji nie odświeża tego czasu. Już zapisane pierwsze syntezy
 z ostatnich 24 godzin można naprawić jednorazowo skryptem
 `supabase_repair_first_synthesis_current.sql`.
+
+Kolejka syntez i aktualizacji w głównym przebiegu oraz AI-only kwalifikuje
+tylko aktywne wątki z `last_seen_at` z ostatnich 48 godzin. Brak lub błędna
+data wyklucza generowanie. Limit jest sprawdzany przy budowie kolejki
+i ponownie przed zapytaniem do AI, aby nie generować dla wątków, które
+przekroczyły go podczas oczekiwania. W logach pominięcia mają tytuł i powód.

@@ -4227,6 +4227,7 @@ def retry_incomplete_summaries(
     stats = {"summaries": 0, "failed_summaries": 0}
     try:
         topics = client.select_all("topics", filters=[("status", "eq.ACTIVE")])
+        queue_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
         links = client.select_all("topic_articles", columns="topic_id,article_id")
         summaries = client.select_all(
             "topic_summaries", columns="topic_id,summary,input_hash,version,updated_at"
@@ -4255,12 +4256,24 @@ def retry_incomplete_summaries(
             skip_counts[reason] += 1
             # Newly merged topics need an explicit explanation instead of a
             # promise that their synthesis will unconditionally be updated.
-            if str(topic.get("topic_id") or "") in forced_new_article_ids_by_topic:
+            if (str(topic.get("topic_id") or "") in forced_new_article_ids_by_topic
+                    or reason.startswith("poza oknem")
+                    or reason.startswith("brak poprawnej daty")):
                 log("AI", f"Syntezy: pominięto {topic.get('headline_pl') or topic.get('topic_id')}: {reason}.")
 
         for topic in topics:
             topic_id = str(topic.get("topic_id") or "")
             if only_topic_ids is not None and topic_id not in only_topic_ids:
+                continue
+            try:
+                last_seen_at = datetime.fromisoformat(str(topic.get("last_seen_at") or "").replace("Z", "+00:00"))
+                if last_seen_at.tzinfo is None:
+                    last_seen_at = last_seen_at.replace(tzinfo=timezone.utc)
+            except ValueError:
+                skipped(topic, "brak poprawnej daty ostatniej aktywności")
+                continue
+            if last_seen_at < queue_cutoff:
+                skipped(topic, f"poza oknem {TOPIC_MATCH_LOOKBACK_HOURS} godzin")
                 continue
             all_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
             if not topic_id or len(all_ids) < 2:
@@ -4309,6 +4322,7 @@ def retry_incomplete_summaries(
             summary_jobs.append({
                 "topic_id": topic_id,
                 "title": str(topic.get("headline_pl") or topic_id),
+                "last_seen_at": last_seen_at,
                 "new_ids": new_ids,
                 "new_rows": new_rows,
                 "all_rows": all_rows,
@@ -4328,6 +4342,13 @@ def retry_incomplete_summaries(
         total_jobs = len(summary_jobs)
         log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania.")
         for index, job in enumerate(summary_jobs, start=1):
+            # A long queue can outlive the window: check again before paying
+            # for generation, including jobs explicitly requested after merge.
+            current_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
+            if job["last_seen_at"] < current_cutoff:
+                log("AI", f"Synteza {index}/{total_jobs}: pominięto {job['title']}: "
+                    f"poza oknem {TOPIC_MATCH_LOOKBACK_HOURS} godzin po oczekiwaniu w kolejce.")
+                continue
             topic_id = job["topic_id"]
             new_ids = job["new_ids"]
             new_rows = job["new_rows"]
