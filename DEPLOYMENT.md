@@ -107,47 +107,19 @@ bez czekania na zakończenie całego przebiegu. Wątki spełniające kryteria ź
 mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
 dodatkowego warunku ukrywania wątku.
 
-Główny przebieg wybiera kandydatów wyłącznie przez embeddingi (podobieństwo
-co najmniej 0,86, bez limitu sąsiadów). Filtr słów i fraz jest
-używany awaryjnie, gdy embeddingi są wyłączone lub niedostępne. Poprawne
-obliczenie embeddingów z zerem par nie uruchamia dodatkowego filtra słów.
-Filtr awaryjny wymaga trzech wspólnych charakterystycznych rdzeni słów
-albo jednej wspólnej frazy z dwóch takich słów. Niezależne grupy kandydatów
-są pakowane razem, do 80 tematów na grupę i paczkę; AI porównuje wyłącznie tematy
-w obrębie tej samej grupy. Nakładające się grupy zachowują osobne paczki.
-Wszystkie utworzone paczki weryfikacji scalania trafiają do AI w tym samym
-przebiegu. Ich liczba wynika z ostrzejszej selekcji i pakowania grup, nie
-z twardego limitu zapytań. Dawna zmienna `AI_TOPIC_MERGE_MAX_REQUESTS` nie jest
-już używana, więc pozostawiona w ustawieniach repozytorium nie ucina paczek.
-Limit `AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST` ma domyślnie 80 i jest
-ograniczony w kodzie do maksimum 80, także przy starej wartości 100 w GitHub.
-Retry po błędzie API może ponowić tę samą paczkę. Ostrzejsza selekcja zmniejsza
-liczbę porównań, ale słabiej podobne relacje mogą pozostać osobno.
+Główny przebieg scala automatycznie wszystkie pary embeddingów o podobieństwie
+co najmniej 0,86, bez limitu sąsiadów i bez zapytań do AI o zatwierdzenie.
+Tworzy spójne grupy: A–B i B–C nad progiem oznaczają wspólny wątek A/B/C.
+AI opracowuje później tytuł zachowanego wątku oraz syntezę lub aktualizację.
+Zachowuje tożsamość wątku z istniejącą syntezą i przekazuje przeniesione
+artykuły do kolejki aktualizacji. Brak dostępnych embeddingów w głównym
+przebiegu jest błędem scalania; artykuły pozostają zapisane do ponowienia
+`ai-only`. Nie ma wtedy weryfikacji scalania przez AI ani filtra słów.
 
-## Ponowienie przerwanego scalania
-
-Scalanie z GPT-5 nano/mini używa `reasoning.effort=minimal`; nie zmienia to
-rozumowania przy syntezach ani selekcji przez embeddingi. Odpowiedź jest
-ograniczona do identyfikatorów z bieżącej paczki i krótkich propozycji scalenia.
-Po `max_output_tokens` program dzieli paczkę, najpierw rozdzielając całe
-grupy. Jeśli trzeba podzielić jedną grupę, zachowuje każdą wybraną parę w
-co najmniej jednej mniejszej paczce. Nie przyjmuje uciętego JSON-u.
-Logi pokazują liczbę rzeczywistych wywołań, podziałów, nierozwiązanych błędów
-oraz tokeny wejścia, wyjścia i rozumowania, także dla uciętych odpowiedzi.
-Pozostałe błędy scalania lub syntez kończą główny workflow kodem 1;
-poprawnie zapisane wyniki są zachowane.
-
-Do ponowienia wybierz nowy `Run workflow` z gałęzi `main` i tryb `ai-only`.
-Nie używaj `Re-run jobs`, który uruchamia kod wcześniejszego commita.
-Już nazwane artykuły nie wymagają ponownego pobierania ani resetowania
-przypisań: ich aktywne kandydatury z okna 55 godzin ponownie trafiają do
-scalania. Nie jest potrzebna migracja SQL ani czyszczenie bazy.
-
-Główny przebieg przekazuje do kolejki syntez także jawny wykaz artykułów
-przeniesionych podczas scalania, tak jak tryb naprawczy istniejących syntez.
-Kolejka loguje liczby odczytanych tematów, powiązań i analiz oraz powody
-pominięcia. Dla wątków scalonych w tym przebiegu podaje też tytuł i konkretny
-powód pominięcia. Jedno źródło nadal nie wystarcza do syntezy.
+Osobny tryb naprawczy `merge-existing-summaries` zachowuje wcześniejszą
+weryfikację przez AI i awaryjny filtr słów. Jego paczki są ograniczane do 80
+rekordów, a po ucięciu odpowiedzi dzielone z zachowaniem wybranych par.
+Główny przebieg nie korzysta już z tych paczek ani limitu ich rozmiaru.
 
 ## Aktualizacje bez powtarzania faktów
 
@@ -241,3 +213,5 @@ Główny przebieg zapisuje próbki porównań jako `EMBEDDING_DIAGNOSTICS` w
 `topic_runs`, bez dodatkowych wywołań OpenAI i bez migracji bazy. Po nowym
 `full` lub `ai-only` uruchom [sql_embedding_samples.sql](sql_embedding_samples.sql).
 Opis zakresów i ograniczeń próbki: [EMBEDDING_DIAGNOSTICS.md](EMBEDDING_DIAGNOSTICS.md).
+
+Próbki podobieństwa od 0,60 do 0,86: [sql_embedding_score_bands.sql](sql_embedding_score_bands.sql).

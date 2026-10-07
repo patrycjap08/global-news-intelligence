@@ -1,6 +1,6 @@
 -- Tylko odczyt. Uruchom po nowym full lub ai-only na aktualnym main.
 -- Historyczne przebiegi sprzed EMBEDDING_DIAGNOSTICS nie mają tych danych.
--- Embedding wybiera kandydatów; selected_for_ai nie oznacza scalenia przez AI.
+-- Nowy główny workflow scala po embeddingach; stare raporty dotyczyły oceny AI.
 -- Próbki są celowo wybierane blisko progu i z różnych par; nie są reprezentatywne.
 
 with latest as (
@@ -33,7 +33,7 @@ select
     (raw_output ->> 'threshold')::numeric as prog,
     round((sample ->> 'similarity')::numeric
           - (raw_output ->> 'threshold')::numeric, 6) as odleglosc_od_progu,
-    (sample ->> 'selected_for_ai')::boolean as wybrane_do_oceny_ai,
+    coalesce(sample ->> 'selected_for_merge', sample ->> 'selected_for_ai')::boolean as wybrane_do_scalania,
     (sample ->> 'rank_a_to_b')::integer as pozycja_b_wsrod_sasiadow_a,
     (sample ->> 'rank_b_to_a')::integer as pozycja_a_wsrod_sasiadow_b,
     coalesce(raw_output ->> 'top_k', 'bez limitu') as limit_sasiadow,
@@ -55,7 +55,7 @@ select
     coalesce(raw_output ->> 'top_k', 'bez limitu') as limit_sasiadow,
     (raw_output ->> 'topic_count')::integer as porownane_tematy,
     (raw_output ->> 'compared_pairs')::bigint as wszystkie_porownane_pary,
-    (raw_output ->> 'selected_pair_count')::integer as pary_wybrane_do_ai,
+    (raw_output ->> 'selected_pair_count')::integer as pary_wybrane_do_scalania,
     coalesce((raw_output #>> '{bucket_pair_counts,BELOW_THRESHOLD}')::integer, 0)
         as pary_tuz_pod_progiem,
     coalesce((raw_output #>> '{bucket_pair_counts,ABOVE_THRESHOLD_OUTSIDE_TOP_K}')::integer, 0)

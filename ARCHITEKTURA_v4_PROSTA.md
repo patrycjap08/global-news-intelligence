@@ -140,18 +140,17 @@ AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 
 Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do istniejącego tematu, zamiast tworzyć drugi prawie identyczny temat.
 
-Po zakończeniu grupowania AI 1 lokalny filtr wyszukuje kandydackie grupy tematów
-na podstawie co najmniej trzech wspólnych charakterystycznych rdzeni słów
-albo wspólnej frazy z dwóch takich słów. Embeddingi wybierają wszystkie pary
-przy podobieństwie co najmniej 0.86, bez limitu sąsiadów. Niezależne grupy są
-pakowane razem z osobnymi identyfikatorami; wszystkie utworzone paczki
-weryfikacji scalania trafiają do AI bez ograniczania ich liczby. Tematy bez lokalnego lub semantycznego podobieństwa
-nie trafiają do tego wywołania, a dane każdego kandydata są skrócone do nazwy,
-jednozdaniowego opisu i kilku najnowszych nagłówków.
+Po nazwaniu kandydatów główny przebieg wylicza embeddingi i automatycznie
+scala wszystkie pary o podobieństwie co najmniej 0.86, bez limitu sąsiadów
+oraz bez weryfikacji decyzji przez AI. Połączenia łańcuchowe tworzą jeden
+wątek. AI opracowuje potem tytuł i syntezę lub aktualizację. Istniejąca
+synteza zachowanego wątku pozostaje bazą; przeniesione artykuły trafiają do
+kolejki analizy. Diagnostyczne próbki wyników od 0.60 są zapisywane oddzielnie
+w `topic_runs` i nie zmieniają progu automatycznego scalania.
 
 Temat nie powinien być rozumiany jako „wszystko o tej samej osobie”. Grupa oznacza to samo konkretne wydarzenie, decyzję, wypowiedź albo rozwój tej samej sprawy. Osobny materiał o tej samej osobie, ale o innym wydarzeniu, pozostaje osobnym tematem.
 
-Jeżeli AI nie ma wystarczającej pewności, tworzy osobną grupę z oznaczeniem needs_review, zamiast wymuszać połączenie.
+W głównym przebiegu decyzja o scaleniu wynika z embeddingów, a nie z oceny pewności modelu AI.
 
 AI 1 rozróżnia nowy temat, dalszy ciąg istniejącego tematu oraz materiał
 uzupełniający. Przy dalszym ciągu AI 2 dostaje poprzednią agregację i nowe

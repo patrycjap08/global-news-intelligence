@@ -106,16 +106,16 @@ class MergeCandidateLimitTests(unittest.TestCase):
             self.assertTrue(any(set(pair).issubset(group) for group in groups))
             self.assertTrue(any(set(pair).issubset({row["topic_id"] for row in request}) for request in requests))
 
-    def test_normal_selection_uses_words_only_when_embeddings_unavailable(self):
+    def test_normal_selection_never_calls_ai_verification_even_when_embeddings_unavailable(self):
         topics = [
             {"topic_id": "a", "headline_pl": "Falcon bada Artemis nad Orion"},
             {"topic_id": "b", "headline_pl": "Orion obserwuje Artemis razem Falcon"},
         ]
         for embedding_result, enabled, expected_calls in (
             ({}, True, 0),  # A successful zero-match result must remain empty.
-            ({("a", "b"): 0.95}, True, 1),
-            (RuntimeError("Embedding outage"), True, 1),
-            ({}, False, 1),
+            ({("a", "b"): 0.95}, True, 0),
+            (RuntimeError("Embedding outage"), True, 0),
+            ({}, False, 0),
         ):
             with self.subTest(result=embedding_result, enabled=enabled):
                 client = FakeMergeClient(topics, [], [])

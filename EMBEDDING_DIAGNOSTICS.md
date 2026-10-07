@@ -15,8 +15,8 @@ Pierwsze zapytanie pokazuje po pięć przykładów z każdej dostępnej kategori
 Przy progu 0,86 zakres tuż pod progiem to 0,83–0,86. Dokładna wartość
 progu jest zapisana w każdym raporcie, więc zmiana konfiguracji nie zmienia
 interpretacji dawnych próbek. Wynik podobieństwa nie jest prawdopodobieństwem
-ani `confidence` oceniającego modelu AI. Wybrana para to kandydatura do oceny,
-a nie decyzja o scaleniu. Podobieństwo bliskie 1 może także wynikać z podobnych
+ani `confidence` oceniającego modelu AI. W głównym workflow wybrane pary są scalane automatycznie; AI nie
+weryfikuje już decyzji. Starsze raporty pokazywały kandydatury do oceny AI. Podobieństwo bliskie 1 może także wynikać z podobnych
 szablonów tytułów, np. codziennych serwisów informacyjnych.
 
 Pozycje są liczone niezależnie dla obu kierunków. W głównym przebiegu nie
@@ -42,3 +42,19 @@ embeddingów nie tworzy nowego raportu: wtedy SQL pokazuje ostatni wcześniejszy
 więc sprawdź datę. Błąd zapisu jest ostrzeżeniem w logach; nie powoduje przejścia
 na filtr słów ani przerwania scalania. Dane diagnostyczne nie są udostępniane
 przez publiczne widoki aplikacji.
+
+## Przedziały aż do 0,60
+
+Po nowym przebiegu uruchom [sql_embedding_score_bands.sql](sql_embedding_score_bands.sql).
+To jedno zapytanie pokazuje do pięciu par w każdym przedziale co 0,02 od
+0,84–0,86 do 0,60–0,62. Zachowujemy pięć par najbliższych dolnej granicy
+przedziału oraz pełny licznik par w przedziale, bez dodatkowych wywołań API.
+Puste przedziały mają NULL w tytułach. Niższe wyniki są diagnostyczne; próg
+scalania pozostaje 0,86. Nowe próbki mają `selected_for_merge`; pole
+`selected_for_ai` jest false, bo decyzja nie jest wysyłana do modelu.
+
+Scalanie działa na spójnych grupach: jeżeli A–B i B–C przekraczają próg,
+A, B i C tworzą jeden wątek, nawet jeśli A–C nie przekracza progu. AI opracowuje
+potem tytuł oraz syntezę/aktualizację. Faktyczne scalenia są zapisywane w
+`topic_runs` jako `EMBEDDING_MERGE`, z zachowanym identyfikatorem wątku,
+listą połączonych tematów i minimalnym wynikiem wybranej krawędzi.

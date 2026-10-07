@@ -17,11 +17,10 @@ artykułów przez RSS/sitemapy/sekcje oraz stronę główną jako fallback, zapi
 grupowanie AI 1 i opracowania AI 2. Klucze nie są wpisane do kodu.
 
 Integracja z X została usunięta. Analiza korzysta z artykułów prasowych.
-Selekcja kandydatów semantycznych wymaga podobieństwa co najmniej 0.86 i
-wybiera wszystkie pary nad progiem, bez limitu sąsiadów. Awaryjny filtr słów wymaga trzech
-charakterystycznych wspólnych rdzeni albo wspólnej frazy. Niezależne grupy
-są pakowane razem. Wszystkie utworzone paczki weryfikacji scalania trafiają
-do AI, bez ucinania ich liczby. Szczegóły konfiguracji są w `DEPLOYMENT.md`.
+Główny przebieg automatycznie scala wszystkie pary embeddingów o podobieństwie
+co najmniej 0.86, bez limitu sąsiadów i bez zatwierdzania przez AI. AI następnie
+opracowuje tytuł i syntezę/aktualizację. Połączenia łańcuchowe tworzą jeden
+wątek. Szczegóły konfiguracji są w `DEPLOYMENT.md`.
 
 Aktualizacje powstają tylko wtedy, gdy nowe artykuły dodają fakty do syntezy
 i całej wcześniejszej historii. Wynik `NO_NEW_INFORMATION` zachowuje artykuły

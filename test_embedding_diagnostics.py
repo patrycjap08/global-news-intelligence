@@ -101,7 +101,7 @@ class EmbeddingDiagnosticsTests(unittest.TestCase):
             ai, '_topic_merge_candidate_edges', side_effect=AssertionError('Lexical fallback must not run'),
         ), patch.object(ai, 'call_openai', return_value={'merge_groups': []}) as model:
             stats = ai.merge_active_topics(Path(folder)/'db.sqlite3', 'harvest', client, prefer_embeddings=True)
-        model.assert_called_once()
+        model.assert_not_called()
         self.assertEqual(stats['semantic_candidate_edges'], 1)
         self.assertEqual(stats['merge_failed'], 0)
         self.assertTrue(any('Nie zapisano próbek embeddingów' in str(call) for call in logger.call_args_list))

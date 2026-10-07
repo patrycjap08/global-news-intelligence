@@ -515,6 +515,8 @@ def build_embedding_candidate_edges(
     diagnostic_floor = max(-1.0, min_similarity - 0.03)
     pair_scores: dict[tuple[str, str], float] = {}
     neighbor_ranks: dict[str, dict[str, int]] = {}
+    score_band_heaps: dict[int, list[tuple[float, str, str]]] = defaultdict(list)
+    score_band_counts: dict[int, int] = defaultdict(int)
     for index, vector in enumerate(embeddings):
         scored: list[tuple[float, int]] = []
         diagnostic_neighbors: list[tuple[float, int]] = []
@@ -522,6 +524,13 @@ def build_embedding_candidate_edges(
             if index == other_index:
                 continue
             similarity = _cosine_similarity(vector, other_vector)
+            if diagnostics is not None and index < other_index and 0.60 <= similarity < 0.86:
+                band = int(similarity * 50)
+                left, right = sorted((str(topic_ids[index]), str(topic_ids[other_index])))
+                score_band_counts[band] += 1
+                heapq.heappush(score_band_heaps[band], (-similarity, left, right))
+                if len(score_band_heaps[band]) > 5:
+                    heapq.heappop(score_band_heaps[band])
             if similarity >= min_similarity:
                 scored.append((similarity, other_index))
             if diagnostics is not None and similarity >= diagnostic_floor:
@@ -574,6 +583,16 @@ def build_embedding_candidate_edges(
             "bucket_pair_counts": {bucket: len(rows) for bucket, rows in buckets.items()},
             "sampling": "Up to 20 per bucket: 10 closest to threshold + 10 deterministic spread; not representative.",
             "samples": samples,
+            "score_band_floor": 0.60,
+            "score_band_sampling": "Up to five unique pairs closest to each band's lower bound; not representative.",
+            "score_band_pair_counts": {str(band / 50): count for band, count in score_band_counts.items()},
+            "score_band_samples": [
+                {"topic_id_a": left, "topic_id_b": right, "similarity": -negative_score,
+                 "band_lower": band / 50, "band_upper": (band + 1) / 50,
+                 "selected_for_ai": (left, right) in edges}
+                for band, heap in sorted(score_band_heaps.items(), reverse=True)
+                for negative_score, left, right in sorted(heap, reverse=True)
+            ],
         })
     return edges
 
@@ -668,7 +687,7 @@ def build_topic_embedding_candidate_edges(
     edges = build_embedding_candidate_edges(topic_ids, embeddings, diagnostics=diagnostics)
     if diagnostics is not None:
         snapshot = {str(topic["topic_id"]): (topic, text) for topic, text in zip(topics, texts)}
-        for sample in diagnostics.get("samples", []):
+        for sample in diagnostics.get("samples", []) + diagnostics.get("score_band_samples", []):
             for suffix in ("a", "b"):
                 topic, text = snapshot[sample[f"topic_id_{suffix}"]]
                 sample[f"title_{suffix}"] = str(topic.get("headline_pl") or "")
@@ -679,7 +698,7 @@ def build_topic_embedding_candidate_edges(
         "AI",
         f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
         f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; "
-        "są to kandydatury wymagające weryfikacji AI.",
+        "są to pary kwalifikujące się do połączenia.",
     )
     return edges
 
@@ -3067,11 +3086,18 @@ def merge_active_topics(
         except Exception as exc:
             log(
                 "AI",
-                "Semantyczna selekcja niedostępna; używam lokalnego filtra "
-                f"słów i fraz. Szczegóły: {short_text(exc, 180)}.",
+                "Semantyczna selekcja niedostępna; "
+                + ("pomijam automatyczne scalanie. " if prefer_embeddings else "używam lokalnego filtra słów i fraz. ")
+                + f"Szczegóły: {short_text(exc, 180)}.",
                 level="WARN",
             )
+        automatic_merge = prefer_embeddings and embeddings_available
         if embedding_diagnostics and embeddings_available:
+            embedding_diagnostics["selection_action"] = "AUTOMATIC_MERGE" if automatic_merge else "AI_VERIFICATION"
+            for sample in embedding_diagnostics.get("samples", []) + embedding_diagnostics.get("score_band_samples", []):
+                sample["selected_for_merge"] = sample["selected_for_ai"]
+                if automatic_merge:
+                    sample["selected_for_ai"] = False
             diagnostic_id = "topicrun_" + digest({
                 "run": run_id, "stage": "EMBEDDING_DIAGNOSTICS", "at": now(),
                 "topics": [topic["topic_id"] for topic in payload_topics],
@@ -3084,9 +3110,15 @@ def merge_active_topics(
                     "status": "COMPLETED", "raw_output": embedding_diagnostics, "error": None,
                 }], on_conflict="topic_run_id")
                 log("AI", f"Diagnostyka embeddingów: zapisano {len(embedding_diagnostics['samples'])} "
-                    "próbek w topic_runs (EMBEDDING_DIAGNOSTICS).")
+                    f"próbek przy progu i {len(embedding_diagnostics.get('score_band_samples', []))} "
+                    "próbek w przedziałach od 0.60 w topic_runs (EMBEDDING_DIAGNOSTICS).")
             except Exception as exc:
                 log("AI", f"Nie zapisano próbek embeddingów; scalanie działa dalej: {short_text(exc, 180)}.", level="WARN")
+        if prefer_embeddings and not embeddings_available:
+            stats["merge_failed"] += 1
+            log("AI", "Automatyczne scalanie wymaga dostępnych embeddingów. "
+                "Nie scalono wątków; dane zachowane, ponów ai-only.", level="ERROR")
+            return stats
         include_lexical_candidates = not (prefer_embeddings and embeddings_available)
         if prefer_embeddings:
             log(
@@ -3099,11 +3131,12 @@ def merge_active_topics(
             )
         candidate_groups = build_topic_merge_candidate_groups(
             payload_topics,
+            max_topics_per_group=len(payload_topics) if automatic_merge else TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
             semantic_edges=semantic_edges,
-            preserve_candidate_edges=True,
+            preserve_candidate_edges=not automatic_merge,
             include_lexical_candidates=include_lexical_candidates,
         )
-        merge_requests = build_topic_merge_requests(
+        merge_requests = [] if automatic_merge else build_topic_merge_requests(
             payload_topics,
             candidate_groups=candidate_groups,
             preserve_candidate_group_overlap=True,
@@ -3127,10 +3160,25 @@ def merge_active_topics(
             f"par semantycznych: {stats['semantic_candidate_edges']}, "
             f"zapytań do AI: {len(merge_requests)}.",
         )
-        if not merge_requests:
+        if not merge_requests and not automatic_merge:
             return stats
 
         raw_groups: list[dict[str, Any]] = []
+        if automatic_merge:
+            log("AI", "Scalanie automatyczne: łączę grupy połączone parami embeddingów "
+                f"nad progiem {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; bez zapytań do AI o zgodę.")
+            for group_ids in candidate_groups:
+                canonical_id = choose_merge_canonical_topic_id(
+                    group_ids, topic_by_id, summary_by_topic,
+                    summary_metadata_by_topic=summary_metadata_by_topic,
+                )
+                group_set = set(group_ids)
+                raw_groups.append({
+                    "topic_ids": group_ids,
+                    "confidence": min(score for pair, score in semantic_edges.items() if set(pair).issubset(group_set)),
+                    "merged_title_pl": str(topic_by_id[canonical_id].get("headline_pl") or ""),
+                    "reason": "Automatic embedding connected component",
+                })
         candidate_edges = set(semantic_edges)
         if include_lexical_candidates:
             candidate_edges.update(_topic_merge_candidate_edges(payload_topics)[0])
@@ -3271,7 +3319,7 @@ def merge_active_topics(
                 if str(value) in topic_by_id
             ))
             if (
-                confidence < TOPIC_MERGE_MIN_CONFIDENCE
+                (not automatic_merge and confidence < TOPIC_MERGE_MIN_CONFIDENCE)
                 or len(group_ids) < 2
                 or used_topic_ids.intersection(group_ids)
             ):
@@ -3432,10 +3480,23 @@ def merge_active_topics(
                         filters=[("topic_id", f"eq.{old_topic_id}")],
                     )
             stats["topics_merged"] += len(group_ids)
+            if automatic_merge:
+                client.upsert("topic_runs", [{
+                    "topic_run_id": "topicrun_" + digest({"run": run_id, "stage": "EMBEDDING_MERGE",
+                                                         "topics": sorted(group_ids), "at": merge_timestamp})[:24],
+                    "run_id": run_id, "stage": "EMBEDDING_MERGE", "prompt_version": PROMPT_VERSION,
+                    "model": TOPIC_MERGE_EMBEDDING_MODEL, "input_hash": digest(sorted(group_ids)),
+                    "status": "COMPLETED", "error": None,
+                    "raw_output": {"topic_ids": group_ids, "canonical_topic_id": canonical_id,
+                                   "minimum_edge_similarity": confidence,
+                                   "threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
+                                   "grouping": "connected_component", "article_count": len(article_ids)},
+                }], on_conflict="topic_run_id")
             log(
                 "AI",
                 f"Scalono grupę tematów: {len(group_ids)} "
-                f"(pewność: {confidence:.2f}); zachowany temat zostanie sprawdzony w kolejce syntez.",
+                f"({'minimalny score embeddingów' if automatic_merge else 'pewność AI'}: {confidence:.2f}); "
+                "zachowany temat zostanie sprawdzony w kolejce syntez.",
             )
         return stats
     finally:
@@ -3491,6 +3552,7 @@ def normalize_topic_titles(
     client: SupabaseRestClient,
     *,
     model: str = DEFAULT_MODEL,
+    forced_topic_ids: set[str] | None = None,
 ) -> int:
     topics = client.select_all(
         "topics",
@@ -3530,7 +3592,8 @@ def normalize_topic_titles(
     }
     missing = [
         row for row in topics
-        if not is_usable_topic_title(row.get("headline_pl"))
+        if str(row["topic_id"]) in (forced_topic_ids or set())
+        or not is_usable_topic_title(row.get("headline_pl"))
         or has_composite_geo_prefix(row.get("headline_pl"))
         or is_article_title_copy(
             row.get("headline_pl"),
@@ -4818,7 +4881,9 @@ def analyze_run(
     stats["largest_candidate_group"] = merge_stats["largest_candidate_group"]
     stats["merge_requests"] = merge_stats["merge_requests"]
     log("AI", "Porządkowanie tematów: sprawdzam tytuły.")
-    stats["titles_normalized"] = normalize_topic_titles(client, model=model)
+    stats["titles_normalized"] = normalize_topic_titles(
+        client, model=model, forced_topic_ids=set(merged_article_ids_by_topic),
+    )
     log("AI", "Porządkowanie tematów: uzupełniam kategorie.")
     stats["categories_classified"] = classify_topic_categories(client, model=model)
     log(

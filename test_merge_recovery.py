@@ -69,7 +69,7 @@ class MergeRecoveryTests(unittest.TestCase):
         ) as model, patch.object(ai, "log"):
             stats = ai.merge_active_topics(
                 Path(folder) / "articles.sqlite3", "run", client,
-                model="gpt-5-nano", prefer_embeddings=True,
+                model="gpt-5-nano", prefer_embeddings=False,
             )
         return stats, client, model
 
