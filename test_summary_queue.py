@@ -76,6 +76,35 @@ class SummaryQueueTests(unittest.TestCase):
         persist.assert_not_called()
         self.assertTrue(any('po oczekiwaniu w kolejce' in str(call) for call in logger.call_args_list))
 
+    def test_category_fallback_only_requests_topics_still_missing_categories_after_synthesis(self):
+        class Client(FakeMergeClient):
+            def upsert(self, table, rows, *, on_conflict):
+                super().upsert(table, rows, on_conflict=on_conflict)
+                if table == 'topic_categories':
+                    self.rows[table].extend(rows)
+
+        client = Client(
+            [{'topic_id': key, 'headline_pl': 'Wątek ' + key, 'source_count': 2} for key in ['synthesized', 'missing']],
+            [{'topic_id': key, 'article_id': key} for key in ['synthesized', 'missing']], [],
+            articles=[{'article_id': key, 'source_profile': 'CENTER', 'title': 'Artykuł ' + key} for key in ['synthesized', 'missing']],
+        )
+        def finish_synthesis(*args, **kwargs):
+            ai.persist_topic_categories(client, 'synthesized', ['POLITYKA'])
+            return {'summaries': 1, 'failed_summaries': 0}
+        merge_stats = {key: 0 for key in ('merge_candidates', 'topics_merged', 'merge_failed', 'local_candidate_groups', 'local_candidate_topics', 'largest_candidate_group', 'merge_requests')}
+        with TemporaryDirectory() as folder, patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
+            ai, 'pending_articles', return_value=[],
+        ), patch.object(ai, 'merge_active_topics', return_value=merge_stats), patch.object(
+            ai, 'normalize_topic_titles', return_value=0,
+        ), patch.object(ai, 'retry_incomplete_summaries', side_effect=finish_synthesis), patch.object(
+            ai, 'call_openai', return_value={'categories': [{'topic_id': 'missing', 'categories': ['GOSPODARKA']}]},
+        ) as model, patch.object(ai, 'log'):
+            stats = ai.analyze_run(Path(folder) / 'articles.sqlite3', 'run', client)
+        model.assert_called_once()
+        self.assertEqual([t['topic_id'] for t in model.call_args.args[1]['topics']], ['missing'])
+        self.assertEqual(stats['categories_classified'], 1)
+        self.assertIn({'topic_id': 'synthesized', 'category': 'POLITYKA'}, client.rows['topic_categories'])
+
     def test_normal_pipeline_passes_moved_articles_to_final_summary_stage(self):
         merge_stats = {key: 0 for key in ('merge_candidates', 'topics_merged', 'merge_failed', 'local_candidate_groups', 'local_candidate_topics', 'largest_candidate_group', 'merge_requests')}
         def merge(*args, **kwargs):

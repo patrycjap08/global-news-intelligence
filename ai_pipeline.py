@@ -5095,8 +5095,6 @@ def analyze_run(
     stats["titles_normalized"] = normalize_topic_titles(
         client, model=model, forced_topic_ids=set(merged_article_ids_by_topic),
     )
-    log("AI", "Porządkowanie tematów: uzupełniam kategorie.")
-    stats["categories_classified"] = classify_topic_categories(client, model=model)
     log(
         "AI",
         "Etap 3/3 — syntezy: generuję jedną końcową syntezę lub aktualizację na temat.",
@@ -5112,6 +5110,8 @@ def analyze_run(
         f"Etap 3/3 zakończony: gotowe syntezy {stats['summaries']}, "
         f"nieudane {stats['failed_summaries']}.",
     )
+    log("AI", "Po syntezach: uzupełniam tylko brakujące kategorie.")
+    stats["categories_classified"] = classify_topic_categories(client, model=model)
     return stats
 
 

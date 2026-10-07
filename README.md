@@ -172,3 +172,8 @@ tylko aktywne wątki z `last_seen_at` z ostatnich 48 godzin. Brak lub błędna
 data wyklucza generowanie. Limit jest sprawdzany przy budowie kolejki
 i ponownie przed zapytaniem do AI, aby nie generować dla wątków, które
 przekroczyły go podczas oczekiwania. W logach pominięcia mają tytuł i powód.
+
+W głównym przebiegu kategorie są uzupełniane po syntezach i aktualizacjach.
+Kategorie zwrócone i zapisane wraz z syntezą nie wymagają osobnego zapytania.
+Końcowy klasyfikator obejmuje tylko kwalifikujące się wątki, które nadal
+nie mają kategorii, zachowując wcześniejsze przypisania.
