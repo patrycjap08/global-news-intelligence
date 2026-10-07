@@ -53,8 +53,18 @@ Puste przedziały mają NULL w tytułach. Niższe wyniki są diagnostyczne; pró
 scalania pozostaje 0,86. Nowe próbki mają `selected_for_merge`; pole
 `selected_for_ai` jest false, bo decyzja nie jest wysyłana do modelu.
 
-Scalanie działa na spójnych grupach: jeżeli A–B i B–C przekraczają próg,
-A, B i C tworzą jeden wątek, nawet jeśli A–C nie przekracza progu. AI opracowuje
+Scalanie zaczyna grupę od najsilniejszej dostępnej pary A–B. Każdy kolejny
+element musi osiągnąć próg z A albo B, które pozostają stałe; połączenie
+wyłącznie z późniejszym członkiem nie wystarcza. Pozostałe elementy mogą
+utworzyć osobne grupy. Przy remisie kolejność wyznaczają identyfikatory. AI opracowuje
 potem tytuł oraz syntezę/aktualizację. Faktyczne scalenia są zapisywane w
 `topic_runs` jako `EMBEDDING_MERGE`, z zachowanym identyfikatorem wątku,
 listą połączonych tematów i minimalnym wynikiem wybranej krawędzi.
+
+Raport zawiera `grouping = strongest_pair_anchors` oraz `anchored_groups`.
+Każda grupa zapisuje identyfikatory pary odniesienia, jej score oraz minimalny
+score do punktu odniesienia. `selected_for_merge` oznacza, że para przekracza
+próg i jej elementy trafiły do tej samej planowanej grupy. Licznik
+`selected_pair_count` nadal liczy wszystkie pary ponad progiem, także
+rozdzielone przez regułę punktów odniesienia. Faktycznie zapisane scalenia
+należy sprawdzać w `EMBEDDING_MERGE`, gdzie są również dane pary odniesienia.

@@ -141,9 +141,11 @@ AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do istniejącego tematu, zamiast tworzyć drugi prawie identyczny temat.
 
 Po nazwaniu kandydatów główny przebieg wylicza embeddingi i automatycznie
-scala wszystkie pary o podobieństwie co najmniej 0.86, bez limitu sąsiadów
-oraz bez weryfikacji decyzji przez AI. Połączenia łańcuchowe tworzą jeden
-wątek. AI opracowuje potem tytuł i syntezę lub aktualizację. Istniejąca
+wybiera pary o podobieństwie co najmniej 0.86, bez limitu sąsiadów
+oraz bez weryfikacji decyzji przez AI. Grupa zaczyna się od najsilniejszej dostępnej pary. Każdy
+dołączany element musi osiągnąć próg z co najmniej jednym z tych dwóch
+stałych punktów odniesienia; samo połączenie z późniejszym członkiem grupy
+nie wystarcza. Pozostałe elementy mogą utworzyć osobne grupy. AI opracowuje potem tytuł i syntezę lub aktualizację. Istniejąca
 synteza zachowanego wątku pozostaje bazą; przeniesione artykuły trafiają do
 kolejki analizy. Diagnostyczne próbki wyników od 0.60 są zapisywane oddzielnie
 w `topic_runs` i nie zmieniają progu automatycznego scalania.

@@ -109,7 +109,11 @@ dodatkowego warunku ukrywania wątku.
 
 Główny przebieg scala automatycznie wszystkie pary embeddingów o podobieństwie
 co najmniej 0,86, bez limitu sąsiadów i bez zapytań do AI o zatwierdzenie.
-Tworzy spójne grupy: A–B i B–C nad progiem oznaczają wspólny wątek A/B/C.
+Grupę rozpoczyna najsilniejsza dostępna para, której dwa elementy pozostają
+stałymi punktami odniesienia. Każdy dołączany element musi osiągnąć próg
+0.86 z przynajmniej jednym z nich. Samo podobieństwo do później dołączonego
+elementu nie wystarcza. Nie ma limitu wielkości grupy; pozostałe elementy
+mogą utworzyć osobne grupy według tej samej zasady.
 AI opracowuje później tytuł zachowanego wątku oraz syntezę lub aktualizację.
 Zachowuje tożsamość wątku z istniejącą syntezą i przekazuje przeniesione
 artykuły do kolejki aktualizacji. Brak dostępnych embeddingów w głównym

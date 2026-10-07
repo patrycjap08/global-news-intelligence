@@ -41,9 +41,11 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
         journal = [row for table, rows, _ in client.upserts if table == 'topic_runs' for row in rows]
         self.assertEqual(journal[0]['stage'], 'EMBEDDING_MERGE')
         self.assertAlmostEqual(journal[0]['raw_output']['minimum_edge_similarity'], .87)
+        self.assertEqual(journal[0]['raw_output']['anchor_topic_ids'], ['a', 'b'])
+        self.assertEqual(journal[0]['raw_output']['grouping'], 'strongest_pair_anchors')
         self.assertEqual({t['topic_id'] for t in client.rows['topics'] if t['status']=='MERGED'}, {'a','c'})
 
-    def test_automatic_component_is_not_split_at_old_ai_batch_size(self):
+    def test_long_chain_is_split_by_anchor_rule_without_ai(self):
         topics = [{'topic_id': str(i), 'headline_pl': str(i)} for i in range(100)]
         client = FakeMergeClient(topics, [], [])
         with TemporaryDirectory() as folder, patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
@@ -52,9 +54,30 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
             ai, 'call_openai', side_effect=AssertionError('No merge verification'),
         ), patch.object(ai, 'log'):
             stats = ai.merge_active_topics(Path(folder)/'db', 'run', client, prefer_embeddings=True)
-        self.assertEqual(stats['largest_candidate_group'], 100)
-        self.assertEqual(stats['local_candidate_groups'], 1)
+        self.assertLessEqual(stats['largest_candidate_group'], 4)
+        self.assertGreater(stats['local_candidate_groups'], 1)
         self.assertEqual(stats['merge_requests'], 0)
+
+    def test_strongest_pair_is_fixed_and_leftovers_can_seed_another_group(self):
+        edges = {('a', 'b'): .90, ('b', 'c'): .97, ('c', 'd'): .88,
+                 ('d', 'e'): .91, ('e', 'f'): .87, ('b', 'g'): .85}
+        groups = ai.build_anchored_embedding_groups(list('abcdefg'), edges)
+        self.assertEqual(groups[0]['anchor_topic_ids'], ['b', 'c'])
+        self.assertEqual(groups[0]['topic_ids'], list('abcd'))
+        self.assertEqual(groups[1]['topic_ids'], ['e', 'f'])
+        self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .88)
+        self.assertEqual(groups, ai.build_anchored_embedding_groups(
+            list('gfedcba'), dict(reversed(list(edges.items())))))
+        self.assertNotIn('g', {t for group in groups for t in group['topic_ids']})
+
+    def test_anchor_rule_does_not_limit_group_size(self):
+        ids = [str(i) for i in range(120)]
+        edges = {('0', '1'): .99}
+        edges.update({('0', str(i)): .86 for i in range(2, 120)})
+        groups = ai.build_anchored_embedding_groups(ids, edges)
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(len(groups[0]['topic_ids']), 120)
+        self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .86)
 
     def test_diagnostic_bands_cover_all_thirteen_ranges_without_changing_selection(self):
         for n in range(30,43):

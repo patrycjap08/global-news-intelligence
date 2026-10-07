@@ -703,6 +703,47 @@ def build_topic_embedding_candidate_edges(
     return edges
 
 
+def build_anchored_embedding_groups(
+    topic_ids: list[str],
+    semantic_edges: dict[tuple[str, str], float],
+    *,
+    threshold: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
+) -> list[dict[str, Any]]:
+    """Seed each group with its strongest available pair; keep both anchors fixed.
+
+    Every added topic must have a qualifying edge to at least one anchor.
+    A connection to a later member alone cannot extend the chain. Unclaimed
+    topics can seed their own group; qualifying singletons remain untouched.
+    Ties use topic IDs, making the partition independent of input order.
+    """
+    available = set(topic_ids)
+    edges: dict[tuple[str, str], float] = {}
+    neighbors: dict[str, dict[str, float]] = {}
+    for (a, b), score in semantic_edges.items():
+        if a == b or a not in available or b not in available or score < threshold:
+            continue
+        pair = tuple(sorted((a, b)))
+        edges[pair] = max(score, edges.get(pair, score))
+    for (a, b), score in edges.items():
+        neighbors.setdefault(a, {})[b] = score
+        neighbors.setdefault(b, {})[a] = score
+    groups: list[dict[str, Any]] = []
+    for (a, b), score in sorted(edges.items(), key=lambda item: (-item[1], item[0])):
+        if a not in available or b not in available:
+            continue
+        members = ({a, b} | set(neighbors[a]) | set(neighbors[b])) & available
+        anchor_scores = [score] + [
+            max(neighbors[a].get(member, -1.0), neighbors[b].get(member, -1.0))
+            for member in members - {a, b}
+        ]
+        groups.append({
+            "topic_ids": sorted(members), "anchor_topic_ids": [a, b],
+            "anchor_similarity": score, "minimum_anchor_similarity": min(anchor_scores),
+        })
+        available.difference_update(members)
+    return groups
+
+
 def build_topic_merge_candidate_groups(
     topics: list[dict[str, Any]],
     *,
@@ -3132,12 +3173,26 @@ def merge_active_topics(
                 level="WARN",
             )
         automatic_merge = prefer_embeddings and embeddings_available
+        anchored_groups = build_anchored_embedding_groups(
+            [str(topic["topic_id"]) for topic in payload_topics], semantic_edges,
+        ) if automatic_merge else []
+        anchored_group_by_topic = {
+            topic_id: index for index, group in enumerate(anchored_groups)
+            for topic_id in group["topic_ids"]
+        }
         if embedding_diagnostics and embeddings_available:
             embedding_diagnostics["selection_action"] = "AUTOMATIC_MERGE" if automatic_merge else "AI_VERIFICATION"
             for sample in embedding_diagnostics.get("samples", []) + embedding_diagnostics.get("score_band_samples", []):
                 sample["selected_for_merge"] = sample["selected_for_ai"]
                 if automatic_merge:
+                    a, b = sample["topic_id_a"], sample["topic_id_b"]
+                    sample["selected_for_merge"] = bool(sample["selected_for_merge"] and
+                        a in anchored_group_by_topic and
+                        anchored_group_by_topic[a] == anchored_group_by_topic.get(b))
                     sample["selected_for_ai"] = False
+            if automatic_merge:
+                embedding_diagnostics["grouping"] = "strongest_pair_anchors"
+                embedding_diagnostics["anchored_groups"] = anchored_groups
             diagnostic_id = "topicrun_" + digest({
                 "run": run_id, "stage": "EMBEDDING_DIAGNOSTICS", "at": now(),
                 "topics": [topic["topic_id"] for topic in payload_topics],
@@ -3169,7 +3224,7 @@ def merge_active_topics(
                     else "awaryjny filtr słów i fraz — embeddingi niedostępne."
                 ),
             )
-        candidate_groups = build_topic_merge_candidate_groups(
+        candidate_groups = [group["topic_ids"] for group in anchored_groups] if automatic_merge else build_topic_merge_candidate_groups(
             payload_topics,
             max_topics_per_group=len(payload_topics) if automatic_merge else TOPIC_MERGE_MAX_TOPICS_PER_REQUEST,
             semantic_edges=semantic_edges,
@@ -3205,9 +3260,11 @@ def merge_active_topics(
 
         raw_groups: list[dict[str, Any]] = []
         if automatic_merge:
-            log("AI", "Scalanie automatyczne: łączę grupy połączone parami embeddingów "
-                f"nad progiem {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; bez zapytań do AI o zgodę.")
-            for group_ids in candidate_groups:
+            log("AI", "Scalanie automatyczne: grupa zaczyna się od najsilniejszej pary; "
+                f"każdy kolejny element musi mieć score co najmniej {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} "
+                "z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
+            for anchor_group in anchored_groups:
+                group_ids = anchor_group["topic_ids"]
                 canonical_id = choose_merge_canonical_topic_id(
                     group_ids, topic_by_id, summary_by_topic,
                     summary_metadata_by_topic=summary_metadata_by_topic,
@@ -3217,7 +3274,10 @@ def merge_active_topics(
                     "topic_ids": group_ids,
                     "confidence": min(score for pair, score in semantic_edges.items() if set(pair).issubset(group_set)),
                     "merged_title_pl": str(topic_by_id[canonical_id].get("headline_pl") or ""),
-                    "reason": "Automatic embedding connected component",
+                    "reason": "Automatic embedding group with strongest-pair anchors",
+                    "anchor_topic_ids": anchor_group["anchor_topic_ids"],
+                    "anchor_similarity": anchor_group["anchor_similarity"],
+                    "minimum_anchor_similarity": anchor_group["minimum_anchor_similarity"],
                 })
         candidate_edges = set(semantic_edges)
         if include_lexical_candidates:
@@ -3530,7 +3590,10 @@ def merge_active_topics(
                     "raw_output": {"topic_ids": group_ids, "canonical_topic_id": canonical_id,
                                    "minimum_edge_similarity": confidence,
                                    "threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
-                                   "grouping": "connected_component", "article_count": len(article_ids)},
+                                   "grouping": "strongest_pair_anchors", "article_count": len(article_ids),
+                                   "anchor_topic_ids": raw_group["anchor_topic_ids"],
+                                   "anchor_similarity": raw_group["anchor_similarity"],
+                                   "minimum_anchor_similarity": raw_group["minimum_anchor_similarity"]},
                 }], on_conflict="topic_run_id")
             log(
                 "AI",
