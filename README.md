@@ -184,3 +184,8 @@ długości. Każdy wpis ma decyzję KEEP z nazwą albo kategorię odrzucenia
 z uzasadnieniem. Kod sprawdza kompletność przed jakimkolwiek zapisem
 artykułów lub kandydatów. Niepoprawne decyzje zapisują surową odpowiedź
 i szczegóły błędu w historii LABELING oraz w logach.
+
+Syntezy i aktualizacje w głównym przebiegu oraz AI-only są generowane
+od wątków z największą łączną liczbą unikalnych podpiętych artykułów.
+Przy remisie pierwszeństwo ma nowsze `last_seen_at`, a następnie identyfikator
+wątku dla stabilnej kolejności. Liczba nowych artykułów nie zmienia priorytetu.

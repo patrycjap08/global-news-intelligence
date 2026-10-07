@@ -4367,6 +4367,7 @@ def retry_incomplete_summaries(
                 "topic_id": topic_id,
                 "title": str(topic.get("headline_pl") or topic_id),
                 "last_seen_at": last_seen_at,
+                "article_count": len(all_ids),
                 "new_ids": new_ids,
                 "new_rows": new_rows,
                 "all_rows": all_rows,
@@ -4375,6 +4376,9 @@ def retry_incomplete_summaries(
                 "summary_input_base": summary_input_base,
             })
 
+        summary_jobs.sort(key=lambda job: (
+            -job["article_count"], -job["last_seen_at"].timestamp(), job["topic_id"],
+        ))
         log("AI", f"Kolejka syntez: aktywnych tematów: {len(topics)}, "
             f"powiązań z artykułami: {len(links)}, zapisanych analiz: {len(summaries)}, "
             f"zakwalifikowanych: {len(summary_jobs)}; powody pominięcia: "
@@ -4384,7 +4388,9 @@ def retry_incomplete_summaries(
             return stats
 
         total_jobs = len(summary_jobs)
-        log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania.")
+        log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania; "
+            "kolejność: od największej łącznej liczby podpiętych artykułów, "
+            "przy remisie od najnowszej aktywności.")
         for index, job in enumerate(summary_jobs, start=1):
             # A long queue can outlive the window: check again before paying
             # for generation, including jobs explicitly requested after merge.
