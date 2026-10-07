@@ -101,11 +101,19 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
         self.assertEqual(len({(r['topic_id_a'],r['topic_id_b']) for r in report['score_band_samples']}),5)
 
     def test_valid_title_of_newly_merged_topic_is_still_sent_for_ai_editing(self):
-        client = FakeMergeClient([{'topic_id':'b','headline_pl':'[Polska] Protest lekarzy w Krakowie'}],[],[])
+        client = FakeMergeClient(
+            [{'topic_id': 'b', 'headline_pl': '[Polska] Protest lekarzy w Krakowie'}],
+            [{'topic_id': 'b', 'article_id': str(i)} for i in range(6)],
+            [{'topic_id': 'b', 'summary': {'topic': {'what_happened_one_sentence_pl': 'Lekarze protestują.'}, 'summary_pl': 'Pełna synteza'}}],
+            articles=[{'article_id': str(i), 'title': 'Nagłówek ' + str(i), 'opening_text': 'Początek treści'} for i in range(6)],
+        )
         with patch.object(ai,'call_openai',return_value={'titles':[{'topic_id':'b','title_pl':'[Polska] Rozwój protestu lekarzy w Krakowie'}]}) as model, patch.object(ai,'log'):
             ai.normalize_topic_titles(client,forced_topic_ids={'b'})
         model.assert_called_once()
-        self.assertEqual(model.call_args.args[1]['topics'][0]['topic_id'],'b')
+        sent = model.call_args.args[1]['topics'][0]
+        self.assertEqual(set(sent), {'topic_id', 'current_title_pl', 'one_sentence_pl', 'article_titles'})
+        self.assertEqual(sent['one_sentence_pl'], 'Lekarze protestują.')
+        self.assertEqual(sent['article_titles'], ['Nagłówek ' + str(i) for i in range(4)])
 
 
 if __name__ == '__main__':

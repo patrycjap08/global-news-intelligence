@@ -1373,9 +1373,10 @@ Jeśli sprawa dotyczy jednego głównego kraju, wpisz tylko ten kraj, np.
 Anglii.
 Po prefiksie zachowaj konkretny, prasowy tytuł bez clickbaitu. Nazwa ma być
 krótką, ogólniejszą nazwą wątku redakcyjnego, a nie kopią nagłówka artykułu.
-Korzystaj z `one_sentence_pl`, `summary_pl` i `article_openings`, aby nazwać
-sedno wydarzenia lub sprawy. `article_titles` są tylko materiałem pomocniczym
-do rozpoznania kontekstu.
+Korzystaj wyłącznie z `current_title_pl`, jednozdaniowego opisu
+`one_sentence_pl` (jeżeli istnieje) i maksymalnie czterech `article_titles`,
+aby nazwać sedno wydarzenia lub sprawy. Nie dopowiadaj faktów poza tym
+kontekstem.
 Nigdy nie przepisuj żadnego `article_titles` słowo w słowo ani prawie słowo w
 słowo — dotyczy to również tematów mających tylko jeden artykuł. Usuń
 clickbait, pytania retoryczne, emocjonalne obietnice i szczegóły będące tylko
@@ -3770,11 +3771,7 @@ def normalize_topic_titles(
                 (summaries.get(str(row["topic_id"]), {}).get("topic") or {})
                 .get("what_happened_one_sentence_pl", "")
             ),
-            "summary_pl": str(
-                summaries.get(str(row["topic_id"]), {}).get("summary_pl") or ""
-            )[:800],
-            "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:5],
-            "article_openings": openings_by_topic.get(str(row["topic_id"]), [])[:2],
+            "article_titles": titles_by_topic.get(str(row["topic_id"]), [])[:4],
         } for row in batch]}
         try:
             result = call_openai(

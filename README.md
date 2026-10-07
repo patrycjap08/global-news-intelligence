@@ -154,3 +154,8 @@ odpowiedzi początek i koniec), status, powód przerwania, model, limit tokenów
 i zużycie tokenów rozumowania. Kategorie pokazują te dane także przed
 podziałem paczki. Pusta odpowiedź jest oznaczona wprost; `max_output_tokens`
 może oznaczać wyczerpanie budżetu na rozumowanie, zanim powstanie JSON.
+
+Poprawianie nazwy wątku (również po scaleniu) wysyła do AI tylko obecną
+nazwę, jednozdaniowy opis, jeśli istnieje, i maksymalnie cztery tytuły
+artykułów oraz identyfikator do przypisania odpowiedzi. Nie wysyła fragmentu
+syntezy ani początków artykułów.
