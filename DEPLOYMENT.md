@@ -189,27 +189,25 @@ kontrola nowości nowych faktów nadal działa.
 
 ## Harmonogram
 
-Pełny workflow pobierania i analizy jest zaplanowany cztery razy dziennie:
-`04:07`, `08:07`, `12:07` i `16:07` czasu `Europe/Warsaw`.
-Wyzwolenia przesunięto o 53 minuty wcześniej względem oczekiwanych pór
-`05:00`, `09:00`, `13:00` i `17:00`, aby uwzględnić obserwowane opóźnienia.
-Cron to `7 4,8,12,16 * * *`. Minuta 07 omija szczyt pełnej godziny,
-ale nie gwarantuje punktualności ani dostarczenia każdego wywołania.
-GitHub Actions obsługuje tę
-strefę i uwzględnia zmianę czasu letniego/zimowego. Harmonogram nie jest
-związany z laptopem — działa także wtedy, gdy komputer jest wyłączony.
+Główny workflow nie ma `schedule` w GitHub Actions. Automatyczne uruchomienia
+obsługuje zewnętrzny harmonogram cron-job.org, wywołując `workflow_dispatch`.
+Docelowe godziny: `05:00`, `09:00`, `13:00`, `17:00`, strefa `Europe/Warsaw`.
+Zapis cron: `0 5,9,13,17 * * *`. Strefa odpowiada za zmianę czasu letniego/zimowego.
 
-Są to godziny planowanego wyzwolenia, a nie gwarantowany czas faktycznego
-startu lub pojawienia się ostatniej syntezy. GitHub może wyzwolić zadanie
-z opóźnieniem; wspólna blokada `global-news-harvest` może dodatkowo odroczyć
-pracę, jeżeli trwa wcześniejszy harvest albo ręczna przebudowa aktualizacji.
+Ustaw zadanie HTTP POST na adres:
+`https://api.github.com/repos/patrycjap08/global-news-intelligence/actions/workflows/harvest.yml/dispatches`.
+Nagłówki: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
+`Content-Type: application/json`. Treść: `{"ref":"main","inputs":{"mode":"full"}}`.
+Token fine-grained musi obejmować to repozytorium i mieć uprawnienie
+Actions: Read and write. Token należy zapisać wyłącznie w ustawieniach zadania,
+a nie w repozytorium. Zewnętrzne konto i zadanie konfiguruje właścicielka.
 
-Automatyczny przebieg dodatkowo sprawdza rzeczywistą godzinę po otrzymaniu
-blokady oraz ponownie tuż przed uruchomieniem pipeline'u. Jeśli opóźnienie
-przesunie start na `23:00–02:59`, pobieranie, synchronizacja i analiza są
-pomijane. Od `03:00` sprawdzenie dopuszcza pracę; pierwszy planowy start
-pozostaje o `04:07`. Przebieg rozpoczęty przed nocną przerwą może się dokończyć.
-Ręczne uruchomienia nie podlegają nocnej blokadzie.
+GitHub nadal wykonuje kod; usunięto jedynie jego własny harmonogram.
+Przycisk Run workflow nadal pozwala uruchomić full, ai-only i pozostałe tryby.
+Nie ma dodatkowej nocnej blokady: zewnętrzny harmonogram wyznacza godziny.
+Wspólna blokada `global-news-harvest` zachowuje kolejność przebiegów i może
+opóźnić start, jeśli poprzedni nadal działa. Odpowiedź HTTP 204 potwierdza
+przyjęcie zlecenia, nie zakończenie pobierania i analizy.
 
 ## Diagnostyka embeddingów
 

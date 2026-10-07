@@ -13,11 +13,6 @@ on:
           - ai-only
           - merge-existing-summaries
           - titles-only
-  schedule:
-    # Four daily triggers ahead of desired 05/09/13/17 Polish local times.
-    # Avoid minute zero, when GitHub scheduled workflows are most congested.
-    - cron: "7 4,8,12,16 * * *"
-      timezone: "Europe/Warsaw"
 
 permissions:
   contents: read
@@ -27,25 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  schedule-window:
-    runs-on: ubuntu-24.04
-    outputs:
-      allowed: ${{ steps.window.outputs.allowed }}
-    steps:
-      - name: Check automatic run window
-        id: window
-        run: |
-          hour=$(TZ=Europe/Warsaw date +%H)
-          allowed=true
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]] && (( 10#$hour >= 23 || 10#$hour < 3 )); then
-            allowed=false
-            echo "Pomijam automatyczny przebieg: trwa nocna przerwa 23:00–03:00 czasu polskiego."
-          fi
-          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
-
   harvest:
-    needs: schedule-window
-    if: needs.schedule-window.outputs.allowed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -117,12 +94,6 @@ jobs:
 
       - name: Run ingestion, sync and AI
         run: |
-          # Recheck after dependency/browser setup in case a delayed run crossed 23:00.
-          hour=$(TZ=Europe/Warsaw date +%H)
-          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]] && (( 10#$hour >= 23 || 10#$hour < 3 )); then
-            echo "Pomijam automatyczny przebieg: trwa nocna przerwa 23:00–03:00 czasu polskiego."
-            exit 0
-          fi
           args=(
             news_pipeline.py
             --daily-max-articles-per-source "$HARVEST_DAILY_MAX_ARTICLES_PER_SOURCE"
