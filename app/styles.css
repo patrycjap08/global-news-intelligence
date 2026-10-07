@@ -274,7 +274,7 @@ button { color: inherit; }
   .stat-cell:first-child { padding-left: 0; }
   .stat-topic-cell, .stat-split-cell { align-items: stretch; flex-direction: column; gap: 3px; }
   .stat-cell strong, .stat-topic-value strong { font-size: 20px; line-height: 1; }
-  .stat-label, .stat-topic-value small { font-size: 10px; }
+  .stat-label, .stat-topic-value small { font-size: 9px; }
   .stat-topic-value { align-items: center; gap: 4px; }
   .toolbar { align-items: stretch; flex-direction: column; gap: 15px; padding-top: 22px; }
   .search-field { min-width: 0; }
