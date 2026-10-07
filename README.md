@@ -146,3 +146,11 @@ pozostają w bazie z `topic_hint = AI_EXCLUDED:<kategoria>:<powód>`, nie otrzym
 kandydata wątku i nie wracają do kolejnego AI-only. W logach etapu 1 widać
 liczbę odrzuceń, a w `topic_runs` etapu `LABELING` — decyzje i uzasadnienia.
 Filtr dotyczy nowo analizowanych artykułów; nie usuwa istniejących wątków.
+
+Logi tworzenia embeddingów i automatycznego scalania mają prefiks `[EMBEDDING]`;
+`[AI]` oznacza etapy generowania tekstu. Przy niepoprawnej lub uciętej
+odpowiedzi log pokazuje zwrócony tekst (do 6000 znaków: dla dłuższej
+odpowiedzi początek i koniec), status, powód przerwania, model, limit tokenów
+i zużycie tokenów rozumowania. Kategorie pokazują te dane także przed
+podziałem paczki. Pusta odpowiedź jest oznaczona wprost; `max_output_tokens`
+może oznaczać wyczerpanie budżetu na rozumowanie, zanim powstanie JSON.

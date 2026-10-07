@@ -643,7 +643,7 @@ def build_topic_embedding_candidate_edges(
     embeddings: list[list[float]] = []
     batch_count = (len(texts) + TOPIC_MERGE_EMBEDDING_BATCH_SIZE - 1) // TOPIC_MERGE_EMBEDDING_BATCH_SIZE
     log(
-        "AI",
+        "EMBEDDING",
         f"Semantyczna selekcja: tworzę embeddingi dla {len(texts)} tematów "
         f"w {batch_count} paczkach (model {TOPIC_MERGE_EMBEDDING_MODEL}); "
         "paczki dotyczą tylko API, potem porównuję wszystkie pary lokalnie.",
@@ -695,7 +695,7 @@ def build_topic_embedding_candidate_edges(
         diagnostics.update({"embedding_model": TOPIC_MERGE_EMBEDDING_MODEL,
                             "dimensions": TOPIC_MERGE_EMBEDDING_DIMENSIONS})
     log(
-        "AI",
+        "EMBEDDING",
         f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
         f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; "
         "są to pary kwalifikujące się do połączenia.",
@@ -2259,6 +2259,7 @@ class AIResponseParseError(ValueError):
     def __init__(self, message: str, raw_output: str):
         super().__init__(message)
         self.raw_output = raw_output
+        self.response_details: dict[str, Any] = {}
 
 
 class ParsedAIResponse(dict[str, Any]):
@@ -2519,7 +2520,35 @@ def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
     return {
         "parse_error": str(exc)[:2000],
         "raw_response": exc.raw_output[:20000],
+        "response_details": exc.response_details,
     }
+
+
+def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
+    """Show returned text, with bounded output and escaped line breaks."""
+    if not isinstance(exc, AIResponseParseError):
+        return
+    details = exc.response_details
+    log("AI", f"{stage}: szczegóły odpowiedzi: "
+        + json.dumps(details, ensure_ascii=False), level="WARN")
+    raw = exc.raw_output or ""
+    if not raw:
+        log("AI", f"{stage}: model nie zwrócił tekstu odpowiedzi. "
+            "Przy max_output_tokens budżet mógł zostać zużyty na rozumowanie; "
+            "sprawdź tokeny rozumowania i limit wyjścia.", level="WARN")
+        return
+    # Keep both the beginning and the cutoff; never emit raw multiline text
+    # that could be interpreted as GitHub Actions workflow commands.
+    limit = 6000
+    if len(raw) <= limit:
+        fragments = [("pełna odpowiedź", raw)]
+    else:
+        fragments = [("początek", raw[:4000]), ("koniec", raw[-2000:])]
+    log("AI", f"{stage}: odpowiedź ma {len(raw)} znaków; "
+        f"pokazuję {min(len(raw), limit)}.", level="WARN")
+    for label, fragment in fragments:
+        log("AI", f"{stage}: {label}: "
+            + json.dumps(fragment, ensure_ascii=False), level="WARN")
 
 
 def log_parse_failure(stage: str, exc: Exception) -> None:
@@ -2531,6 +2560,7 @@ def log_parse_failure(stage: str, exc: Exception) -> None:
         "Szczegóły zapisano w historii topic_runs.",
         level="ERROR",
     )
+    log_ai_response_diagnostic(stage, exc)
 
 
 def openai_api_key() -> str:
@@ -2680,6 +2710,19 @@ def call_openai(
             return ParsedAIResponse(extract_json(response.output_text), response.output_text)
         except ValueError as exc:
             last_error = exc
+            if isinstance(exc, AIResponseParseError):
+                output_details = getattr(usage, "output_tokens_details", None)
+                exc.response_details = {
+                    "model": model,
+                    "schema": response_schema_name,
+                    "attempt": attempt + 1,
+                    "status": getattr(response, "status", "unknown"),
+                    "reason": getattr(getattr(response, "incomplete_details", None), "reason", None),
+                    "max_output_tokens": max_output_tokens,
+                    "input_tokens": getattr(usage, "input_tokens", None),
+                    "output_tokens": getattr(usage, "output_tokens", None),
+                    "reasoning_tokens": getattr(output_details, "reasoning_tokens", None),
+                }
             # A response stopped at max_output_tokens cannot become complete
             # by repeating the identical request. Let the caller split the
             # batch immediately instead of spending another full timeout on
@@ -3166,13 +3209,14 @@ def merge_active_topics(
             stats["semantic_candidate_edges"] = len(semantic_edges)
         except Exception as exc:
             log(
-                "AI",
+                "EMBEDDING",
                 "Semantyczna selekcja niedostępna; "
                 + ("pomijam automatyczne scalanie. " if prefer_embeddings else "używam lokalnego filtra słów i fraz. ")
                 + f"Szczegóły: {short_text(exc, 180)}.",
                 level="WARN",
             )
         automatic_merge = prefer_embeddings and embeddings_available
+        merge_log_component = "EMBEDDING" if prefer_embeddings else "AI"
         anchored_groups = build_anchored_embedding_groups(
             [str(topic["topic_id"]) for topic in payload_topics], semantic_edges,
         ) if automatic_merge else []
@@ -3204,20 +3248,20 @@ def merge_active_topics(
                     "model": TOPIC_MERGE_EMBEDDING_MODEL, "input_hash": digest(payload_topics),
                     "status": "COMPLETED", "raw_output": embedding_diagnostics, "error": None,
                 }], on_conflict="topic_run_id")
-                log("AI", f"Diagnostyka embeddingów: zapisano {len(embedding_diagnostics['samples'])} "
+                log("EMBEDDING", f"Diagnostyka embeddingów: zapisano {len(embedding_diagnostics['samples'])} "
                     f"próbek przy progu i {len(embedding_diagnostics.get('score_band_samples', []))} "
                     "próbek w przedziałach od 0.60 w topic_runs (EMBEDDING_DIAGNOSTICS).")
             except Exception as exc:
-                log("AI", f"Nie zapisano próbek embeddingów; scalanie działa dalej: {short_text(exc, 180)}.", level="WARN")
+                log("EMBEDDING", f"Nie zapisano próbek embeddingów; scalanie działa dalej: {short_text(exc, 180)}.", level="WARN")
         if prefer_embeddings and not embeddings_available:
             stats["merge_failed"] += 1
-            log("AI", "Automatyczne scalanie wymaga dostępnych embeddingów. "
+            log("EMBEDDING", "Automatyczne scalanie wymaga dostępnych embeddingów. "
                 "Nie scalono wątków; dane zachowane, ponów ai-only.", level="ERROR")
             return stats
         include_lexical_candidates = not (prefer_embeddings and embeddings_available)
         if prefer_embeddings:
             log(
-                "AI",
+                merge_log_component,
                 "Selekcja kandydatów: " + (
                     "tylko embeddingi; filtr słów nie dodaje par."
                     if not include_lexical_candidates
@@ -3247,7 +3291,7 @@ def merge_active_topics(
             default=0,
         )
         log(
-            "AI",
+            merge_log_component,
             f"Scalanie: tematów: {len(payload_topics)}, "
             f"grup kandydackich: {stats['local_candidate_groups']}, "
             f"kandydatów w grupach: {stats['local_candidate_topics']}, "
@@ -3260,7 +3304,7 @@ def merge_active_topics(
 
         raw_groups: list[dict[str, Any]] = []
         if automatic_merge:
-            log("AI", "Scalanie automatyczne: grupa zaczyna się od najsilniejszej pary; "
+            log("EMBEDDING", "Scalanie automatyczne: grupa zaczyna się od najsilniejszej pary; "
                 f"każdy kolejny element musi mieć score co najmniej {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} "
                 "z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
             for anchor_group in anchored_groups:
@@ -3396,7 +3440,7 @@ def merge_active_topics(
         for request_index, request_topics in enumerate(merge_requests, start=1):
             process_merge_request(request_topics, str(request_index))
         log(
-            "AI",
+            merge_log_component,
             f"Scalanie zakończone: wywołań: {stats['merge_requests']}, "
             f"podziałów po ucięciu: {stats['merge_split_retries']}, "
             f"nadal nieudanych paczek: {stats['merge_failed']}.",
@@ -3568,7 +3612,7 @@ def merge_active_topics(
                     # The status fallback keeps the duplicate out of the app
                     # even before the optional redirect-column migration runs.
                     log(
-                        "AI",
+                        merge_log_component,
                         "Nie zapisano przekierowania scalonego tematu; "
                         "uruchom supabase_migration_topic_merges.sql. "
                         f"Szczegóły: {short_text(exc, 180)}.",
@@ -3596,7 +3640,7 @@ def merge_active_topics(
                                    "minimum_anchor_similarity": raw_group["minimum_anchor_similarity"]},
                 }], on_conflict="topic_run_id")
             log(
-                "AI",
+                merge_log_component,
                 f"Scalono grupę tematów: {len(group_ids)} "
                 f"({'minimalny score embeddingów' if automatic_merge else 'pewność AI'}: {confidence:.2f}); "
                 "zachowany temat zostanie sprawdzony w kolejce syntez.",
@@ -3924,6 +3968,7 @@ def classify_topic_categories(
             )
         except Exception as exc:
             retryable = isinstance(exc, AIResponseParseError) or is_retryable_openai_error(exc)
+            log_ai_response_diagnostic(f"Kategorie {label}", exc)
             if retryable and len(batch) > CATEGORY_MIN_RETRY_BATCH_SIZE:
                 midpoint = len(batch) // 2
                 log(

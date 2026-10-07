@@ -113,10 +113,16 @@ class MergeRecoveryTests(unittest.TestCase):
         )
         with patch("openai.OpenAI") as sdk, patch.dict(os.environ, {"OPENAI_API_KEY": "test"}), patch.object(ai, "log") as logger:
             sdk.return_value.responses.create.return_value = response
-            with self.assertRaisesRegex(ai.AIResponseParseError, "reason=max_output_tokens"):
-                ai.call_openai("instructions", {}, "gpt-5-nano", retry_limit=1, reasoning_effort="minimal")
+            with self.assertRaisesRegex(ai.AIResponseParseError, "reason=max_output_tokens") as failure:
+                ai.call_openai("instructions", {}, "gpt-5-nano", retry_limit=1, reasoning_effort="minimal", max_output_tokens=12000)
+            ai.log_ai_response_diagnostic("Kategorie 1b", failure.exception)
         self.assertEqual(sdk.return_value.responses.create.call_args.kwargs["reasoning"], {"effort": "minimal"})
         self.assertTrue(any("rozumowanie: 11900" in str(call) for call in logger.call_args_list))
+        self.assertEqual(failure.exception.raw_output, "partial")
+        self.assertEqual(failure.exception.response_details["max_output_tokens"], 12000)
+        self.assertEqual(failure.exception.response_details["reasoning_tokens"], 11900)
+        self.assertTrue(any("pełna odpowiedź" in str(call) and "partial" in str(call) for call in logger.call_args_list))
+        self.assertEqual(ai.parse_failure_for_storage(failure.exception)["response_details"], failure.exception.response_details)
 
     def test_ai_only_fails_only_when_errors_remain_and_does_not_harvest(self):
         for result, expected in (
