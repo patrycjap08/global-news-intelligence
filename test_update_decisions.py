@@ -97,6 +97,33 @@ class UpdateDecisionTests(unittest.TestCase):
         retried = self.persist(response, result, run_id="run2")["topic_summaries"]
         self.assertEqual(len(retried["summary"]["updates"]), 3)
 
+    def test_first_synthesis_refreshes_historical_topic_after_successful_save(self):
+        topic = {"topic_id": "topic", "status": "ACTIVE", "last_seen_at": "2026-09-25T00:00:00+00:00"}
+        client = FakeMergeClient([topic], [], [])
+        with patch.object(ai, "now", return_value="2026-10-02T08:34:00+00:00"):
+            ai.persist_summary(client, topic_id="topic", run_id="run", model="test",
+                               summary={"summary_pl": "Pierwsza synteza."}, summary_hash="hash",
+                               previous_row=None, new_article_ids=["a", "b"])
+        self.assertEqual(topic["last_seen_at"], "2026-10-02T08:34:00+00:00")
+        self.assertEqual(topic["status"], "ACTIVE")
+
+    def test_no_new_information_does_not_refresh_existing_synthesis(self):
+        topic = {"topic_id": "topic", "status": "ACTIVE", "last_seen_at": "2026-09-25T00:00:00+00:00"}
+        client = FakeMergeClient([topic], [], [])
+        ai.persist_summary(client, topic_id="topic", run_id="run", model="test",
+                           summary={"update": {"status": "NO_NEW_INFORMATION"}}, summary_hash="hash",
+                           previous_row=previous_row(), new_article_ids=["a"])
+        self.assertEqual(topic["last_seen_at"], "2026-09-25T00:00:00+00:00")
+
+    def test_failed_first_synthesis_save_does_not_refresh_topic(self):
+        client = FakeMergeClient([], [], [])
+        with patch.object(client, "upsert", side_effect=RuntimeError("write failed")):
+            with self.assertRaisesRegex(RuntimeError, "write failed"):
+                ai.persist_summary(client, topic_id="topic", run_id="run", model="test",
+                                   summary={"summary_pl": "Pierwsza synteza."}, summary_hash="hash",
+                                   previous_row=None, new_article_ids=["a"])
+        self.assertFalse(any(table == "topics" for table, _, _ in client.updates))
+
     def test_context_includes_base_and_all_meaningful_updates(self):
         stored = previous_row()["summary"]
         stored["updates"].append({"status": "NO_NEW_INFORMATION", "new_information_pl": ""})

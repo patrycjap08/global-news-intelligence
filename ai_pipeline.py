@@ -4180,6 +4180,15 @@ def persist_summary(
         "generated_at": timestamp,
         "updated_at": timestamp,
     }], on_conflict="topic_id")
+    if not previous_stored:
+        # A first publication must get a full current-topic window even when
+        # the articles waited for AI processing. Refresh only after saving
+        # the synthesis, and never revive a topic redirected by a merge.
+        client.update(
+            "topics",
+            {"last_seen_at": timestamp, "updated_at": timestamp},
+            filters=[("topic_id", f"eq.{topic_id}"), ("status", "eq.ACTIVE")],
+        )
     try:
         client.upsert("topic_summary_versions", [{
             "topic_id": topic_id,

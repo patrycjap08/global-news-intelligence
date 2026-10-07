@@ -159,3 +159,10 @@ Poprawianie nazwy wątku (również po scaleniu) wysyła do AI tylko obecną
 nazwę, jednozdaniowy opis, jeśli istnieje, i maksymalnie cztery tytuły
 artykułów oraz identyfikator do przypisania odpowiedzi. Nie wysyła fragmentu
 syntezy ani początków artykułów.
+
+Zapis pierwszej syntezy odświeża `last_seen_at` aktywnego wątku: jest widoczny
+w Aktualnych przez kolejne 30 godzin od pierwszej publikacji, także gdy
+AI-only nadrabia starsze artykuły. Ponowna analiza istniejącej syntezy bez
+nowych informacji nie odświeża tego czasu. Już zapisane pierwsze syntezy
+z ostatnich 30 godzin można naprawić jednorazowo skryptem
+`supabase_repair_first_synthesis_current.sql`.
