@@ -47,6 +47,34 @@ assert.deepStrictEqual(Array.from(filteredModels(),m=>m.topic_id),['demo-2']);
 assert.strictEqual(modelBuilds,3,'read/bookmark changes must not rebuild immutable data');
 state.view='current';
 
+// All filter counters describe the visible cards, across combined filters.
+function filterCount(selector, attribute, key) {
+  const html = elements.get(selector).innerHTML;
+  const start = html.indexOf(attribute + '="' + key + '"');
+  assert(start >= 0, 'filter remains available, including when its count is zero');
+  return Number(html.slice(start, html.indexOf('</button>', start)).split('<span>').pop().split('</span>')[0]);
+}
+function assertVisibleCounts(expected) {
+  render();
+  assert.strictEqual(filterCount('#category-filters','data-category','ALL'),expected);
+  assert.strictEqual(filterCount('#profile-filters','data-profile','ALL'),expected);
+  assert.strictEqual(filteredModels().length,expected);
+}
+assertVisibleCounts(2);
+state.hideRead=true;assertVisibleCounts(1);
+assert.strictEqual(filterCount('#category-filters','data-category','GOSPODARKA'),1);
+state.hideRead=false;state.view='saved';assertVisibleCounts(1);
+state.view='historical';assertVisibleCounts(0);
+state.view='current';state.search='BBC';render({searchOnly:true});
+assert.strictEqual(filterCount('#category-filters','data-category','ALL'),1);
+assert.strictEqual(filterCount('#profile-filters','data-profile','ALL'),1);
+state.search='';state.profile='RIGHT';state.categories=['GOSPODARKA'];assertVisibleCounts(1);
+assert.strictEqual(filterCount('#category-filters','data-category','GOSPODARKA'),1);
+state.search='nieistniejący wynik';render({searchOnly:true});
+assert.strictEqual(filterCount('#category-filters','data-category','GOSPODARKA'),0);
+assert(elements.get('#category-filters').innerHTML.includes('data-category="GOSPODARKA"'));
+state.search='';state.profile='ALL';state.categories=[];
+
 state.summaries=new Map(state.summaries);
 state.summaries.set('demo-1',{summary:{base_summary:{summary_pl:'Nowa synteza po odświeżeniu.'},updates:[]}});
 assert.strictEqual(modelForTopic('demo-1').lead,'Nowa synteza po odświeżeniu.');
@@ -73,11 +101,11 @@ Date.now=clock;state.view='current';
 state.search='p';scheduleSearchRender();state.search='pr';scheduleSearchRender();state.search='brak wyników';scheduleSearchRender();
 assert.strictEqual(timers.size,1);
 render();
-const profilesBefore=elements.get('#profile-filters').innerHTML;
+const statsBefore=elements.get('#stat-current-topics').textContent;
 const callback=Array.from(timers.values())[0];timers.clear();callback();
 assert.strictEqual(elements.get('#result-count').textContent,'0 tematów');
 assert.strictEqual(elements.get('#empty-state').hidden,false);
-assert.strictEqual(elements.get('#profile-filters').innerHTML,profilesBefore);
+assert.strictEqual(elements.get('#stat-current-topics').textContent,statsBefore,'search should not rebuild overall stats');
 state.search='';render({searchOnly:true});
 assert.strictEqual(elements.get('#empty-state').hidden,true);
 console.log('Frontend: modele i indeksy są używane ponownie; odświeżanie, wyszukiwanie, filtry, odczyt, zakładki i upływ czasu — OK.');

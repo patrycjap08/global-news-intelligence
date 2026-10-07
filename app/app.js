@@ -575,8 +575,7 @@ function renderProfiles(models) {
   const rows = [
     ['ALL', 'Wszystkie tematy', models.length],
     ...Object.entries(PROFILE_LABELS)
-      .map(([key, label]) => [key, label, counts[key] || 0])
-      .filter(([, , count]) => count > 0),
+      .map(([key, label]) => [key, label, counts[key] || 0]),
   ];
   $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${state.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button"><span class="filter-name">${key === 'ALL' ? '' : `<i class="perspective-dot ${PROFILE_COLORS[key] || 'dot-unclassified'}" aria-hidden="true"></i>`}<span>${label}</span></span><span>${count}</span></button>`).join('');
   $('#profile-filters').querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => {
@@ -597,12 +596,8 @@ function renderCategories(models) {
     ['ALL', CATEGORY_LABELS.ALL, models.length],
     ...Object.keys(CATEGORY_LABELS)
       .filter((key) => !['ALL', 'UNCLASSIFIED'].includes(key))
-      .map((key) => [key, CATEGORY_LABELS[key], counts[key] || 0])
-      // Keep the Poland filter visible even before the first POLSKA category
-      // has been written to Supabase. Otherwise the filter disappears and
-      // there is no way to tell whether the category is supported.
-      .filter(([key, , count]) => key === 'POLSKA' || count > 0),
-    ...(counts.UNCLASSIFIED ? [['UNCLASSIFIED', CATEGORY_LABELS.UNCLASSIFIED, counts.UNCLASSIFIED]] : []),
+      .map((key) => [key, CATEGORY_LABELS[key], counts[key] || 0]),
+    ['UNCLASSIFIED', CATEGORY_LABELS.UNCLASSIFIED, counts.UNCLASSIFIED || 0],
   ];
   const allCategoriesSelected = state.categories.length === 0;
   $('#category-filters').innerHTML = rows.map(([key, label, count]) => {
@@ -777,9 +772,10 @@ function render({ searchOnly = false } = {}) {
   if (!searchOnly) {
     const allModels = preparedModels.filter((topic) => topic.hasAggregation);
     renderStats(allModels);
-    renderProfiles(allModels);
-    renderCategories(allModels);
   }
+  // Counters describe the same visible topics as the cards, including search.
+  renderProfiles(models);
+  renderCategories(models);
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
   $('#results-heading').textContent = state.view === 'historical'
