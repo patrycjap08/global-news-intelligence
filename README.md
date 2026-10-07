@@ -189,3 +189,11 @@ Syntezy i aktualizacje w głównym przebiegu oraz AI-only są generowane
 od wątków z największą łączną liczbą unikalnych podpiętych artykułów.
 Przy remisie pierwszeństwo ma nowsze `last_seen_at`, a następnie identyfikator
 wątku dla stabilnej kolejności. Liczba nowych artykułów nie zmienia priorytetu.
+
+Pierwsze syntezy zawierają w `background_context` osobny punkt dla każdej
+nazwanej osoby i organizacji pojawiającej się w syntezie lub faktach, z
+krótkim opisem funkcji/roli albo działalności. Dalej może pojawić się szersze
+tło historyczne, prawne i społeczne, bez powtarzania narracji. Objaśnienia
+z artykułów mają przypisane źródła; wiedza ogólna i niepewne role są oznaczone
+`needs_verification=true`. Aktualizacje nadal zachowują istniejącą bazową
+syntezę i kontekst. Zmiana promptu dotyczy kolejnych generowanych syntez.

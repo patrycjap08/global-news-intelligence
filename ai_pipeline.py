@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v47-labeling-required-article-decisions"
+PROMPT_VERSION = "ai-prompts-v48-context-people-organizations-and-background"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 48 hours.
@@ -1485,8 +1485,9 @@ mogą zawierać angielskich zdań ani technicznych komentarzy.
 Nie nazywaj artykułu kłamliwym. Możesz wskazać konkretny sygnał wymagający
 sprawdzenia: wartościujący język, brak kontekstu, nagłówek mocniejszy niż
 treść, niezweryfikowane twierdzenie albo konflikt z innym materiałem. Nie
-wymyślaj cytatów ani informacji spoza artykułów. Kontekst ogólny wpisz tylko
-do background_context i oznacz needs_verification=true.
+wymyślaj cytatów ani ustaleń o wydarzeniu spoza artykułów. Dodatkowe ogólne
+tło i definicje wpisz tylko do background_context, oddziel od ustaleń
+z materiałów i oznacz needs_verification=true.
 
 summary_pl ma być właściwą, rzeczową syntezą faktów, a nie opisem tego, o czym
 piszą artykuły. Nie zaczynaj od sformułowań typu „artykuły opisują”, „źródła
@@ -1553,7 +1554,8 @@ do article_ids i może powtarzać fakty opisane w `summary_pl`. Nie traktuj go
 jako drugiego, alternatywnego podsumowania. `agreement`, `differences`,
 `potential_manipulation_signals` i `background_context` mogą zawierać tylko
 informacje dodatkowe, których nie trzeba przepisywać do głównej narracji;
-każda z tych sekcji może pozostać pusta. Nie powtarzaj tej samej informacji
+sekcje te mogą pozostać puste, z wyjątkiem obowiązkowych objaśnień osób
+i organizacji w background_context opisanych poniżej. Nie powtarzaj tej samej informacji
 w kilku zdaniach głównej syntezy.
 
 differences ma wskazywać konkretną różnicę, a nie ogólnik typu „źródła różnie
@@ -1569,22 +1571,56 @@ wniosek z nagłówka wynika z materiału”. Jeśli nie ma konkretnego sygnału,
 pozostaw tablicę pustą.
 
 Pisz dla polskiego czytelnika, który może nie znać specjalistycznego
-kontekstu, ale nie twórz osobnego słowniczka ani sekcji `reader_context`.
-Objaśnienia mają pojawić się bezpośrednio w `summary_pl`, przy pierwszym
-użyciu danego terminu — najlepiej w krótkim nawiasie. Przykłady:
-`DMDC (Defense Manpower Data Center, amerykański system danych o personelu
-wojskowym)` albo `Defense Builder (ukraiński akcelerator technologii
-obronnych)`. Przy osobie dodaj funkcję lub rolę tylko wtedy, gdy wynika z
-materiałów i pomaga zrozumieć fakt.
+kontekstu. Przy pierwszym użyciu niezrozumiałego skrótu lub terminu w
+summary_pl dodaj krótkie objaśnienie, jeżeli jest potrzebne do zrozumienia
+zdania. Nie twórz nowego pola reader_context ani osobnej struktury poza
+istniejącym background_context.
 
-Wyjaśniaj tylko terminy, skróty, organizacje, stanowiska i osoby, które mogą
-nie być oczywiste dla polskiego czytelnika. Nie objaśniaj oczywistych nazw
-państw, takich jak Polska, Ukraina, Rosja czy USA, ani zwykłych miast wyłącznie
-dlatego, że występują w tekście. Nie twórz listy haseł, osobnych definicji ani
-encyklopedycznych biogramów. Nie dopowiadaj biografii, funkcji ani znaczenia
-skrótów, którego nie da się wiarygodnie ustalić. Jeśli wyjaśnienie nie wynika
-z artykułów, pomiń je albo zaznacz niepewność w odpowiednim fakcie — nie
-przenoś go do słowniczka.
+OBOWIĄZKOWY KONTEKST OSÓB I ORGANIZACJI:
+Po napisaniu summary_pl oraz facts przejrzyj OBA pola i zbierz wszystkie
+nazwane osoby (imiona i nazwiska) oraz nazwane agencje, firmy, organizacje,
+instytucje, partie, stowarzyszenia i redakcje. Uwzględnij również osoby lub
+organizacje występujące tylko w facts, a nie w głównej narracji. Nie pomijaj
+powszechnie znanych osób ani organizacji: czytelnik może ich nie znać.
+Nie dodawaj wszystkich autorów i źródeł automatycznie; dodaj je, jeśli zostały
+wymienione w summary_pl lub facts. Ujednolić warianty nazwy, skróty i pełne
+nazwy tej samej osoby/organizacji; każdą jednostkę opisz tylko raz.
+
+Dla KAŻDEJ osoby dodaj osobny element background_context, w kolejności
+pierwszego wystąpienia: „Osoba — Imię Nazwisko: ...”. W 1–2 krótkich zdaniach
+wyjaśnij, kim jest i jaką funkcję lub rolę pełni w tej sprawie. Nie powtarzaj
+jej wypowiedzi ani przebiegu zdarzeń; nie pisz biogramu.
+Dla KAŻDEJ organizacji dodaj osobny element: „Organizacja — Nazwa (skrót):
+...”. Krótko wyjaśnij, czym jest, czym się zajmuje oraz jaki związek ma ze
+sprawą, jeżeli wynika to z materiałów. Nie traktuj samej nazwy kraju lub
+miasta jako organizacji. Podaj rozwinięcie skrótu tylko, gdy jest pewne.
+Każda osoba i każda organizacja MUSI być oddzielnym elementem tablicy
+background_context — to lista punktów prezentowana w sekcji Kontekst.
+Nie łącz kilku osób w jeden wpis i nie zapisuj całej listy w jednym text_pl.
+
+Role, funkcje i informacje z materiałów poprzyj article_ids tych materiałów
+oraz needs_verification=false. Nie zgaduj tożsamości na podstawie nazwiska,
+aktualnego stanowiska, narodowości, biografii ani działalności firmy. Jeśli
+materiały nie pozwalają ustalić roli, zachowaj wpis tej osoby/organizacji,
+napisz wprost, że jej rola lub charakter nie zostały określone w materiałach,
+i oznacz needs_verification=true. Definicja lub tło z wiedzy ogólnej, bez
+potwierdzenia w dostarczonych materiałach: article_ids=[], needs_verification=true.
+Nie przypisuj artykułowi informacji, której nie zawiera. Nie wprowadzaj do
+summary_pl ani facts takich dodatkowych objaśnień jako nowych ustaleń.
+
+SZERSZE TŁO SPRAWY:
+Po punktach o osobach i organizacjach dodaj do background_context osobne,
+krótkie punkty objaśniające historię sporu lub wcześniejsze zdarzenia,
+mechanizm prawny/instytucjonalny, istotne terminy oraz znaczenie społeczne,
+gospodarcze lub międzynarodowe — tylko te aspekty, które rzeczywiście
+pomagają zrozumieć TEN wątek. Zwykle wystarczą 2–4 punkty, ale jeśli nie ma
+wiarygodnego dodatkowego tła, dodaj mniej albo żadnego. Nie wydłużaj tekstu
+na siłę. Nie przepisuj faktów z syntezy, nie spekuluj o przyszłości i nie
+wyciągaj niepopartych związków przyczynowych. Zachowaj te same zasady
+article_ids i needs_verification jak w objaśnieniach wyżej.
+
+Przed zwróceniem odpowiedzi porównaj listę nazw z summary_pl i facts z listą
+w background_context. Uzupełnij KAŻDĄ pominiętą osobę lub organizację.
 
 Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli data
 jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo

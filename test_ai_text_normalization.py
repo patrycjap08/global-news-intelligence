@@ -61,10 +61,12 @@ class AITextNormalizationTests(unittest.TestCase):
         self.assertIn("Nie oceniaj w tekście, czy materiał został dobrze", SUMMARY_INSTRUCTIONS)
         self.assertIn("Nie wpisuj nazw źródeł do", SUMMARY_INSTRUCTIONS)
 
-    def test_summary_prompt_puts_explanations_inline_and_skips_obvious_countries(self):
-        self.assertIn("bezpośrednio w `summary_pl`", SUMMARY_INSTRUCTIONS)
-        self.assertIn("Nie objaśniaj oczywistych nazw", SUMMARY_INSTRUCTIONS)
-        self.assertIn("nie twórz osobnego słowniczka", SUMMARY_INSTRUCTIONS)
+    def test_summary_prompt_explains_named_people_and_organizations_in_context(self):
+        self.assertIn("Po napisaniu summary_pl oraz facts przejrzyj OBA pola", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Dla KAŻDEJ osoby dodaj osobny element background_context", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Dla KAŻDEJ organizacji dodaj osobny element", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Nie traktuj samej nazwy kraju lub", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Nie zgaduj tożsamości na podstawie nazwiska", SUMMARY_INSTRUCTIONS)
 
     def test_summary_prompt_requires_paragraphs_and_bold_markdown(self):
         self.assertIn("Podział na akapity jest obowiązkowy", SUMMARY_INSTRUCTIONS)
