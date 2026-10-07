@@ -134,3 +134,13 @@ użyciem produkcyjnym trzeba zweryfikować dokładne domeny, endpointy API, URL-
 warunków użycia i policy status. Domyślna polityka to `REVIEW_REQUIRED` oraz
 `ai_usage_policy: NONE`; dostępność techniczna nie jest zgodą na użycie pełnego
 tekstu w AI.
+
+W głównym workflow etap nadawania nazw odrzuca również artykuły spoza zakresu
+(sport, zwykła prognoza pogody, celebryci, rozrywka, lifestyle i inne treści
+bez istotnego znaczenia publicznego). Decyzja korzysta z istniejącego zapytania
+AI, na podstawie tytułu i pierwszych 100 słów. Katastrofy oraz istotne skutki
+społeczne, gospodarcze i decyzje władz pozostają w zakresie. Odrzucone materiały
+pozostają w bazie z `topic_hint = AI_EXCLUDED:<kategoria>:<powód>`, nie otrzymują
+kandydata wątku i nie wracają do kolejnego AI-only. W logach etapu 1 widać
+liczbę odrzuceń, a w `topic_runs` etapu `LABELING` — decyzje i uzasadnienia.
+Filtr dotyczy nowo analizowanych artykułów; nie usuwa istniejących wątków.

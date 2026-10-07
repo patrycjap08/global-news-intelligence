@@ -28,7 +28,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v45-atomic-update-facts-and-novelty-audit"
+PROMPT_VERSION = "ai-prompts-v46-labeling-scope-filter"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 30 hours and still accept a matching
 # article until it has been quiet for 55 hours.
@@ -1009,9 +1009,35 @@ def fallback_topic_title(
 TOPIC_LABELING_INSTRUCTIONS = """
 Jesteś modułem nadawania roboczych nazw wątków wiadomości w aplikacji Global
 News Intelligence. Otrzymujesz artykuły i dla KAŻDEGO artykułu utwórz jeden
-osobny kandydat wątku. W tym kroku nie grupuj artykułów, nie porównuj ich ze
-sobą i nie dopasowuj ich do innych tematów — scalanie odbędzie się dopiero w
+osobny kandydat wątku, jeżeli mieści się w zakresie aplikacji. Najpierw
+odrzuć materiały spoza zakresu według poniższych reguł. W tym kroku nie grupuj artykułów,
+nie porównuj ich ze sobą i nie dopasowuj ich do innych tematów — scalanie odbędzie się dopiero w
 następnym etapie.
+
+Najpierw odrzuć materiały wyraźnie niezwiązane z głównym zakresem aplikacji:
+sport, pogodę i prognozy pogody, celebrytów, rozrywkę, lifestyle, przepisy,
+zwykłe treści konsumenckie i inne materiały bez znaczenia dla polityki,
+gospodarki, bezpieczeństwa, dyplomacji, konfliktów, prawa publicznego lub
+istotnych wydarzeń społecznych.
+
+Materiały, których głównym tematem jest sport, wynik lub przebieg zawodów,
+transfer zawodnika, zwykła prognoza pogody, temperatura, spodziewane opady bez
+istotnych skutków, celebryta albo życie prywatne osoby publicznej, zawsze
+umieść w excluded_articles — nie twórz dla nich grupy, tematu ani syntezy.
+Sama duża popularność materiału nie czyni go istotnym dla aplikacji.
+
+Nie wykluczaj natomiast klęsk żywiołowych i ekstremalnych zjawisk pogodowych,
+jeżeli spowodowały albo bezpośrednio powodują powódź, ofiary, ewakuacje,
+rozległe zniszczenia, poważne awarie infrastruktury, istotne skutki gospodarcze
+lub nadzwyczajne działania władz. Taki materiał jest newsem o skutkach i
+bezpieczeństwie, a nie zwykłą prognozą pogody. Artykuł o decyzji publicznej,
+gospodarce albo bezpieczeństwie może też pozostać, gdy sport, pogoda lub
+celebryta są jedynie tłem, a nie główną osią tekstu.
+Jeżeli związek jest niepewny, nie odrzucaj materiału — zachowaj go w labels.
+
+Dla odrzuconych artykułów nie twórz wpisu w labels. Niepewne przypadki
+zachowaj w labels. Oceń zakres na podstawie tytułu i wyciągu; nie dopowiadaj
+faktów. Nie odrzucaj materiału wyłącznie z powodu nazwy źródła lub osoby.
 
 Nazwę twórz zawsze łącznie na podstawie `title_original` oraz
 `body_excerpt_original`, czyli początku artykułu. Początek tekstu ma pomóc
@@ -1024,8 +1050,8 @@ tytułu artykułu. Nie przepisuj `title_original` słowo w słowo ani prawie sł
 w słowo. Usuń clickbait i nazwij sedno wydarzenia, decyzji, sporu, śledztwa
 albo innej sprawy tak, aby nazwa pasowała także do kolejnych materiałów.
 Nie używaj placeholderów ani ogólników typu „Nowe informacje” lub „Sytuacja”.
-Nazwa ma mieć zwykle 8–14 słów i maksymalnie 180 znaków. Nie dodawaj
-uzasadnienia, opisu ani żadnego tekstu poza nazwą.
+Nazwa ma mieć zwykle 8–14 słów i maksymalnie 180 znaków.
+W working_title_pl nie dodawaj uzasadnienia, opisu ani żadnego tekstu poza nazwą.
 
 Każda nazwa musi zaczynać się od jednego prefiksu geograficznego w nawiasach
 kwadratowych. Dla jednego głównego kraju użyj jego polskiej nazwy, dla kilku
@@ -1033,12 +1059,15 @@ państw europejskich `[Europa]`, a dla spraw międzynarodowych, globalnych lub
 bez jednego głównego kraju `[Świat]`. Nigdy nie wypisuj kilku państw w jednym
 prefiksie.
 
-Zwróć dokładnie jeden wpis w `labels` dla każdego `article_id` z wejścia,
-bez dodawania obcych identyfikatorów.
+Każdy article_id z wejścia musi wystąpić dokładnie raz: w labels albo
+excluded_articles. Nie dodawaj obcych identyfikatorów. Dla materiału
+odrzuconego podaj kategorię i krótkie uzasadnienie po polsku.
 
 Zwróć WYŁĄCZNIE poprawny JSON:
 {"labels":[{"article_id":"...","working_title_pl":"[Kraj] Ogólna
-nazwa konkretnej sprawy"}]}
+nazwa konkretnej sprawy"}],"excluded_articles":[{"article_id":"...",
+"category":"SPORT|WEATHER|CELEBRITY|ENTERTAINMENT|LIFESTYLE|OTHER_NON_CORE",
+"reason":"krótkie uzasadnienie"}]}
 """.strip()
 
 GROUPING_INSTRUCTIONS = """
@@ -1792,6 +1821,17 @@ TOPIC_LABEL_RESPONSE_SCHEMA = _json_schema_object({
         "items": _json_schema_object({
             "article_id": {"type": "string"},
             "working_title_pl": {"type": "string"},
+        }),
+    },
+    "excluded_articles": {
+        "type": "array",
+        "items": _json_schema_object({
+            "article_id": {"type": "string"},
+            "category": {"type": "string", "enum": [
+                "SPORT", "WEATHER", "CELEBRITY", "ENTERTAINMENT",
+                "LIFESTYLE", "OTHER_NON_CORE",
+            ]},
+            "reason": {"type": "string"},
         }),
     },
 })
@@ -3903,7 +3943,7 @@ def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit
 
 
 def mark_excluded_articles(
-    conn: sqlite3.Connection,
+    conn: sqlite3.Connection | None,
     client: SupabaseRestClient,
     articles: list[dict[str, Any]],
     excluded: list[Any],
@@ -3922,10 +3962,12 @@ def mark_excluded_articles(
         category = re.sub(r"[^A-Z0-9_]+", "_", category)[:40] or "OTHER_NON_CORE"
         reason = re.sub(r"\s+", " ", str(item.get("reason") or ""))[:180]
         marker = f"AI_EXCLUDED:{category}" + (f":{reason}" if reason else "")
-        conn.execute("UPDATE articles SET topic_hint = ? WHERE article_id = ?", (marker, article_id))
+        if conn is not None:
+            conn.execute("UPDATE articles SET topic_hint = ? WHERE article_id = ?", (marker, article_id))
         grouped.setdefault(marker, []).append(article_id)
         excluded_ids.add(article_id)
-    conn.commit()
+    if conn is not None:
+        conn.commit()
     for marker, article_ids in grouped.items():
         for offset in range(0, len(article_ids), 100):
             ids = article_ids[offset:offset + 100]
@@ -4251,8 +4293,9 @@ def _label_pending_batch(
     *,
     model: str = DEFAULT_MODEL,
     batch_index: str | int = 1,
+    db_path: Path | None = None,
 ) -> dict[str, int]:
-    """Give every new article its own merge candidate and a general label.
+    """Filter scope, then give each accepted article its own named candidate.
 
     Stage 1 deliberately does not see active topics. This keeps naming cheap
     and deterministic at the article level; the cross-article decision belongs
@@ -4264,6 +4307,7 @@ def _label_pending_batch(
         "labeled_articles": 0,
         "candidate_topics": 0,
         "label_needs_review": 0,
+        "excluded": 0,
     }
     if not articles:
         return stats
@@ -4292,6 +4336,22 @@ def _label_pending_batch(
             response_schema=TOPIC_LABEL_RESPONSE_SCHEMA,
             response_schema_name="topic_labels",
         )
+        # Validate the partition before any exclusion or candidate is persisted.
+        input_ids = {str(row["article_id"]) for row in articles}
+        seen: set[str] = set()
+        for key in ("labels", "excluded_articles"):
+            items = labeling.get(key)
+            if not isinstance(items, list):
+                raise ValueError(f"Brak poprawnej listy {key} w odpowiedzi nadawania nazw.")
+            for item in items:
+                if not isinstance(item, dict):
+                    raise ValueError("Niepoprawny wpis decyzji o zakresie artykułu.")
+                article_id = str(item.get("article_id") or "")
+                if article_id not in input_ids or article_id in seen:
+                    raise ValueError("Obcy lub powtórzony article_id w decyzji o zakresie.")
+                seen.add(article_id)
+        if seen != input_ids:
+            raise ValueError("Brakuje decyzji o zakresie dla części artykułów.")
         client.upsert("topic_runs", [{
             "topic_run_id": labeling_topic_run_id,
             "run_id": run_id,
@@ -4326,12 +4386,24 @@ def _label_pending_batch(
         if article_id in {str(row["article_id"]) for row in articles}:
             labels_by_article_id.setdefault(article_id, item)
 
+    conn = sqlite3.connect(db_path) if db_path is not None else None
+    try:
+        excluded_ids = mark_excluded_articles(
+            conn, client, articles, labeling["excluded_articles"],
+        )
+    finally:
+        if conn is not None:
+            conn.close()
+    stats["excluded"] = len(excluded_ids)
+
     timestamp = now()
     topic_rows: list[dict[str, Any]] = []
     link_rows: list[dict[str, Any]] = []
     assignment_rows: list[dict[str, Any]] = []
     for row in articles:
         article_id = str(row["article_id"])
+        if article_id in excluded_ids:
+            continue
         label = labels_by_article_id.get(article_id, {})
         article_title = str(row.get("title") or "")
         title = format_topic_title_candidate(label.get("working_title_pl"), "")
@@ -4378,6 +4450,8 @@ def _label_pending_batch(
         if needs_review:
             stats["label_needs_review"] += 1
 
+    if not topic_rows:
+        return stats
     client.upsert("topics", topic_rows, on_conflict="topic_id")
     client.upsert("topic_articles", link_rows, on_conflict="topic_id,article_id")
     client.upsert(
@@ -4385,7 +4459,7 @@ def _label_pending_batch(
         assignment_rows,
         on_conflict="run_id,article_id",
     )
-    stats["labeled_articles"] = len(articles)
+    stats["labeled_articles"] = len(topic_rows)
     return stats
 
 
@@ -4807,7 +4881,7 @@ def analyze_run(
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
             for key in (
-                "labeled_articles", "candidate_topics", "label_needs_review",
+                "labeled_articles", "candidate_topics", "label_needs_review", "excluded",
             ):
                 stats[key] += batch_stats[key]
 
@@ -4818,7 +4892,7 @@ def analyze_run(
             )
             try:
                 batch_stats = _label_pending_batch(
-                    run_id, client, batch, model=LABEL_MODEL, batch_index=label,
+                    run_id, client, batch, model=LABEL_MODEL, batch_index=label, db_path=db_path,
                 )
                 merge_batch_stats(batch_stats)
                 log(
@@ -4826,6 +4900,7 @@ def analyze_run(
                     f"Nazwy {label}/{total_batches} zakończone: "
                     f"nadano {batch_stats['labeled_articles']} nazw, "
                     f"utworzono {batch_stats['candidate_topics']} kandydatów, "
+                    f"odrzucono spoza zakresu: {batch_stats['excluded']}, "
                     f"do kontroli: {batch_stats['label_needs_review']}.",
                 )
             except ValueError as exc:
@@ -4861,6 +4936,7 @@ def analyze_run(
             "AI",
             f"Etap 1/3 zakończony: nazwano {stats['labeled_articles']} artykułów, "
             f"utworzono {stats['candidate_topics']} kandydatów; "
+            f"odrzucono spoza zakresu: {stats['excluded']}; "
             f"do kontroli: {stats['label_needs_review']}.",
         )
     else:
