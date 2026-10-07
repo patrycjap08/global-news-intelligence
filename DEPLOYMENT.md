@@ -234,3 +234,10 @@ przesunie start na `23:00–02:59`, pobieranie, synchronizacja i analiza są
 pomijane. Od `03:00` sprawdzenie dopuszcza pracę; pierwszy planowy start
 pozostaje o `04:07`. Przebieg rozpoczęty przed nocną przerwą może się dokończyć.
 Ręczne uruchomienia nie podlegają nocnej blokadzie.
+
+## Diagnostyka embeddingów
+
+Główny przebieg zapisuje próbki porównań jako `EMBEDDING_DIAGNOSTICS` w
+`topic_runs`, bez dodatkowych wywołań OpenAI i bez migracji bazy. Po nowym
+`full` lub `ai-only` uruchom [sql_embedding_samples.sql](sql_embedding_samples.sql).
+Opis zakresów i ograniczeń próbki: [EMBEDDING_DIAGNOSTICS.md](EMBEDDING_DIAGNOSTICS.md).

@@ -502,6 +502,7 @@ def build_embedding_candidate_edges(
     *,
     top_k: int = TOPIC_MERGE_EMBEDDING_TOP_K,
     min_similarity: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
+    diagnostics: dict[str, Any] | None = None,
 ) -> dict[tuple[str, str], float]:
     """Return nearest semantic neighbors that deserve AI verification.
 
@@ -512,17 +513,68 @@ def build_embedding_candidate_edges(
     if len(topic_ids) != len(embeddings) or len(topic_ids) < 2:
         return {}
     edges: dict[tuple[str, str], float] = {}
+    diagnostic_floor = max(-1.0, min_similarity - 0.03)
+    pair_scores: dict[tuple[str, str], float] = {}
+    neighbor_ranks: dict[str, dict[str, int]] = {}
     for index, vector in enumerate(embeddings):
         scored: list[tuple[float, int]] = []
+        diagnostic_neighbors: list[tuple[float, int]] = []
         for other_index, other_vector in enumerate(embeddings):
             if index == other_index:
                 continue
             similarity = _cosine_similarity(vector, other_vector)
             if similarity >= min_similarity:
                 scored.append((similarity, other_index))
+            if diagnostics is not None and similarity >= diagnostic_floor:
+                diagnostic_neighbors.append((similarity, other_index))
+                pair = tuple(sorted((str(topic_ids[index]), str(topic_ids[other_index]))))
+                pair_scores[pair] = similarity
         for similarity, other_index in heapq.nlargest(top_k, scored):
             pair = tuple(sorted((str(topic_ids[index]), str(topic_ids[other_index]))))
             edges[pair] = max(edges.get(pair, 0.0), similarity)
+        if diagnostics is not None:
+            neighbor_ranks[str(topic_ids[index])] = {
+                str(topic_ids[other_index]): rank
+                for rank, (_, other_index) in enumerate(sorted(diagnostic_neighbors, reverse=True), 1)
+            }
+    if diagnostics is not None:
+        buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for (left, right), similarity in pair_scores.items():
+            selected = (left, right) in edges
+            bucket = (
+                "SELECTED_NEAR_THRESHOLD" if selected and similarity < min_similarity + 0.03
+                else "SELECTED_HIGH_SCORE" if selected
+                else "BELOW_THRESHOLD" if similarity < min_similarity
+                else "ABOVE_THRESHOLD_OUTSIDE_TOP_K"
+            )
+            buckets[bucket].append({
+                "topic_id_a": left, "topic_id_b": right, "similarity": similarity,
+                "selected_for_ai": selected, "bucket": bucket,
+                "rank_a_to_b": neighbor_ranks[left][right],
+                "rank_b_to_a": neighbor_ranks[right][left],
+            })
+        samples = []
+        for rows in buckets.values():
+            # Ten boundary cases plus ten reproducibly spread examples. This
+            # is an inspection sample, not a random or representative survey.
+            boundary = sorted(rows, key=lambda row: (
+                abs(row["similarity"] - min_similarity), row["topic_id_a"], row["topic_id_b"],
+            ))[:10]
+            used = {(row["topic_id_a"], row["topic_id_b"]) for row in boundary}
+            remaining = sorted(
+                (row for row in rows if (row["topic_id_a"], row["topic_id_b"]) not in used),
+                key=lambda row: digest([row["topic_id_a"], row["topic_id_b"]]),
+            )[:10]
+            samples.extend(boundary + remaining)
+        diagnostics.update({
+            "threshold": min_similarity, "top_k": top_k,
+            "diagnostic_floor": diagnostic_floor, "topic_count": len(topic_ids),
+            "compared_pairs": len(topic_ids) * (len(topic_ids) - 1) // 2,
+            "selected_pair_count": len(edges),
+            "bucket_pair_counts": {bucket: len(rows) for bucket, rows in buckets.items()},
+            "sampling": "Up to 20 per bucket: 10 closest to threshold + 10 deterministic spread; not representative.",
+            "samples": samples,
+        })
     return edges
 
 
@@ -546,6 +598,8 @@ def _topic_embedding_text(topic: dict[str, Any]) -> str:
 
 def build_topic_embedding_candidate_edges(
     topics: list[dict[str, Any]],
+    *,
+    diagnostics: dict[str, Any] | None = None,
 ) -> dict[tuple[str, str], float]:
     """Embed compact topic descriptions and return semantic candidate edges.
 
@@ -611,7 +665,16 @@ def build_topic_embedding_candidate_edges(
         if last_error is not None:
             raise last_error
 
-    edges = build_embedding_candidate_edges(topic_ids, embeddings)
+    edges = build_embedding_candidate_edges(topic_ids, embeddings, diagnostics=diagnostics)
+    if diagnostics is not None:
+        snapshot = {str(topic["topic_id"]): (topic, text) for topic, text in zip(topics, texts)}
+        for sample in diagnostics.get("samples", []):
+            for suffix in ("a", "b"):
+                topic, text = snapshot[sample[f"topic_id_{suffix}"]]
+                sample[f"title_{suffix}"] = str(topic.get("headline_pl") or "")
+                sample[f"embedding_text_{suffix}"] = text
+        diagnostics.update({"embedding_model": TOPIC_MERGE_EMBEDDING_MODEL,
+                            "dimensions": TOPIC_MERGE_EMBEDDING_DIMENSIONS})
     log(
         "AI",
         f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
@@ -2990,8 +3053,11 @@ def merge_active_topics(
 
         semantic_edges: dict[tuple[str, str], float] = {}
         embeddings_available = False
+        embedding_diagnostics: dict[str, Any] | None = {} if prefer_embeddings else None
         try:
-            semantic_edges = build_topic_embedding_candidate_edges(payload_topics)
+            semantic_edges = build_topic_embedding_candidate_edges(
+                payload_topics, diagnostics=embedding_diagnostics,
+            )
             embeddings_available = (
                 TOPIC_MERGE_EMBEDDINGS_ENABLED
                 and len(payload_topics) >= 2
@@ -3005,6 +3071,22 @@ def merge_active_topics(
                 f"słów i fraz. Szczegóły: {short_text(exc, 180)}.",
                 level="WARN",
             )
+        if embedding_diagnostics and embeddings_available:
+            diagnostic_id = "topicrun_" + digest({
+                "run": run_id, "stage": "EMBEDDING_DIAGNOSTICS", "at": now(),
+                "topics": [topic["topic_id"] for topic in payload_topics],
+            })[:24]
+            try:
+                client.upsert("topic_runs", [{
+                    "topic_run_id": diagnostic_id, "run_id": run_id,
+                    "stage": "EMBEDDING_DIAGNOSTICS", "prompt_version": PROMPT_VERSION,
+                    "model": TOPIC_MERGE_EMBEDDING_MODEL, "input_hash": digest(payload_topics),
+                    "status": "COMPLETED", "raw_output": embedding_diagnostics, "error": None,
+                }], on_conflict="topic_run_id")
+                log("AI", f"Diagnostyka embeddingów: zapisano {len(embedding_diagnostics['samples'])} "
+                    "próbek w topic_runs (EMBEDDING_DIAGNOSTICS).")
+            except Exception as exc:
+                log("AI", f"Nie zapisano próbek embeddingów; scalanie działa dalej: {short_text(exc, 180)}.", level="WARN")
         include_lexical_candidates = not (prefer_embeddings and embeddings_available)
         if prefer_embeddings:
             log(
