@@ -293,39 +293,67 @@ def parse_feed(text: str, base: str) -> list[dict[str, str]]:
         if name not in {"item", "entry"}:
             continue
         data: dict[str, str] = {}
+        fallback_url = ""
         for child in list(item):
             child_name = xml_local(child.tag)
-            value = clean_text("".join(child.itertext()))
-            if child_name in {"link", "url", "guid", "id"}:
+            raw_value = "".join(child.itertext())
+            value = clean_text(raw_value)
+            if child_name in {"link", "url"}:
+                # Atom self/enclosure links and RSS GUIDs are not article URLs.
+                if child.attrib.get("rel", "alternate") != "alternate":
+                    continue
                 href = child.attrib.get("href") or value
                 if href:
                     data.setdefault("url", canonicalize(href, base) or href)
-            elif child_name in {"title", "pubdate", "published", "updated", "date", "description", "summary", "author"}:
+            elif child_name in {"guid", "id"}:
+                if child.attrib.get("isPermaLink", "true").lower() != "false" and re.match(r"https?://", value):
+                    fallback_url = canonicalize(value, base) or value
+            elif child_name in {"description", "summary", "encoded", "content"}:
+                # Preserve publisher markup for explicitly enabled full-text feeds.
+                data.setdefault(child_name, raw_value)
+            elif child_name in {"title", "pubdate", "published", "updated", "date", "author"}:
                 data.setdefault(child_name, value)
+        if not data.get("url") and fallback_url:
+            data["url"] = fallback_url
         if data.get("url"):
             rows.append(data)
     return rows
 
 
-def parse_sitemap(text: str, base: str) -> tuple[list[str], bool, bool]:
+def parse_sitemap_entries(text: str, base: str) -> tuple[list[dict[str, str]], bool, bool]:
     try:
         root = ET.fromstring(text)
     except ET.ParseError:
         return [], False, False
-    urls: list[str] = []
+    rows: list[dict[str, str]] = []
     is_index = xml_local(root.tag) == "sitemapindex"
     is_news = any(xml_local(element.tag) == "news" for element in root.iter())
-    for element in root.iter():
-        if xml_local(element.tag) == "loc" and element.text:
-            url = canonicalize(element.text, base)
-            if url:
-                urls.append(url)
-    return list(dict.fromkeys(urls)), is_news, is_index
+    seen: set[str] = set()
+    for entry in list(root):
+        # Read only the entry's own loc: image/video loc is not an article.
+        loc = next((node.text for node in entry if xml_local(node.tag) == "loc"), "")
+        url = canonicalize(loc or "", base)
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        row = {"url": url, "title": "", "published_at": "", "lastmod": ""}
+        for node in entry.iter():
+            key = xml_local(node.tag)
+            if key in {"publication_date", "lastmod", "title"}:
+                value = clean_text("".join(node.itertext()))
+                row[{"publication_date": "published_at", "lastmod": "lastmod", "title": "title"}[key]] = value
+        rows.append(row)
+    return rows, is_news, is_index
+
+
+def parse_sitemap(text: str, base: str) -> tuple[list[str], bool, bool]:
+    rows, is_news, is_index = parse_sitemap_entries(text, base)
+    return [row["url"] for row in rows], is_news, is_index
 
 
 def detect_policy_flags(text: str, status: int | None) -> tuple[bool, bool]:
     sample = (text or "")[:500_000]
-    captcha = bool(CAPTCHA_HINTS.search(sample))
+    captcha = False
     if BeautifulSoup is not None and sample:
         visible_soup = BeautifulSoup(sample, "html.parser")
         captcha = captcha or bool(visible_soup.select_one("#px-captcha[style*='display: block'], iframe[title*='Human challenge'], [data-testid*='captcha'][style*='display: block']"))
@@ -336,6 +364,8 @@ def detect_policy_flags(text: str, status: int | None) -> tuple[bool, bool]:
     # many publishers include the full article in the HTML as well. Availability
     # is decided from the extracted article body and HTTP/browser result instead.
         captcha = captcha or bool(CAPTCHA_HINTS.search(sample))
+    else:
+        captcha = bool(CAPTCHA_HINTS.search(sample))
     return False, captcha
 
 
@@ -555,6 +585,15 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if content_root is not None:
         source_kind = "tvn24"
     if content_root is None:
+        content_root = (soup.select_one("article.article section.main.whitelistPremium")
+                        or soup.select_one("article.article")) if source_id == "business_insider_pl" else None
+        if content_root is not None:
+            source_kind = "business_insider_pl"
+    if content_root is None and source_id == "kommersant":
+        content_root = soup.select_one(".article_text_wrapper")
+        if content_root is not None:
+            source_kind = "kommersant"
+    if content_root is None:
         content_root = soup.select_one("article.news.news--target .news__content")
         if content_root is not None:
             source_kind = "polsat"
@@ -676,7 +715,7 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     elif source_kind == "washington_post":
         unwanted += ", .article-footer, .article-bottom-action-bar, .comments, .ad, [data-qa='inline-subs-headline']"
     elif source_kind == "axios":
-        unwanted += ", #piano-container, [data-cy='story-go-deeper-content'], [data-cy*='social-share'], .adunitContainer, .adBox"
+        unwanted += ", #piano-container, [data-cy*='social-share'], .adunitContainer, .adBox"
     elif source_kind == "vox":
         unwanted += ", .duet--article--article-byline, .duet--media--caption, .duet--cta--newsletter, [data-native-ad-id], [data-concert], .cnx-marker-cnt-first"
     elif source_kind == "bbc":
@@ -693,9 +732,13 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .article-body__byline, .article-body__footer, .o-comments, .n-content-body__related"
     elif source_kind == "economist":
         unwanted += ", #regwall, #regwall-container, .advert--regwall, #article-topics-list, #right-hand-rail-ads"
+    if source_kind == "axios" and content_root.select_one("#piano-container[data-piano-active='true']"):
+        unwanted += ", .gated-content"
     for node in content_root.select(unwanted):
         node.decompose()
     text_nodes = content_root.select("p, h2, h3, li")
+    if source_kind == "kommersant":
+        text_nodes = content_root.select(".doc-text-block__paragraph, p, h2, h3")
     if source_kind == "tvn24":
         text_nodes = [
             node for node in content_root.find_all(["strong", "p", "h2", "h3", "li"])
@@ -716,7 +759,12 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     if source_kind == "washington_post":
         text_nodes = content_root.select("[data-qa='article-body'] p, [data-qa='article-body'] h2, [data-qa='article-body'] h3, [data-qa='article-body'] li")
     if source_kind == "axios":
-        text_nodes = content_root.select("[data-schema='smart-brevity'] p, [data-schema='smart-brevity'] h2, [data-schema='smart-brevity'] h3, [data-schema='smart-brevity'] li")
+        # Smart-brevity may contain only the lead; the rest of the public
+        # story is a sibling inside story-body.
+        text_nodes = content_root.select("p, h2, h3, li")
+        selected_ids = {id(node) for node in text_nodes}
+        text_nodes = [node for node in text_nodes
+                      if not any(id(parent) in selected_ids for parent in node.parents)]
     if source_kind == "vox":
         text_nodes = content_root.select(
             ".duet--article--article-body-component p, "

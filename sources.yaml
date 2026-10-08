@@ -71,7 +71,12 @@ sources:
       - ".snrs-popup button[aria-label='Zamknij']"
       - ".snrs-popup button[aria-label='Close']"
     browser_wait_after_load_seconds: 8
-  - {id: polsat_news, name: Polsat News, region: Poland, homepage: https://www.polsatnews.pl}
+  - id: polsat_news
+    name: Polsat News
+    region: Poland
+    homepage: https://www.polsatnews.pl
+    candidate_include_url_patterns:
+      - '^/(?:wiadomosc|graffiti)/20[0-9]{2}-[0-9]{2}-[0-9]{2}/[^/?#]+/?$'
   - id: onet
     name: Onet
     region: Poland
@@ -230,7 +235,14 @@ sources:
       - "button.ab-close-button.v-close"
       - "button[aria-label='Close']"
   - {id: cbs_news, name: CBS News, region: USA, homepage: https://www.cbsnews.com}
-  - {id: npr, name: NPR, region: USA, homepage: https://www.npr.org}
+  - id: npr
+    name: NPR
+    region: USA
+    homepage: https://www.npr.org
+    candidate_include_host_patterns:
+      - '^(?:www\.)?npr\.org$'
+    candidate_include_url_patterns:
+      - '^/(?:sections/[^/]+/)?20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^?#]+$'
   - id: politico
     name: Politico
     region: USA
@@ -240,6 +252,10 @@ sources:
     name: Axios
     region: USA
     homepage: https://www.axios.com
+    discovery_method: RSS
+    rss_urls:
+      - https://www.axios.com/feeds/feed.rss
+    full_text_feed: true
     discover_homepage: true
     candidate_pool_per_section: 30
     candidate_include_host_patterns:
@@ -267,7 +283,12 @@ sources:
       - '\b(sport|sports|nfl|nba|mlb|nhl|ncaa|football|baseball|basketball|soccer|golf|tennis|olympics)\b'
     browser_article_patterns:
       - '^https://www\.vox\.com/[^/]+/[0-9]{4,}/[^/?#]+/?$'
-  - {id: huffpost, name: HuffPost, region: USA, homepage: https://www.huffpost.com}
+  - id: huffpost
+    name: HuffPost
+    region: USA
+    homepage: https://www.huffpost.com
+    candidate_include_url_patterns:
+      - '^/entry/[^/?#]+/?$'
   - id: national_review
     name: National Review
     region: USA
@@ -333,7 +354,9 @@ sources:
   - id: times
     name: Times
     region: United Kingdom
-    homepage: https://www.thetimes.co.uk
+    homepage: https://www.thetimes.com
+    candidate_include_url_patterns:
+      - '^/[^?#]+/article/[^/?#]+/?$'
     browser_accept_selectors:
       - "button[title='I Agree']"
       - "button[aria-label='I Agree']"
@@ -351,6 +374,9 @@ sources:
     name: Sky News
     region: United Kingdom
     homepage: https://news.sky.com
+    discovery_method: RSS
+    rss_urls:
+      - https://feeds.skynews.com/feeds/rss/world.xml
     discover_homepage: false
     section_urls:
       - https://news.sky.com/world
@@ -382,9 +408,23 @@ sources:
 
   - {id: deutsche_welle, name: Deutsche Welle, region: Germany, homepage: https://www.dw.com}
   - {id: der_spiegel, name: Der Spiegel, region: Germany, homepage: https://www.spiegel.de}
-  - {id: faz, name: FAZ, region: Germany, homepage: https://www.faz.net}
+  - id: faz
+    name: FAZ
+    region: Germany
+    homepage: https://www.faz.net
+    candidate_exclude_url_patterns:
+      - '^/$'
+      - '^/premium/[^/]+/?$'
   - {id: die_zeit, name: Die Zeit, region: Germany, homepage: https://www.zeit.de, enabled: false}
-  - {id: bild, name: Bild, region: Germany, homepage: https://www.bild.de}
+  - id: bild
+    name: Bild
+    region: Germany
+    homepage: https://www.bild.de
+    candidate_include_url_patterns:
+      - '^/[^?#]+-[a-f0-9]{24}/?$'
+      - '^/[^?#]+-[0-9]+\.bild\.html$'
+    candidate_exclude_url_patterns:
+      - '^/[^?#]*/startseite/'
 
   - {id: france_24, name: France 24, region: France, homepage: https://www.france24.com}
   - {id: le_monde, name: Le Monde, region: France, homepage: https://www.lemonde.fr}
@@ -449,10 +489,28 @@ sources:
   - {id: caixin, name: Caixin, region: China, homepage: https://www.caixinglobal.com}
   - {id: south_china_morning_post, name: South China Morning Post, region: China, homepage: https://www.scmp.com}
 
-  - {id: tass, name: TASS, region: Russia, homepage: https://tass.com}
+  - id: tass
+    name: TASS
+    region: Russia
+    homepage: https://tass.com
+    discovery_method: RSS
+    rss_urls:
+      - https://tass.com/rss/v2.xml
+    candidate_include_url_patterns:
+      - '^/[a-z-]+/[0-9]+/?$'
   - {id: ria, name: RIA Novosti, region: Russia, homepage: https://ria.ru}
   - {id: rt, name: RT, region: Russia, homepage: https://www.rt.com}
-  - {id: kommersant, name: Kommersant, region: Russia, homepage: https://www.kommersant.ru}
+  - id: kommersant
+    name: Kommersant
+    region: Russia
+    homepage: https://www.kommersant.ru
+    discovery_method: RSS
+    rss_urls:
+      - https://www.kommersant.ru/RSS/main.xml
+    sitemap_urls:
+      - https://www.kommersant.ru/sitemaps/news.xml
+    candidate_include_url_patterns:
+      - '^/doc/[0-9]+/?$'
   - id: meduza
     name: Meduza
     region: Russia
@@ -466,9 +524,25 @@ sources:
       - '^/(?:news|feature|cards|episodes)/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+/?$'
     candidate_exclude_url_patterns:
       - '^/(?:podcasts|games|slides)(?:/|$)'
-  - {id: moscow_times, name: Moscow Times, region: Russia, homepage: https://www.themoscowtimes.com}
+  - id: moscow_times
+    name: Moscow Times
+    region: Russia
+    homepage: https://www.themoscowtimes.com
+    discovery_method: RSS
+    rss_urls:
+      - https://www.themoscowtimes.com/rss/news
+    candidate_include_url_patterns:
+      - '^/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+-a[0-9]+/?$'
 
-  - {id: ukrinform, name: Ukrinform, region: Ukraine, homepage: https://www.ukrinform.net}
+  - id: ukrinform
+    name: Ukrinform
+    region: Ukraine
+    homepage: https://www.ukrinform.net
+    discovery_method: RSS
+    rss_urls:
+      - https://www.ukrinform.net/rss/block-lastnews
+    candidate_include_url_patterns:
+      - '^/rubric-[^/]+/[0-9]+-[^/?#]+\.html$'
   - id: suspilne
     name: Suspilne
     region: Ukraine
@@ -488,5 +562,13 @@ sources:
     candidate_exclude_title_patterns:
       - '(?:спорт|футбол|теніс|баскетбол|погода|серіал|кіно)'
   - {id: kyiv_independent, name: Kyiv Independent, region: Ukraine, homepage: https://kyivindependent.com}
-  - {id: kyiv_post, name: Kyiv Post, region: Ukraine, homepage: https://www.kyivpost.com}
+  - id: kyiv_post
+    name: Kyiv Post
+    region: Ukraine
+    homepage: https://www.kyivpost.com
+    discovery_method: RSS
+    rss_urls:
+      - https://www.kyivpost.com/feed
+    candidate_include_url_patterns:
+      - '^/post/[0-9]+/?$'
   - {id: interfax_ukraine, name: Interfax-Ukraine, region: Ukraine, homepage: https://interfax.com.ua}

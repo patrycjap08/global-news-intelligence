@@ -14,6 +14,12 @@ on:
           - merge-existing-summaries
           - titles-only
 
+      retry_rejected:
+        description: "Ponownie sprawdź zapamiętane odrzucenia za krótkiej treści (tylko full)"
+        required: false
+        default: false
+        type: boolean
+
 permissions:
   contents: read
 
@@ -32,6 +38,7 @@ jobs:
       OPENAI_TITLE_MODEL: ${{ vars.OPENAI_TITLE_MODEL || 'gpt-4o-mini' }}
       AI_LABEL_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_LABEL_REQUEST_TIMEOUT_SECONDS || '60' }}
       AI_LABEL_MAX_RETRIES: ${{ vars.AI_LABEL_MAX_RETRIES || '2' }}
+      RETRY_REJECTED: ${{ github.event.inputs.retry_rejected || 'false' }}
       RUN_MODE: ${{ github.event.inputs.mode || 'full' }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
@@ -109,5 +116,8 @@ jobs:
             args+=(--ai-only --merge-existing-summaries --merge-existing-max-topics "$AI_EXISTING_TOPIC_MERGE_MAX_TOPICS")
           else
             args+=(--browser)
+            if [[ "$RETRY_REJECTED" == "true" ]]; then
+              args+=(--retry-rejected)
+            fi
           fi
           python "${args[@]}"

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import hashlib
 import html
 import json
@@ -516,10 +517,7 @@ def fetch_one(
         result, source["homepage"], include_body=True, source_id=str(source.get("id", ""))
     )
     method = "HTTP_HTML"
-    browser_preferred = (
-        str(source.get("id", "")) == "tvn24"
-        and str(source.get("content_method", "")).upper() == "BROWSER"
-    )
+    browser_preferred = str(source.get("content_method", "")).upper() == "BROWSER"
     if browser_enabled and page_obj is not None and (browser_preferred or not extracted.get("body_success")):
         try:
             response = st.browser_navigate(
@@ -665,7 +663,16 @@ def _feed_candidates(
                 if url:
                     url = _strip_candidate_query_keys(source, url)
                 if url and _same_site_non_asset(url, homepage):
-                    rows.append({"url": url, "title": st.clean_text(item.get("title", ""))[:500]})
+                    row = {"url": url, "title": st.clean_text(item.get("title", ""))[:500],
+                           "published_at": item.get("pubdate") or item.get("published")
+                           or item.get("date") or item.get("updated") or ""}
+                    if source.get("full_text_feed", False):
+                        body = _html_fragment_text(item.get("encoded") or item.get("content")
+                                                   or item.get("description") or "")
+                        if len(body.split()) >= MIN_ARTICLE_WORDS:
+                            row.update(api_body=body, api_title=row["title"],
+                                       api_published_at=row["published_at"], api_method="PUBLISHER_RSS")
+                    rows.append(row)
     return rows, notes
 
 
@@ -680,7 +687,9 @@ def _html_fragment_text(fragment: str) -> str:
         node.decompose()
     nodes = soup.select("p, h2, h3, li")
     if nodes:
-        return st.clean_text(" ".join(node.get_text(" ", strip=True) for node in nodes))
+        selected_ids = {id(node) for node in nodes}
+        return st.clean_text(" ".join(node.get_text(" ", strip=True) for node in nodes
+                                     if not any(id(parent) in selected_ids for parent in node.parents)))
     return st.clean_text(soup.get_text(" ", strip=True))
 
 
@@ -722,6 +731,26 @@ def _wordpress_api_candidates(
     return rows, [f"wordpress_api={len(rows)}"]
 
 
+def _candidate_timestamp(row: dict[str, str]) -> float:
+    """Normalize feed/news dates, falling back to lastmod or a dated URL."""
+    values = [row.get("published_at"), row.get("api_published_at"), row.get("lastmod")]
+    match = re.search(r"(20\d{2})[/-](\d{2})[/-](\d{2})(?:[/_-]|$)", row.get("url", ""))
+    if match:
+        values.append("-".join(match.groups()))
+    for value in values:
+        if not value:
+            continue
+        for parser in (lambda v: datetime.fromisoformat(v.replace("Z", "+00:00")), parsedate_to_datetime):
+            try:
+                parsed = parser(value)
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                return parsed.timestamp()
+            except (ValueError, TypeError, OverflowError):
+                continue
+    return 0.0
+
+
 def _sitemap_candidates(
     client: st.HttpClient,
     source: dict[str, Any],
@@ -737,37 +766,46 @@ def _sitemap_candidates(
     robots_sitemaps = [st.canonicalize(value, homepage) or value for value in re.findall(r"(?im)^\s*sitemap:\s*(\S+)", robots.text)]
     configured = [st.canonicalize(url, homepage) for url in source.get("sitemap_urls", [])]
     endpoints = list(dict.fromkeys(
-        robots_sitemaps + [url for url in configured if url] + [
+        [url for url in configured if url] + robots_sitemaps + [
             f"{root_url}/news-sitemap.xml", f"{root_url}/sitemap-news.xml",
             f"{root_url}/sitemap.xml", f"{root_url}/sitemap_index.xml",
             f"{root_url}/sitemap-index.xml",
         ]
     ))
-    news_urls: list[str] = []
-    sitemap_urls: list[str] = []
-    child_urls: list[str] = []
+    news_rows: list[dict[str, str]] = []
+    sitemap_rows: list[dict[str, str]] = []
+    child_rows: list[dict[str, str]] = []
     notes: list[str] = []
     for endpoint in endpoints[:max(1, max_probes)]:
         result = client.get(endpoint, accept="application/xml,text/xml,*/*;q=0.1")
         if not result.text or (result.status and result.status >= 400):
             continue
-        urls, is_news, is_index = st.parse_sitemap(result.text, endpoint)
+        rows, is_news, is_index = st.parse_sitemap_entries(result.text, endpoint)
         if is_news:
-            news_urls.extend(urls)
-            notes.append(f"news_sitemap={len(urls)}")
+            news_rows.extend(rows)
+            notes.append(f"news_sitemap={len(rows)}")
         elif is_index:
-            child_urls.extend(urls)
-        elif urls:
-            sitemap_urls.extend(urls)
-            notes.append(f"sitemap={len(urls)}")
-    for child in child_urls[:max(1, max_children)]:
+            child_rows.extend(rows)
+        elif rows:
+            sitemap_rows.extend(rows)
+            notes.append(f"sitemap={len(rows)}")
+    child_rows.sort(key=_candidate_timestamp, reverse=True)
+    seen_children: set[str] = set()
+    for row in child_rows:
+        child = row["url"]
+        if child in seen_children:
+            continue
+        if len(seen_children) >= max(1, max_children):
+            break
+        seen_children.add(child)
         result = client.get(child, accept="application/xml,text/xml,*/*;q=0.1")
-        urls, is_news, _ = st.parse_sitemap(result.text, child) if result.text else ([], False, False)
+        rows, is_news, _ = st.parse_sitemap_entries(result.text, child) if result.text and result.status and result.status < 400 else ([], False, False)
         if is_news:
-            news_urls.extend(urls)
+            news_rows.extend(rows)
         else:
-            sitemap_urls.extend(urls)
-    rows = [{"url": url, "title": ""} for url in news_urls + sitemap_urls if _same_site_non_asset(url, homepage)]
+            sitemap_rows.extend(rows)
+    rows = [row for row in news_rows + sitemap_rows if _same_site_non_asset(row["url"], homepage)]
+    rows.sort(key=_candidate_timestamp, reverse=True)
     return rows, notes
 
 
@@ -875,21 +913,28 @@ def discover_candidates(
         except Exception as exc:
             notes.append(f"browser_discovery_error:{str(exc)[:160]}")
 
-    unique: list[dict[str, str]] = []
-    seen: set[str] = set()
+    # Enrich duplicate listing URLs with feed/news metadata before sorting.
+    # Keep the discovery method's order for undated entries.
+    rows_by_url: dict[str, dict[str, str]] = {}
     for row in ordered:
         url = st.canonicalize(row.get("url", ""), source["homepage"])
-        if not url or url in seen or not _same_site_non_asset(url, source["homepage"]):
+        if not url or not _same_site_non_asset(url, source["homepage"]):
             continue
         if not _candidate_allowed(source, url, row.get("title", "")):
             continue
-        seen.add(url)
+        existing_row = rows_by_url.setdefault(url, {"url": url})
+        for key, value in row.items():
+            if value and not existing_row.get(key):
+                existing_row[key] = value
+    dated_rows = sorted(rows_by_url.values(), key=_candidate_timestamp, reverse=True)
+    unique: list[dict[str, str]] = []
+    for row in dated_rows:
         candidate = {
-            "url": url,
+            "url": row["url"],
             "title_hint": row.get("title", ""),
             "section_key": row.get("section_key", ""),
         }
-        for key in ("api_title", "api_body", "api_description", "api_published_at"):
+        for key in ("api_title", "api_body", "api_description", "api_published_at", "api_method", "published_at", "lastmod"):
             if row.get(key):
                 candidate[key] = row[key]
         unique.append(candidate)
@@ -898,6 +943,7 @@ def discover_candidates(
     notes.extend(api_notes)
     notes.extend(feed_notes)
     notes.extend(sitemap_notes)
+    notes.append("candidate_order=newest_first")
     if homepage_result.status and homepage_result.status >= 400:
         notes.append(f"homepage_status={homepage_result.status}")
     if not unique:
@@ -1011,6 +1057,7 @@ def harvest_source(
             rejection is not None
             and str(rejection["reason"]) == "TOO_SHORT"
             and int(rejection["word_count"] or 0) < MIN_ARTICLE_WORDS
+            and len(str(candidate.get("api_body", "")).split()) < MIN_ARTICLE_WORDS
         )
         if existing is None and rejection is not None and not args.retry_rejected and rejection_is_still_below_threshold:
             conn.execute(
@@ -1060,7 +1107,7 @@ def harvest_source(
                     "content_hash": hashlib.sha256(api_body.encode("utf-8")).hexdigest(),
                     "body": api_body,
                 }
-                method = "WORDPRESS_API"
+                method = str(candidate.get("api_method") or "WORDPRESS_API")
             else:
                 extracted, method = fetch_one(client, page_obj, source, url, args.browser)
             fetch_duration_ms += round((time.monotonic() - fetch_started) * 1000)
@@ -1127,6 +1174,8 @@ def harvest_source(
     return counts | {
         "skipped": counts["skipped_existing"] + counts["skipped_rejected"],
         "source_id": source_id,
+        "rejected_other": rejected_other,
+        "existing_after_redirect": resolved_existing_after_fetch,
         "source": source.get("name", source_id),
         "discovery_duration_ms": discovery_duration_ms,
         "fetch_duration_ms": fetch_duration_ms,
@@ -1303,6 +1352,11 @@ def main() -> int:
                     if counts.get("total_duration_ms") is not None else ""
                 ),
             )
+            if counts.get("rejected_other"):
+                reasons = ", ".join(f"{status}: {count}" for status, count in sorted(counts["rejected_other"].items()))
+                log("HARVEST", f"{source_name} — inne odrzucenia: {reasons}.", level="WARN")
+            if counts.get("existing_after_redirect"):
+                log("HARVEST", f"{source_name} — po przekierowaniu znaleziono już zapisany artykuł: {counts['existing_after_redirect']}.")
             if "daily_limit_stop" in counts.get("notes", ""):
                 log("HARVEST", "Osiągnięto limit pobierania dla tego źródła; reszta kandydatów czeka na kolejny przebieg.", level="WARN")
             if counts.get("notes", "").startswith("source_error:"):
