@@ -4484,7 +4484,7 @@ def retry_incomplete_summaries(
             return stats
 
         total_jobs = len(summary_jobs)
-        concurrency = max(1, int(os.environ.get("AI_SUMMARY_CONCURRENCY", "5")))
+        concurrency = max(1, int(os.environ.get("AI_SUMMARY_CONCURRENCY", "10")))
         workers = min(concurrency, total_jobs)
         log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania; "
             f"maksymalnie równolegle: {workers}; "
