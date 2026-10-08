@@ -141,7 +141,7 @@ AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 Dzięki temu nowy artykuł o wydarzeniu z wczoraj może zostać dołączony do istniejącego tematu, zamiast tworzyć drugi prawie identyczny temat.
 
 Po nazwaniu kandydatów główny przebieg wylicza embeddingi i automatycznie
-wybiera pary o podobieństwie co najmniej 0.86, bez limitu sąsiadów
+wybiera pary o podobieństwie co najmniej 0.80, bez limitu sąsiadów
 oraz bez weryfikacji decyzji przez AI. Grupa zaczyna się od najsilniejszej dostępnej pary. Każdy
 dołączany element musi osiągnąć próg z co najmniej jednym z tych dwóch
 stałych punktów odniesienia; samo połączenie z późniejszym członkiem grupy

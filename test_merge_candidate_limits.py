@@ -30,7 +30,7 @@ class MergeCandidateLimitTests(unittest.TestCase):
 
     def test_moderate_semantic_similarity_does_not_reach_ai(self):
         self.assertEqual(
-            ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.85, (1 - 0.85**2)**0.5]]),
+            ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.79, (1 - 0.79**2)**0.5]]),
             {},
         )
         self.assertEqual(
@@ -69,22 +69,22 @@ class MergeCandidateLimitTests(unittest.TestCase):
             **os.environ,
             "AI_TOPIC_MERGE_MAX_REQUESTS": "80",
             "AI_TOPIC_MERGE_EMBEDDING_TOP_K": "5",
-            "AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY": "0.84",
+            "AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY": "0.75",
             "AI_TOPIC_MERGE_MAX_TOPICS_PER_REQUEST": "100",
         }
         result = subprocess.run(
             [sys.executable, "-c", "import json, ai_pipeline as a; print(json.dumps([a.TOPIC_MERGE_EMBEDDING_TOP_K, a.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY, a.TOPIC_MERGE_MAX_TOPICS_PER_REQUEST]))"],
             cwd=Path(__file__).parent, env=env, check=True, capture_output=True, text=True,
         )
-        self.assertEqual(json.loads(result.stdout), [None, 0.86, 80])
+        self.assertEqual(json.loads(result.stdout), [None, 0.80, 80])
 
     def test_lower_threshold_accepts_new_candidates_but_still_rejects_weaker_pairs(self):
         self.assertEqual(
-            set(ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.89, (1 - 0.89**2)**0.5]])),
+            set(ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.81, (1 - 0.81**2)**0.5]])),
             {("a", "b")},
         )
         self.assertEqual(
-            ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.85, (1 - 0.85**2)**0.5]]),
+            ai.build_embedding_candidate_edges(["a", "b"], [[1.0, 0.0], [0.79, (1 - 0.79**2)**0.5]]),
             {},
         )
 

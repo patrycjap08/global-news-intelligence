@@ -60,7 +60,7 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
 
     def test_strongest_pair_is_fixed_and_leftovers_can_seed_another_group(self):
         edges = {('a', 'b'): .90, ('b', 'c'): .97, ('c', 'd'): .88,
-                 ('d', 'e'): .91, ('e', 'f'): .87, ('b', 'g'): .85}
+                 ('d', 'e'): .91, ('e', 'f'): .87, ('b', 'g'): .79}
         groups = ai.build_anchored_embedding_groups(list('abcdefg'), edges)
         self.assertEqual(groups[0]['anchor_topic_ids'], ['b', 'c'])
         self.assertEqual(groups[0]['topic_ids'], list('abcd'))
@@ -86,7 +86,7 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
             vectors = [[1.,0.], [score,math.sqrt(1-score**2)]]
             with self.subTest(score=score):
                 result = ai.build_embedding_candidate_edges(['a','b'],vectors,diagnostics=report)
-                self.assertEqual(result,{})
+                self.assertEqual(set(result), {('a', 'b')} if score >= ai.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY else set())
                 sample = report['score_band_samples'][0]
                 self.assertAlmostEqual(sample['band_lower'],n/50)
                 self.assertAlmostEqual(sample['similarity'],score)

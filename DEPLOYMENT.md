@@ -56,10 +56,10 @@ dodać:
   niekontrolowanej liczby wywołań API.
 - `AI_BATCH_SIZE`, domyślnie `50`; większe paczki grupowania są automatycznie
   ograniczane do 50, żeby odpowiedź JSON nie była zbyt długa.
-- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.86`; minimalne
-  podobieństwo cosinusowe kandydatów semantycznych, obniżone z 0.88.
-  Kod nie dopuszcza wartości poniżej 0.86; można podwyższyć próg.
-  Główny workflow ustawia jawnie 0.86, niezależnie od starszej zmiennej repozytorium.
+- `AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY`, domyślnie `0.80`; minimalne
+  podobieństwo cosinusowe kandydatów semantycznych, obniżone z 0.86.
+  Kod nie dopuszcza wartości poniżej 0.80; można podwyższyć próg.
+  Główny workflow ustawia jawnie 0.80, niezależnie od starszej zmiennej repozytorium.
 - Nie ma limitu sąsiadów semantycznych: wybierane są wszystkie pary nad
   progiem. Starsza zmienna `AI_TOPIC_MERGE_EMBEDDING_TOP_K` jest ignorowana.
 - `AI_TOPIC_MERGE_MAX_RECENT_TITLES`, domyślnie `1`; liczba najnowszych tytułów
@@ -109,10 +109,10 @@ mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
 dodatkowego warunku ukrywania wątku.
 
 Główny przebieg scala automatycznie wszystkie pary embeddingów o podobieństwie
-co najmniej 0,86, bez limitu sąsiadów i bez zapytań do AI o zatwierdzenie.
+co najmniej 0,80, bez limitu sąsiadów i bez zapytań do AI o zatwierdzenie.
 Grupę rozpoczyna najsilniejsza dostępna para, której dwa elementy pozostają
 stałymi punktami odniesienia. Każdy dołączany element musi osiągnąć próg
-0.86 z przynajmniej jednym z nich. Samo podobieństwo do później dołączonego
+0.80 z przynajmniej jednym z nich. Samo podobieństwo do później dołączonego
 elementu nie wystarcza. Nie ma limitu wielkości grupy; pozostałe elementy
 mogą utworzyć osobne grupy według tej samej zasady.
 AI opracowuje później tytuł zachowanego wątku oraz syntezę lub aktualizację.

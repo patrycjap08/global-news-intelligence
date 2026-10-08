@@ -76,7 +76,7 @@ TOPIC_MERGE_EMBEDDING_DIMENSIONS = max(
 # All pairs above the threshold qualify; old repository TOP_K variables are ignored.
 TOPIC_MERGE_EMBEDDING_TOP_K = None
 TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = max(
-    0.86, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.86"))
+    0.80, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.80"))
 )
 TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
     20.0,

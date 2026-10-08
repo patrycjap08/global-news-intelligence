@@ -18,7 +18,7 @@ grupowanie AI 1 i opracowania AI 2. Klucze nie są wpisane do kodu.
 
 Integracja z X została usunięta. Analiza korzysta z artykułów prasowych.
 Główny przebieg automatycznie wybiera pary embeddingów o podobieństwie
-co najmniej 0.86, bez limitu sąsiadów i bez zatwierdzania przez AI. AI następnie
+co najmniej 0.80, bez limitu sąsiadów i bez zatwierdzania przez AI. AI następnie
 opracowuje tytuł i syntezę/aktualizację. Grupa zaczyna się od najsilniejszej dostępnej pary. Każdy
 dołączany element musi osiągnąć próg z co najmniej jednym z tych dwóch
 stałych punktów odniesienia; samo połączenie z późniejszym członkiem grupy
