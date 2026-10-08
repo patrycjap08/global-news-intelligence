@@ -3674,7 +3674,7 @@ def merge_active_topics(
                 for article_id in article_ids
                 if article_id not in canonical_article_ids
             ]
-            if merged_article_ids_by_topic is not None and moved_link_rows:
+            if merged_article_ids_by_topic is not None:
                 merged_article_ids_by_topic.setdefault(canonical_id, []).extend(
                     row["article_id"] for row in moved_link_rows
                 )
@@ -3788,6 +3788,9 @@ def merge_existing_summaries(
         max_topics=max_topics,
         merged_article_ids_by_topic=merged_article_ids_by_topic,
     )
+    log("AI-REPAIR", "Przekazuję do kolejki aktualizacji: "
+        f"wątków: {len(merged_article_ids_by_topic)}, przeniesionych artykułów: "
+        f"{sum(len(set(ids)) for ids in merged_article_ids_by_topic.values())}.")
     summary_stats = retry_incomplete_summaries(
         db_path,
         run_id,
@@ -4337,14 +4340,35 @@ def retry_incomplete_summaries(
     conn.row_factory = sqlite3.Row
     stats = {"summaries": 0, "failed_summaries": 0}
     try:
-        topics = client.select_all("topics", filters=[("status", "eq.ACTIVE")])
+        topic_filters = [("status", "eq.ACTIVE"), ("order", "topic_id.asc")]
+        if only_topic_ids is None:
+            topics = client.select_all("topics", filters=topic_filters)
+        else:
+            # Fetch retained topics directly rather than finding a handful of
+            # IDs in an unordered, paginated scan of the entire topics table.
+            topics = []
+            requested_ids = sorted(only_topic_ids)
+            for offset in range(0, len(requested_ids), 100):
+                batch_ids = requested_ids[offset:offset + 100]
+                topics.extend(client.select_all("topics", filters=topic_filters + [
+                    ("topic_id", "in.(" + ",".join(batch_ids) + ")"),
+                ]))
+            found_ids = {str(topic.get("topic_id") or "") for topic in topics}
+            missing_ids = only_topic_ids - found_ids
+            if missing_ids:
+                stats["failed_summaries"] += len(missing_ids)
+                log("AI", f"Kolejka syntez: nie odnaleziono {len(missing_ids)} "
+                    "wskazanych aktywnych wątków po scaleniu; wymagają ponowienia.", level="ERROR")
         queue_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
-        links = client.select_all("topic_articles", columns="topic_id,article_id")
+        links = client.select_all("topic_articles", columns="topic_id,article_id",
+                                  filters=[("order", "topic_id.asc,article_id.asc")])
         summaries = client.select_all(
-            "topic_summaries", columns="topic_id,summary,input_hash,version,updated_at"
+            "topic_summaries", columns="topic_id,summary,input_hash,version,updated_at",
+            filters=[("order", "topic_id.asc")],
         )
         assignments = client.select_all(
-            "article_topic_assignments", columns="topic_id,article_id,created_at"
+            "article_topic_assignments", columns="topic_id,article_id,created_at",
+            filters=[("order", "run_id.asc,article_id.asc")],
         )
         ids_by_topic: dict[str, list[str]] = {}
         for row in links:

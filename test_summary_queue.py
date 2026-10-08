@@ -10,8 +10,9 @@ from test_topic_titles import FakeMergeClient
 
 
 class SummaryQueueTests(unittest.TestCase):
-    def run_queue(self, topics, articles, links, summaries=(), assignments=(), forced=None, clock=None):
-        client = FakeMergeClient(topics, links, list(summaries))
+    def run_queue(self, topics, articles, links, summaries=(), assignments=(), forced=None, clock=None,
+                  only=None, client=None):
+        client = client or FakeMergeClient(topics, links, list(summaries))
         client.rows['article_topic_assignments'] = list(assignments)
         with TemporaryDirectory() as folder:
             db = Path(folder) / 'articles.sqlite3'
@@ -23,8 +24,41 @@ class SummaryQueueTests(unittest.TestCase):
             with patch.object(ai, 'build_bounded_summary_input', return_value=({}, 0, 'test')), patch.object(
                 ai, 'generate_summary_response', return_value={'update': {'status': 'NEW_INFORMATION'}},
             ) as generate, patch.object(ai, 'persist_summary') as persist, patch.object(ai, 'log') as logger, patch.object(ai, 'now', **({'side_effect': clock} if clock else {'return_value': '2026-10-07T12:00:00Z'})):
-                stats = ai.retry_incomplete_summaries(db, 'saved_run', client, forced_new_article_ids_by_topic=forced)
+                stats = ai.retry_incomplete_summaries(db, 'saved_run', client,
+                    forced_new_article_ids_by_topic=forced, only_topic_ids=only)
         return stats, generate, persist, logger
+
+    def test_repair_fetches_retained_topic_directly_instead_of_unordered_full_scan(self):
+        topic = {'topic_id': 'retained', 'headline_pl': 'Zachowany wątek',
+                 'last_seen_at': '2026-10-07T12:00:00Z'}
+        links = [{'topic_id': 'retained', 'article_id': aid} for aid in 'ab']
+        summaries = [{'topic_id': 'retained', 'summary': {'summary_pl': 'Starsza synteza'},
+                      'updated_at': '2026-10-07T10:00:00Z'}]
+        class Client(FakeMergeClient):
+            def select_all(self, table, *, columns='*', filters=()):
+                if table == 'topics':
+                    self.topic_filters = dict(filters)
+                    # Simulate a retained record absent from an unreliable full scan.
+                    if self.topic_filters.get('topic_id') != 'in.(retained)':
+                        return []
+                    self.assert_order = self.topic_filters.get('order')
+                return super().select_all(table, columns=columns, filters=filters)
+        client = Client([topic], links, summaries)
+        assignments = [{'topic_id': 'retained', 'article_id': aid,
+                        'created_at': '2026-10-07T11:00:00Z'} for aid in 'ab']
+        stats, generate, persist, _ = self.run_queue([topic],
+            [('a', 'first', 'CENTER'), ('b', 'second', 'CENTER')], links,
+            assignments=assignments, forced={'retained': ['b']}, only={'retained'}, client=client)
+        self.assertEqual(stats['summaries'], 1)
+        generate.assert_called_once()
+        self.assertEqual(persist.call_args.kwargs['topic_id'], 'retained')
+        self.assertEqual(client.assert_order, 'topic_id.asc')
+
+    def test_missing_retained_topic_is_reported_as_failure(self):
+        stats, generate, _, logger = self.run_queue([], [], [], only={'missing'})
+        self.assertEqual(stats['failed_summaries'], 1)
+        generate.assert_not_called()
+        self.assertTrue(any('nie odnaleziono 1' in str(call) for call in logger.call_args_list))
 
     def test_five_multisource_topics_are_generated_and_three_single_source_topics_are_explained(self):
         topics = [{'topic_id': str(i), 'headline_pl': f'Temat {i}', 'last_seen_at': '2026-10-07T12:00:00Z'} for i in range(8)]

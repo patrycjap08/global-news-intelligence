@@ -127,6 +127,13 @@ o scalenie i nie korzysta z awaryjnego filtra słów ani paczek weryfikacji AI.
 Zapisuje również `EMBEDDING_DIAGNOSTICS`, więc SQL z próbkami działa także
 po tym trybie. Gdy embeddingi są niedostępne, scalanie wymaga ponowienia.
 
+Kolejka naprawcza pobiera zachowane wątki bezpośrednio po identyfikatorach.
+Odczyty stron kolejki mają stabilną kolejność; brak wskazanego aktywnego
+wątku jest błędem, a nie pomyślną pustą kolejką. Log przekazania pokazuje
+liczbę zachowanych wątków i przeniesionych artykułów. Zwykły `ai-only`
+może nadrobić wcześniej pominięte aktualizacje z zapisanych przypisań
+artykułów, jeśli wątki nadal mieszczą się w oknie 48 godzin.
+
 ## Aktualizacje bez powtarzania faktów
 
 Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi
