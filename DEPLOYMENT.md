@@ -91,8 +91,9 @@ nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
 Jeżeli istniejące syntezy zostały rozdzielone na kilka osobnych wątków, w
 formularzu `Run workflow` wybierz tryb `merge-existing-summaries`. Ten tryb
 analizuje tylko aktywne wątki z ostatnich 48 godzin, które mają już zapisaną
-syntezę. Najpierw lokalnie tworzy paczki podobnych wątków, potem AI zatwierdza
-scalenia. Po scaleniu zachowywana jest najstarsza synteza, a nowe artykuły są
+syntezę. Scala automatycznie przez embeddingi według tych samych zasad co
+`full` i `ai-only`, bez pytania AI o zatwierdzenie scalenia. Po scaleniu
+zachowywana jest najstarsza synteza, a nowe artykuły są
 przekazywane do osobnego wywołania AI jako aktualizacja tej syntezy. Wątki
 historyczne pozostają poza tym trybem. Opcjonalna zmienna
 `AI_EXISTING_TOPIC_MERGE_MAX_TOPICS` ogranicza liczbę analizowanych wątków;
@@ -120,10 +121,11 @@ artykuły do kolejki aktualizacji. Brak dostępnych embeddingów w głównym
 przebiegu jest błędem scalania; artykuły pozostają zapisane do ponowienia
 `ai-only`. Nie ma wtedy weryfikacji scalania przez AI ani filtra słów.
 
-Osobny tryb naprawczy `merge-existing-summaries` zachowuje wcześniejszą
-weryfikację przez AI i awaryjny filtr słów. Jego paczki są ograniczane do 80
-rekordów, a po ucięciu odpowiedzi dzielone z zachowaniem wybranych par.
-Główny przebieg nie korzysta już z tych paczek ani limitu ich rozmiaru.
+Tryb naprawczy `merge-existing-summaries` używa tego samego progu embeddingów
+i grup rozpoczynanych od najsilniejszej pary co główny przebieg. Nie pyta AI
+o scalenie i nie korzysta z awaryjnego filtra słów ani paczek weryfikacji AI.
+Zapisuje również `EMBEDDING_DIAGNOSTICS`, więc SQL z próbkami działa także
+po tym trybie. Gdy embeddingi są niedostępne, scalanie wymaga ponowienia.
 
 ## Aktualizacje bez powtarzania faktów
 

@@ -3774,7 +3774,8 @@ def merge_existing_summaries(
     it never labels articles or considers topics without an existing summary.
     The merge step records moved article IDs, so the following summary step
     generates a delta update while preserving the retained topic's original
-    base synthesis.
+    base synthesis. Grouping uses the same automatic anchored embedding
+    selection as full/ai-only, without AI verification or a lexical fallback.
     """
     merged_article_ids_by_topic: dict[str, list[str]] = {}
     merge_stats = merge_active_topics(
@@ -3783,6 +3784,7 @@ def merge_existing_summaries(
         client,
         model=model,
         existing_summaries_only=True,
+        prefer_embeddings=True,
         max_topics=max_topics,
         merged_article_ids_by_topic=merged_article_ids_by_topic,
     )

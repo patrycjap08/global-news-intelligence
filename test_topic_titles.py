@@ -364,6 +364,7 @@ class TopicTitleTests(unittest.TestCase):
 
         self.assertEqual(stats["summaries"], 1)
         self.assertTrue(captured["merge"]["existing_summaries_only"])
+        self.assertTrue(captured["merge"]["prefer_embeddings"])
         self.assertEqual(captured["merge"]["max_topics"], 25)
         self.assertEqual(captured["retry"]["only_topic_ids"], {"retained_topic"})
         self.assertEqual(
