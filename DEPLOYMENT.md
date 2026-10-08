@@ -66,6 +66,12 @@ dodać:
   przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
   na pojedynczą odpowiedź OpenAI.
+- `AI_SUMMARY_CONCURRENCY`, domyślnie `5`; maksymalna liczba syntez lub
+  aktualizacji generowanych jednocześnie. Jedna wspólna kolejka, od wątków
+  z największą liczbą artykułów. Wartość `1` przywraca pracę sekwencyjną.
+  Ustawienie jest dostępne jako GitHub Actions repository variable.
+  Wyższa wartość może zwiększyć liczbę odpowiedzi HTTP 429; ponowienia API
+  nadal działają osobno dla każdego zadania.
 - `AI_SUMMARY_REQUEST_TIMEOUT_SECONDS`, domyślnie `180`; osobny timeout dla
   generowania i aktualizacji syntez.
 - `AI_SUMMARY_MAX_PAYLOAD_CHARS`, domyślnie `300000`; po przekroczeniu tej
@@ -101,6 +107,13 @@ historyczne pozostają poza tym trybem. Opcjonalna zmienna
 
 W zwykłym trybie po grupowaniu nowych artykułów działa dodatkowy szybki etap
 scalania podobnych aktywnych tematów, a dopiero potem generowane są syntezy.
+
+Wywołania AI dla syntez i aktualizacji wykonują się równolegle, a odczyty SQLite
+oraz zapisy Supabase pozostają na jednym wątku koordynującym. Ten sam wątek
+wiadomości jest przetwarzany najwyżej raz w kolejce. Wolne miejsce zajmuje
+następny temat po zapisaniu ukończonych wyników; kolejka nie czeka na koniec
+całej piątki. Zasada obejmuje full, ai-only i merge-existing-summaries.
+Kolejność ukończenia może różnić się od kolejności rozpoczynania.
 
 Publikacja wyników jest stopniowa: każdy wygenerowany tekst jest od razu
 zapisywany w Supabase. Po odświeżeniu danych aplikacja pokazuje gotowe syntezy

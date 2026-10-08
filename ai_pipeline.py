@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 import heapq
 import hashlib
@@ -4396,8 +4397,12 @@ def retry_incomplete_summaries(
                     or reason.startswith("brak poprawnej daty")):
                 log("AI", f"Syntezy: pominięto {topic.get('headline_pl') or topic.get('topic_id')}: {reason}.")
 
+        queued_topic_ids: set[str] = set()
         for topic in topics:
             topic_id = str(topic.get("topic_id") or "")
+            if topic_id in queued_topic_ids:
+                continue
+            queued_topic_ids.add(topic_id)
             if only_topic_ids is not None and topic_id not in only_topic_ids:
                 continue
             try:
@@ -4479,80 +4484,102 @@ def retry_incomplete_summaries(
             return stats
 
         total_jobs = len(summary_jobs)
+        concurrency = max(1, int(os.environ.get("AI_SUMMARY_CONCURRENCY", "5")))
+        workers = min(concurrency, total_jobs)
         log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania; "
-            "kolejność: od największej łącznej liczby podpiętych artykułów, "
+            f"maksymalnie równolegle: {workers}; "
+            "kolejność rozpoczynania: od największej łącznej liczby podpiętych artykułów, "
             "przy remisie od najnowszej aktywności.")
-        for index, job in enumerate(summary_jobs, start=1):
-            # A long queue can outlive the window: check again before paying
-            # for generation, including jobs explicitly requested after merge.
-            current_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
-            if job["last_seen_at"] < current_cutoff:
-                log("AI", f"Synteza {index}/{total_jobs}: pominięto {job['title']}: "
-                    f"poza oknem {TOPIC_MATCH_LOOKBACK_HOURS} godzin po oczekiwaniu w kolejce.")
-                continue
-            topic_id = job["topic_id"]
-            new_ids = job["new_ids"]
-            new_rows = job["new_rows"]
-            all_rows = job["all_rows"]
-            previous_row = job["previous_row"]
-            previous_aggregation = job["previous_aggregation"]
-            summary_input, payload_chars, payload_mode = build_bounded_summary_input(
-                job["summary_input_base"],
-                new_rows,
-                all_rows if previous_aggregation is None else None,
-            )
-            summary_hash = digest(summary_input)
-            summary_topic_run_id = "topicrun_" + digest({
-                "topic": topic_id, "stage": "SUMMARY", "input": summary_hash,
-            })[:24]
-            log(
-                "AI",
-                f"Synteza {index}/{total_jobs}: {short_text(job['title'])} "
-                f"(nowych: {len(new_rows)}, łącznie: {len(all_rows)}; "
-                f"pozostało: {total_jobs - index + 1}; dane: {payload_mode}, "
-                f"{payload_chars / 1024:.1f} KiB).",
-            )
+        completed_jobs = 0
+
+        def record_failure(index: int, job: dict[str, Any], summary_hash: str, exc: Exception) -> None:
+            stats["failed_summaries"] += 1
+            log_parse_failure("SUMMARY", exc)
+            log("AI", f"Synteza {index}/{total_jobs} nieudana: {short_text(job['title'])}: "
+                f"{short_text(exc, 220)}; ukończono: {completed_jobs}/{total_jobs}; "
+                f"pozostało: {total_jobs - completed_jobs}.", level="ERROR")
             try:
-                summary = generate_summary_response(summary_input, model)
-                persist_summary(
-                    client,
-                    topic_id=topic_id,
-                    run_id=run_id,
-                    model=model,
-                    summary=summary,
-                    summary_hash=summary_hash,
-                    previous_row=previous_row,
-                    new_article_ids=new_ids,
-                )
                 client.upsert("topic_runs", [{
-                    "topic_run_id": summary_topic_run_id, "run_id": run_id,
-                    "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
-                    "model": model, "input_hash": summary_hash, "status": "COMPLETED",
-                    "raw_output": response_for_storage(summary), "error": None,
-                }], on_conflict="topic_run_id")
-                stats["summaries"] += 1
-                log(
-                    "AI",
-                    (f"Analiza {index}/{total_jobs}: brak nowych informacji; artykuły zapisane bez nowej aktualizacji. "
-                     if previous_aggregation and summary["update"].get("status") == "NO_NEW_INFORMATION"
-                     else f"Synteza {index}/{total_jobs} gotowa; ")
-                    + f"pozostało {total_jobs - index}.",
-                )
-            except Exception as exc:
-                log_parse_failure("SUMMARY", exc)
-                if not isinstance(exc, AIResponseParseError):
-                    log(
-                        "AI",
-                        f"Synteza {index}/{total_jobs} nieudana: {short_text(exc, 220)}.",
-                        level="ERROR",
-                    )
-                client.upsert("topic_runs", [{
-                    "topic_run_id": summary_topic_run_id, "run_id": run_id,
+                    "topic_run_id": "topicrun_" + digest({
+                        "topic": job["topic_id"], "stage": "SUMMARY", "input": summary_hash,
+                    })[:24], "run_id": run_id,
                     "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
                     "model": model, "input_hash": summary_hash, "status": "FAILED",
                     "raw_output": parse_failure_for_storage(exc), "error": str(exc)[:2000],
                 }], on_conflict="topic_run_id")
-                stats["failed_summaries"] += 1
+            except Exception as history_error:
+                log("AI", f"Nie zapisano diagnostyki błędu syntezy {short_text(job['title'])}: "
+                    f"{short_text(history_error, 180)}.", level="ERROR")
+
+        # Only AI generation runs in worker threads. SQLite reads, Supabase
+        # writes and counters stay on the coordinator thread. Submit at most
+        # workers jobs; refill free slots after persisting finished results.
+        pending: dict[Any, tuple[int, dict[str, Any], str]] = {}
+        remaining = iter(enumerate(summary_jobs, start=1))
+        exhausted = False
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="gni-summary") as executor:
+            while pending or not exhausted:
+                while len(pending) < workers and not exhausted:
+                    try:
+                        index, job = next(remaining)
+                    except StopIteration:
+                        exhausted = True
+                        break
+                    current_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
+                    if job["last_seen_at"] < current_cutoff:
+                        completed_jobs += 1
+                        log("AI", f"Synteza {index}/{total_jobs}: pominięto {job['title']}: "
+                            f"poza oknem {TOPIC_MATCH_LOOKBACK_HOURS} godzin po oczekiwaniu w kolejce; "
+                            f"ukończono: {completed_jobs}/{total_jobs}.")
+                        continue
+                    summary_hash = digest(job["summary_input_base"])
+                    try:
+                        summary_input, payload_chars, payload_mode = build_bounded_summary_input(
+                            job["summary_input_base"], job["new_rows"],
+                            job["all_rows"] if job["previous_aggregation"] is None else None,
+                        )
+                        summary_hash = digest(summary_input)
+                        log("AI", f"Synteza {index}/{total_jobs}: {short_text(job['title'])} "
+                            f"(nowych: {len(job['new_rows'])}, łącznie: {len(job['all_rows'])}; "
+                            f"dane: {payload_mode}, {payload_chars / 1024:.1f} KiB; "
+                            f"zadań w toku po starcie: {len(pending) + 1}/{workers}).")
+                        future = executor.submit(generate_summary_response, summary_input, model)
+                        pending[future] = (index, job, summary_hash)
+                    except Exception as exc:
+                        completed_jobs += 1
+                        record_failure(index, job, summary_hash, exc)
+                if not pending:
+                    continue
+                done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in sorted(done, key=lambda item: pending[item][0]):
+                    index, job, summary_hash = pending.pop(future)
+                    completed_jobs += 1
+                    try:
+                        summary = future.result()
+                        persist_summary(
+                            client, topic_id=job["topic_id"], run_id=run_id, model=model,
+                            summary=summary, summary_hash=summary_hash,
+                            previous_row=job["previous_row"], new_article_ids=job["new_ids"],
+                        )
+                        client.upsert("topic_runs", [{
+                            "topic_run_id": "topicrun_" + digest({
+                                "topic": job["topic_id"], "stage": "SUMMARY", "input": summary_hash,
+                            })[:24], "run_id": run_id,
+                            "stage": "SUMMARY", "prompt_version": PROMPT_VERSION,
+                            "model": model, "input_hash": summary_hash, "status": "COMPLETED",
+                            "raw_output": response_for_storage(summary), "error": None,
+                        }], on_conflict="topic_run_id")
+                        stats["summaries"] += 1
+                        description = (
+                            "brak nowych informacji; artykuły zapisane bez nowej aktualizacji"
+                            if job["previous_aggregation"] and summary["update"].get("status") == "NO_NEW_INFORMATION"
+                            else "gotowa"
+                        )
+                        log("AI", f"Synteza {index}/{total_jobs}: {short_text(job['title'])}: {description}; "
+                            f"ukończono: {completed_jobs}/{total_jobs}; "
+                            f"pozostało: {total_jobs - completed_jobs}.")
+                    except Exception as exc:
+                        record_failure(index, job, summary_hash, exc)
         return stats
     finally:
         conn.close()
