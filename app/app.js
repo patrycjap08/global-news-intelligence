@@ -21,11 +21,24 @@ const state = {
   bookmarkedTopics: loadBookmarkedTopics(),
   latestHarvestStartedAt: null,
   demo: false,
+  connection: 'loading',
+  loadedAt: null,
 };
 
 let dataIndexes = null;
 let modelCache = null;
 let searchRenderTimer = null;
+let liveLoadPromise = null;
+let refreshPromise = null;
+let liveLoadController = null;
+let liveLoadStartedAt = 0;
+let dataRevision = 0;
+let fullSummaryTopics = new Set();
+let topicDetailPromises = new Map();
+let openDialogTopicId = null;
+const REQUEST_TIMEOUT_MS = 15000;
+const LOAD_TIMEOUT_MS = 90000;
+const SUMMARY_PREVIEW_COLUMNS = 'topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
 const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
 const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
@@ -478,59 +491,284 @@ function topicModel(topic) {
   return model;
 }
 
-async function fetchTable(table, query = '') {
+async function fetchTable(table, query = '', { signal, timeoutMs = REQUEST_TIMEOUT_MS, attempts = 3 } = {}) {
   const url = `${String(config.supabaseUrl).replace(/\/$/, '')}/rest/v1/${table}${query}`;
-  const response = await fetch(url, { cache: 'no-store', headers: { apikey: config.supabasePublishableKey, Authorization: `Bearer ${config.supabasePublishableKey}` } });
-  if (!response.ok) throw new Error(`${table}: HTTP ${response.status}`);
-  return response.json();
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (signal?.aborted) throw new Error('Pobieranie danych zostało przerwane.');
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    const timer = window.setTimeout(abort, timeoutMs);
+    let retryDelay = 300 * (attempt + 1);
+    try {
+      const response = await fetch(url, { cache: 'no-store', signal: controller.signal,
+        headers: { apikey: config.supabasePublishableKey, Authorization: `Bearer ${config.supabasePublishableKey}` } });
+      if (!response.ok) {
+        const error = new Error(`${table}: HTTP ${response.status}`);
+        error.retryable = [408, 425, 429, 500, 502, 503, 504].includes(response.status);
+        const retryAfter = Number(response.headers?.get('retry-after'));
+        if (retryAfter > 0) retryDelay = Math.min(3000, retryAfter * 1000);
+        throw error;
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error(`${table}: niepoprawny format danych.`);
+      return data;
+    } catch (error) {
+      if (signal?.aborted || error.retryable === false || attempt + 1 >= attempts) throw error;
+    } finally {
+      window.clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
+  }
 }
 
-async function fetchAllRows(table, query = '') {
-  const pageSize = 1000;
+async function fetchAllRows(table, query = '', options = {}) {
+  const pageSize = 500;
   const rows = [];
   let offset = 0;
   while (true) {
     const separator = query.includes('?') ? '&' : '?';
-    const page = await fetchTable(table, `${query}${separator}limit=${pageSize}&offset=${offset}`);
+    const page = await fetchTable(table, `${query}${separator}limit=${pageSize}&offset=${offset}`, options);
     rows.push(...page);
     if (page.length < pageSize) return rows;
     offset += page.length;
   }
 }
 
-async function loadLiveData() {
-  const [topics, articles, links, summaries] = await Promise.all([
-    fetchAllRows('app_topics', '?select=*&order=last_seen_at.desc'),
-    fetchAllRows('app_articles', '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,fetched_at,word_count,description&order=published_at.desc'),
-    fetchAllRows('app_topic_articles', '?select=topic_id,article_id,confidence'),
-    fetchAllRows('app_topic_summaries', '?select=topic_id,version,summary,updated_at'),
-  ]);
-  state.topics = topics;
-  state.articles = articles;
-  state.links = links;
-  state.summaries = new Map(summaries.map((summary) => [summary.topic_id, summary]));
+async function fetchRowsForIds(table, column, ids, query, options) {
+  const unique = [...new Set(ids.map(String))];
+  const batches = [];
+  for (let offset = 0; offset < unique.length; offset += 80) batches.push(unique.slice(offset, offset + 80));
+  const results = new Array(batches.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(3, batches.length) }, async () => {
+    while (next < batches.length) {
+      const index = next++;
+      const filter = encodeURIComponent(`in.(${batches[index].join(',')})`);
+      results[index] = await fetchAllRows(table, `${query}&${column}=${filter}`, options);
+    }
+  }));
+  return results.flat();
+}
+
+function summaryPreview(row) {
+  if (row.summary) return row;
+  return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
+    summary: { base_summary: { topic: row.base_topic || row.legacy_topic || {},
+      summary_pl: row.base_text || row.legacy_text || '' },
+      latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
+      last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
+}
+
+// IndexedDB is asynchronous: saving a large snapshot must not freeze typing.
+// Cache failures (including private browsing/storage limits) never block the app.
+function snapshotStorage(mode, snapshot) {
+  if (!window.indexedDB) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let db;
+    let settled = false;
+    let result = null;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      db?.close();
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(null), 1200);
+    try {
+      const request = window.indexedDB.open('gni-data-cache', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('snapshots');
+      request.onerror = () => finish(null);
+      request.onsuccess = () => {
+        db = request.result;
+        if (settled) { db.close(); return; }
+        try {
+          const transaction = db.transaction('snapshots', mode === 'read' ? 'readonly' : 'readwrite');
+          const store = transaction.objectStore('snapshots');
+          const key = config.staticDataUrl || String(config.supabaseUrl).replace(/\/$/, '');
+          const operation = mode === 'read' ? store.get(key) : store.put(snapshot, key);
+          operation.onsuccess = () => { result = operation.result; };
+          transaction.oncomplete = () => finish(result);
+          transaction.onerror = transaction.onabort = () => finish(null);
+        } catch (error) { finish(null); }
+      };
+    } catch (error) { finish(null); }
+  });
+}
+
+function saveSnapshot() {
+  return snapshotStorage('write', { schema: 1, savedAt: state.loadedAt,
+    topics: state.topics, articles: state.articles, links: state.links,
+    summaries: [...state.summaries], history: [...state.history], fullSummaryTopics: [...fullSummaryTopics], staticGeneration: state.staticGeneration,
+    latestHarvestStartedAt: state.latestHarvestStartedAt });
+}
+
+async function restoreSnapshot() {
+  const snapshot = await snapshotStorage('read');
+  if (!snapshot || snapshot.schema !== 1 || !Number.isFinite(Date.parse(snapshot.savedAt))
+      || !['topics', 'articles', 'links', 'summaries', 'history'].every((key) => Array.isArray(snapshot[key]))) return false;
   try {
-    const latestRuns = await fetchTable('app_latest_harvest', '?select=run_id,started_at&limit=1');
-    state.latestHarvestStartedAt = latestRuns[0]?.started_at || null;
-  } catch (error) {
-    state.latestHarvestStartedAt = null;
-    console.warn('Data ostatniego pobrania nie jest jeszcze dostępna.', error);
-  }
+    const summaries = new Map(snapshot.summaries), history = new Map(snapshot.history);
+    const fullTopics = new Set(Array.isArray(snapshot.fullSummaryTopics) ? snapshot.fullSummaryTopics : []);
+    state.topics = snapshot.topics; state.articles = snapshot.articles; state.links = snapshot.links;
+    state.summaries = summaries; state.history = history; state.staticGeneration = snapshot.staticGeneration;
+    fullSummaryTopics = fullTopics;
+    state.latestHarvestStartedAt = snapshot.latestHarvestStartedAt;
+    state.loadedAt = snapshot.savedAt; state.demo = false; state.connection = 'cached';
+    dataRevision += 1;
+    invalidateViewCache();
+    return true;
+  } catch (error) { return false; }
+}
+
+async function fetchStaticJson(path, signal) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  const timer = window.setTimeout(abort, REQUEST_TIMEOUT_MS);
   try {
-    const versions = await fetchAllRows('app_topic_summary_versions', '?select=topic_id,version,summary,new_article_ids,generated_at&order=version.asc');
-    state.history = new Map();
-    versions.forEach((version) => {
-      const versionsForTopic = state.history.get(version.topic_id) || [];
-      versionsForTopic.push(version);
-      state.history.set(version.topic_id, versionsForTopic);
-    });
-  } catch (error) {
-    // The history migration is optional for an older deployment.
-    state.history = new Map();
-    console.warn('Historia wersji tematów jest jeszcze niedostępna.', error);
+    const response = await fetch(new URL(path, new URL(config.staticDataUrl, window.location.href)), { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) throw new Error(`Dane strony: HTTP ${response.status}`);
+    return await response.json();
+  } finally { window.clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+}
+
+async function loadStaticData(options) {
+  const data = await fetchStaticJson('index.json', options.signal);
+  if (data.schema !== 1 || !['topics', 'articles', 'links', 'summaries'].every((key) => Array.isArray(data[key]))
+      || !data.generation || !data.exported_at) throw new Error('Niepoprawny eksport strony.');
+  state.topics = data.topics; state.articles = data.articles; state.links = data.links;
+  state.summaries = new Map(data.summaries.map((row) => [row.topic_id, row]));
+  state.history = new Map(); fullSummaryTopics = new Set(); topicDetailPromises = new Map();
+  state.staticGeneration = data.generation;
+  dataRevision += 1; state.latestHarvestStartedAt = data.latest_harvest_started_at;
+  state.loadedAt = data.exported_at; state.demo = false; state.connection = 'live';
+  invalidateViewCache(); void saveSnapshot();
+}
+
+function loadLiveData() {
+  if (liveLoadPromise) return liveLoadPromise;
+  const controller = new AbortController();
+  liveLoadController = controller;
+  liveLoadStartedAt = Date.now();
+  const deadline = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+  const options = { signal: controller.signal };
+  liveLoadPromise = (async () => {
+    try {
+      if (config.staticDataUrl) { await loadStaticData(options); return; }
+      // The UI displays multi-source topics. Do not download thousands of
+      // one-article candidates, unrelated articles or full version archives.
+      const topics = await fetchAllRows('app_topics', '?select=*&source_count=gte.2&order=topic_id.asc', options);
+      const topicIds = topics.map((topic) => topic.topic_id);
+      const [links, previews, latestRuns] = await Promise.all([
+        fetchRowsForIds('app_topic_articles', 'topic_id', topicIds, '?select=topic_id,article_id,confidence&order=topic_id.asc,article_id.asc', options),
+        fetchRowsForIds('app_topic_summaries', 'topic_id', topicIds, `?select=${SUMMARY_PREVIEW_COLUMNS}&order=topic_id.asc`, options),
+        fetchTable('app_latest_harvest', '?select=run_id,started_at&limit=1', { ...options, attempts: 1 })
+          .catch(() => [{ started_at: state.latestHarvestStartedAt }]),
+      ]);
+      const articles = await fetchRowsForIds('app_articles', 'article_id', links.map((link) => link.article_id),
+        '?select=article_id,source_id,source_name,source_profile,source_type,title,original_url,published_at,fetched_at,word_count&order=article_id.asc', options);
+      if (controller.signal.aborted) throw new Error('Przekroczono czas pobierania danych.');
+      // Commit one complete snapshot: a failed refresh leaves the last good
+      // data intact, instead of mixing different partially fetched versions.
+      state.topics = topics; state.articles = articles; state.links = links;
+      state.summaries = new Map(previews.map((row) => [row.topic_id, summaryPreview(row)]));
+      state.history = new Map();
+      fullSummaryTopics = new Set(previews.filter((row) => row.summary).map((row) => row.topic_id));
+      topicDetailPromises = new Map();
+      dataRevision += 1;
+      state.latestHarvestStartedAt = latestRuns[0]?.started_at || null;
+      state.loadedAt = new Date().toISOString();
+      state.demo = false; state.connection = 'live';
+      invalidateViewCache();
+      void saveSnapshot();
+    } catch (error) {
+      controller.abort();
+      throw error;
+    } finally {
+      window.clearTimeout(deadline);
+      liveLoadController = null;
+      liveLoadPromise = null;
+    }
+  })();
+  return liveLoadPromise;
+}
+
+function loadTopicDetails(topicId) {
+  if (state.demo || fullSummaryTopics.has(topicId)) return Promise.resolve();
+  if (topicDetailPromises.has(topicId)) return topicDetailPromises.get(topicId);
+  const revision = dataRevision;
+  const promise = (async () => {
+    if (config.staticDataUrl) {
+      const detail = await fetchStaticJson(`${state.staticGeneration}/topics/${encodeURIComponent(topicId)}.json`);
+      if (revision !== dataRevision) return;
+      state.summaries = new Map(state.summaries);
+      if (detail.summary) state.summaries.set(topicId, detail.summary);
+      state.history = new Map(state.history); state.history.set(topicId, detail.history || []);
+      fullSummaryTopics.add(topicId); invalidateViewCache(); void saveSnapshot(); return;
+    }
+    const rows = await fetchTable('app_topic_summaries', `?select=topic_id,version,summary,updated_at&topic_id=eq.${encodeURIComponent(topicId)}&limit=1`);
+    const row = rows[0];
+    let versions = [];
+    // Modern summaries contain all accepted updates. Only legacy summaries
+    // need the optional version table to recover their earlier updates.
+    if (row && !Array.isArray(row.summary?.updates)) {
+      try {
+        const raw = await fetchAllRows('app_topic_summary_versions',
+          `?select=topic_id,version,updates:summary->updates,latest_update:summary->latest_update,update:summary->update,generated_at&topic_id=eq.${encodeURIComponent(topicId)}&order=version.asc`, { attempts: 1 });
+        versions = raw.map((version) => ({ ...version, summary: { updates: version.updates, latest_update: version.latest_update, update: version.update } }));
+      } catch (error) { console.warn('Nie udało się pobrać historii tego wątku.', error); }
+    }
+    if (revision !== dataRevision) return;
+    state.summaries = new Map(state.summaries);
+    if (row) state.summaries.set(topicId, row);
+    state.history = new Map(state.history); state.history.set(topicId, versions);
+    fullSummaryTopics.add(topicId);
+    invalidateViewCache();
+    void saveSnapshot();
+  })().finally(() => {
+    if (topicDetailPromises.get(topicId) === promise) topicDetailPromises.delete(topicId);
+  });
+  topicDetailPromises.set(topicId, promise);
+  return promise;
+}
+
+function refreshData({ notify = false } = {}) {
+  if (refreshPromise) return refreshPromise;
+  if (!config.staticDataUrl && (!config.supabaseUrl || !config.supabasePublishableKey)) {
+    showToast('Podgląd nie jest jeszcze połączony z bazą.');
+    return Promise.resolve(false);
   }
-  state.demo = false;
-  invalidateViewCache();
+  if (state.demo) {
+    state.topics = []; state.articles = []; state.links = [];
+    state.summaries = new Map(); state.history = new Map(); state.demo = false;
+    invalidateViewCache();
+  }
+  const button = $('#refresh-button');
+  button.disabled = true; button.textContent = 'Odświeżam…';
+  state.connection = 'loading'; setStatus();
+  refreshPromise = (async () => {
+    try {
+      await loadLiveData();
+      setStatus(); render();
+      if (notify) showToast('Dane zostały odświeżone.');
+      return true;
+    } catch (error) {
+      state.connection = state.loadedAt ? 'cached' : 'error';
+      state.demo = false;
+      setStatus(); render();
+      showToast(state.loadedAt ? 'Nie udało się odświeżyć. Zachowuję ostatnie pobrane dane.' : 'Nie udało się połączyć. Spróbuj „Odśwież dane”.');
+      console.warn('Pobieranie danych nie powiodło się.', error);
+      return false;
+    } finally {
+      button.disabled = false; button.textContent = 'Odśwież dane';
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 function loadDemoData(message) {
@@ -540,15 +778,22 @@ function loadDemoData(message) {
   state.summaries = new Map(DEMO.summaries);
   state.history = new Map();
   state.demo = true;
+  state.connection = 'demo';
+  state.loadedAt = null;
   invalidateViewCache();
   if (message) showToast(message);
 }
 
 function setStatus() {
   const status = $('#data-status');
-  status.textContent = state.demo ? 'Podgląd interfejsu' : `Połączono · ${formatDate(new Date())}`;
+  status.textContent = state.demo ? 'Podgląd interfejsu'
+    : state.connection === 'loading' ? (state.loadedAt ? 'Odświeżam · ostatnie dane dostępne' : (config.staticDataUrl ? 'Pobieranie danych…' : 'Łączenie z bazą…'))
+    : state.connection === 'cached' ? 'Ostatnie zapisane dane · brak aktualizacji'
+    : state.connection === 'error' ? 'Nie udało się połączyć'
+    : `Połączono · ${formatDate(new Date())}`;
   $('#harvest-time').textContent = state.demo ? 'Dane demonstracyjne' : `Dane z: ${formatDateTime(state.latestHarvestStartedAt)}`;
-  $('#footer-updated').textContent = state.demo ? 'Tryb podglądu — skonfiguruj app/config.js, aby zobaczyć dane z Supabase.' : `Ostatnie odświeżenie: ${new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`;
+  $('#footer-updated').textContent = state.demo ? 'Tryb podglądu — skonfiguruj połączenie z bazą.'
+    : state.loadedAt ? `Ostatnie poprawne odświeżenie: ${formatDateTime(state.loadedAt)}` : 'Dane nie zostały jeszcze pobrane.';
 }
 
 function renderStats(models) {
@@ -733,12 +978,28 @@ function dialogHtml(model) {
 function openTopic(topicId) {
   const model = modelForTopic(topicId);
   if (!model || !model.hasAggregation) return;
+  openDialogTopicId = topicId;
   markTopicRead(model);
-  $('#dialog-content').innerHTML = dialogHtml(model);
+  const loading = !state.demo && !fullSummaryTopics.has(topicId);
+  $('#dialog-content').innerHTML = `${loading ? '<p role="status">Ładuję pełne opracowanie…</p>' : ''}${dialogHtml(model)}`;
   const dialog = $('#story-dialog');
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
   render();
+  if (loading) {
+    const revision = dataRevision;
+    loadTopicDetails(topicId).then(() => {
+      if (revision === dataRevision && dialog.open && openDialogTopicId === topicId) {
+        const updated = modelForTopic(topicId);
+        $('#dialog-content').innerHTML = dialogHtml(updated);
+        markTopicRead(updated);
+        render();
+      }
+    }).catch((error) => {
+      if (dialog.open && openDialogTopicId === topicId) showToast('Nie udało się pobrać pełnego opracowania. Otwórz temat ponownie, aby spróbować jeszcze raz.');
+      console.warn('Pobieranie opracowania nie powiodło się.', error);
+    });
+  }
 }
 
 function filteredModels(allModels = allTopicModels()) {
@@ -783,6 +1044,10 @@ function render({ searchOnly = false } = {}) {
     : state.view === 'saved' ? 'Zapisane tematy' : 'Aktualne historie';
   $('#topic-grid').innerHTML = models.map(cardHtml).join('');
   $('#empty-state').hidden = models.length > 0;
+  if (!models.length) {
+    $('#empty-state h3').textContent = state.connection === 'error' ? 'Nie udało się pobrać tematów' : state.connection === 'loading' ? 'Pobieram tematy…' : 'Nie znaleziono tematów';
+    $('#empty-state p').textContent = state.connection === 'error' ? 'Kliknij „Odśwież dane”, aby spróbować ponownie.' : state.connection === 'loading' ? 'Dane pojawią się po zakończeniu pobierania.' : 'Spróbuj zmienić filtr albo wyszukiwane hasło.';
+  }
   $('#topic-grid').querySelectorAll('[data-topic-id]').forEach((card) => {
     card.addEventListener('click', (event) => {
       if (event.target.closest('[data-bookmark-topic-id]')) return;
@@ -805,14 +1070,13 @@ function showToast(message) {
 
 async function init() {
   $('#edition-date').textContent = new Intl.DateTimeFormat('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()).toUpperCase();
-  if (config.supabaseUrl && config.supabasePublishableKey) {
-    try { await loadLiveData(); }
-    catch (error) { loadDemoData('Nie udało się pobrać danych z Supabase. Pokazuję podgląd interfejsu.'); console.warn(error); }
+  if (config.staticDataUrl || (config.supabaseUrl && config.supabasePublishableKey)) {
+    if (await restoreSnapshot()) { setStatus(); render(); }
+    await refreshData();
   } else {
-    loadDemoData('To jest podgląd interfejsu. Dodaj app/config.js, aby połączyć aplikację z Supabase.');
+    loadDemoData('To jest podgląd interfejsu. Skonfiguruj połączenie z bazą, aby zobaczyć dane.');
+    setStatus(); render();
   }
-  setStatus();
-  render();
 }
 
 document.addEventListener('click', (event) => {
@@ -858,6 +1122,17 @@ $('#hide-read').addEventListener('change', (event) => {
   render();
 });
 $('#dialog-close').addEventListener('click', () => $('#story-dialog').close());
-$('#refresh-button').addEventListener('click', async () => { if (state.demo) return showToast('Podgląd nie jest jeszcze połączony z Supabase.'); $('#refresh-button').textContent = 'Odświeżam…'; try { await loadLiveData(); setStatus(); render(); showToast('Dane zostały odświeżone.'); } catch (error) { showToast('Nie udało się odświeżyć danych.'); console.warn(error); } finally { $('#refresh-button').textContent = 'Odśwież dane'; } });
+$('#refresh-button').addEventListener('click', () => { void refreshData({ notify: true }); });
+window.addEventListener('online', () => { if (!state.demo) void refreshData(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || state.demo) return;
+  if (liveLoadPromise && Date.now() - liveLoadStartedAt > LOAD_TIMEOUT_MS) {
+    liveLoadController?.abort();
+    const activeRefresh = refreshPromise || liveLoadPromise;
+    activeRefresh.then(() => refreshData(), () => refreshData());
+  } else if (!liveLoadPromise && ['cached', 'error'].includes(state.connection)) {
+    void refreshData();
+  }
+});
 
 init();

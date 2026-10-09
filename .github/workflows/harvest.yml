@@ -122,3 +122,17 @@ jobs:
             fi
           fi
           python "${args[@]}"
+
+      - name: Export public site data
+        id: public_export
+        continue-on-error: true
+        run: python export_public_site.py --output public_site_data
+
+      - name: Save public site snapshot
+        if: steps.public_export.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gni-public-data
+          path: public_site_data/
+          retention-days: 30
+          if-no-files-found: error

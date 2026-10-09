@@ -24,3 +24,8 @@ app/config.js
 # One-off update repair backup/checkpoint; contains saved article summaries.
 topic-update-rebuild.json
 topic-update-rebuild.json.tmp
+
+# Generated public Pages artifact; bootstrap data goes in app/data/.
+public_site_data/
+downloaded_public_data/
+app/data/

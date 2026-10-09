@@ -8,9 +8,14 @@ on:
       - "app/**"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Global News Intelligence — harvest and analysis"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -20,6 +25,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
@@ -31,10 +37,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Find latest public snapshot
+        id: snapshot
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const artifacts = await github.paginate(github.rest.actions.listArtifactsForRepo, {
+              owner: context.repo.owner, repo: context.repo.repo, name: 'gni-public-data', per_page: 100
+            });
+            const available = artifacts.filter(a => !a.expired && a.workflow_run?.head_branch === 'main');
+            available.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+            const artifact = available[0];
+            if (artifact) core.setOutput('run_id', String(artifact.workflow_run.id));
+
+      - name: Download public snapshot
+        if: steps.snapshot.outputs.run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: gni-public-data
+          path: downloaded_public_data
+          run-id: ${{ steps.snapshot.outputs.run_id }}
+          github-token: ${{ github.token }}
+
       - name: Prepare static site
         run: |
-          test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_PUBLISHABLE_KEY"
           mkdir -p _site
           cp -R app/. _site/
           touch _site/.nojekyll
@@ -42,13 +68,28 @@ jobs:
           import os
           from pathlib import Path
 
-          config = """// Generated during deployment. Do not commit this file.
-          window.GNI_CONFIG = {
-            supabaseUrl: %r,
-            supabasePublishableKey: %r,
-          };
-          """ % (os.environ["SUPABASE_URL"], os.environ["SUPABASE_PUBLISHABLE_KEY"])
-          Path("_site/config.js").write_text(config, encoding="utf-8")
+          import json, base64, io, tarfile, shutil
+          bootstrap = Path("_site/bootstrap-data.tar.gz.b64")
+          if bootstrap.is_file():
+              with tarfile.open(fileobj=io.BytesIO(base64.b64decode(bootstrap.read_bytes())), mode="r:gz") as archive:
+                  archive.extractall("_site/data", filter="data")
+              bootstrap.unlink()
+          downloaded = Path("downloaded_public_data/index.json")
+          current = Path("_site/data/index.json")
+          if downloaded.is_file():
+              from datetime import datetime
+              incoming = datetime.fromisoformat(json.loads(downloaded.read_text())["exported_at"])
+              existing = datetime.fromisoformat(json.loads(current.read_text())["exported_at"]) if current.is_file() else None
+              if existing is None or incoming > existing:
+                  shutil.rmtree("_site/data", ignore_errors=True)
+                  shutil.copytree("downloaded_public_data", "_site/data")
+          if Path("_site/data/index.json").is_file():
+              settings = {"staticDataUrl": "./data/"}
+          else:
+              # Keep the live site until the first SQL bootstrap is uploaded.
+              settings = {"supabaseUrl": os.environ["SUPABASE_URL"],
+                          "supabasePublishableKey": os.environ["SUPABASE_PUBLISHABLE_KEY"]}
+          Path("_site/config.js").write_text("window.GNI_CONFIG = " + json.dumps(settings) + ";\n", encoding="utf-8")
           PY
 
       - name: Configure GitHub Pages
