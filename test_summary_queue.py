@@ -97,7 +97,8 @@ class SummaryQueueTests(unittest.TestCase):
         self.assertEqual(stats['summaries'], 2)
         self.assertEqual(generate.call_count, 2)
         self.assertEqual({call.kwargs['topic_id'] for call in persist.call_args_list}, {'boundary', 'recent'})
-        self.assertTrue(any('Wątek old-first: poza oknem 48 godzin' in str(call) for call in logger.call_args_list))
+        self.assertFalse(any('Wątek old-first: poza oknem 48 godzin' in str(call) for call in logger.call_args_list))
+        self.assertTrue(any('"poza oknem 48 godzin": 2' in str(call) for call in logger.call_args_list))
 
     def test_topic_expiring_while_waiting_is_not_sent_to_ai(self):
         topics = [{'topic_id': 'topic', 'headline_pl': 'Wątek', 'last_seen_at': '2026-10-05T12:01:00Z'}]

@@ -4405,8 +4405,8 @@ def retry_incomplete_summaries(
             skip_counts[reason] += 1
             # Newly merged topics need an explicit explanation instead of a
             # promise that their synthesis will unconditionally be updated.
-            if (str(topic.get("topic_id") or "") in forced_new_article_ids_by_topic
-                    or reason.startswith("poza oknem")
+            if not reason.startswith("poza oknem") and (
+                    str(topic.get("topic_id") or "") in forced_new_article_ids_by_topic
                     or reason.startswith("brak poprawnej daty")):
                 log("AI", f"Syntezy: pominięto {topic.get('headline_pl') or topic.get('topic_id')}: {reason}.")
 
@@ -4505,6 +4505,7 @@ def retry_incomplete_summaries(
             "kolejność rozpoczynania: od największej łącznej liczby podpiętych artykułów, "
             "przy remisie od najnowszej aktywności.")
         completed_jobs = 0
+        expired_in_queue = 0
 
         def record_failure(index: int, job: dict[str, Any], summary_hash: str, exc: Exception) -> None:
             stats["failed_summaries"] += 1
@@ -4542,9 +4543,7 @@ def retry_incomplete_summaries(
                     current_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
                     if job["last_seen_at"] < current_cutoff:
                         completed_jobs += 1
-                        log("AI", f"Synteza {index}/{total_jobs}: pominięto {job['title']}: "
-                            f"poza oknem {TOPIC_MATCH_LOOKBACK_HOURS} godzin po oczekiwaniu w kolejce; "
-                            f"ukończono: {completed_jobs}/{total_jobs}.")
+                        expired_in_queue += 1
                         continue
                     summary_hash = digest(job["summary_input_base"])
                     try:
@@ -4594,6 +4593,9 @@ def retry_incomplete_summaries(
                             f"pozostało: {total_jobs - completed_jobs}.")
                     except Exception as exc:
                         record_failure(index, job, summary_hash, exc)
+        if expired_in_queue:
+            log("AI", f"Syntezy: poza oknem {TOPIC_MATCH_LOOKBACK_HOURS} godzin "
+                f"po oczekiwaniu w kolejce: {expired_in_queue} tematów.")
         return stats
     finally:
         conn.close()
