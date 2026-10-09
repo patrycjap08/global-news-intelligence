@@ -150,7 +150,7 @@ OPENAI_REQUEST_TIMEOUT_SECONDS = max(
     15.0, float(os.environ.get("OPENAI_REQUEST_TIMEOUT_SECONDS", "90"))
 )
 SUMMARY_REQUEST_TIMEOUT_SECONDS = max(
-    30.0, float(os.environ.get("AI_SUMMARY_REQUEST_TIMEOUT_SECONDS", "180"))
+    30.0, float(os.environ.get("AI_SUMMARY_REQUEST_TIMEOUT_SECONDS", "300"))
 )
 SUMMARY_MAX_PAYLOAD_CHARS = max(
     50000, int(os.environ.get("AI_SUMMARY_MAX_PAYLOAD_CHARS", "300000"))
@@ -2239,6 +2239,7 @@ def generate_topic_update(payload: dict[str, Any], model: str) -> ParsedAIRespon
     for attempt in range(2):
         response = call_openai(selection_instructions, payload, model,
             timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
+            reasoning_effort=summary_reasoning_effort(model),
             response_schema=fact_schema, response_schema_name="update_candidate_facts")
         try:
             candidates = validate_update_candidates(response, available_ids)
@@ -2266,6 +2267,7 @@ def generate_topic_update(payload: dict[str, Any], model: str) -> ParsedAIRespon
         for attempt in range(2):
             audit = call_openai(audit_instructions,
                 audit_payload, model, timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
+                reasoning_effort=summary_reasoning_effort(model),
                 response_schema=audit_schema, response_schema_name="update_novelty_audit")
             try:
                 verdicts = validate_update_verdicts(audit, len(candidates))
@@ -2294,11 +2296,22 @@ def generate_topic_update(payload: dict[str, Any], model: str) -> ParsedAIRespon
     return normalize_summary_response(summary)
 
 
+def summary_reasoning_effort(model: str) -> str | None:
+    """Bound latency/cost for supported reasoning models, leaving other APIs unchanged."""
+    if "pro" in model or not model.startswith(("gpt-5", "o3", "o4")):
+        return None
+    value = os.environ.get("AI_SUMMARY_REASONING_EFFORT", "low").strip().lower()
+    if value not in {"low", "medium", "high"}:
+        raise ValueError("AI_SUMMARY_REASONING_EFFORT musi być low, medium lub high.")
+    return value
+
+
 def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIResponse:
     if payload.get("previous_aggregation") is not None:
         return generate_topic_update(payload, model)
     return normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, payload, model,
         timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
+        reasoning_effort=summary_reasoning_effort(model),
         response_schema=SUMMARY_RESPONSE_SCHEMA, response_schema_name="topic_summary"))
 
 UPDATE_META_PATTERNS = (
@@ -4487,7 +4500,8 @@ def retry_incomplete_summaries(
         concurrency = max(1, int(os.environ.get("AI_SUMMARY_CONCURRENCY", "10")))
         workers = min(concurrency, total_jobs)
         log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania; "
-            f"maksymalnie równolegle: {workers}; "
+            f"maksymalnie równolegle: {workers}; timeout: {SUMMARY_REQUEST_TIMEOUT_SECONDS:g} s; "
+            f"rozumowanie: {summary_reasoning_effort(model) or 'domyślne dla modelu'}; "
             "kolejność rozpoczynania: od największej łącznej liczby podpiętych artykułów, "
             "przy remisie od najnowszej aktywności.")
         completed_jobs = 0

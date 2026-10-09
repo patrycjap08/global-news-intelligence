@@ -59,7 +59,7 @@ klucz sekretny nie powinien być używany w przeglądarce.
 ## Publiczne dane z GitHub Pages
 
 `export_public_site.py` eksportuje wyłącznie publiczne widoki interfejsu (bez
-pełnych treści artykułów i kluczy). Po harvest workflow zapisuje artefakt
+pełnych treści artykułów i kluczy). Także po częściowo nieudanym harvest workflow eksportuje już zapisane wyniki i zapisuje artefakt
 `gni-public-data`; deploy Pages pobiera najnowszy dostępny artefakt z main.
 Błąd eksportu nie zastępuje ostatniego poprawnego zestawu. Data danych pozostaje
 widoczna na stronie; workflow i jednorazowy eksport nadal zużywają egress bazy.

@@ -73,7 +73,8 @@ jobs:
       AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES || '2' }}
       OPENAI_REQUEST_TIMEOUT_SECONDS: ${{ vars.OPENAI_REQUEST_TIMEOUT_SECONDS || '90' }}
       AI_SUMMARY_CONCURRENCY: ${{ vars.AI_SUMMARY_CONCURRENCY || '10' }}
-      AI_SUMMARY_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_SUMMARY_REQUEST_TIMEOUT_SECONDS || '180' }}
+      AI_SUMMARY_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_SUMMARY_REQUEST_TIMEOUT_SECONDS || '300' }}
+      AI_SUMMARY_REASONING_EFFORT: ${{ vars.AI_SUMMARY_REASONING_EFFORT || 'low' }}
       AI_SUMMARY_MAX_PAYLOAD_CHARS: ${{ vars.AI_SUMMARY_MAX_PAYLOAD_CHARS || '300000' }}
       AI_SUMMARY_FALLBACK_EXCERPT_WORDS: ${{ vars.AI_SUMMARY_FALLBACK_EXCERPT_WORDS || '900' }}
       AI_CATEGORY_BATCH_SIZE: ${{ vars.AI_CATEGORY_BATCH_SIZE || '30' }}
@@ -124,12 +125,13 @@ jobs:
           python "${args[@]}"
 
       - name: Export public site data
+        if: always() && !cancelled()
         id: public_export
         continue-on-error: true
         run: python export_public_site.py --output public_site_data
 
       - name: Save public site snapshot
-        if: steps.public_export.outcome == 'success'
+        if: always() && !cancelled() && steps.public_export.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: gni-public-data
