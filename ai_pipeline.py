@@ -4395,6 +4395,11 @@ def persist_summary(
     return version
 
 
+def summary_model_for_run(fallback: str) -> str:
+    """Allow synthesis-only model selection without changing labels/categories."""
+    return (os.environ.get("OPENAI_SUMMARY_MODEL") or "").strip() or fallback
+
+
 def retry_incomplete_summaries(
     db_path: Path,
     run_id: str,
@@ -4405,6 +4410,7 @@ def retry_incomplete_summaries(
     only_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Finalize one summary/update per topic after all batches and merges."""
+    model = summary_model_for_run(model)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     stats = {"summaries": 0, "failed_summaries": 0}
@@ -4555,7 +4561,7 @@ def retry_incomplete_summaries(
         concurrency = max(1, int(os.environ.get("AI_SUMMARY_CONCURRENCY", "10")))
         workers = min(concurrency, total_jobs)
         log("AI", f"Syntezy: przygotowano {total_jobs} tematów do wygenerowania; "
-            f"maksymalnie równolegle: {workers}; timeout: {SUMMARY_REQUEST_TIMEOUT_SECONDS:g} s; "
+            f"model: {model}; maksymalnie równolegle: {workers}; timeout: {SUMMARY_REQUEST_TIMEOUT_SECONDS:g} s; "
             f"rozumowanie: {summary_reasoning_effort(model) or 'domyślne dla modelu'}; "
             "kolejność rozpoczynania: od największej łącznej liczby podpiętych artykułów, "
             "przy remisie od najnowszej aktywności.")

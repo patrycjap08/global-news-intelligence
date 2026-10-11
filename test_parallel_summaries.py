@@ -39,6 +39,19 @@ class ParallelSummaryTests(unittest.TestCase):
              patch.object(ai, 'persist_summary', side_effect=persist), patch.object(ai, 'log'):
             return ai.retry_incomplete_summaries(self.db, 'run', self.client)
 
+    def test_summary_model_override_applies_to_generation_and_storage(self):
+        generated, stored = [], []
+        def generate(payload, model):
+            generated.append(model)
+            return {'update': {'status': 'NEW_INFORMATION'}}
+        def persist(client, **kwargs):
+            stored.append(kwargs['model'])
+        with patch.dict(os.environ, {'OPENAI_SUMMARY_MODEL': 'gpt-5-mini'}):
+            result = self.execute(generate, persist, concurrency='1')
+        self.assertEqual(result['summaries'], len(self.topics))
+        self.assertEqual(generated, ['gpt-5-mini'] * len(self.topics))
+        self.assertEqual(stored, generated)
+
     def test_five_in_flight_and_next_job_starts_after_fast_result_is_saved(self):
         releases = {t['topic_id']: threading.Event() for t in self.topics}
         started = {key: threading.Event() for key in releases}

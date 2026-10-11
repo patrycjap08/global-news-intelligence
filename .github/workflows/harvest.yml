@@ -34,6 +34,8 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+      # Separate from labels/titles/categories and old OPENAI_MODEL overrides.
+      OPENAI_SUMMARY_MODEL: 'gpt-5-mini'
       OPENAI_LABEL_MODEL: ${{ vars.OPENAI_LABEL_MODEL || 'gpt-4o-mini' }}
       OPENAI_TITLE_MODEL: ${{ vars.OPENAI_TITLE_MODEL || 'gpt-4o-mini' }}
       AI_LABEL_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_LABEL_REQUEST_TIMEOUT_SECONDS || '60' }}

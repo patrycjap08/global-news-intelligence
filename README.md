@@ -200,3 +200,9 @@ już wyjaśniono, kontekst może być pusty. Objaśnienia
 z artykułów mają przypisane źródła; wiedza ogólna i niepewne role są oznaczone
 `needs_verification=true`. Aktualizacje nadal zachowują istniejącą bazową
 syntezę i kontekst. Zmiana promptu dotyczy kolejnych generowanych syntez.
+
+
+Syntezy i aktualizacje w głównym workflow używają `gpt-5-mini`
+z rozumowaniem `low`. Osobny `OPENAI_SUMMARY_MODEL` pozwala zachować
+dotychczasowe modele nazw, tytułów i kategorii. Model syntez jest podawany
+w logu kolejki i zapisywany przy wynikach w bazie.
