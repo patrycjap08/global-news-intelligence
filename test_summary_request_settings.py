@@ -4,10 +4,10 @@ from unittest.mock import patch
 import ai_pipeline as ai
 
 class SummaryRequestSettingsTests(unittest.TestCase):
-    def test_low_reasoning_only_for_supported_models(self):
+    def test_medium_reasoning_only_for_supported_models(self):
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(ai.summary_reasoning_effort('gpt-5-nano'), 'low')
-            self.assertEqual(ai.summary_reasoning_effort('gpt-5.2'), 'low')
+            self.assertEqual(ai.summary_reasoning_effort('gpt-5-nano'), 'medium')
+            self.assertEqual(ai.summary_reasoning_effort('gpt-5.2'), 'medium')
             self.assertIsNone(ai.summary_reasoning_effort('gpt-4o-mini'))
             self.assertIsNone(ai.summary_reasoning_effort('gpt-5-pro'))
         with patch.dict(os.environ, {'AI_SUMMARY_REASONING_EFFORT': 'medium'}):

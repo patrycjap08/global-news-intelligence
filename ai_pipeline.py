@@ -2346,7 +2346,7 @@ def summary_reasoning_effort(model: str) -> str | None:
     """Bound latency/cost for supported reasoning models, leaving other APIs unchanged."""
     if "pro" in model or not model.startswith(("gpt-5", "o3", "o4")):
         return None
-    value = os.environ.get("AI_SUMMARY_REASONING_EFFORT", "low").strip().lower()
+    value = os.environ.get("AI_SUMMARY_REASONING_EFFORT", "medium").strip().lower()
     if value not in {"low", "medium", "high"}:
         raise ValueError("AI_SUMMARY_REASONING_EFFORT musi być low, medium lub high.")
     return value

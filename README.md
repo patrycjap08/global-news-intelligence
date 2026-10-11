@@ -202,7 +202,7 @@ z artykułów mają przypisane źródła; wiedza ogólna i niepewne role są ozn
 syntezę i kontekst. Zmiana promptu dotyczy kolejnych generowanych syntez.
 
 
-Syntezy i aktualizacje w głównym workflow używają `gpt-5-mini`
-z rozumowaniem `low`. Osobny `OPENAI_SUMMARY_MODEL` pozwala zachować
+Syntezy i aktualizacje w głównym workflow używają `gpt-5-nano`
+z rozumowaniem `medium`. Osobny `OPENAI_SUMMARY_MODEL` pozwala zachować
 dotychczasowe modele nazw, tytułów i kategorii. Model syntez jest podawany
 w logu kolejki i zapisywany przy wynikach w bazie.
