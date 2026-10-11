@@ -154,6 +154,13 @@ def push_run(db_path: Path, run_id: str, client: SupabaseRestClient) -> dict[str
     conn = open_db(db_path)
     counts: dict[str, int] = {}
     try:
+        missing = conn.execute(
+            "SELECT r.article_id FROM run_articles r LEFT JOIN articles a ON a.article_id = r.article_id "
+            "WHERE r.run_id = ? AND a.article_id IS NULL", (run_id,),
+        ).fetchall()
+        if missing:
+            raise RuntimeError("Nie można zsynchronizować przebiegu: brak lokalnych artykułów dla "
+                               + ", ".join(str(row[0]) for row in missing) + ".")
         sources = [_row_dict(row) for row in conn.execute("SELECT * FROM sources").fetchall()]
         for row in sources:
             row["enabled"] = _bool(row.get("enabled"))
@@ -168,10 +175,14 @@ def push_run(db_path: Path, run_id: str, client: SupabaseRestClient) -> dict[str
             _row_dict(row)
             for row in conn.execute(
                 "SELECT a.* FROM articles a JOIN run_articles r ON r.article_id = a.article_id "
-                "WHERE r.run_id = ? AND r.fetched_now = 1",
+                "JOIN harvest_runs h ON h.run_id = r.run_id "
+                "WHERE r.run_id = ? AND (r.fetched_now = 1 "
+                "OR julianday(a.first_seen_at) >= julianday(h.started_at))",
                 (run_id,),
             ).fetchall()
         ]
+        # Also include articles created in this run even if an old harvester
+        # incorrectly downgraded fetched_now after a duplicate listing.
         # Article bodies are the largest payload. Small, idempotent batches keep
         # PostgREST requests below the network timeout and are safe to retry.
         article_batch_size = max(1, int(os.environ.get("SUPABASE_ARTICLE_BATCH_SIZE", "10")))

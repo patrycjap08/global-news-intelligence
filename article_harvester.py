@@ -1079,8 +1079,12 @@ def harvest_source(
                 (now, article_id),
             )
             conn.execute(
-                "INSERT OR REPLACE INTO run_articles "
-                "(run_id, article_id, discovered_on_homepage, fetched_now) VALUES (?, ?, 1, 0)",
+                "INSERT INTO run_articles "
+                "(run_id, article_id, discovered_on_homepage, fetched_now) VALUES (?, ?, 1, 0) "
+                "ON CONFLICT(run_id, article_id) DO UPDATE SET discovered_on_homepage = 1 "
+                "WHERE run_articles.discovered_on_homepage <> 1",
+                # Keep fetched_now=1 when this article was already fetched in
+                # this run (e.g. a second listing points to its canonical URL).
                 (run_id, article_id),
             )
             counts["skipped_existing"] += 1
