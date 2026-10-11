@@ -535,6 +535,7 @@ sources:
       - '^/20[0-9]{2}/[0-9]{2}/[0-9]{2}/[^/?#]+-a[0-9]+/?$'
 
   - id: ukrinform
+    enabled: false
     name: Ukrinform
     region: Ukraine
     homepage: https://www.ukrinform.net
@@ -563,6 +564,7 @@ sources:
       - '(?:спорт|футбол|теніс|баскетбол|погода|серіал|кіно)'
   - {id: kyiv_independent, name: Kyiv Independent, region: Ukraine, homepage: https://kyivindependent.com}
   - id: kyiv_post
+    enabled: false
     name: Kyiv Post
     region: Ukraine
     homepage: https://www.kyivpost.com
