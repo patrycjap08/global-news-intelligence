@@ -14,7 +14,7 @@ with latest as (
         row_number() over (
             partition by s.value ->> 'bucket'
             order by abs((s.value ->> 'similarity')::numeric
-                       - (l.raw_output ->> 'threshold')::numeric),
+                       - coalesce((s.value ->> 'threshold')::numeric, (l.raw_output ->> 'threshold')::numeric)),
                      s.value ->> 'topic_id_a', s.value ->> 'topic_id_b'
         ) as example_number
     from latest l
@@ -30,9 +30,9 @@ select
         when 'ABOVE_THRESHOLD_OUTSIDE_TOP_K' then 'Pominięte: poza limitem sąsiadów'
     end as grupa_przykladu,
     round((sample ->> 'similarity')::numeric, 6) as podobienstwo_embeddingow,
-    (raw_output ->> 'threshold')::numeric as prog,
+    coalesce((sample ->> 'threshold')::numeric, (raw_output ->> 'threshold')::numeric) as prog,
     round((sample ->> 'similarity')::numeric
-          - (raw_output ->> 'threshold')::numeric, 6) as odleglosc_od_progu,
+          - coalesce((sample ->> 'threshold')::numeric, (raw_output ->> 'threshold')::numeric), 6) as odleglosc_od_progu,
     coalesce(sample ->> 'selected_for_merge', sample ->> 'selected_for_ai')::boolean as wybrane_do_scalania,
     (sample ->> 'rank_a_to_b')::integer as pozycja_b_wsrod_sasiadow_a,
     (sample ->> 'rank_b_to_a')::integer as pozycja_a_wsrod_sasiadow_b,
@@ -52,6 +52,7 @@ select
     raw_output ->> 'embedding_model' as model,
     (raw_output ->> 'dimensions')::integer as wymiary,
     (raw_output ->> 'threshold')::numeric as prog,
+    (raw_output ->> 'ukraine_threshold')::numeric as prog_ukraina,
     coalesce(raw_output ->> 'top_k', 'bez limitu') as limit_sasiadow,
     (raw_output ->> 'topic_count')::integer as porownane_tematy,
     (raw_output ->> 'compared_pairs')::bigint as wszystkie_porownane_pary,

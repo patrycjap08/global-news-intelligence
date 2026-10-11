@@ -29,7 +29,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v49-summary-context-no-repetition"
+PROMPT_VERSION = "ai-prompts-v50-context-entity-types"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 48 hours.
@@ -77,7 +77,7 @@ TOPIC_MERGE_EMBEDDING_DIMENSIONS = max(
 # All pairs above the threshold qualify; old repository TOP_K variables are ignored.
 TOPIC_MERGE_EMBEDDING_TOP_K = None
 TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = max(
-    0.80, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.80"))
+    0.82, min(1.0, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.82")))
 )
 TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
     20.0,
@@ -496,6 +496,38 @@ def _cosine_similarity(left: list[float], right: list[float]) -> float:
     return sum(a * b for a, b in zip(left, right)) / (left_norm * right_norm)
 
 
+UKRAINE_TOPIC_RE = re.compile(
+    r"\b(?:ukrai\w*|ukrain\w*|ucrain\w*|ucrani\w*|украин\w*|україн\w*)", re.IGNORECASE
+)
+UKRAINE_WAR_LOCATION_RE = re.compile(
+    r"\b(?:donbas\w*|donetsk\w*|donieck\w*|luhansk\w*|ługańsk\w*|lugansk\w*|"
+    r"kharkiv\w*|chark\w*|kherson\w*|cherso\w*|zapori\w*|zaporo\w*|"
+    r"kijow\w*|kijów\w*|kyiv\w*|bakhmut\w*|bachmut\w*|pokrov\w*|pokrow\w*)", re.IGNORECASE
+)
+WAR_TOPIC_RE = re.compile(
+    r"\b(?:wojn\w*|war|invasion|inwaz\w*|atak\w*|attack\w*|strike\w*|"
+    r"rakiet\w*|missile\w*|front\w*|ostrza\w*|bombard\w*|offens\w*|ofens\w*|битв\w*|обстр\w*)", re.IGNORECASE
+)
+
+
+def is_ukraine_topic(topic: dict[str, Any]) -> bool:
+    # Use already downloaded editorial metadata, not broad background sections.
+    text = " ".join([str(topic.get("headline_pl") or ""),
+                     str(topic.get("what_happened_one_sentence_pl") or ""),
+                     *[str(t) for t in (topic.get("recent_article_titles") or [])[:3]]])
+    return bool(UKRAINE_TOPIC_RE.search(text) or
+                (UKRAINE_WAR_LOCATION_RE.search(text) and WAR_TOPIC_RE.search(text)))
+
+
+def ukraine_topic_ids(topics: list[dict[str, Any]]) -> set[str]:
+    return {str(t["topic_id"]) for t in topics if is_ukraine_topic(t)}
+
+
+def embedding_pair_threshold(left: str, right: str, threshold: float,
+                             ukraine_ids: set[str] | None = None) -> float:
+    return min(threshold, 0.78) if ukraine_ids and left in ukraine_ids and right in ukraine_ids else threshold
+
+
 def build_embedding_candidate_edges(
     topic_ids: list[str],
     embeddings: list[list[float]],
@@ -503,17 +535,16 @@ def build_embedding_candidate_edges(
     top_k: int | None = TOPIC_MERGE_EMBEDDING_TOP_K,
     min_similarity: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
     diagnostics: dict[str, Any] | None = None,
+    ukraine_ids: set[str] | None = None,
 ) -> dict[tuple[str, str], float]:
-    """Return nearest semantic neighbors that deserve AI verification.
+    """Return semantic pairs passing their applicable threshold.
 
-    Embeddings only create *candidate* edges.  The merge prompt remains the
-    final authority and must still identify the same concrete story before a
-    database merge is applied.
+    Ukraine-specific thresholds only affect local selection; no extra API calls.
     """
     if len(topic_ids) != len(embeddings) or len(topic_ids) < 2:
         return {}
     edges: dict[tuple[str, str], float] = {}
-    diagnostic_floor = max(-1.0, min_similarity - 0.03)
+    diagnostic_floor = max(-1.0, min(min_similarity, 0.78) - 0.03) if ukraine_ids else max(-1.0, min_similarity - 0.03)
     pair_scores: dict[tuple[str, str], float] = {}
     neighbor_ranks: dict[str, dict[str, int]] = {}
     score_band_heaps: dict[int, list[tuple[float, str, str]]] = defaultdict(list)
@@ -532,7 +563,8 @@ def build_embedding_candidate_edges(
                 heapq.heappush(score_band_heaps[band], (-similarity, left, right))
                 if len(score_band_heaps[band]) > 5:
                     heapq.heappop(score_band_heaps[band])
-            if similarity >= min_similarity:
+            pair_threshold = embedding_pair_threshold(str(topic_ids[index]), str(topic_ids[other_index]), min_similarity, ukraine_ids)
+            if similarity >= pair_threshold:
                 scored.append((similarity, other_index))
             if diagnostics is not None and similarity >= diagnostic_floor:
                 diagnostic_neighbors.append((similarity, other_index))
@@ -551,15 +583,17 @@ def build_embedding_candidate_edges(
         buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for (left, right), similarity in pair_scores.items():
             selected = (left, right) in edges
+            pair_threshold = embedding_pair_threshold(left, right, min_similarity, ukraine_ids)
             bucket = (
-                "SELECTED_NEAR_THRESHOLD" if selected and similarity < min_similarity + 0.03
+                "SELECTED_NEAR_THRESHOLD" if selected and similarity < pair_threshold + 0.03
                 else "SELECTED_HIGH_SCORE" if selected
-                else "BELOW_THRESHOLD" if similarity < min_similarity
+                else "BELOW_THRESHOLD" if similarity < pair_threshold
                 else "ABOVE_THRESHOLD_OUTSIDE_TOP_K"
             )
             buckets[bucket].append({
                 "topic_id_a": left, "topic_id_b": right, "similarity": similarity,
-                "selected_for_ai": selected, "bucket": bucket,
+                "selected_for_ai": selected, "bucket": bucket, "threshold": pair_threshold,
+                "threshold_policy": "UKRAINE" if ukraine_ids and left in ukraine_ids and right in ukraine_ids else "GENERAL",
                 "rank_a_to_b": neighbor_ranks[left][right],
                 "rank_b_to_a": neighbor_ranks[right][left],
             })
@@ -568,7 +602,7 @@ def build_embedding_candidate_edges(
             # Ten boundary cases plus ten reproducibly spread examples. This
             # is an inspection sample, not a random or representative survey.
             boundary = sorted(rows, key=lambda row: (
-                abs(row["similarity"] - min_similarity), row["topic_id_a"], row["topic_id_b"],
+                abs(row["similarity"] - row["threshold"]), row["topic_id_a"], row["topic_id_b"],
             ))[:10]
             used = {(row["topic_id_a"], row["topic_id_b"]) for row in boundary}
             remaining = sorted(
@@ -577,7 +611,8 @@ def build_embedding_candidate_edges(
             )[:10]
             samples.extend(boundary + remaining)
         diagnostics.update({
-            "threshold": min_similarity, "top_k": top_k,
+            "threshold": min_similarity, "ukraine_threshold": min(min_similarity, 0.78),
+            "ukraine_topic_ids": sorted(ukraine_ids or []), "top_k": top_k,
             "diagnostic_floor": diagnostic_floor, "topic_count": len(topic_ids),
             "compared_pairs": len(topic_ids) * (len(topic_ids) - 1) // 2,
             "selected_pair_count": len(edges),
@@ -590,7 +625,8 @@ def build_embedding_candidate_edges(
             "score_band_samples": [
                 {"topic_id_a": left, "topic_id_b": right, "similarity": -negative_score,
                  "band_lower": band / 50, "band_upper": (band + 1) / 50,
-                 "selected_for_ai": (left, right) in edges}
+                 "selected_for_ai": (left, right) in edges,
+                 "threshold": embedding_pair_threshold(left, right, min_similarity, ukraine_ids)}
                 for band, heap in sorted(score_band_heaps.items(), reverse=True)
                 for negative_score, left, right in sorted(heap, reverse=True)
             ],
@@ -623,9 +659,8 @@ def build_topic_embedding_candidate_edges(
 ) -> dict[tuple[str, str], float]:
     """Embed compact topic descriptions and return semantic candidate edges.
 
-    The whole operation is intentionally best-effort.  A temporary embedding
-    outage must leave the older lexical blocking algorithm available rather
-    than stopping ingestion or the merge pass.
+    Automatic merge callers preserve data and mark a temporary embedding
+    outage for retry. They do not add lexical candidate pairs.
     """
     if not TOPIC_MERGE_EMBEDDINGS_ENABLED or len(topics) < 2:
         return {}
@@ -685,7 +720,7 @@ def build_topic_embedding_candidate_edges(
         if last_error is not None:
             raise last_error
 
-    edges = build_embedding_candidate_edges(topic_ids, embeddings, diagnostics=diagnostics)
+    edges = build_embedding_candidate_edges(topic_ids, embeddings, diagnostics=diagnostics, ukraine_ids=ukraine_topic_ids(topics))
     if diagnostics is not None:
         snapshot = {str(topic["topic_id"]): (topic, text) for topic, text in zip(topics, texts)}
         for sample in diagnostics.get("samples", []) + diagnostics.get("score_band_samples", []):
@@ -698,7 +733,7 @@ def build_topic_embedding_candidate_edges(
     log(
         "EMBEDDING",
         f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
-        f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f}; "
+        f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} ogólnie / 0.78 dla dwóch wątków o Ukrainie; "
         "są to pary kwalifikujące się do połączenia.",
     )
     return edges
@@ -709,6 +744,7 @@ def build_anchored_embedding_groups(
     semantic_edges: dict[tuple[str, str], float],
     *,
     threshold: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
+    ukraine_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Seed each group with its strongest available pair; keep both anchors fixed.
 
@@ -721,7 +757,7 @@ def build_anchored_embedding_groups(
     edges: dict[tuple[str, str], float] = {}
     neighbors: dict[str, dict[str, float]] = {}
     for (a, b), score in semantic_edges.items():
-        if a == b or a not in available or b not in available or score < threshold:
+        if a == b or a not in available or b not in available or score < embedding_pair_threshold(a, b, threshold, ukraine_ids):
             continue
         pair = tuple(sorted((a, b)))
         edges[pair] = max(score, edges.get(pair, score))
@@ -1606,6 +1642,15 @@ tych informacji w kontekście. Sama wzmianka o nazwie bez wyjaśnienia roli
 nie zastępuje objaśnienia. Jeżeli wszystkie potrzebne objaśnienia są już
 podane w syntezie lub facts, pomiń wpis w kontekście dla tej jednostki.
 
+Każdy wpis kontekstu musi mieć entity_type: PERSON dla człowieka,
+ORGANIZATION dla zbiorowej instytucji/firmy/partii/agencji, BACKGROUND dla tła.
+Donald Trump, Wołodymyr Zełenski, Elon Musk i każdy inny człowiek to PERSON,
+nie ORGANIZATION, nawet jeżeli reprezentuje rząd albo firmę.
+„Donald Trump” to osoba; „administracja Donalda Trumpa” to instytucja.
+„Elon Musk” to osoba; „SpaceX” to organizacja. Oceniaj konkretny podmiot wpisu,
+nie reprezentowaną przez niego instytucję. Przed oddaniem odpowiedzi sprawdź
+zgodność entity_type, nazwy i objaśnienia każdego wpisu.
+
 Dla osoby wymagającej dodatkowego objaśnienia dodaj osobny element
 background_context, w kolejności
 pierwszego wystąpienia: „Osoba — Imię Nazwisko: ...”. W 1–2 krótkich zdaniach
@@ -1865,7 +1910,7 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "differences":[{"text_pl":"","article_ids":[]}],
 "potential_manipulation_signals":[{"text_pl":"","article_ids":[]}],
 "contradictions":[{"text_pl":"","article_ids":[]}],
-"background_context":[{"text_pl":"","article_ids":[],"needs_verification":true}],
+"background_context":[{"entity_type":"BACKGROUND","text_pl":"","article_ids":[],"needs_verification":true}],
 "sources":[{"source_name":"","description_pl":"","article_ids":[]}],
 "quality":{"article_count":0,"source_count":0,
 "has_multiple_perspectives":false,"overall_confidence":"MEDIUM",
@@ -2056,6 +2101,7 @@ _SUMMARY_EVIDENCE_ITEM_SCHEMA = _json_schema_object({
     "article_ids": _JSON_STRING_ARRAY_SCHEMA,
 })
 _SUMMARY_BACKGROUND_ITEM_SCHEMA = _json_schema_object({
+    "entity_type": {"type": "string", "enum": ["PERSON", "ORGANIZATION", "BACKGROUND"]},
     "text_pl": {"type": "string"},
     "article_ids": _JSON_STRING_ARRAY_SCHEMA,
     "needs_verification": {"type": "boolean"},
@@ -2514,6 +2560,12 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
         return None
     normalized = {"text_pl": text, "article_ids": article_ids}
     if field == "background_context":
+        entity_type = item.get("entity_type")
+        if entity_type in {"PERSON", "ORGANIZATION", "BACKGROUND"}:
+            normalized["entity_type"] = entity_type
+            if entity_type != "BACKGROUND":
+                content = re.sub(r"^(?:Osoba|Organizacja)\s*[—–:-]\s*", "", text, flags=re.IGNORECASE)
+                normalized["text_pl"] = ("Osoba" if entity_type == "PERSON" else "Organizacja") + " — " + content
         normalized["needs_verification"] = bool(item.get("needs_verification", False))
     return normalized
 
@@ -3343,6 +3395,7 @@ def merge_active_topics(
         merge_log_component = "EMBEDDING" if prefer_embeddings else "AI"
         anchored_groups = build_anchored_embedding_groups(
             [str(topic["topic_id"]) for topic in payload_topics], semantic_edges,
+            ukraine_ids=ukraine_topic_ids(payload_topics),
         ) if automatic_merge else []
         anchored_group_by_topic = {
             topic_id: index for index, group in enumerate(anchored_groups)
@@ -3430,7 +3483,7 @@ def merge_active_topics(
         if automatic_merge:
             log("EMBEDDING", "Scalanie automatyczne: grupa zaczyna się od najsilniejszej pary; "
                 f"każdy kolejny element musi mieć score co najmniej {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} "
-                "z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
+                "(0.78, gdy oba wątki dotyczą Ukrainy) z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
             for anchor_group in anchored_groups:
                 group_ids = anchor_group["topic_ids"]
                 canonical_id = choose_merge_canonical_topic_id(
@@ -3758,6 +3811,8 @@ def merge_active_topics(
                     "raw_output": {"topic_ids": group_ids, "canonical_topic_id": canonical_id,
                                    "minimum_edge_similarity": confidence,
                                    "threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
+                                   "ukraine_threshold": 0.78,
+                                   "ukraine_topic_ids": sorted(group_set & ukraine_topic_ids(payload_topics)),
                                    "grouping": "strongest_pair_anchors", "article_count": len(article_ids),
                                    "anchor_topic_ids": raw_group["anchor_topic_ids"],
                                    "anchor_similarity": raw_group["anchor_similarity"],

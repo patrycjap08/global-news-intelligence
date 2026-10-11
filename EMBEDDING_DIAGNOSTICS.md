@@ -68,3 +68,15 @@ próg i jej elementy trafiły do tej samej planowanej grupy. Licznik
 `selected_pair_count` nadal liczy wszystkie pary ponad progiem, także
 rozdzielone przez regułę punktów odniesienia. Faktycznie zapisane scalenia
 należy sprawdzać w `EMBEDDING_MERGE`, gdzie są również dane pary odniesienia.
+
+
+Od 11.10.2026 próg ogólny to 0,82, a dla par, w których oba wątki dotyczą
+Ukrainy, 0,78. Lokalny klasyfikator wykorzystuje istniejące tytuły, opis
+i do trzech nagłówków artykułów: wzmiankę o Ukrainie w kilku językach lub
+znane ukraińskie lokalizacje wraz z terminami wojennymi. To heurystyka, nie
+rozpoznanie przez AI; może nie rozpoznać niejawnych odniesień. Sama Rosja,
+NATO lub słowo „wojna” nie wystarcza. Filtr nie dodaje par po słowach,
+a jedynie wybiera próg porównania istniejących embeddingów. Próg stosuje
+się również przy dołączaniu do stałych punktów odniesienia. W każdej próbce
+zapisano jej własny `threshold`, a raport zawiera `ukraine_topic_ids`.
+Zapytania SQL uwzględniają teraz próg konkretnej pary.

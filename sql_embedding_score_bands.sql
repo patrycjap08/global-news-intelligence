@@ -18,7 +18,7 @@ select
     l.run_id,
     b.lower_score as od_score,
     b.upper_score as do_score_bez_tej_wartosci,
-    (l.raw_output ->> 'threshold')::numeric as aktualny_prog_scalania,
+    coalesce((s.value ->> 'threshold')::numeric, (l.raw_output ->> 'threshold')::numeric) as aktualny_prog_scalania,
     coalesce((l.raw_output -> 'score_band_pair_counts' ->> trim_scale(b.lower_score)::text)::bigint, 0)
         as wszystkie_pary_w_przedziale,
     round((s.value ->> 'similarity')::numeric, 6) as score,
