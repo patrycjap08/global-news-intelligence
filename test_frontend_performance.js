@@ -54,9 +54,9 @@ function filterCount(selector, attribute, key) {
   assert(start >= 0, 'filter remains available, including when its count is zero');
   return Number(html.slice(start, html.indexOf('</button>', start)).split('<span>').pop().split('</span>')[0]);
 }
-function assertVisibleCounts(expected) {
+function assertVisibleCounts(expected, categoryTotal = expected) {
   render();
-  assert.strictEqual(filterCount('#category-filters','data-category','ALL'),expected);
+  assert.strictEqual(filterCount('#category-filters','data-category','ALL'),categoryTotal);
   assert.strictEqual(filterCount('#profile-filters','data-profile','ALL'),expected);
   assert.strictEqual(filteredModels().length,expected);
 }
@@ -68,7 +68,7 @@ state.view='historical';assertVisibleCounts(0);
 state.view='current';state.search='BBC';render({searchOnly:true});
 assert.strictEqual(filterCount('#category-filters','data-category','ALL'),1);
 assert.strictEqual(filterCount('#profile-filters','data-profile','ALL'),1);
-state.search='';state.profile='RIGHT';state.categories=['GOSPODARKA'];assertVisibleCounts(1);
+state.search='';state.profile='RIGHT';state.categories=['GOSPODARKA'];assertVisibleCounts(1,2);
 assert.strictEqual(filterCount('#category-filters','data-category','GOSPODARKA'),1);
 state.search='nieistniejący wynik';render({searchOnly:true});
 assert.strictEqual(filterCount('#category-filters','data-category','GOSPODARKA'),0);

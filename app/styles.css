@@ -285,3 +285,8 @@ button { color: inherit; }
   .dialog-content { padding: 38px 20px 34px; }
   .footer { align-items: start; flex-direction: column; gap: 7px; }
 }
+
+.category-match-control { display: flex; gap: 3px; padding: 3px; margin: 14px 0 10px; border: 1px solid var(--line); border-radius: 999px; }
+.category-match-control button { flex: 1; min-width: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); padding: 7px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.category-match-control button.is-active { background: var(--ink); color: var(--paper); }
+.category-match-control button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }

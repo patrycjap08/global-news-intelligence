@@ -1,6 +1,7 @@
 const config = window.GNI_CONFIG || {};
 const READ_STATE_KEY = 'gni.topic-read-state.v1';
 const BOOKMARK_STATE_KEY = 'gni.topic-bookmarks.v1';
+const FILTER_STATE_KEY = 'gni.filters.v1';
 // A topic remains matchable by the backend for 48 hours, but stays in the
 // current view for 24 hours without a new article.
 const TOPIC_VALIDITY_HOURS = 24;
@@ -16,6 +17,7 @@ const state = {
   hideRead: false,
   profile: 'ALL',
   categories: [],
+  categoryMatch: 'ANY',
   search: '',
   readTopics: loadReadTopics(),
   bookmarkedTopics: loadBookmarkedTopics(),
@@ -47,6 +49,56 @@ const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
 function invalidateViewCache() {
   dataIndexes = null;
   modelCache = null;
+}
+
+function restoreFilterPreferences() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(FILTER_STATE_KEY) || 'null');
+    if (!saved || typeof saved !== 'object') return;
+    if (['current', 'historical', 'saved'].includes(saved.view)) state.view = saved.view;
+    if (['articles', 'sources', 'newest'].includes(saved.sort)) state.sort = saved.sort;
+    if (typeof saved.hideRead === 'boolean') state.hideRead = saved.hideRead;
+    if (saved.profile === 'ALL' || Object.hasOwn(PROFILE_LABELS, saved.profile)) state.profile = saved.profile;
+    if (Array.isArray(saved.categories)) state.categories = [...new Set(saved.categories.filter(c => c !== 'ALL' && Object.hasOwn(CATEGORY_LABELS, c)))];
+    if (['ANY', 'ALL'].includes(saved.categoryMatch)) state.categoryMatch = saved.categoryMatch;
+    if (typeof saved.search === 'string') state.search = saved.search.slice(0, 500);
+  } catch (error) { console.warn('Nie udało się odczytać filtrów.', error); }
+}
+
+function saveFilterPreferences() {
+  try {
+    const { view, sort, hideRead, profile, categories, categoryMatch, search } = state;
+    window.localStorage.setItem(FILTER_STATE_KEY, JSON.stringify({ view, sort, hideRead, profile, categories, categoryMatch, search }));
+  } catch (error) { console.warn('Nie udało się zapisać filtrów.', error); }
+}
+
+function syncFilterControls() {
+  $('#sort-select').value = state.sort;
+  $('#hide-read').checked = state.hideRead;
+  $('#hide-read').closest('.read-toggle')?.classList.toggle('is-active', state.hideRead);
+  $('#search-input').value = state.search;
+  document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('is-active', button.dataset.view === state.view));
+  document.querySelectorAll('[data-category-match]').forEach(button => {
+    const selected = button.dataset.categoryMatch === state.categoryMatch;
+    button.classList.toggle('is-active', selected); button.setAttribute('aria-pressed', String(selected));
+  });
+  $('#category-match-help').textContent = state.categoryMatch === 'ALL'
+    ? 'Temat musi mieć wszystkie wybrane kategorie. Liczniki pokazują ich wspólne tematy.'
+    : 'Temat może mieć dowolną z wybranych kategorii. Liczniki nie zależą od zaznaczonych kategorii.';
+}
+
+function matchesCategories(topic, categories = state.categories, mode = state.categoryMatch) {
+  const matches = category => category === 'UNCLASSIFIED' ? !topic.categories.length : topic.categories.includes(category);
+  return !categories.length || (mode === 'ALL' ? categories.every(matches) : categories.some(matches));
+}
+
+function categoryCounts(baseModels) {
+  const counts = { ALL: baseModels.length };
+  Object.keys(CATEGORY_LABELS).filter(key => key !== 'ALL').forEach(category => {
+    const selection = state.categoryMatch === 'ALL' ? [...new Set([...state.categories, category])] : [category];
+    counts[category] = baseModels.filter(topic => matchesCategories(topic, selection, 'ALL')).length;
+  });
+  return counts;
 }
 
 function indexes() {
@@ -213,7 +265,8 @@ function normalizeDisplayText(value) {
     .replace(/\\n/g, '\n')
     .replace(/\\r/g, '\n')
     .replace(/\r\n?/g, '\n')
-    .replace(/<\s*\/?\s*br\s*\/?\s*>/gi, '\n');
+    .replace(/<\s*\/?\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/\s*}+\s*$/, '');
 }
 
 function escapeHtml(value) {
@@ -345,6 +398,21 @@ function readableEvidenceText(value) {
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/[ \t]+\n/g, '\n')
     .trim();
+}
+
+function synthesisParagraphs(value) {
+  let text = readableEvidenceText(value).trim();
+  const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(Boolean);
+  if (paragraphs.length > 1 && /^(?:Podsumowując\b|Podsumowanie\s*:)/iu.test(paragraphs.at(-1))) {
+    paragraphs.pop(); text = paragraphs.join('\n\n');
+  }
+  if (!text || text.includes('\n')) return text;
+  const boundaries = [...text.matchAll(/[.!?]\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/gu)]
+    .map(match => match.index + 1)
+    .filter(index => !/\b(?:r|np|itd|itp|dr|prof|nr|tzw|ul|godz)\.$/iu.test(text.slice(0, index)));
+  if (!boundaries.length) return text;
+  const split = boundaries.reduce((best, index) => Math.abs(index - text.length / 2) < Math.abs(best - text.length / 2) ? index : best);
+  return text.slice(0, split).trim() + '\n\n' + text.slice(split).trim();
 }
 
 function richTextHtml(value) {
@@ -486,6 +554,7 @@ function topicModel(topic) {
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
     lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
+  model.lead = model.lead.replace(/;\s*/g, ', ');
   model.searchText = `${model.title} ${model.lead} ${model.sources.join(' ')}`.toLowerCase();
   model.evidenceIds = articles.map((article) => `article:${article.article_id}`).sort();
   return model;
@@ -825,18 +894,12 @@ function renderProfiles(models) {
   $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${state.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button"><span class="filter-name">${key === 'ALL' ? '' : `<i class="perspective-dot ${PROFILE_COLORS[key] || 'dot-unclassified'}" aria-hidden="true"></i>`}<span>${label}</span></span><span>${count}</span></button>`).join('');
   $('#profile-filters').querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => {
     state.profile = button.dataset.profile;
-    render();
+    saveFilterPreferences(); render();
   }));
 }
 
 function renderCategories(models) {
-  const counts = {};
-  models.forEach((topic) => {
-    const categories = topic.categories.length ? topic.categories : ['UNCLASSIFIED'];
-    categories.forEach((category) => {
-      counts[category] = (counts[category] || 0) + 1;
-    });
-  });
+  const counts = categoryCounts(models);
   const rows = [
     ['ALL', CATEGORY_LABELS.ALL, models.length],
     ...Object.keys(CATEGORY_LABELS)
@@ -859,7 +922,7 @@ function renderCategories(models) {
     } else {
       state.categories = [...state.categories, category];
     }
-    render();
+    saveFilterPreferences(); render();
   }));
 }
 
@@ -951,7 +1014,7 @@ function dialogHtml(model) {
     return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
   }).join('');
   const summaryPanel = summary.summary_pl
-    ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(summary.summary_pl)}</div></section>`
+    ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
     : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
   const factsPanel = Array.isArray(summary.facts) && summary.facts.length
     ? section('Fakty', summary.facts, 'insight-facts', 'Szczegółowe ustalenia z przypisaniem do źródeł.')
@@ -1002,7 +1065,7 @@ function openTopic(topicId) {
   }
 }
 
-function filteredModels(allModels = allTopicModels()) {
+function filteredModels(allModels = allTopicModels(), { categorySelection = state.categories } = {}) {
   const query = state.search.trim().toLowerCase();
   return allModels.filter((topic) => {
     if (!topic.hasAggregation) return false;
@@ -1011,9 +1074,7 @@ function filteredModels(allModels = allTopicModels()) {
     if (state.view === 'saved' && !isTopicBookmarked(topic)) return false;
     if (state.hideRead && isTopicRead(topic)) return false;
     if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
-    if (state.categories.length && !state.categories.some((category) => (
-      category === 'UNCLASSIFIED' ? !topic.categories.length : topic.categories.includes(category)
-    ))) return false;
+    if (!matchesCategories(topic, categorySelection)) return false;
     if (query && !topic.searchText.includes(query)) return false;
     return true;
   }).sort((a, b) => {
@@ -1034,9 +1095,10 @@ function render({ searchOnly = false } = {}) {
     const allModels = preparedModels.filter((topic) => topic.hasAggregation);
     renderStats(allModels);
   }
-  // Counters describe the same visible topics as the cards, including search.
+  // Category facets use the same tab/read/search/profile filters, while
+  // category selection is applied by categoryCounts according to ANY/ALL.
   renderProfiles(models);
-  renderCategories(models);
+  renderCategories(filteredModels(preparedModels, { categorySelection: [] }));
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
   $('#results-heading').textContent = state.view === 'historical'
@@ -1069,6 +1131,7 @@ function showToast(message) {
 }
 
 async function init() {
+  restoreFilterPreferences(); syncFilterControls();
   $('#edition-date').textContent = new Intl.DateTimeFormat('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()).toUpperCase();
   if (config.staticDataUrl || (config.supabaseUrl && config.supabasePublishableKey)) {
     if (await restoreSnapshot()) { setStatus(); render(); }
@@ -1110,14 +1173,18 @@ document.addEventListener('click', (event) => {
     return;
   }
   const viewButton = event.target.closest('[data-view]');
-  if (viewButton) { state.view = viewButton.dataset.view; document.querySelectorAll('[data-view]').forEach((button) => button.classList.toggle('is-active', button === viewButton)); render(); }
+  if (viewButton) { state.view = viewButton.dataset.view; saveFilterPreferences(); document.querySelectorAll('[data-view]').forEach((button) => button.classList.toggle('is-active', button === viewButton)); render(); }
   if (event.target === $('#story-dialog')) $('#story-dialog').close();
 });
 
-$('#search-input').addEventListener('input', (event) => { state.search = event.target.value; scheduleSearchRender(); });
-$('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; render(); });
+document.querySelectorAll('[data-category-match]').forEach(button => button.addEventListener('click', () => {
+  state.categoryMatch = button.dataset.categoryMatch; saveFilterPreferences(); syncFilterControls(); render();
+}));
+
+$('#search-input').addEventListener('input', (event) => { state.search = event.target.value; saveFilterPreferences(); scheduleSearchRender(); });
+$('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; saveFilterPreferences(); render(); });
 $('#hide-read').addEventListener('change', (event) => {
-  state.hideRead = event.target.checked;
+  state.hideRead = event.target.checked; saveFilterPreferences();
   event.target.closest('.read-toggle')?.classList.toggle('is-active', state.hideRead);
   render();
 });

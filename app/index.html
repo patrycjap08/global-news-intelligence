@@ -9,9 +9,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/gni-180.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <title>GNI — dzisiejszy przegląd</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=filters-editorial-20261012" />
     <script src="config.js" onerror="this.remove()"></script>
-    <script defer src="app.js?v=pages-data-20261009"></script>
+    <script defer src="app.js?v=filters-editorial-20261012"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -74,7 +74,7 @@
           </div>
           <label class="search-field">
             <span aria-hidden="true">⌕</span>
-            <input id="search-input" type="search" placeholder="Szukaj w tematach…" autocomplete="off" />
+            <input id="search-input" type="search" placeholder="Szukaj w tytułach i opisach…" autocomplete="off" />
           </label>
         </section>
 
@@ -90,7 +90,11 @@
             <div class="side-block">
               <details class="filter-panel">
                 <summary class="side-label">KATEGORIA TEMATU</summary>
-                <p class="side-help">Zaznacz jedną lub kilka kategorii. Wyniki pasują do dowolnej z nich.</p>
+                <div class="category-match-control" role="group" aria-label="Łączenie kategorii">
+                  <button type="button" data-category-match="ANY" class="is-active" aria-pressed="true">Dowolna</button>
+                  <button type="button" data-category-match="ALL" aria-pressed="false">Wszystkie</button>
+                </div>
+                <p class="side-help" id="category-match-help">Temat może mieć dowolną z wybranych kategorii. Liczniki nie zależą od zaznaczonych kategorii.</p>
                 <div class="filter-list" id="category-filters"></div>
               </details>
             </div>

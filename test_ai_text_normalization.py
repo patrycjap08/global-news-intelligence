@@ -73,7 +73,7 @@ class AITextNormalizationTests(unittest.TestCase):
     def test_summary_prompt_requires_paragraphs_and_bold_markdown(self):
         self.assertIn("Podział na akapity jest obowiązkowy", SUMMARY_INSTRUCTIONS)
         self.assertIn("`**...**`", SUMMARY_INSTRUCTIONS)
-        self.assertIn("co\nnajmniej 5 akapitów", SUMMARY_INSTRUCTIONS)
+        self.assertIn("co najmniej DWA niepuste", SUMMARY_INSTRUCTIONS)
 
     def test_summary_prompt_keeps_all_facts_in_main_summary(self):
         self.assertIn("kompletnym, samodzielnym opisem wydarzenia", SUMMARY_INSTRUCTIONS)
