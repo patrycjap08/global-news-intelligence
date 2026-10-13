@@ -97,3 +97,9 @@ polszczyzny i tła historycznego w Kontekście. Aktualizacje są redagowane
 w już istniejącym niezależnym audycie nowości: lista zdań wskazuje zaakceptowane
 indeksy faktów; program odrzuca pominięte, obce i odrzucone indeksy.
 Nie dodano kolejnego zapytania do modelu.
+
+Nowe syntezy wymagają osobnego `general_context` w odpowiedzi AI. Przed
+zapisem pole jest włączane na początek istniejącej listy Kontekst pod etykietą
+„Ogólny kontekst”, a objaśnienia osób i organizacji są zachowane. Nie wymaga
+to migracji bazy ani dodatkowego zapytania do AI. Starsze syntezy pozostają
+bez automatycznej przebudowy przy generowaniu samych aktualizacji.

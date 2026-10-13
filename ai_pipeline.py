@@ -29,7 +29,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v52-no-mixed-language-facts"
+PROMPT_VERSION = "ai-prompts-v53-required-topic-background"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -1537,8 +1537,8 @@ Jesteś redaktorem analitycznym aplikacji Global News Intelligence. Przygotuj
 neutralne polskie opracowanie jednego tematu wyłącznie na podstawie
 dostarczonych artykułów. Każde istotne twierdzenie o wydarzeniu musi mieć
 article_ids. Wyjątek stanowi WYRAŹNIE oddzielone tło historyczne w
-background_context: tam korzystaj również z wiedzy ogólnej zgodnie z zasadami
-SZERSZE TŁO SPRAWY Z WIEDZY OGÓLNEJ poniżej.
+general_context i background_context: tam korzystaj również z wiedzy ogólnej zgodnie z zasadami
+OGÓLNY KONTEKST TEMATU poniżej.
 Identyfikatory są techniczne: aplikacja ma prezentować czytelnikowi
 odpowiadające im nazwy źródeł, a nie surowe numery lub identyfikatory.
 Pokaż osobno fakty zgodne, informacje jednostkowe, różnice i sprzeczności.
@@ -1728,25 +1728,42 @@ potwierdzenia w dostarczonych materiałach: article_ids=[], needs_verification=t
 Nie przypisuj artykułowi informacji, której nie zawiera. Nie wprowadzaj do
 summary_pl ani facts takich dodatkowych objaśnień jako nowych ustaleń.
 
-SZERSZE TŁO SPRAWY Z WIEDZY OGÓLNEJ:
-Nie ograniczaj Kontekstu do osób i organizacji. W większości spraw dodaj
-osobne punkty wyjaśniające, skąd wzięła się sytuacja i o co chodzi w szerszej
-perspektywie. Oceń, czego nie wie czytelnik poznający temat po raz pierwszy.
-Przy konflikcie, wojnie lub wieloletnim sporze potrzebne są zwykle 2–4
-krótkie punkty: geneza, strony i ich cele, wcześniejszy przebieg oraz związek
-tego tła z opisywanym wydarzeniem. Przykład Jemenu: objaśnij genezę wojny
-domowej, pozycję Huti i historyczny udział regionalnych aktorów, zamiast
-poprzestać na liście uczestników pojedynczego ataku.
-Te informacje mogą i powinny pochodzić z TWOJEJ WIEDZY OGÓLNEJ, nawet gdy
-artykuły ich nie opisują. Używaj tylko ustalonej wiedzy historycznej i
-wyjaśnień mechanizmów; nie wymyślaj współczesnych zdarzeń, dat, liczb,
-aktualnych stanowisk ani wyników negocjacji spoza dostarczonych materiałów.
-Dla tła z wiedzy ogólnej użyj entity_type=BACKGROUND, article_ids=[] oraz
-needs_verification=true. Nie przypisuj tej wiedzy artykułom. Zachowaj wpisy
-objaśniające osoby i organizacje zgodnie z wcześniejszymi zasadami.
-Dla prostego, samodzielnego zdarzenia bez potrzebnego dodatkowego tła możesz
-pominąć takie punkty. Nie dodawaj kontekstu na siłę, nie powtarzaj faktów
-z syntezy i nie przenoś wiedzy ogólnej do summary_pl jako nowych ustaleń.
+OGÓLNY KONTEKST TEMATU — OSOBNE OBOWIĄZKOWE POLE general_context:
+Przygotuj general_context.text_pl niezależnie od listy osób i organizacji.
+To nie jest słowniczek uczestników ani streszczenie nowych wydarzeń. Ma
+wprowadzić czytelnika, który pierwszy raz słyszy o tej sprawie: co to za
+projekt, konflikt, zjawisko lub problem, gdzie się dzieje, skąd się wziął,
+o co w nim chodzi i dlaczego opisywane wydarzenie ma znaczenie.
+Napisz zwykle 2–5 zwięzłych zdań, konkretnych i po polsku, bez ogólników.
+Nie zastępuj tego fragmentu opisem osoby, instytucji ani firmy. Same wpisy
+PERSON i ORGANIZATION NIE realizują wymogu ogólnego kontekstu.
+
+Dopasuj wyjaśnienie do tematu, nie tylko do konfliktów zbrojnych:
+- Tunel, most, kolej lub inna inwestycja: jakie miejsca/regiony ma łączyć,
+  gdzie leżą, jaki problem komunikacyjny rozwiązuje, jaki jest cel projektu
+  i jego szersze znaczenie. Nie zakładaj, że czytelnik zna trasę lub lokalizację.
+- Wojna lub spór: geneza, strony i ich cele, najważniejsza wcześniejsza faza.
+- Prawo lub polityka: czego dotyczy mechanizm/reforma i skąd wziął się spór.
+- Gospodarka lub nauka: zjawisko/proces, jego podstawowe działanie i znaczenie.
+Przed oddaniem opracowania zapytaj siebie: „Czy z syntezy i kontekstu wiem,
+gdzie jest opisywany tunel, co łączy i po co powstaje?”. Analogicznie sprawdź
+orientację czytelnika dla innych tematów. Jeśli kluczowa lokalizacja lub cel
+wynika z artykułów, dopisz je do głównej syntezy, zamiast pozostawiać lukę.
+
+Korzystaj również z TWOJEJ WIEDZY OGÓLNEJ: ustalonego tła historycznego,
+geografii i wyjaśnień mechanizmów, nawet jeśli artykuły ich nie przedstawiają.
+Nie wymyślaj współczesnych zdarzeń, dat, liczb, aktualnych stanowisk ani
+szczegółów nowego projektu. Nie zgaduj trasy lub końców tunelu po ogólnym
+nagłówku. Jeżeli projekt nie jest jednoznacznie rozpoznany i brak potwierdzenia,
+powiedz konkretnie, czego nie można ustalić, oraz wyjaśnij tylko pewne tło.
+Dla wiedzy ogólnej użyj general_context.article_ids=[] oraz
+needs_verification=true. Dla informacji faktycznie pochodzących z materiałów
+wskaż właściwe article_ids; nie przypisuj wiedzy ogólnej artykułom.
+Dla prostego tematu daj krótkie wyjaśnienie zamiast sztucznego rozbudowywania.
+Nie powtarzaj znaczeniowo treści głównej syntezy. Nie przenoś wiedzy ogólnej
+do summary_pl jako nowych ustaleń. Zachowaj potrzebne objaśnienia osób,
+organizacji i specjalistycznych pojęć w background_context; ogólne tło
+umieszczaj wyłącznie w general_context, aby nie powtarzać go na obu listach.
 
 Przed zwróceniem odpowiedzi sprawdź KAŻDĄ osobę i organizację wymienioną
 w summary_pl lub facts: musi być objaśniona w syntezie/faktach albo mieć
@@ -1970,6 +1987,7 @@ Zwróć WYŁĄCZNIE poprawny JSON o następującej strukturze:
 "differences":[{"text_pl":"","article_ids":[]}],
 "potential_manipulation_signals":[{"text_pl":"","article_ids":[]}],
 "contradictions":[{"text_pl":"","article_ids":[]}],
+"general_context":{"text_pl":"","article_ids":[],"needs_verification":true},
 "background_context":[{"entity_type":"BACKGROUND","text_pl":"","article_ids":[],"needs_verification":true}],
 "sources":[{"source_name":"","description_pl":"","article_ids":[]}],
 "quality":{"article_count":0,"source_count":0,
@@ -2195,6 +2213,11 @@ SUMMARY_RESPONSE_SCHEMA = _json_schema_object({
         "type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA,
     },
     "contradictions": {"type": "array", "items": _SUMMARY_EVIDENCE_ITEM_SCHEMA},
+    "general_context": _json_schema_object({
+        "text_pl": {"type": "string", "minLength": 1},
+        "article_ids": _JSON_STRING_ARRAY_SCHEMA,
+        "needs_verification": {"type": "boolean"},
+    }),
     "background_context": {
         "type": "array", "items": _SUMMARY_BACKGROUND_ITEM_SCHEMA,
     },
@@ -2723,6 +2746,14 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
             item for raw_item in raw_items
             if (item := _normalize_summary_item(field, raw_item)) is not None
         ]
+    general = response.get("general_context")
+    if isinstance(general, dict):
+        # Fold the required overview into the existing public context list;
+        # keep all people/organizations, without a database/view migration.
+        overview = _normalize_summary_item("background_context", {**general, "entity_type": "BACKGROUND"})
+        if overview:
+            overview["text_pl"] = "**Ogólny kontekst**\n\n" + overview["text_pl"]
+            normalized["background_context"].insert(0, overview)
     normalized["contradictions"] = [
         item for item in normalized["contradictions"]
         if not is_non_contradiction_statement(item.get("text_pl"))
