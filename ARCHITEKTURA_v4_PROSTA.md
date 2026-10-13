@@ -134,7 +134,7 @@ Wynik AI 2:
 AI 1 nie dostaje wyłącznie nowych tytułów. Dostaje:
 
 - nowe artykuły wykryte w bieżącym uruchomieniu;
-- tematy możliwe do dopasowania z ostatnich 48 godzin (w aplikacji jako
+- tematy możliwe do dopasowania z ostatnich 36 godzin (w aplikacji jako
   „Aktualne” są widoczne przez 24 godzin bez nowej aktualizacji);
 - poprzedni skrót agregacji każdego z tych tematów.
 

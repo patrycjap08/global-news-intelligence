@@ -32,8 +32,8 @@ from supabase_client import SupabaseRestClient
 PROMPT_VERSION = "ai-prompts-v51-polish-prose-and-conflict-context"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
-# article until it has been quiet for 48 hours.
-TOPIC_MATCH_LOOKBACK_HOURS = 48
+# article until it has been quiet for 36 hours.
+TOPIC_MATCH_LOOKBACK_HOURS = 36
 UNASSIGNED_ARTICLE_LOOKBACK_HOURS = max(
     1, int(os.environ.get("AI_UNASSIGNED_ARTICLE_LOOKBACK_HOURS", "24"))
 )
@@ -1208,7 +1208,7 @@ Zwróć WYŁĄCZNIE poprawny JSON:
 
 Każdy article_id z wejścia ma wystąpić dokładnie raz: w jednej grupie,
 unassigned_article_ids albo excluded_articles. Najpierw sprawdź active_topics
-z ostatnich 48 godzin. Każdy wpis active_topics zawiera wyłącznie tytuł
+z ostatnich 36 godzin. Każdy wpis active_topics zawiera wyłącznie tytuł
 istniejącego tematu, jednozdaniowy opis oraz tytuły artykułów już przypisanych
 do tego tematu. Używaj tych tytułów i opisu do dopasowania nowego artykułu;
 nie zakładaj, że active_topics zawiera pełne teksty artykułów.
@@ -3341,7 +3341,7 @@ def merge_active_topics(
 ) -> dict[str, int]:
     """Merge duplicate active topics before any final summary is generated.
 
-    The repair mode deliberately keeps the normal 48-hour active-topic window,
+    The repair mode deliberately keeps the normal 36-hour active-topic window,
     but narrows the input to topics that already have a saved synthesis. This
     lets it repair historical grouping mistakes without reopening archived
     topics or creating a first synthesis for a topic that never had one.

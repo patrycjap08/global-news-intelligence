@@ -84,10 +84,10 @@ class SummaryQueueTests(unittest.TestCase):
 
     def test_age_limit_blocks_old_first_synthesis_and_old_update_even_if_forced(self):
         topics = [{'topic_id': key, 'headline_pl': 'Wątek ' + key, 'last_seen_at': date}
-                  for key, date in [('old-first', '2026-10-05T11:59:59Z'),
-                                    ('old-update', '2026-10-05T11:59:59Z'),
-                                    ('boundary', '2026-10-05T12:00:00Z'),
-                                    ('recent', '2026-10-05T12:00:01Z'),
+                  for key, date in [('old-first', '2026-10-05T23:59:59Z'),
+                                    ('old-update', '2026-10-05T23:59:59Z'),
+                                    ('boundary', '2026-10-06T00:00:00Z'),
+                                    ('recent', '2026-10-06T00:00:01Z'),
                                     ('missing', None), ('invalid', 'bad-date')]]
         links = [{'topic_id': t['topic_id'], 'article_id': t['topic_id'] + str(j)} for t in topics for j in range(2)]
         articles = [(link['article_id'], 'source-' + link['article_id'][-1], 'CENTER') for link in links]
@@ -97,11 +97,11 @@ class SummaryQueueTests(unittest.TestCase):
         self.assertEqual(stats['summaries'], 2)
         self.assertEqual(generate.call_count, 2)
         self.assertEqual({call.kwargs['topic_id'] for call in persist.call_args_list}, {'boundary', 'recent'})
-        self.assertFalse(any('Wątek old-first: poza oknem 48 godzin' in str(call) for call in logger.call_args_list))
-        self.assertTrue(any('"poza oknem 48 godzin": 2' in str(call) for call in logger.call_args_list))
+        self.assertFalse(any('Wątek old-first: poza oknem 36 godzin' in str(call) for call in logger.call_args_list))
+        self.assertTrue(any('"poza oknem 36 godzin": 2' in str(call) for call in logger.call_args_list))
 
     def test_topic_expiring_while_waiting_is_not_sent_to_ai(self):
-        topics = [{'topic_id': 'topic', 'headline_pl': 'Wątek', 'last_seen_at': '2026-10-05T12:01:00Z'}]
+        topics = [{'topic_id': 'topic', 'headline_pl': 'Wątek', 'last_seen_at': '2026-10-06T00:01:00Z'}]
         articles = [('a', 'one', 'CENTER'), ('b', 'two', 'CENTER')]
         links = [{'topic_id': 'topic', 'article_id': key} for key in 'ab']
         stats, generate, persist, logger = self.run_queue(topics, articles, links,

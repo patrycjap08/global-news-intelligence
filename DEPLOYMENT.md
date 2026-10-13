@@ -30,7 +30,7 @@ w zakładce „Historyczne”. Tematy `MERGED` nadal pozostają ukryte.
 Po wdrożeniu rozdzielenia widoczności od dopasowywania uruchom także
 `supabase_migration_topic_current_window.sql`. Aplikacja pokazuje temat jako
 aktualny przez 24 godzin bez aktualizacji, ale backend może nadal dopasować do
-niego nowe artykuły przez 48 godzin. Po takim dopasowaniu temat wraca do
+niego nowe artykuły przez 36 godzin. Po takim dopasowaniu temat wraca do
 zakładki „Aktualne”.
 
 ## Sekrety repozytorium
@@ -96,7 +96,7 @@ nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
 
 Jeżeli istniejące syntezy zostały rozdzielone na kilka osobnych wątków, w
 formularzu `Run workflow` wybierz tryb `merge-existing-summaries`. Ten tryb
-analizuje tylko aktywne wątki z ostatnich 48 godzin, które mają już zapisaną
+analizuje tylko aktywne wątki z ostatnich 36 godzin, które mają już zapisaną
 syntezę. Scala automatycznie przez embeddingi według tych samych zasad co
 `full` i `ai-only`, bez pytania AI o zatwierdzenie scalenia. Po scaleniu
 zachowywana jest najstarsza synteza, a nowe artykuły są
@@ -145,7 +145,7 @@ Odczyty stron kolejki mają stabilną kolejność; brak wskazanego aktywnego
 wątku jest błędem, a nie pomyślną pustą kolejką. Log przekazania pokazuje
 liczbę zachowanych wątków i przeniesionych artykułów. Zwykły `ai-only`
 może nadrobić wcześniej pominięte aktualizacje z zapisanych przypisań
-artykułów, jeśli wątki nadal mieszczą się w oknie 48 godzin.
+artykułów, jeśli wątki nadal mieszczą się w oknie 36 godzin.
 
 ## Aktualizacje bez powtarzania faktów
 

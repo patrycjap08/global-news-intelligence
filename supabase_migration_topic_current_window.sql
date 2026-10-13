@@ -1,7 +1,7 @@
 -- Rozdziela okno widoczności w aplikacji od okna dopasowywania tematów.
 --
 -- Backend nadal może przypisać nowy artykuł do nieaktualizowanego tematu przez
--- 48 godzin. Widok aplikacji oznacza go jako aktualny tylko przez 24 godzin.
+-- 36 godzin. Widok aplikacji oznacza go jako aktualny tylko przez 24 godzin.
 -- Po przypisaniu nowego artykułu last_seen_at zostaje odświeżone, więc temat
 -- wraca do zakładki „Aktualne”.
 

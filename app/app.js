@@ -2,7 +2,7 @@ const config = window.GNI_CONFIG || {};
 const READ_STATE_KEY = 'gni.topic-read-state.v1';
 const BOOKMARK_STATE_KEY = 'gni.topic-bookmarks.v1';
 const FILTER_STATE_KEY = 'gni.filters.v1';
-// A topic remains matchable by the backend for 48 hours, but stays in the
+// A topic remains matchable by the backend for 36 hours, but stays in the
 // current view for 24 hours without a new article.
 const TOPIC_VALIDITY_HOURS = 24;
 
