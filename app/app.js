@@ -38,6 +38,7 @@ let dataRevision = 0;
 let fullSummaryTopics = new Set();
 let topicDetailPromises = new Map();
 let openDialogTopicId = null;
+let dialogRequestToken = 0;
 const REQUEST_TIMEOUT_MS = 15000;
 const LOAD_TIMEOUT_MS = 90000;
 const SUMMARY_PREVIEW_COLUMNS = 'topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
@@ -120,12 +121,16 @@ function indexes() {
   return dataIndexes;
 }
 
+function hasCyrillicTitle(value) {
+  return /\p{Script=Cyrillic}/u.test(String(value ?? ''));
+}
+
 function allTopicModels() {
   // Data loaders replace these containers; local read/bookmark state is checked
   // at render time. Invalidate explicitly if data is changed in place.
   const inputs = [state.topics, state.articles, state.links, state.summaries, state.history];
   if (!modelCache || inputs.some((value, index) => value !== modelCache.inputs[index])) {
-    const models = state.topics.map(topicModel);
+    const models = state.topics.map(topicModel).filter(model => !hasCyrillicTitle(model.title));
     modelCache = { inputs, models, byId: new Map(models.map((model) => [model.topic_id, model])) };
   }
   modelCache.models.forEach((model) => { model.isCurrent = topicIsCurrent(model); });
@@ -693,27 +698,44 @@ async function restoreSnapshot() {
 }
 
 async function fetchStaticJson(path, signal) {
-  const controller = new AbortController();
-  const abort = () => controller.abort();
-  if (signal?.aborted) abort();
-  signal?.addEventListener('abort', abort, { once: true });
-  const timer = window.setTimeout(abort, REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(new URL(path, new URL(config.staticDataUrl, window.location.href)), { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) throw new Error(`Dane strony: HTTP ${response.status}`);
-    return await response.json();
-  } finally { window.clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+  const url = new URL(path, new URL(config.staticDataUrl, window.location.href));
+  // Pages caches index.json for ten minutes. A fresh manifest must not point
+  // to a removed generation from an earlier deployment.
+  if (path === 'index.json') url.searchParams.set('refresh', String(Date.now()));
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal?.aborted) abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    const timer = window.setTimeout(abort, REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) {
+        const error = new Error(`Dane strony: HTTP ${response.status}`);
+        error.status = response.status; throw error;
+      }
+      return await response.json();
+    } catch (error) {
+      if (signal?.aborted || attempt || (error.status && ![408, 425, 429, 500, 502, 503, 504].includes(error.status))) throw error;
+    } finally { window.clearTimeout(timer); signal?.removeEventListener('abort', abort); }
+  }
 }
 
 async function loadStaticData(options) {
   const data = await fetchStaticJson('index.json', options.signal);
   if (data.schema !== 1 || !['topics', 'articles', 'links', 'summaries'].every((key) => Array.isArray(data[key]))
       || !data.generation || !data.exported_at) throw new Error('Niepoprawny eksport strony.');
+  const sameGeneration = state.staticGeneration === data.generation;
+  const previousSummaries = state.summaries, previousHistory = state.history;
+  const retainedDetails = sameGeneration ? fullSummaryTopics : new Set();
   state.topics = data.topics; state.articles = data.articles; state.links = data.links;
-  state.summaries = new Map(data.summaries.map((row) => [row.topic_id, row]));
-  state.history = new Map(); fullSummaryTopics = new Set(); topicDetailPromises = new Map();
+  state.summaries = new Map(data.summaries.map((row) => [row.topic_id,
+    retainedDetails.has(row.topic_id) ? previousSummaries.get(row.topic_id) || row : row]));
+  fullSummaryTopics = new Set([...retainedDetails].filter(id => state.topics.some(topic => topic.topic_id === id)));
+  state.history = new Map([...previousHistory].filter(([id]) => fullSummaryTopics.has(id)));
+  topicDetailPromises = sameGeneration ? topicDetailPromises : new Map();
   state.staticGeneration = data.generation;
-  dataRevision += 1; state.latestHarvestStartedAt = data.latest_harvest_started_at;
+  if (!sameGeneration) dataRevision += 1; state.latestHarvestStartedAt = data.latest_harvest_started_at;
   state.loadedAt = data.exported_at; state.demo = false; state.connection = 'live';
   invalidateViewCache(); void saveSnapshot();
 }
@@ -769,11 +791,24 @@ function loadLiveData() {
 function loadTopicDetails(topicId) {
   if (state.demo || fullSummaryTopics.has(topicId)) return Promise.resolve();
   if (topicDetailPromises.has(topicId)) return topicDetailPromises.get(topicId);
-  const revision = dataRevision;
+  let revision = dataRevision;
   const promise = (async () => {
     if (config.staticDataUrl) {
-      const detail = await fetchStaticJson(`${state.staticGeneration}/topics/${encodeURIComponent(topicId)}.json`);
+      if (!state.staticGeneration) { await loadLiveData(); revision = dataRevision; }
+      let detail;
+      try {
+        detail = await fetchStaticJson(`${state.staticGeneration}/topics/${encodeURIComponent(topicId)}.json`);
+      } catch (error) {
+        if (error.status !== 404) throw error;
+        // The page/cache may still reference an older snapshot after deployment.
+        await loadLiveData(); revision = dataRevision;
+        detail = await fetchStaticJson(`${state.staticGeneration}/topics/${encodeURIComponent(topicId)}.json`);
+      }
       if (revision !== dataRevision) return;
+      if (!detail || !Object.hasOwn(detail, 'summary') || (detail.summary &&
+          (detail.summary.topic_id !== topicId || !detail.summary.summary || typeof detail.summary.summary !== 'object'))) {
+        throw new Error('Niepoprawny plik pełnego opracowania.');
+      }
       state.summaries = new Map(state.summaries);
       if (detail.summary) state.summaries.set(topicId, detail.summary);
       state.history = new Map(state.history); state.history.set(topicId, detail.history || []);
@@ -823,6 +858,11 @@ function refreshData({ notify = false } = {}) {
     try {
       await loadLiveData();
       setStatus(); render();
+      if ($('#story-dialog').open && openDialogTopicId) {
+        const id = openDialogTopicId;
+        renderTopicDialog(id, fullSummaryTopics.has(id) ? 'ready' : 'loading');
+        if (!fullSummaryTopics.has(id)) void fillTopicDialog(id);
+      }
       if (notify) showToast('Dane zostały odświeżone.');
       return true;
     } catch (error) {
@@ -997,7 +1037,7 @@ function isNonContradictionItem(item) {
     || /(?:różnic|rozbieżn).{0,100}(?:nie oznacz|nie są|nie stanow).{0,60}(?:sprzecz|kontradyk)/.test(normalized);
 }
 
-function dialogHtml(model) {
+function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const summary = model.summary || {};
   const contradictions = Array.isArray(summary.contradictions)
     ? summary.contradictions.filter((item) => !isNonContradictionItem(item))
@@ -1014,9 +1054,11 @@ function dialogHtml(model) {
     return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
   }).join('');
   const summaryPanel = summary.summary_pl
-    ? `<section class="dialog-section summary-section"><h3>Synteza</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
+    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? 'Synteza' : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
     : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
-  const factsPanel = Array.isArray(summary.facts) && summary.facts.length
+  const factsPanel = detailsState !== 'ready'
+    ? `<section class="dialog-section"><h3>Fakty</h3><p>${detailsState === 'error' ? 'Fakty będą dostępne po pobraniu pełnego opracowania. Użyj przycisku „Spróbuj ponownie” u góry.' : 'Trwa pobieranie faktów…'}</p></section>`
+    : Array.isArray(summary.facts) && summary.facts.length
     ? section('Fakty', summary.facts, 'insight-facts', 'Szczegółowe ustalenia z przypisaniem do źródeł.')
     : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
   return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
@@ -1038,37 +1080,63 @@ function dialogHtml(model) {
   </div>`;
 }
 
+function renderTopicDialog(topicId, detailsState, preserveTab = true) {
+  const model = modelForTopic(topicId);
+  if (!model) { $('#story-dialog').close(); return; }
+  const dialog = $('#story-dialog');
+  const scroll = preserveTab ? dialog.scrollTop : 0;
+  const tab = preserveTab ? dialog.querySelector('[data-dialog-tab].is-active')?.dataset.dialogTab : null;
+  const notice = detailsState === 'loading' ? '<p class="topic-detail-status" role="status">Pobieram pełną syntezę i fakty…</p>'
+    : detailsState === 'error' ? `<div class="topic-detail-error" role="alert"><p>Nie udało się pobrać pełnej syntezy i faktów. Poniżej jest tylko skrócony podgląd.</p><button type="button" data-retry-topic-details="${escapeHtml(topicId)}">Spróbuj ponownie</button></div>` : '';
+  $('#dialog-content').innerHTML = notice + dialogHtml(model, { detailsState });
+  if (tab) {
+    dialog.querySelectorAll('[data-dialog-tab]').forEach(button => {
+      const active = button.dataset.dialogTab === tab;
+      button.classList.toggle('is-active', active); button.setAttribute('aria-selected', String(active));
+    });
+    dialog.querySelectorAll('[data-dialog-panel]').forEach(panel => {
+      const active = panel.dataset.dialogPanel === tab; panel.classList.toggle('is-active', active); panel.hidden = !active;
+    });
+  }
+  dialog.scrollTop = scroll;
+}
+
+async function fillTopicDialog(topicId) {
+  const token = ++dialogRequestToken;
+  try {
+    for (let attempt = 0; attempt < 2 && !fullSummaryTopics.has(topicId); attempt += 1) {
+      await loadTopicDetails(topicId);
+      if (openDialogTopicId !== topicId || token !== dialogRequestToken || !$('#story-dialog').open) return;
+    }
+    if (!fullSummaryTopics.has(topicId)) throw new Error('Zestaw danych zmienił się podczas pobierania.');
+    if (token !== dialogRequestToken || openDialogTopicId !== topicId || !$('#story-dialog').open) return;
+    const model = modelForTopic(topicId);
+    if (!model) { $('#story-dialog').close(); return; }
+    renderTopicDialog(topicId, 'ready'); markTopicRead(model); render();
+  } catch (error) {
+    if (token === dialogRequestToken && openDialogTopicId === topicId && $('#story-dialog').open) renderTopicDialog(topicId, 'error');
+    console.warn('Pobieranie opracowania nie powiodło się.', error);
+  }
+}
+
 function openTopic(topicId) {
   const model = modelForTopic(topicId);
-  if (!model || !model.hasAggregation) return;
+  if (!model || !model.hasAggregation || hasCyrillicTitle(model.title)) return;
   openDialogTopicId = topicId;
-  markTopicRead(model);
   const loading = !state.demo && !fullSummaryTopics.has(topicId);
-  $('#dialog-content').innerHTML = `${loading ? '<p role="status">Ładuję pełne opracowanie…</p>' : ''}${dialogHtml(model)}`;
+  if (!loading) markTopicRead(model);
+  renderTopicDialog(topicId, loading ? 'loading' : 'ready', false);
   const dialog = $('#story-dialog');
   if (typeof dialog.showModal === 'function') dialog.showModal();
   else dialog.setAttribute('open', '');
   render();
-  if (loading) {
-    const revision = dataRevision;
-    loadTopicDetails(topicId).then(() => {
-      if (revision === dataRevision && dialog.open && openDialogTopicId === topicId) {
-        const updated = modelForTopic(topicId);
-        $('#dialog-content').innerHTML = dialogHtml(updated);
-        markTopicRead(updated);
-        render();
-      }
-    }).catch((error) => {
-      if (dialog.open && openDialogTopicId === topicId) showToast('Nie udało się pobrać pełnego opracowania. Otwórz temat ponownie, aby spróbować jeszcze raz.');
-      console.warn('Pobieranie opracowania nie powiodło się.', error);
-    });
-  }
+  if (loading) void fillTopicDialog(topicId);
 }
 
 function filteredModels(allModels = allTopicModels(), { categorySelection = state.categories } = {}) {
   const query = state.search.trim().toLowerCase();
   return allModels.filter((topic) => {
-    if (!topic.hasAggregation) return false;
+    if (!topic.hasAggregation || hasCyrillicTitle(topic.title || topic.headline_pl)) return false;
     if (state.view === 'current' && !topic.isCurrent) return false;
     if (state.view === 'historical' && topic.isCurrent) return false;
     if (state.view === 'saved' && !isTopicBookmarked(topic)) return false;
@@ -1092,7 +1160,7 @@ function render({ searchOnly = false } = {}) {
   const preparedModels = allTopicModels();
   const models = filteredModels(preparedModels);
   if (!searchOnly) {
-    const allModels = preparedModels.filter((topic) => topic.hasAggregation);
+    const allModels = preparedModels.filter((topic) => topic.hasAggregation && !hasCyrillicTitle(topic.title || topic.headline_pl));
     renderStats(allModels);
   }
   // Category facets use the same tab/read/search/profile filters, while
@@ -1143,6 +1211,11 @@ async function init() {
 }
 
 document.addEventListener('click', (event) => {
+  const retryDetails = event.target.closest('[data-retry-topic-details]');
+  if (retryDetails) {
+    event.preventDefault(); const id = retryDetails.dataset.retryTopicDetails;
+    renderTopicDialog(id, 'loading'); void fillTopicDialog(id); return;
+  }
   const dialogTab = event.target.closest('[data-dialog-tab]');
   if (dialogTab) {
     event.preventDefault();
@@ -1168,7 +1241,7 @@ document.addEventListener('click', (event) => {
     const dialog = $('#story-dialog');
     if (dialog?.open) {
       const model = modelForTopic(bookmarkButton.dataset.bookmarkTopicId);
-      if (model) $('#dialog-content').innerHTML = dialogHtml(model);
+      if (model) renderTopicDialog(model.topic_id, fullSummaryTopics.has(model.topic_id) || state.demo ? 'ready' : 'loading');
     }
     return;
   }

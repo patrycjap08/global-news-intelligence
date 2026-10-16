@@ -103,3 +103,12 @@ zapisem pole jest włączane na początek istniejącej listy Kontekst pod etykie
 „Ogólny kontekst”, a objaśnienia osób i organizacji są zachowane. Nie wymaga
 to migracji bazy ani dodatkowego zapytania do AI. Starsze syntezy pozostają
 bez automatycznej przebudowy przy generowaniu samych aktualizacji.
+
+
+Wątki z dowolnym znakiem cyrylicy w wyświetlanym tytule są ukrywane przez
+interfejs przed przygotowaniem listy i liczników, we wszystkich zakładkach,
+także po wczytaniu danych z pamięci urządzenia. Filtr nie usuwa danych z bazy.
+Prompty nazw roboczych, poprawiania tytułów, scalania i syntez wymagają
+polszczyzny oraz polskich nazw/transkrypcji bez cyrylicy.
+
+Pełne opracowania są pobierane przy otwarciu wątku. Po zmianie eksportu strona odświeża manifest i ponawia pobranie nieaktualnego adresu. Błąd pobrania pokazuje przycisk ponowienia; podgląd nie udaje pełnej syntezy ani pustej listy faktów. Odświeżenie tej samej generacji zachowuje pobrane szczegóły.

@@ -36,7 +36,7 @@ function fixture() {
     const index={schema:1,generation:'abc123',exported_at:'2026-10-09T08:00:00Z',topics,articles,links,summaries:previews};
     f.setFetch(async url=>{
       assert(!String(url).includes('db.test'));
-      if(String(url).endsWith('/index.json'))return response(index);
+      if(new URL(url).pathname.endsWith('/index.json'))return response(index);
       assert(String(url).endsWith('/abc123/topics/t1.json'));
       return response({summary:{topic_id:'t1',version:2,summary:{base_summary:{summary_pl:'Pełna synteza',facts:['Fakt']},updates:[]}},history:[]});
     });
@@ -46,6 +46,30 @@ function fixture() {
     assert.strictEqual(f.run("state.summaries.get('t1').summary.base_summary.facts.length"),1);
     const old=f.run('state.topics');f.setFetch(async()=>response({},503));
     assert.strictEqual(await f.run('refreshData()'),false);assert.strictEqual(f.run('state.topics'),old);
+  }
+  // An old cached generation missing on Pages reloads the manifest and retries.
+  {
+    const f=fixture();f.run("config.staticDataUrl='./data/'; window.location={href:'https://site.test/app/'}");
+    const index={schema:1,generation:'old',exported_at:'2026-10-09T08:00:00Z',topics,articles,links,summaries:previews};
+    let manifests=0;
+    f.setFetch(async url=>{
+      const parsed=new URL(url);
+      if(parsed.pathname.endsWith('/index.json')){
+        assert(parsed.searchParams.has('refresh'));manifests++;
+        return response({...index,generation:manifests===1?'old':'new'});
+      }
+      if(parsed.pathname.includes('/old/'))return response({},404);
+      assert(parsed.pathname.endsWith('/new/topics/t1.json'));
+      return response({summary:{topic_id:'t1',version:1,summary:{base_summary:{summary_pl:'Pełna treść, więcej niż podgląd.',facts:[{text_pl:'Zapisany fakt'}]},updates:[]}},history:[]});
+    });
+    await f.run('loadLiveData()');await f.run("loadTopicDetails('t1')");
+    assert.strictEqual(manifests,2);assert.strictEqual(f.run("state.summaries.get('t1').summary.base_summary.facts.length"),1);
+    assert.strictEqual(f.run('state.staticGeneration'),'new');
+    // Same-generation refresh must keep already loaded full details and revision.
+    const revision=f.run('dataRevision');await f.run('loadLiveData()');
+    assert.strictEqual(f.run('dataRevision'),revision);
+    assert.strictEqual(f.run("fullSummaryTopics.has('t1')"),true);
+    assert.strictEqual(f.run("state.summaries.get('t1').summary.base_summary.facts.length"),1);
   }
   // Duplicate refreshes share one network pass; no full versions/full summaries on startup.
   {

@@ -290,3 +290,8 @@ button { color: inherit; }
 .category-match-control button { flex: 1; min-width: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); padding: 7px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .category-match-control button.is-active { background: var(--ink); color: var(--paper); }
 .category-match-control button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+
+.topic-detail-status, .topic-detail-error { margin: 18px 26px 0; font-family: var(--sans); font-size: 13px; line-height: 1.5; }
+.topic-detail-error { padding: 12px 14px; border: 1px solid var(--red); background: var(--paper-deep); }
+.topic-detail-error p { margin: 0 0 10px; }
+.topic-detail-error button { padding: 8px 14px; border: 1px solid var(--ink); border-radius: 999px; color: var(--ink); background: var(--paper); font: inherit; cursor: pointer; }

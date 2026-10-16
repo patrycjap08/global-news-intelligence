@@ -29,7 +29,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v53-required-topic-background"
+PROMPT_VERSION = "ai-prompts-v54-polish-only-topic-titles"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -1084,6 +1084,26 @@ def fallback_topic_title(
         "i brak jednozdaniowego opisu do użycia jako fallback."
     )
 
+POLISH_TITLE_INSTRUCTIONS = """
+TYTUŁ WĄTKU MUSI BYĆ W CAŁOŚCI PO POLSKU:
+Dotyczy working_title_pl, title_pl, merged_title_pl i topic.headline_pl.
+Nie kopiuj rosyjskiego, ukraińskiego ani innego obcojęzycznego nagłówka,
+zdania lub fragmentu artykułu. Sam polski prefiks [Świat] NIE oznacza,
+że pozostała treść tytułu jest po polsku. Przetłumacz sens wydarzenia
+na krótki, naturalny polski tytuł, zamiast przepisywać całe zdanie źródłowe.
+W tytule NIE MOŻE wystąpić ANI JEDEN znak cyrylicy, także w nazwisku,
+nazwie miejsca, instytucji, firmy lub cytacie. Użyj ustalonej polskiej nazwy
+lub poprawnej polskiej transkrypcji nazwy własnej. Nie zapisuj całego obcego
+zdania alfabetem łacińskim jako pozornego tłumaczenia.
+Przykład: „Російські війська атакували...” → „[Ukraina] Rosyjskie ataki
+na obwód dniepropetrowski”, a nie „[Świat] Російські війська атакували...”.
+Jeśli current_title_pl lub tytuł roboczy jest obcojęzyczny, popraw go,
+zachowując sens i wymagany pojedynczy prefiks geograficzny, bez dopisywania
+faktów. Przed zwróceniem JSON skontroluj OSOBNO KAŻDY tytuł: polszczyznę,
+brak znaków cyrylicy, zwięzłość i zgodność z materiałem.
+""".strip()
+
+
 TOPIC_LABELING_INSTRUCTIONS = """
 Jesteś modułem nadawania roboczych nazw wątków wiadomości w aplikacji Global
 News Intelligence. Otrzymujesz artykuły i dla KAŻDEGO artykułu utwórz jeden
@@ -1152,7 +1172,7 @@ Zwróć WYŁĄCZNIE poprawny JSON, np.:
 "working_title_pl":"[Kraj] Ogólna nazwa konkretnej sprawy","reason":""},
 "inny_id_z_wejścia":{"category":"SPORT","working_title_pl":"",
 "reason":"Wynik meczu bez istotnego znaczenia publicznego."}}}
-""".strip()
+""".strip() + "\n\n" + POLISH_TITLE_INSTRUCTIONS
 
 GROUPING_INSTRUCTIONS = """
 Jesteś modułem grupowania wiadomości w aplikacji Global News Intelligence.
@@ -1318,7 +1338,7 @@ SWIAT oznacza przede wszystkim międzynarodowe relacje, geopolitykę lub
 wydarzenia globalne; nie przypisuj do niej automatycznie każdej historii spoza
 Polski. Dodaj więcej niż jedną kategorię tylko wtedy, gdy każda z nich wnosi
 istotny wymiar tematu, a nie jako luźne skojarzenie.
-""".strip()
+""".strip() + "\n\n" + POLISH_TITLE_INSTRUCTIONS
 
 TOPIC_MERGE_INSTRUCTIONS = """
 Jesteś modułem porządkowania tematów w aplikacji Global News Intelligence.
@@ -1402,7 +1422,7 @@ historii. POLSKA może oznaczać krajowy wymiar historii i może występować ra
 z kategorią tematyczną.
 Nie opisuj tematów, których nie łączysz. Jeśli w tej paczce nie ma pewnego
 połączenia, zwróć dokładnie `{"merge_groups":[]}`.
-""".strip()
+""".strip() + "\n\n" + POLISH_TITLE_INSTRUCTIONS
 
 TITLE_NORMALIZATION_INSTRUCTIONS = """
 Ujednolić tytuły tematów wiadomości. Nie zmieniaj znaczenia ani nie dodawaj
@@ -1431,7 +1451,7 @@ tytuł” ani „Temat bez tytułu”.
 Zwróć WYŁĄCZNIE JSON:
 {"titles":[{"topic_id":"","title_pl":"[Kraj] Konkretny tytuł"}]}
 Każdy wejściowy topic_id musi wystąpić dokładnie raz.
-""".strip()
+""".strip() + "\n\n" + POLISH_TITLE_INSTRUCTIONS
 
 CATEGORY_INSTRUCTIONS = """
 Jesteś redaktorem porządkującym katalog tematów wiadomości. Przypisz każdy
@@ -2008,7 +2028,7 @@ context, notes ani event. Nie dodawaj innych pól. article_ids to techniczna
 lista identyfikatorów dowodowych i nie należy wstawiać jej do tekstu
 text_pl. Jeśli element nie ma oparcia w konkretnym artykule, zostaw
 article_ids jako [] i ustaw needs_verification=true tam, gdzie to pole istnieje.
-""".strip() + "\n\n" + POLISH_LANGUAGE_INSTRUCTIONS
+""".strip() + "\n\n" + POLISH_LANGUAGE_INSTRUCTIONS + "\n\n" + POLISH_TITLE_INSTRUCTIONS
 
 SUMMARY_UPDATE_REPAIR_INSTRUCTIONS = SUMMARY_INSTRUCTIONS + """
 
