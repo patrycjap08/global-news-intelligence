@@ -454,18 +454,30 @@ function itemArticleSources(item) {
   return [...new Set(item.article_ids.map((id) => articles.get(String(id))?.source_name).filter(Boolean))];
 }
 
+// The index carries the first 650 characters of the base synthesis and the
+// latest accepted update. Use fields shared by previews and full details;
+// article attachments, analysis timestamps and internal versions are not news.
+function topicReadContent(model) {
+  const update = model.updates?.[0];
+  return JSON.stringify({
+    base: String(model.summary?.summary_pl || '').slice(0, 650),
+    update: update ? { text: updateText(update), when: update.generated_at || null } : null,
+  });
+}
+
 function isTopicRead(model) {
   const record = readRecord(model);
   if (!record) return false;
-  if (Array.isArray(record.article_ids)) {
-    const readArticles = new Set(record.article_ids.map(String));
-    return topicArticleIds(model).every((evidenceId) => {
-      if (readArticles.has(evidenceId)) return true;
-      // Compatibility with the previous format, which stored bare article IDs.
-      return evidenceId.startsWith('article:') && readArticles.has(evidenceId.slice(8));
-    });
+  if (typeof record.content === 'string') return record.content === topicReadContent(model);
+  // Preserve earlier read marks. New attachments and NO_NEW_INFORMATION do
+  // not invalidate them; only an accepted update published after reading does.
+  const readAt = Date.parse(record.read_at || '');
+  if (Number.isFinite(readAt)) {
+    const updateAt = Date.parse(model.updates?.[0]?.generated_at || '');
+    if (Number.isFinite(updateAt)) return updateAt <= readAt;
+    return true;
   }
-  // Compatibility with the earlier local format, which stored only a version.
+  // Very old records contain only an internal version, without a read date.
   return Number(record.version || 0) >= Number(model.summaryVersion || 1);
 }
 
@@ -505,6 +517,7 @@ function toggleTopicBookmark(topicId) {
 function markTopicRead(model) {
   state.readTopics[model.topic_id] = {
     version: Number(model.summaryVersion || 1),
+    content: topicReadContent(model),
     article_ids: topicArticleIds(model),
     read_at: new Date().toISOString(),
   };

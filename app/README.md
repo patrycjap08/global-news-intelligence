@@ -112,3 +112,9 @@ Prompty nazw roboczych, poprawiania tytułów, scalania i syntez wymagają
 polszczyzny oraz polskich nazw/transkrypcji bez cyrylicy.
 
 Pełne opracowania są pobierane przy otwarciu wątku. Po zmianie eksportu strona odświeża manifest i ponawia pobranie nieaktualnego adresu. Błąd pobrania pokazuje przycisk ponowienia; podgląd nie udaje pełnej syntezy ani pustej listy faktów. Odświeżenie tej samej generacji zachowuje pobrane szczegóły.
+
+Status przeczytania odnosi się do syntezy i ostatniej widocznej aktualizacji.
+Samo podpięcie nowego artykułu albo analiza NO_NEW_INFORMATION nie oznacza
+nieprzeczytanego wątku, także przy włączonym „Ukryj przeczytane”. Dotychczasowe
+lokalne oznaczenia z datą przeczytania są zachowywane; nowsza opublikowana
+aktualizacja ponownie oznacza wątek jako nieprzeczytany.
