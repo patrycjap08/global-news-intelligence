@@ -290,5 +290,9 @@ Regresja OS82 z publicznego eksportu jest w test_data; sprawdza ją
 `node test_frontend_perspective_updates.js`.
 
 Etykiety nad paskiem udziału artykułów pokazujemy tylko dla procentów większych
-od zera po zaokrągleniu. Wpisy typu „Lewicowe 0% (0)” znikają; obliczenia
-udziałów i sam pasek zachowują dotychczasowe wartości.
+od zera po zaokrągleniu. Wpisy typu „Lewicowe 0% (0)” znikają. Pasek zawsze
+zawiera trzy kolory w kolejności lewica, centrum, prawica; minimalna szerokość
+każdego fragmentu to 2 px, więc brak danego profilu zaznaczamy cienką kreską.
+Pozostała szerokość jest rozdzielana proporcjonalnie do liczby artykułów.
+Rzeczywiste procenty i liczniki pozostają bez zmian. Przy samych mediach
+kontrolowanych przez państwo nadal nie pokazujemy tego paska.

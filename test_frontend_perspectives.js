@@ -39,9 +39,13 @@ assert.strictEqual(articleProfileBar({articles:[{source_profile:'STATE_ALIGNED'}
 const oneProfile=articleProfileBar({articles:[{source_profile:'LEFT'},{source_profile:'CENTER_LEFT'}]});
 assert(oneProfile.includes('Lewicowe <strong>100% (2)</strong>'));
 assert(!oneProfile.includes('Centrum') && !oneProfile.includes('Prawicowe'));
+for(const group of ['left','center','right']) assert(oneProfile.includes('class="profile-share-'+group+'" style='),
+  'all three colors remain visible, including groups with no articles');
+assert.strictEqual((oneProfile.match(/flex:0 1 0%;min-width:2px/g)||[]).length,2);
 const twoProfiles=articleProfileBar({articles:[{source_profile:'CENTER'},{source_profile:'RIGHT'}]});
 assert(twoProfiles.includes('Centrum <strong>50% (1)</strong>') && twoProfiles.includes('Prawicowe <strong>50% (1)</strong>'));
 assert(!twoProfiles.includes('Lewicowe') && !twoProfiles.includes('<strong>0%'));
+assert(twoProfiles.includes('class="profile-share-left" style="flex:0 1 0%;min-width:2px"'));
 // Hide a displayed zero even if an unusually small share rounds down to 0%.
 const roundedZero=articleProfileBar({articles:[...Array.from({length:200},()=>({source_profile:'LEFT'})),
   ...Array.from({length:200},()=>({source_profile:'CENTER'})),{source_profile:'RIGHT'}]});

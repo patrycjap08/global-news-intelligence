@@ -1082,7 +1082,7 @@ function articleProfileBar(model) {
   let remaining = 100 - Object.values(percentages).reduce((a,b) => a+b,0);
   [...groups].sort((a,b) => (counts[b]*100/total%1) - (counts[a]*100/total%1)).forEach(g => { if (remaining > 0) { percentages[g] += 1; remaining -= 1; } });
   const legend = groups.filter(g => percentages[g] > 0).map(g => `<span class="profile-share-${g.toLowerCase()}">${labels[g]} <strong>${percentages[g]}% (${counts[g]})</strong></span>`).join('');
-  const bar = groups.filter(g => counts[g]).map(g => `<span class="profile-share-${g.toLowerCase()}" style="width:${counts[g]*100/total}%"></span>`).join('');
+  const bar = groups.map(g => `<span class="profile-share-${g.toLowerCase()}" style="flex:${counts[g]} 1 0%;min-width:2px"></span>`).join('');
   return `<div class="article-profile-share" aria-label="Udział artykułów według profilu redakcyjnego"><div class="profile-share-legend">${legend}</div><div class="profile-share-bar" aria-hidden="true">${bar}</div></div>`;
 }
 
