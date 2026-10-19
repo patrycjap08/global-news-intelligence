@@ -157,7 +157,7 @@ def build_report(topics, inputs, vectors, usage, started_at):
                 **scores, 'difference': scores['title_description'] - scores['current'],
                 'threshold': threshold, 'same_generation': by_id[left]['generation'] == by_id[right]['generation']})
     simulations = {}
-    for n in range(60, 96):
+    for n in range(35, 96):
         threshold = n / 100
         variants = {}
         for variant in VARIANTS:
@@ -182,7 +182,7 @@ def write_report(report, output):
     with (output / 'pairs.csv').open('w', encoding='utf-8-sig', newline='') as handle:
         fields = ('title_a', 'title_b', 'current', 'title_description', 'difference', 'threshold',
                   'same_generation', 'topic_id_a', 'topic_id_b')
-        writer = csv.DictWriter(handle, fields)
+        writer = csv.DictWriter(handle, fields, lineterminator='\n')
         writer.writeheader()
         writer.writerows({key: (round(row[key], 6) if isinstance(row[key], float) else row[key])
                          for key in fields} for row in report['pairs'])

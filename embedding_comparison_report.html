@@ -11,11 +11,12 @@ body{margin:0;background:#f7f1e7;color:#24221e;font:15px/1.5 system-ui,sans-seri
 <p id="metadata" class="muted"></p>
 <p><strong>A — obecny wariant:</strong> tytuł, krótki opis, początek pierwotnej syntezy i do trzech najnowszych nagłówków. Dokładny tekst przygotowuje obecna funkcja produkcyjna.</p>
 <p><strong>B — tytuł i opis:</strong> wyłącznie tytuł wątku i jego zapisany krótki opis. Oba warianty używają tego samego modelu, wymiarów i chwili odczytu danych. Żaden nie wysyła treści artykułów.</p>
-<p>To raport bez zmian w bazie. Zielone pola przekraczają wybrany próg. Podział na grupy korzysta z obecnej reguły dwóch stałych punktów odniesienia, z zachowaniem rozdziału formatów; pozostałe wątki są pokazane osobno.</p>
-<div class="controls"><label for="threshold">Próg ogólny: </label><input id="threshold" type="range" min="0.60" max="0.95" step="0.01" value="0.82"><output id="value" for="threshold">0.82</output></div>
+<p>To raport bez zmian w bazie. Zielone pola przekraczają wybrany próg. Symulacja dotyczy tylko wskazanego zestawu, bez innych aktywnych wątków. Podział korzysta z obecnej reguły dwóch stałych punktów odniesienia, z zachowaniem rozdziału formatów; pozostałe wątki są pokazane osobno. Niższy próg może zmienić przypisanie do grup i nie zawsze zmniejsza ich liczbę. Bardzo niskie wartości służą porównaniu, nie są rekomendacją dla produkcji.</p>
+<div class="controls"><label for="threshold">Próg ogólny: </label><input id="threshold" type="range" min="0.35" max="0.95" step="0.01" value="0.82"><output id="value" for="threshold">0.82</output></div>
 <h2>Porównywane wątki</h2><ol id="topics"></ol>
 <div class="grids"><section><h2>A — obecny wariant</h2><p id="stats-current"></p><div id="matrix-current" class="panel"></div><p id="groups-current" class="groups"></p></section><section><h2>B — tytuł i opis</h2><p id="stats-title_description"></p><div id="matrix-title_description" class="panel"></div><p id="groups-title_description" class="groups"></p></section></div>
 <h2>Wszystkie pary</h2><div class="panel"><table class="pairs"><thead><tr><th>Wątek A</th><th>Wątek B</th><th>A</th><th>B</th><th>B − A</th></tr></thead><tbody id="pairs"></tbody></table></div>
+<p><a href="pairs.csv" download>Pobierz wszystkie wyniki jako CSV</a></p>
 <h2>Dokładne teksty wysłane do embeddingu</h2><div id="inputs"></div>
 </main>
 <script id="report" type="application/json">__REPORT_JSON__</script>

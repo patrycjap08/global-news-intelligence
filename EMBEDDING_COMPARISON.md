@@ -29,5 +29,9 @@ Artefakt przebiegu zawiera `pairs.csv` ze WSZYSTKIMI parami, `report.json`
 z dokładnymi tekstami i wektorami, `summary.md` oraz samodzielny `report.html`.
 HTML pokazuje obie macierze i suwak progu z symulacją obecnego grupowania
 dwoma stałymi punktami odniesienia. Warianty symulują także rozdział formatów
-i wyjątek ukraiński. Raport nie ocenia, czy zbliżone wydarzenia powinny być
+i wyjątek ukraiński. Zakres suwaka 0,35–0,95 pozwala porównać również skalę
+wariantu B. Symulacja obejmuje tylko wskazany zestaw, nie wszystkie aktywne
+wątki; niższy próg nie musi zmniejszać liczby grup przy obecnej regule dwóch
+punktów odniesienia. Niskie wartości nie są rekomendacją dla produkcji.
+Raport nie ocenia, czy zbliżone wydarzenia powinny być
 jednym wątkiem; wynik nie zmienia produkcyjnego progu.
