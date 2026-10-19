@@ -28,8 +28,9 @@ dotychczasowy limit; użycie tokenów trafia do raportu.
 Artefakt przebiegu zawiera `pairs.csv` ze WSZYSTKIMI parami, `report.json`
 z dokładnymi tekstami i wektorami, `summary.md` oraz samodzielny `report.html`.
 HTML pokazuje obie macierze i suwak progu z symulacją obecnego grupowania
-dwoma stałymi punktami odniesienia. Warianty symulują także rozdział formatów
-i wyjątek ukraiński. Zakres suwaka 0,35–0,95 pozwala porównać również skalę
+dwoma stałymi punktami odniesienia. Warianty zachowują rozdział formatów
+i stosują ten sam próg do wszystkich tematów. Nowy raport startuje z obecnym
+progiem produkcyjnym 0,78. Zakres suwaka 0,35–0,95 pozwala porównać również skalę
 wariantu B. Symulacja obejmuje tylko wskazany zestaw, nie wszystkie aktywne
 wątki; niższy próg nie musi zmniejszać liczby grup przy obecnej regule dwóch
 punktów odniesienia. Niskie wartości nie są rekomendacją dla produkcji.

@@ -29,14 +29,16 @@ class FocusedEmbeddingTests(unittest.TestCase):
         all_pairs = ai.build_embedding_candidate_edges(ids, vectors)
         self.assertEqual(len(all_pairs), 10)
 
-    def test_empty_focus_skips_embedding_api_and_ukraine_threshold_is_unchanged(self):
+    def test_empty_focus_skips_embedding_api_and_focused_pairs_use_uniform_threshold(self):
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch('openai.OpenAI') as sdk:
             self.assertEqual(ai.build_topic_embedding_candidate_edges(
                 [{'topic_id': 'old_a'}, {'topic_id': 'old_b'}], focus_topic_ids=set()), {})
             sdk.assert_not_called()
-        edges = ai.build_embedding_candidate_edges(['new', 'old', 'other'], [[1, 0], [.8, .6], [.8, .6]],
-                                                   focus_topic_ids={'new'}, ukraine_ids={'new', 'old'})
-        self.assertEqual(set(edges), {('new', 'old')})
+        for ukraine_ids in (None, {'new', 'old'}):
+            edges = ai.build_embedding_candidate_edges(
+                ['new', 'old', 'other'], [[1, 0], [.8, .6], [.8, .6]],
+                focus_topic_ids={'new'}, ukraine_ids=ukraine_ids)
+            self.assertEqual(set(edges), {('new', 'old'), ('new', 'other')})
 
     def test_only_related_group_merges_and_focus_follows_retained_old_identity(self):
         topics = [{'topic_id': key, 'headline_pl': '[Polska] Decyzja władz', 'status': 'ACTIVE'} for key in 'abcd']

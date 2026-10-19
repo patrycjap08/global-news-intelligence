@@ -79,7 +79,7 @@ TOPIC_MERGE_EMBEDDING_DIMENSIONS = max(
 # All pairs above the threshold qualify; old repository TOP_K variables are ignored.
 TOPIC_MERGE_EMBEDDING_TOP_K = None
 TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY = max(
-    0.82, min(1.0, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.82")))
+    0.78, min(1.0, float(os.environ.get("AI_TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY", "0.78")))
 )
 TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS = max(
     20.0,
@@ -524,7 +524,8 @@ def ukraine_topic_ids(topics: list[dict[str, Any]]) -> set[str]:
 
 def embedding_pair_threshold(left: str, right: str, threshold: float,
                              ukraine_ids: set[str] | None = None) -> float:
-    return min(threshold, 0.78) if ukraine_ids and left in ukraine_ids and right in ukraine_ids else threshold
+    # Retain the signature for diagnostic callers; every topic uses one threshold.
+    return threshold
 
 
 def build_embedding_candidate_edges(
@@ -537,15 +538,14 @@ def build_embedding_candidate_edges(
     ukraine_ids: set[str] | None = None,
     focus_topic_ids: set[str] | None = None,
 ) -> dict[tuple[str, str], float]:
-    """Return semantic pairs passing their applicable threshold.
+    """Return semantic pairs passing the uniform threshold.
 
-    Ukraine-specific thresholds only affect local selection; no extra API calls.
     None compares all pairs; an explicit focus compares only pairs touching it.
     """
     if len(topic_ids) != len(embeddings) or len(topic_ids) < 2:
         return {}
     edges: dict[tuple[str, str], float] = {}
-    diagnostic_floor = max(-1.0, min(min_similarity, 0.78) - 0.03) if ukraine_ids else max(-1.0, min_similarity - 0.03)
+    diagnostic_floor = max(-1.0, min_similarity - 0.03)
     pair_scores: dict[tuple[str, str], float] = {}
     neighbor_ranks: dict[str, dict[str, int]] = {}
     score_band_heaps: dict[int, list[tuple[float, str, str]]] = defaultdict(list)
@@ -597,7 +597,7 @@ def build_embedding_candidate_edges(
             buckets[bucket].append({
                 "topic_id_a": left, "topic_id_b": right, "similarity": similarity,
                 "selected_for_ai": selected, "bucket": bucket, "threshold": pair_threshold,
-                "threshold_policy": "UKRAINE" if ukraine_ids and left in ukraine_ids and right in ukraine_ids else "GENERAL",
+                "threshold_policy": "UNIFORM",
                 "rank_a_to_b": neighbor_ranks[left][right],
                 "rank_b_to_a": neighbor_ranks[right][left],
             })
@@ -615,7 +615,7 @@ def build_embedding_candidate_edges(
             )[:10]
             samples.extend(boundary + remaining)
         diagnostics.update({
-            "threshold": min_similarity, "ukraine_threshold": min(min_similarity, 0.78),
+            "threshold": min_similarity, "ukraine_threshold": min_similarity,
             "ukraine_topic_ids": sorted(ukraine_ids or []), "top_k": top_k,
             "diagnostic_floor": diagnostic_floor, "topic_count": len(topic_ids),
             "compared_pairs": (len(topic_ids) * (len(topic_ids) - 1) // 2
@@ -748,7 +748,7 @@ def build_topic_embedding_candidate_edges(
     log(
         "EMBEDDING",
         f"Semantyczna selekcja zakończona: {len(edges)} par ponad progiem "
-        f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} ogólnie / 0.78 dla dwóch wątków o Ukrainie; "
+        f"{TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} dla wszystkich wątków; "
         "są to pary kwalifikujące się do połączenia.",
     )
     return edges
@@ -3776,7 +3776,7 @@ def merge_active_topics(
         if automatic_merge:
             log("EMBEDDING", "Scalanie automatyczne: grupa zaczyna się od najsilniejszej pary; "
                 f"każdy kolejny element musi mieć score co najmniej {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} "
-                "(0.78, gdy oba wątki dotyczą Ukrainy) z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
+                "z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
             for anchor_group in anchored_groups:
                 group_ids = anchor_group["topic_ids"]
                 canonical_id = choose_merge_canonical_topic_id(
@@ -4110,7 +4110,7 @@ def merge_active_topics(
                     "raw_output": {"topic_ids": group_ids, "canonical_topic_id": canonical_id,
                                    "minimum_edge_similarity": confidence,
                                    "threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
-                                   "ukraine_threshold": 0.78,
+                                   "ukraine_threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
                                    "ukraine_topic_ids": sorted(group_set & ukraine_topic_ids(payload_topics)),
                                    "grouping": "strongest_pair_anchors", "article_count": len(article_ids),
                                    "anchor_topic_ids": raw_group["anchor_topic_ids"],

@@ -119,11 +119,13 @@ class EmbeddingComparisonTests(unittest.TestCase):
     def test_all_28_pairs_are_saved_even_below_sampling_floor_and_groups_cover_all_topics(self):
         report = self.report()
         self.assertEqual(len(report['pairs']), 28)
+        self.assertEqual(report['threshold'], .78)
+        self.assertTrue(all(pair['threshold'] == .78 for pair in report['pairs']))
         self.assertEqual(len({(p['topic_id_a'], p['topic_id_b']) for p in report['pairs']}), 28)
         low = [p for p in report['pairs'] if p['title_description'] == 0]
         self.assertEqual(len(low), 7)
         self.assertTrue(all(p['current'] == 1 and p['difference'] == -1 for p in low))
-        simulation = report['simulations']['0.82']
+        simulation = report['simulations']['0.78']
         self.assertEqual(simulation['current']['group_count'], 1)
         self.assertEqual(simulation['title_description']['group_count'], 2)
         for variants in report['simulations'].values():

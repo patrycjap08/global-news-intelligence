@@ -4,7 +4,7 @@
 -- Każda para dostaje najnowszy DOSTĘPNY wynik; daty/teksty mogą się między parami różnić.
 with settings as (
     -- Zostaw NULL, aby przeszukać wszystkie przebiegi, albo wpisz konkretny run_id.
-    select null::text as run_id, 0.82::numeric as obecny_prog
+    select null::text as run_id, 0.78::numeric as obecny_prog
 ), wanted(topic_id, tytul_ze_zrzutu) as (
     values
     ('topic_perspectives_d47c451ef7a0c2a4a8327596', '[Francja] Minister rezygnuje, Macron odmawia jej przyjęcia'),

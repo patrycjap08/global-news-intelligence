@@ -13,25 +13,35 @@ class TopicPolicyTests(unittest.TestCase):
         self.assertTrue(ai.is_ukraine_topic(dict(headline_pl='Nowe wsparcie',recent_article_titles=['Aid for Ukraine'])))
 
     def test_pair_thresholds_and_diagnostics(self):
-        vectors=[[1.,0.],[.80,(1-.80**2)**.5]]
-        self.assertEqual(ai.build_embedding_candidate_edges(['a','b'],vectors),{})
-        self.assertEqual(ai.build_embedding_candidate_edges(['a','b'],vectors,ukraine_ids={'a'}),{})
-        report={}
-        edges=ai.build_embedding_candidate_edges(['a','b'],vectors,ukraine_ids={'a','b'},diagnostics=report)
-        self.assertEqual(set(edges),{('a','b')})
-        sample=report['samples'][0]
-        self.assertEqual(sample['threshold'],.78)
-        self.assertEqual(sample['threshold_policy'],'UKRAINE')
-        self.assertEqual(sample['bucket'],'SELECTED_NEAR_THRESHOLD')
-        self.assertEqual(report['score_band_samples'][0]['threshold'],.78)
+        self.assertEqual(ai.TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY, .78)
+        for ukraine_ids in (None, {'a'}, {'a', 'b'}):
+            for score in (.779999, .78, .80):
+                with self.subTest(ukraine_ids=ukraine_ids, score=score):
+                    vectors = [[1., 0.], [score, (1-score**2)**.5]]
+                    report = {}
+                    edges = ai.build_embedding_candidate_edges(
+                        ['a', 'b'], vectors, ukraine_ids=ukraine_ids, diagnostics=report)
+                    self.assertEqual(set(edges), {('a', 'b')} if score >= .78 else set())
+                    sample = report['samples'][0]
+                    self.assertEqual(sample['threshold'], .78)
+                    self.assertEqual(sample['threshold_policy'], 'UNIFORM')
+                    self.assertEqual(sample['bucket'], 'SELECTED_NEAR_THRESHOLD' if score >= .78 else 'BELOW_THRESHOLD')
+                    self.assertEqual(report['score_band_samples'][0]['threshold'], .78)
+                    self.assertEqual(report['ukraine_threshold'], report['threshold'])
 
-    def test_anchor_group_uses_same_pair_threshold_not_global_floor(self):
-        edges={('a','b'):.90,('a','c'):.80,('b','d'):.80,('c','e'):.90}
-        groups=ai.build_anchored_embedding_groups(list('abcde'),edges,ukraine_ids={'a','b','c'})
-        self.assertEqual(groups[0]['topic_ids'],['a','b','c'])
-        self.assertNotIn('d',groups[0]['topic_ids'])
-        self.assertNotIn('e',groups[0]['topic_ids'])
-        self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'],.80)
+    def test_anchor_groups_use_uniform_threshold_and_keep_fixed_anchors(self):
+        edges = {('a','b'):.90, ('a','c'):.78, ('b','d'):.78, ('c','e'):.88, ('b','f'):.779999}
+        for ukraine_ids in (None, {'a'}, {'a', 'b', 'c'}):
+            with self.subTest(ukraine_ids=ukraine_ids):
+                groups = ai.build_anchored_embedding_groups(list('abcdef'), edges, ukraine_ids=ukraine_ids)
+                self.assertEqual(groups[0]['topic_ids'], ['a', 'b', 'c', 'd'])
+                self.assertNotIn('e', groups[0]['topic_ids'])
+                self.assertNotIn('f', groups[0]['topic_ids'])
+                self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .78)
+
+    def test_diagnostic_simulations_apply_selected_threshold_to_every_topic(self):
+        self.assertEqual(ai.embedding_pair_threshold('a', 'b', .85, {'a', 'b'}), .85)
+        self.assertEqual(ai.embedding_pair_threshold('a', 'b', .75, {'a', 'b'}), .75)
 
     def test_background_entity_type_controls_label_with_legacy_compatibility(self):
         row=ai.normalize_summary_response({'background_context':[{'entity_type':'PERSON','text_pl':'Organizacja — Donald Trump: polityk.','article_ids':[],'needs_verification':True}]})
