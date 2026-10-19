@@ -16,12 +16,10 @@ def fact(text, ids, known='', reason='Nowa decyzja.'):
 
 def extraction(facts, articles, **metadata):
     return {'headline_pl':'[Polska] Decyzja', 'categories':['POLSKA'], **metadata,
-            'facts':facts, 'article_coverage':[
-                {'article_id':a['article_id'],
-                 'fact_indexes':[i for i,f in enumerate(facts) if a['article_id'] in f['article_ids']],
-                 'no_relevant_facts_reason_pl':'' if any(a['article_id'] in f['article_ids'] for f in facts)
+            'facts':facts, 'article_coverage':{
+                a['article_id']:{'no_relevant_facts_reason_pl':'' if any(a['article_id'] in f['article_ids'] for f in facts)
                     else 'Materiał spoza wydarzenia testowego.'}
-                for a in articles]}
+                for a in articles}}
 
 
 class PerspectiveTests(unittest.TestCase):
@@ -135,7 +133,7 @@ class PerspectiveTests(unittest.TestCase):
         self.assertEqual(empty['properties']['paragraphs']['maxItems'],0)
         self.assertNotIn('enum',p.WRITING_SCHEMA['properties']['general_context']['properties']['article_ids']['items'])
 
-    def test_article_coverage_rejects_omissions_and_inconsistent_evidence(self):
+    def test_article_coverage_rejects_omissions_and_unaccounted_articles(self):
         rows=[article('l','LEFT'),article('r','RIGHT')]
         valid=extraction([fact('Wspólne.',['l','r'])],rows)
         p.validate_article_coverage(valid,rows)
@@ -144,13 +142,46 @@ class PerspectiveTests(unittest.TestCase):
         missing=copy.deepcopy(valid);missing['article_coverage'].pop();malformed.append(missing)
         duplicate=copy.deepcopy(valid);duplicate['article_coverage'].append(duplicate['article_coverage'][0]);malformed.append(duplicate)
         alien=copy.deepcopy(valid);alien['article_coverage'][0]['article_id']='alien';malformed.append(alien)
-        for indexes in ([1],[-1],[True],[0,0],[],['0']):
-            wrong=copy.deepcopy(valid);wrong['article_coverage'][0]['fact_indexes']=indexes;malformed.append(wrong)
-        unsupported=copy.deepcopy(valid);unsupported['facts'][0]['article_ids']=['r'];malformed.append(unsupported)
-        excuse=copy.deepcopy(valid);excuse['article_coverage'][0]['no_relevant_facts_reason_pl']='Brak informacji.';malformed.append(excuse)
         for response in malformed:
             with self.subTest(response=response),self.assertRaises(ValueError):
                 p.validate_article_coverage(response,rows)
+
+    def test_coverage_schema_requires_each_article_key_without_model_indexes(self):
+        coverage=p.extraction_schema([],['a','b'])['properties']['article_coverage']
+        self.assertEqual(coverage['type'],'object')
+        self.assertEqual(set(coverage['required']),{'a','b'})
+        self.assertFalse(coverage['additionalProperties'])
+        self.assertEqual(list(coverage['properties']['a']['properties']),['no_relevant_facts_reason_pl'])
+        response=extraction([fact('Wspólne.',['a','b'])],[article('a','LEFT'),article('b','RIGHT')])
+        response['article_coverage'].pop('b')
+        with self.assertRaisesRegex(ValueError,'pominęła artykuły'):
+            p.validate_article_coverage(response,[article('a','LEFT'),article('b','RIGHT')])
+
+    def test_legacy_auxiliary_indexes_are_derived_without_changing_evidence(self):
+        rows=[article('l','LEFT'),article('r','RIGHT')]
+        for indexes in ([1],[-1],[True],[0,0],[],['0'],[999]):
+            with self.subTest(indexes=indexes):
+                response={'facts':[fact('Wspólne.',['l','r']),fact('Tylko lewica.',['l'])],
+                    'article_coverage':[{'article_id':'l','fact_indexes':indexes,'no_relevant_facts_reason_pl':''},
+                                        {'article_id':'r','fact_indexes':[999],'no_relevant_facts_reason_pl':''}]}
+                original=copy.deepcopy(response['facts'])
+                p.validate_article_coverage(response,rows)
+                self.assertEqual(response['facts'],original)
+                self.assertEqual([r['fact_indexes'] for r in response['article_coverage']],[[0,1],[0]])
+
+    def test_real_failed_workflow_responses_keep_all_facts_and_citations(self):
+        import json
+        from pathlib import Path
+        fixtures=json.loads((Path(__file__).parent/'test_data'/'perspective_coverage_regressions.json').read_text())
+        for fixture in fixtures:
+            response=copy.deepcopy(fixture['response'])
+            rows=[{'article_id':row['article_id']} for row in response['article_coverage']]
+            original=copy.deepcopy(response['facts'])
+            p.validate_batch_citations(response,rows,[],ai.normalize_generated_text)
+            p.validate_article_coverage(response,rows)
+            self.assertEqual(response['facts'],original)
+            for row in response['article_coverage']:
+                self.assertEqual(row['fact_indexes'],[i for i,f in enumerate(original) if row['article_id'] in f['article_ids']])
 
     def test_coverage_allows_real_repetition_and_explained_off_topic_articles(self):
         rows=[article(str(i),'CENTER') for i in range(7)]
@@ -160,7 +191,19 @@ class PerspectiveTests(unittest.TestCase):
         off_topic=extraction([],rows)
         p.validate_article_coverage(off_topic,rows)
         off_topic['article_coverage'][0]['no_relevant_facts_reason_pl']=''
-        with self.assertRaises(ValueError):p.validate_article_coverage(off_topic,rows)
+        p.validate_article_coverage(off_topic,rows)
+        self.assertTrue(off_topic['article_coverage'][0]['needs_review'])
+        self.assertEqual(off_topic['facts'],[])
+
+    def test_unaccounted_article_is_flagged_without_inventing_common_support(self):
+        rows=[article('l','LEFT'),article('r','RIGHT')]
+        response={'facts':[fact('Tylko lewica.',['l'])],
+            'article_coverage':{'l':{'no_relevant_facts_reason_pl':''},'r':{'no_relevant_facts_reason_pl':''}}}
+        p.validate_article_coverage(response,rows)
+        self.assertTrue(response['article_coverage'][1]['needs_review'])
+        self.assertEqual(response['facts'][0]['article_ids'],['l'])
+        _,routed=self.route(rows,response['facts'])
+        self.assertEqual(routed[0]['lane'],'LEFT')
 
     def test_missing_article_coverage_never_reaches_writer(self):
         calls=[]

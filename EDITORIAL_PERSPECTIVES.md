@@ -129,9 +129,9 @@ paczki. Jedno ustalenie to jedno samodzielnie sprawdzalne twierdzenie;
 wspólna informacja i szczegół występujący tylko w części źródeł są rozdzielane.
 Nie ma minimalnej ani narzuconej liczby faktów. Parafrazy nie tworzą duplikatów.
 
-Wymagane article_coverage podaje dla każdego artykułu indeksy zwracanych
-ustaleń albo powód braku istotnych informacji o wydarzeniu. Kod odrzuca
-odpowiedź pomijającą artykuł lub niespójną z cytowaniami; nie publikuje jej
+Wymagane article_coverage potwierdza przejrzenie każdego artykułu lub podaje
+powód braku istotnych informacji o wydarzeniu. Od v62 kod sam wylicza indeksy
+ustaleń z facts[].article_ids. Odrzuca odpowiedź pomijającą artykuł; nie publikuje jej
 częściowo i nie uruchamia dodatkowego zapytania naprawczego. Log odpowiedzi
 podaje liczbę ustaleń, artykułów, potwierdzeń oraz zakres ustaleń na artykuł.
 Kontrola nie dowodzi prawdziwości ani semantycznej kompletności odpowiedzi;
@@ -204,3 +204,35 @@ nieaktualnych metadanych opracowania. Dane w bazie pozostają bez zmian.
 Publiczna agencja typu GOVERNMENT_AGENCY z normalnym profilem redakcyjnym
 nie jest automatycznie medium kontrolowanym przez państwo. Regułę oznaczają
 STATE_ALIGNED/STATE_MEDIA w profilu albo source_type=STATE_MEDIA.
+
+## Synteza w formie artykułu
+
+Prompt pierwszej syntezy wymaga opisania wszystkich dopuszczonych main_facts
+w spójnym artykule informacyjnym, z akapitami grupującymi powiązane ustalenia.
+Zabrania list i mechanicznego przepisywania pojedynczych faktów. Przy kilku
+odrębnych ustaleniach wymaga co najmniej dwóch akapitów; nie dopisuje treści
+przy pojedynczym fakcie. Elementy paragraphs nadal rozdzielamy pustą linią.
+Synteza i zakładka Fakty opisują te same ustalenia w różnych formach.
+Usunięto nieprecyzyjny zakaz powtórzeń między tymi dwiema częściami; kontekst
+nadal ma dostarczać dodatkowego tła bez powielania treści artykułu.
+Reguły dopuszczania faktów, STATE_ONLY i niezmienności opublikowanej syntezy
+pozostają bez zmian. Doprecyzowanie dotyczy nowych syntez, bez dodatkowych
+wywołań API i bez automatycznego przepisywania istniejących opracowań.
+
+## Jedno źródło powiązań faktów z artykułami
+
+Przebieg Actions 39231054381 ujawnił 13 odrzuceń przez rozbieżne lub błędne
+pomocnicze fact_indexes w article_coverage. Była to redundantna numeracja
+wyliczalna z facts[].article_ids. Od v62 model jej nie zwraca: article_coverage
+jest obiektem z obowiązkowym kluczem każdego wysłanego article_id i polem
+no_relevant_facts_reason_pl. Ścisły schemat wymusza obecność wszystkich kluczy.
+Kod wylicza pokrycie i logowane liczniki bezpośrednio z cytowań faktów.
+
+Starsze odpowiedzi z listą article_coverage też są obsługiwane: błędne indeksy
+są odtwarzane lokalnie bez zmiany treści faktów i bez dodawania/usuwania ich
+article_ids. Nadal odrzucamy obce cytowania i pominięte/powtórzone artykuły.
+Artykuł bez zwróconych cytowań i bez uzasadnienia oznaczamy needs_review
+w diagnostyce pokrycia oraz ostrzegamy w logach. Nie odrzucamy przez ten
+brak całego opracowania, nie uznajemy artykułu za nieistotny i nie dopisujemy
+mu automatycznie żadnego potwierdzenia. Nie dodajemy wywołań AI.
+Przypadki z rzeczywistych logów są utrwalone w test_data i testowane bez API.

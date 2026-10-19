@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v60-no-state-only-synthesis"
+PROMPT_VERSION = "ai-prompts-v62-derived-fact-coverage"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2519,13 +2519,22 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                 timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                 reasoning_effort=summary_reasoning_effort(model),
                 response_schema=schema, response_schema_name=name)
-            last_response, last_schema = response, name
+            last_response, last_schema = dict(response), name
             if name == "perspective_facts":
                 coverage = response.get('article_coverage') or []
-                counts = [len(row.get('fact_indexes') or []) for row in coverage]
+                counts = [sum(str(article['article_id']) in fact.get('article_ids', [])
+                              for fact in response.get('facts') or []) for article in data['all_articles']]
                 log("AI", f"Fakty perspektyw — odpowiedź: ustaleń: {len(response.get('facts') or [])}, "
                     f"artykułów w kontroli pokrycia: {len(coverage)}/{len(data['all_articles'])}, "
                     f"potwierdzeń faktów: {sum(counts)}, ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
+                reasons = coverage if isinstance(coverage, dict) else {
+                    str(row.get('article_id')): row for row in coverage if isinstance(row, dict)}
+                unaccounted = [str(article['article_id']) for article, count in zip(data['all_articles'], counts)
+                               if not count and not str((reasons.get(str(article['article_id'])) or {}).get('no_relevant_facts_reason_pl') or '').strip()]
+                if unaccounted:
+                    log("AI", "Fakty perspektyw: artykuły bez zwróconych potwierdzeń i uzasadnienia: "
+                        + json.dumps(unaccounted, ensure_ascii=False)
+                        + "; zachowuję poprawne fakty, nie dopisuję tym artykułom potwierdzeń automatycznie.", level="WARN")
             return response
         try:
             raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)

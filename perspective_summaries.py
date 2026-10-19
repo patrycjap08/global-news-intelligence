@@ -57,14 +57,12 @@ STRING = {'type': 'string'}
 STRINGS = {'type': 'array', 'items': STRING}
 FACT_SCHEMA = obj({'known_fact_id': STRING, 'text_pl': STRING, 'article_ids': STRINGS, 'why_new_pl': STRING})
 COVERAGE_SCHEMA = obj({
-    'article_id': STRING,
-    'fact_indexes': {'type': 'array', 'items': {'type': 'integer'}},
     'no_relevant_facts_reason_pl': STRING,
 })
 EXTRACTION_SCHEMA = obj({
     'headline_pl': STRING, 'categories': STRINGS,
     'facts': {'type': 'array', 'items': FACT_SCHEMA},
-    'article_coverage': {'type': 'array', 'items': COVERAGE_SCHEMA},
+    'article_coverage': obj({}),
 })
 WRITING_SCHEMA = obj({
     'paragraphs': {'type': 'array', 'items': obj({'text_pl': STRING, 'fact_ids': STRINGS})},
@@ -81,7 +79,7 @@ def allowed_strings(values):
         'type': 'array', 'items': STRING, 'maxItems': 0}
 
 
-def extraction_schema(known):
+def extraction_schema(known, article_ids=()):
     """First extraction cannot invent known IDs; confirmations never rewrite text."""
     schema = copy.deepcopy(EXTRACTION_SCHEMA)
     new_fact = copy.deepcopy(FACT_SCHEMA)
@@ -94,6 +92,7 @@ def extraction_schema(known):
         confirmation['properties']['why_new_pl'] = {'type': 'string', 'enum': ['']}
         items = {'anyOf': [new_fact, confirmation]}
     schema['properties']['facts']['items'] = items
+    schema['properties']['article_coverage'] = obj({str(aid): copy.deepcopy(COVERAGE_SCHEMA) for aid in article_ids})
     return schema
 
 
@@ -140,9 +139,10 @@ W jednym przebiegu wykonaj kolejno:
    zapisz rdzeń osobno z wszystkimi potwierdzeniami, a szczegół osobno.
    Przykład: fakt o złożeniu dymisji nie jest „tylko lewicowy”, jeśli opisują
    go również źródła prawicowe lub centrum. O podziale decyduje później kod.
-4. W article_coverage uwzględnij dokładnie raz KAŻDY article_id z all_articles.
-   fact_indexes to indeksy od 0 w ZWRÓCONEJ liście facts wszystkich ustaleń
-   potwierdzanych przez ten artykuł; muszą odpowiadać ich article_ids.
+4. article_coverage to OBIEKT z obowiązkowym kluczem dla KAŻDEGO article_id
+   z all_articles. Nie zwracaj listy, nie skracaj ID i nie dodawaj obcych kluczy.
+   Każdy wpis ma tylko no_relevant_facts_reason_pl. Nie licz ani nie zwracaj
+   indeksów/pozycji faktów — kod wyliczy pokrycie z facts[].article_ids.
    Jeśli brak ustaleń na temat wydarzenia, podaj konkretny powód w
    no_relevant_facts_reason_pl; w pozostałych przypadkach powód="".
    Przed odpowiedzią sprawdź, czy nie pominąłeś istotnych ustaleń ani źródeł.
@@ -180,7 +180,28 @@ SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE, KULTURA_SPORT.
 '''.strip()
 
 WRITING_INSTRUCTIONS = '''
-Napisz po polsku zwięzłą, spójną syntezę WYŁĄCZNIE na podstawie main_facts.
+Napisz po polsku pełną, spójną syntezę w formie ARTYKUŁU INFORMACYJNEGO,
+WYŁĄCZNIE na podstawie WSZYSTKICH ustaleń z main_facts. Uwzględnij każde
+ustalenie: nie wybieraj tylko 1–2 najważniejszych i nie pomijaj pozostałych
+dla zwięzłości. Długość tekstu ma wynikać z ilości informacji. main_facts
+zawiera wyłącznie fakty dopuszczone do wspólnej części; pozostałych perspektyw
+nie wolno dołączać do głównej syntezy.
+
+Napisz ciągły tekst redakcyjny: zacznij od sedna wydarzenia, potem logicznie
+połącz szczegóły, działania, okoliczności, potwierdzone następstwa i reakcje.
+Relacje przyczynowe i chronologię opisuj tylko wtedy, gdy wynikają z faktów.
+Synteza NIE jest listą ustaleń: bez wypunktowań, numeracji, myślników przed
+zdaniami, nagłówka „Fakty” ani mechanicznego przepisywania jednego faktu po
+drugim. Grupuj powiązane ustalenia i pisz płynne, naturalne zdania.
+
+AKAPITY SĄ OBOWIĄZKOWĄ STRUKTURĄ ARTYKUŁU. Każdy element paragraphs ma być
+jednym logicznym akapitem rozwijającym jedną część opowieści, zwykle kilkoma
+powiązanymi zdaniami, jeśli materiał na to pozwala. Przy kilku odrębnych
+ustaleniach utwórz co najmniej dwa akapity. Nie zwracaj całego artykułu jako
+jednego bloku i nie twórz osobnego akapitu dla każdego pojedynczego faktu.
+Przy tylko jednym ustaleniu nie dopisuj treści ani powtórzeń dla sztucznego
+wydłużenia. Kod rozdziela elementy paragraphs pustą linią.
+
 Każdy akapit musi mieć fact_ids wszystkich ustaleń, które opisuje. Nie dodawaj
 żadnych faktów, liczb ani ocen spoza main_facts. Nie używaj angielskich słów
 pospolitych ani cyrylicy. Zachowaj polskie nazwy i poprawne polskie transkrypcje.
@@ -208,7 +229,11 @@ geografii/pojęć; nie dodawaj twierdzeń o bieżącym wydarzeniu. Nie wymyślaj
 background_context: wypunktuj osoby i organizacje występujące w main_facts lub
 syntezie, z krótkim objaśnieniem ich roli, chyba że zostało to już wyjaśnione.
 PERSON oznacza człowieka, ORGANIZATION firmę/agencję/instytucję; Donald Trump
-jest PERSON. Nie powtarzaj informacji między syntezą, faktami a kontekstem.
+jest PERSON. Synteza i zakładka Fakty przedstawiają TE SAME ustalenia w różnej
+formie: synteza jako artykuł, Fakty jako pojedyncze punkty. Nie pomijaj faktu
+w syntezie dlatego, że znajduje się już na liście. Kontekst ma uzupełniać
+artykuł o potrzebne tło i definicje, bez powtarzania informacji już w nim
+wyjaśnionych. Nie przenoś do kontekstu faktów, które powinien opisać artykuł.
 Wiedza ogólna bez źródła: article_ids=[], needs_verification=true.
 '''.strip()
 
@@ -311,31 +336,37 @@ def validate_batch_citations(response, batch, known, normalize):
 def validate_article_coverage(response, batch):
     """Check that the extraction explicitly accounts for every sent article.
 
-    This detects omitted articles/inconsistent citations, not semantic truth or
-    a minimum number of facts. Evidence matching remains the model's task.
+    Evidence has one source of truth: facts[].article_ids. Derive reverse
+    indexes locally; incorrect optional indexes in older responses must not
+    reject otherwise usable facts. Never add or remove evidence citations.
     """
-    rows = response.get('article_coverage')
+    coverage = response.get('article_coverage')
     facts = response.get('facts')
+    if isinstance(coverage, dict):
+        if any(not isinstance(value, dict) for value in coverage.values()):
+            raise ValueError('Niepoprawny wpis kontroli pokrycia artykułu.')
+        rows = [{'article_id': aid, **value} for aid, value in coverage.items()]
+    else:
+        rows = coverage  # Compatibility with already returned older responses.
     if not isinstance(rows, list) or not isinstance(facts, list):
         raise ValueError('Brak kontroli pokrycia artykułów w ekstrakcji faktów.')
     expected = {str(a['article_id']) for a in batch}
-    seen = set()
+    seen, normalized = set(), []
     for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError('Niepoprawny wpis kontroli pokrycia artykułu.')
         aid = str(row.get('article_id') or '')
         if aid not in expected or aid in seen:
             raise ValueError('Obcy lub powtórzony artykuł w kontroli pokrycia faktów.')
         seen.add(aid)
-        indexes = row.get('fact_indexes')
-        if not isinstance(indexes, list) or any(type(i) is not int or i < 0 or i >= len(facts) for i in indexes):
-            raise ValueError('Niepoprawne indeksy faktów w kontroli pokrycia artykułu.')
-        cited = {i for i, fact in enumerate(facts) if aid in fact.get('article_ids', [])}
-        if len(indexes) != len(set(indexes)) or set(indexes) != cited:
-            raise ValueError('Pokrycie artykułu nie zgadza się z cytowaniami faktów.')
+        cited = [i for i, fact in enumerate(facts) if aid in fact.get('article_ids', [])]
         reason = str(row.get('no_relevant_facts_reason_pl') or '').strip()
-        if bool(indexes) == bool(reason):
-            raise ValueError('Artykuł wymaga faktów albo uzasadnienia braku istotnych informacji.')
+        normalized.append({'article_id': aid, 'fact_indexes': cited,
+                           'no_relevant_facts_reason_pl': '' if cited else reason,
+                           'needs_review': not cited and not reason})
     if seen != expected:
         raise ValueError('Ekstrakcja faktów pominęła artykuły bieżącej paczki.')
+    response['article_coverage'] = normalized
 
 def generate(payload, call, normalize, *, max_payload_chars=300000):
     articles = payload.get('all_articles') or []
@@ -350,7 +381,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
     while offset < len(prepared):
         base = {'topic': payload['topic'], 'previous_facts': facts}
         batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
-        extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch}, extraction_schema(facts), 'perspective_facts')
+        extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch},
+                         extraction_schema(facts, [a['article_id'] for a in batch]), 'perspective_facts')
         validate_batch_citations(extracted, batch, facts, normalize)
         validate_article_coverage(extracted, batch)
         mode, facts = route_facts(extracted, articles, facts, normalize)

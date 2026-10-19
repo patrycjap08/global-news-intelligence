@@ -1,0 +1,406 @@
+[
+  {
+    "case": "mismatch",
+    "workflow_run": 39231054381,
+    "response": {
+      "headline_pl": "[Polska] Policja wzmacnia bezpieczeństwo w szkołach",
+      "categories": [
+        "POLSKA",
+        "POLITYKA",
+        "SPOLECZENSTWO"
+      ],
+      "facts": [
+        {
+          "known_fact_id": "",
+          "text_pl": "Od początku działań policja przeprowadziła blisko 238 tys. kontroli placówek oświatowych.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Zatrzymano 194 osoby.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Do godziny 06:00 odnotowano 519 zdarzeń.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Sytuacja w szkołach się ustabilizowała.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Nie zanotowano kolejnych zdarzeń w szkołach.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Nie zatrzymano kolejnych osób w placówkach oświatowych.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Działania policji nadal trwają na terenie całej Polski.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Policja całodobowo monitoruje sieć i reaguje na każde zgłoszenie.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Policja monitoruje także Internet w celu szybkiego wykrywania potencjalnych zagrożeń.",
+          "article_ids": [
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Akcja została zintensyfikowana po aktach przemocy, do których doszło na początku października.",
+          "article_ids": [
+            "1acf4ef5c6239a6bb951f0b0",
+            "a496ee6d2a87140d9ef0a43c",
+            "fa0c4e306823efcfce79b8e9"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń."
+        }
+      ],
+      "article_coverage": [
+        {
+          "article_id": "1acf4ef5c6239a6bb951f0b0",
+          "fact_indexes": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "a496ee6d2a87140d9ef0a43c",
+          "fact_indexes": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            9
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "fa0c4e306823efcfce79b8e9",
+          "fact_indexes": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "no_relevant_facts_reason_pl": ""
+        }
+      ]
+    }
+  },
+  {
+    "case": "out_of_range",
+    "workflow_run": 39231054381,
+    "response": {
+      "headline_pl": "[Izrael] Atak na konwój dyplomatów z Polakami",
+      "categories": [
+        "SWIAT",
+        "POLITYKA",
+        "POLSKA"
+      ],
+      "facts": [
+        {
+          "known_fact_id": "",
+          "text_pl": "W Zachodnim Brzegu Jordanu doszło w weekend do ataków osadników na Palestyńczyków.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97c",
+            "d94c588fac0f726fba054e62",
+            "e3d153c0475703da9f662482",
+            "c4be82e075fbd71c666ac729"
+          ],
+          "why_new_pl": "Brak wcześniejszych ustaleń; informacja nowa w paczce."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Dziennikarka Heidi Levine z The Washington Post została zaatakowana podczas relacjonowania zbiorów oliwek w Zachodnim Brzegu.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97c",
+            "d94c588fac0f726fba054e62",
+            "e3d153c0475703da9f662482",
+            "c4be82e075fbd71c666ac729"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "W sobotę doszło do ataku na konwój dyplomatów europejskich, w tym polskich, w Taybeh na Zachodnim Brzegu.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97c",
+            "d94c588fac0f726fba054e62",
+            "e3d153c0475703da9f662482",
+            "c4be82e075fbd71c666ac729"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Ośmiu podejrzanych zostało aresztowanych przez izraelską policję.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97c",
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Zatrzymani to izraelscy osadnicy przebywający na Zachodnim Brzegu.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97c"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Operacja policji nosi kryptonim 'Liść oliwny'.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97c"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "W działaniach brały udział żołnierze oraz funkcjonariusze agencji Szin Bet.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "c4be82e075fbd71c666ac729",
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Polskie MSZ potępia atak osadników na konwój i wzywa do wyjaśnień.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "c4be82e075fbd71c666ac729",
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Pojazd belgijskiego konsulatu został uszkodzony.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "d94c588fac0f726fba054e62",
+            "e3d153c0475703da9f662482"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Bernard Baudoux, burmistrz francuskiego miasta, został pobity.",
+          "article_ids": [
+            "8846f889b81b4bc313fac97c",
+            "453f5b82ec86d562b2bc093d"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Netanjahu stwierdził, że dyplomaci weszli na wrażliwy obszar bez koordynacji z armią.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "c4be82e075fbd71c666ac729"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Prezydent Isaac Herzog przeprosił za przemoc ze strony 'gwałtu przemocowych tłumów'.",
+          "article_ids": [
+            "40825bda390776e7cba79481"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Do połowy września 2026 roku według ONZ odnotowano ponad 1600 ataków na Palestyńczyków i ich mienie.",
+          "article_ids": [
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Zachodni Brzeg jest przez izraelską policję nazywany Judeą i Samarią.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": ""
+        }
+      ],
+      "article_coverage": [
+        {
+          "article_id": "40825bda390776e7cba79481",
+          "fact_indexes": [
+            0,
+            1,
+            2,
+            3,
+            11,
+            12,
+            14
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "453f5b82ec86d562b2bc093d",
+          "fact_indexes": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            14
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "8846f889b81b4bc313fac97c",
+          "fact_indexes": [
+            0,
+            3,
+            4,
+            5,
+            6,
+            8,
+            9,
+            10,
+            14
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "c4be82e075fbd71c666ac729",
+          "fact_indexes": [
+            1,
+            2,
+            3,
+            6,
+            8,
+            11,
+            12,
+            14
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "d94c588fac0f726fba054e62",
+          "fact_indexes": [
+            0,
+            1,
+            3,
+            4,
+            6,
+            7,
+            8,
+            11,
+            12,
+            13,
+            14
+          ],
+          "no_relevant_facts_reason_pl": ""
+        },
+        {
+          "article_id": "e3d153c0475703da9f662482",
+          "fact_indexes": [
+            1,
+            3,
+            6,
+            11,
+            12,
+            14
+          ],
+          "no_relevant_facts_reason_pl": ""
+        }
+      ]
+    }
+  }
+]
