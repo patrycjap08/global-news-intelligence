@@ -46,7 +46,7 @@ class PublicExportTests(unittest.TestCase):
         stored=rows[0]['summary']['summary']
         stored['base_summary'].update(perspective_version=1,coverage_mode='SINGLE_LEFT',shared_available=True)
         original=json.loads(json.dumps(stored['base_summary']))
-        stored['perspective_state']={'perspective_version':1,'coverage_mode':'MIXED','shared_available':False,
+        stored['perspective_state']={'perspective_version':1,'fact_classification_version':1,'coverage_mode':'MIXED','shared_available':False,
                                      'facts':[],'perspective_facts':[{'text_pl':'NEW_LEDGER'}],
                                      'perspective_sections':{'LEFT':[{'text_pl':'Najnowsza perspektywa.'}]}}
         with tempfile.TemporaryDirectory() as folder:
@@ -55,6 +55,7 @@ class PublicExportTests(unittest.TestCase):
             self.assertEqual(preview['summary_pl'],'Synteza')
             self.assertIs(preview['shared_available'],False)
             self.assertEqual(preview['synthesis_coverage_mode'],'SINGLE_LEFT')
+            self.assertEqual(preview['fact_classification_version'],1)
             self.assertNotIn('NEW_LEDGER',json.dumps(index))
             detail=json.loads((Path(folder)/index['generation']/'topics/topic_1.json').read_text())['summary']['summary']
             self.assertEqual(detail['base_summary'],original)

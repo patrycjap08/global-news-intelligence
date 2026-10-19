@@ -10,13 +10,13 @@ def article(key, group):
     return {'article_id': key, 'source_id': key, 'source_profile': group}
 
 
-def fact(text, ids, known='', reason='Nowa decyzja.'):
-    return {'text_pl':text, 'article_ids':ids, 'known_fact_id':known, 'why_new_pl':reason}
+def fact(text, ids, known='', reason='Nowa decyzja.', kind=None):
+    return {'text_pl':text, 'article_ids':ids, 'known_fact_id':known, 'why_new_pl':reason, **({'kind':kind} if kind else {})}
 
 
 def extraction(facts, articles, **metadata):
     return {'headline_pl':'[Polska] Decyzja', 'categories':['POLSKA'], **metadata,
-            'facts':facts, 'article_coverage':{
+            'facts':[{**f, 'kind':f.get('kind','FACT')} for f in facts], 'article_coverage':{
                 a['article_id']:{'no_relevant_facts_reason_pl':'' if any(a['article_id'] in f['article_ids'] for f in facts)
                     else 'Materiał spoza wydarzenia testowego.'}
                 for a in articles}}
@@ -209,7 +209,7 @@ class PerspectiveTests(unittest.TestCase):
         calls=[]
         def call(instructions,data,schema,name):
             calls.append(name)
-            return {'headline_pl':'[Polska] Decyzja','facts':[fact('Fakt.',['l'])],
+            return {'headline_pl':'[Polska] Decyzja','facts':[fact('Fakt.',['l'],kind='FACT')],
                     'article_coverage':[{'article_id':'l','fact_indexes':[0],'no_relevant_facts_reason_pl':''}]}
         with self.assertRaisesRegex(ValueError,'pominęła artykuły'):
             p.generate({'topic':{},'all_articles':[article('l','LEFT'),article('r','RIGHT')]},call,ai.normalize_generated_text)
@@ -235,7 +235,7 @@ class PerspectiveTests(unittest.TestCase):
         def call(instructions,data,schema,name):
             calls.append(name)
             if name=='perspective_facts':
-                return extraction([fact('Wspólne.',['l','r']),fact('Tylko lewica.',['x'])],data['all_articles'])
+                return extraction([fact('Wspólne.',['l','r']),fact('Tylko lewica.',['x'],kind='EDITORIAL')],data['all_articles'])
             self.assertEqual(data['main_sources'],[
                 {'article_id':'l','source_name':'Lewica','published_at':None},
                 {'article_id':'r','source_name':'Prawica','published_at':None}])
@@ -250,7 +250,7 @@ class PerspectiveTests(unittest.TestCase):
         calls=[]
         def call(instructions,data,schema,name):
             calls.append((name,data))
-            if name=='perspective_facts':return extraction([fact('Wspólne.',['l','r']),fact('Wyłącznie lewica.',['l'])],data['all_articles'])
+            if name=='perspective_facts':return extraction([fact('Wspólne.',['l','r']),fact('Wyłącznie lewica.',['l'],kind='EDITORIAL')],data['all_articles'])
             self.assertEqual([f['text_pl'] for f in data['main_facts']],['Wspólne.'])
             return {'paragraphs':[{'text_pl':'Wspólne.','fact_ids':[data['main_facts'][0]['fact_id']]}], 'general_context':{'text_pl':'Ogólne tło.','article_ids':[],'needs_verification':True},'background_context':[]}
         result=p.generate(payload,call,ai.normalize_generated_text)

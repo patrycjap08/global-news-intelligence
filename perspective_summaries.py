@@ -1,7 +1,7 @@
 """Opt-in-by-format editorial perspectives; legacy summaries stay untouched.
 
-No database migration or classification changes. Fact routing is deterministic
-from cited article profiles; prose can cite only facts admitted to the main lane.
+No database migration or source-profile changes. Content types and cited
+article profiles determine routing; prose cites only the admitted main facts.
 """
 from __future__ import annotations
 import hashlib
@@ -10,9 +10,11 @@ import json
 import re
 from typing import Any
 
-LANES = ('COMMON', 'LEFT', 'RIGHT', 'STATE')
+LANES = ('COMMON', 'LEFT', 'RIGHT', 'CENTER', 'STATE')
 FORMAT_VERSION = 1
-STATE_FIELDS = ('perspective_version', 'coverage_mode', 'shared_available', 'perspective_sections', 'perspective_facts', 'facts')
+FACT_KINDS = ('FACT', 'STATEMENT', 'EDITORIAL')
+FACT_CLASSIFICATION_VERSION = 1
+STATE_FIELDS = ('perspective_version', 'fact_classification_version', 'coverage_mode', 'shared_available', 'perspective_sections', 'perspective_facts', 'facts')
 
 
 def article_group(row: dict) -> str:
@@ -56,7 +58,8 @@ def obj(properties):
 STRING = {'type': 'string'}
 NONBLANK_STRING = {'type': 'string', 'pattern': r'\S'}
 STRINGS = {'type': 'array', 'items': STRING}
-FACT_SCHEMA = obj({'known_fact_id': STRING, 'text_pl': STRING, 'article_ids': STRINGS, 'why_new_pl': STRING})
+FACT_SCHEMA = obj({'known_fact_id': STRING, 'text_pl': STRING, 'article_ids': STRINGS,
+                   'why_new_pl': STRING, 'kind': {'type': 'string', 'enum': list(FACT_KINDS)}})
 COVERAGE_SCHEMA = obj({
     'no_relevant_facts_reason_pl': STRING,
 })
@@ -99,7 +102,15 @@ def extraction_schema(known, article_ids=()):
         confirmation['properties']['article_ids'] = allowed_strings([
             *article_ids, *(aid for f in known for aid in f['article_ids'])])
         confirmation['properties']['article_ids']['minItems'] = 1
-        items = {'anyOf': [new_fact, confirmation]}
+        confirmations = []
+        for kind in FACT_KINDS:
+            ids = sorted(f['fact_id'] for f in known if f.get('kind') in (None, kind))
+            if ids:
+                branch = copy.deepcopy(confirmation)
+                branch['properties']['known_fact_id']['enum'] = ids
+                branch['properties']['kind'] = {'type': 'string', 'enum': [kind]}
+                confirmations.append(branch)
+        items = {'anyOf': [new_fact, *confirmations]}
     schema['properties']['facts']['items'] = items
     schema['properties']['article_coverage'] = obj({str(aid): copy.deepcopy(COVERAGE_SCHEMA) for aid in article_ids})
     return schema
@@ -127,6 +138,26 @@ wyłącznie z pełnych tekstów all_articles. To ekstrakcja faktów, NIE streszc
 Wszystko pisz poprawną polszczyzną, bez angielskich wtrąceń i bez cyrylicy
 (w nazwach używaj polskich nazw lub transkrypcji). Tytuł krótki: [Kraj] wydarzenie.
 Dostajesz source_group każdego artykułu: LEFT, RIGHT, CENTER, STATE.
+Profil źródła NIE wyznacza typu ustalenia. Każdemu ustaleniu nadaj kind:
+- FACT: neutralnie opisane zdarzenie, decyzja, działanie lub konkretne dane.
+  Np. zatwierdzenie inwestycji, numer lotu, trasa tunelu, podany koszt.
+- STATEMENT: przypisana konkretnej osobie/instytucji wypowiedź, zapowiedź,
+  prognoza, zarzut lub niepotwierdzona teza. Zachowaj kto mówi/zarzuca,
+  tryb przypuszczający i niepewność. „Minister twierdzi, że reforma obniży
+  ceny” nie dowodzi, że ceny spadną. Cytat polityka nie jest opinią redakcji.
+- EDITORIAL: własna ocena autora/redakcji, wartościowanie, nacechowane
+  określenie lub interpretacja niewynikająca wprost z ustaleń. Opisz ją jako
+  ocenę źródła, np. „Autor określa plan jako skandaliczny”. Nie zamieniaj
+  własnej opinii autora w STATEMENT tylko przez dodanie „autor twierdzi”.
+  Cudza opinia przytoczona w artykule to STATEMENT, nie stanowisko redakcji.
+
+Rozdziel neutralny rdzeń i ocenę: „Rząd zatwierdził skandaliczną podwyżkę”
+to FACT o zatwierdzeniu podwyżki oraz EDITORIAL o jej określeniu przez autora.
+Nie dopisuj oceny na podstawie samego pominięcia informacji, doboru tematu
+ani politycznego profilu. Brak EDITORIAL jest poprawny. Typ określa charakter
+treści, a nie dowodzi jej prawdziwości. Zachowuj cytowania i przypisania.
+EDITORIAL.article_ids obejmuje wyłącznie materiały, których autorzy wyrażają
+tę ocenę, nie wszystkie artykuły o tym samym wydarzeniu ani cudze cytaty.
 
 W jednym przebiegu wykonaj kolejno:
 1. Przeczytaj KAŻDY artykuł osobno, nie tylko nagłówek i pierwszy akapit.
@@ -151,8 +182,8 @@ W jednym przebiegu wykonaj kolejno:
    brzmienie nie wyklucza potwierdzenia; wspólny temat nie potwierdza szczegółu.
    Jeśli kilka źródeł podaje wspólny rdzeń, a tylko jedno dodatkowy szczegół,
    zapisz rdzeń osobno z wszystkimi potwierdzeniami, a szczegół osobno.
-   Przykład: fakt o złożeniu dymisji nie jest „tylko lewicowy”, jeśli opisują
-   go również źródła prawicowe lub centrum. O podziale decyduje później kod.
+   Neutralna informacja pozostaje FACT także wtedy, gdy podała ją tylko
+   jedna redakcja/jeden profil. O umieszczeniu ustaleń decyduje później kod.
 4. article_coverage to OBIEKT z obowiązkowym kluczem dla KAŻDEGO article_id
    z all_articles. Nie zwracaj listy, nie skracaj ID i nie dodawaj obcych kluczy.
    Każdy wpis ma tylko no_relevant_facts_reason_pl. Nie licz ani nie zwracaj
@@ -177,7 +208,10 @@ z poprzednich paczek tego samego przetwarzania. all_articles zawiera bieżącą
 paczkę pełnych artykułów. Nie powołuj się na niewysłane artykuły jako nowe potwierdzenie. Gdy artykuł
 potwierdza znany fakt, wybierz jego known_fact_id WYŁĄCZNIE z previous_facts,
 ustaw text_pl="", why_new_pl="" i podaj uzupełnione article_ids. Kod sam zachowa
-oryginalną treść faktu. Nie twórz ani nie odgaduj identyfikatorów; gdy
+oryginalną treść faktu. Zwróć także kind: zachowaj znany typ. Jeśli wcześniejszy
+fakt nie ma jeszcze kind, sklasyfikuj go na podstawie jego treści i artykułów.
+Klasyfikacja lub zmiana miejsca prezentacji nie jest nową informacją.
+Nie twórz ani nie odgaduj identyfikatorów; gdy
 previous_facts=[], każdy known_fact_id musi być pusty. Rozpoznawaj parafrazy i tłumaczenia — to nie
 nowy fakt. Nie zamieniaj znanego ustalenia w nowy fakt o pustym known_fact_id.
 Znane fakty nie są listą zamykającą ekstrakcję: szukaj także istotnych szczegółów,
@@ -203,8 +237,16 @@ Napisz po polsku pełną, spójną syntezę w formie ARTYKUŁU INFORMACYJNEGO,
 WYŁĄCZNIE na podstawie WSZYSTKICH ustaleń z main_facts. Uwzględnij każde
 ustalenie: nie wybieraj tylko 1–2 najważniejszych i nie pomijaj pozostałych
 dla zwięzłości. Długość tekstu ma wynikać z ilości informacji. main_facts
-zawiera wyłącznie fakty dopuszczone do wspólnej części; pozostałych perspektyw
-nie wolno dołączać do głównej syntezy.
+zawiera neutralne informacje FACT i przypisane wypowiedzi/zarzuty STATEMENT,
+oraz ewentualne zachowane ustalenia wcześniejszego formatu. Oceny EDITORIAL
+pozostają w osobnych perspektywach i nie wolno ich dołączać do syntezy.
+Pierwsze core_fact_count pozycji main_facts tworzy dotychczasowy wspólny
+rdzeń. Zacznij od niego, a potem logicznie wpleć informacje uzupełniające.
+Gdy core_fact_count=0, opisz dostępne neutralne ustalenia z przypisaniem.
+Przy szczególe opartym tylko na jednej redakcji wyraźnie wskaż źródło;
+nie nazywaj go wspólnie potwierdzonym. main_sources mapuje artykuły na redakcje.
+STATEMENT opisuj jako wypowiedź, zapowiedź lub zarzut konkretnej osoby/organu,
+nie jako dowiedziony stan rzeczy. Nie usuwaj zastrzeżeń, niepewności i autora.
 
 Napisz ciągły tekst redakcyjny: zacznij od sedna wydarzenia, potem logicznie
 połącz szczegóły, działania, okoliczności, potwierdzone następstwa i reakcje.
@@ -264,6 +306,26 @@ def _text_key(text):
     return re.sub(r'\s+', ' ', str(text)).strip().casefold().rstrip('. ')
 
 
+def shared_support(fact, articles):
+    """Existing cross-profile/center criterion, independent of prose placement."""
+    groups = {article_group(articles[str(aid)]) for aid in fact['article_ids'] if str(aid) in articles}
+    return 'CENTER' in groups or {'LEFT', 'RIGHT'} <= groups
+
+
+def fact_sections(facts):
+    sections = {lane: [] for lane in LANES}
+    for fact in facts:
+        if fact['lane'] == 'EDITORIAL':
+            for group, ids in fact['editorial_sources'].items():
+                # Each tab cites only the articles expressing that assessment
+                # in that group, not confirmations from another profile.
+                sections[group].append({k: v for k, v in {**fact, 'article_ids': ids}.items()
+                                        if k != 'editorial_sources'})
+        else:
+            sections[fact['lane']].append(fact)
+    return sections
+
+
 def route_facts(response, articles, previous_facts, normalize):
     by_id = {str(a['article_id']): a for a in articles}
     groups = {key: article_group(a) for key, a in by_id.items()}
@@ -291,30 +353,57 @@ def route_facts(response, articles, previous_facts, normalize):
             raise ValueError('Fakt perspektyw nie ma treści lub poprawnych materiałów źródłowych.')
         if not fid:
             fid = key_to_id.get(_text_key(text), '')
+        kind = raw.get('kind')
+        if kind is not None and kind not in FACT_KINDS:
+            raise ValueError('Nieznany typ ustalenia.')
+        old = facts.get(fid, {})
+        if old.get('kind') and kind and old['kind'] != kind:
+            raise ValueError('Potwierdzenie zmienia typ znanego ustalenia.')
         if not fid:
             if known and not str(raw.get('why_new_pl') or '').strip():
                 raise ValueError('Nowe ustalenie nie ma uzasadnienia nowości.')
             fid = 'fact_' + hashlib.sha256(_text_key(text).encode()).hexdigest()[:24]
         ids = list(dict.fromkeys([*facts.get(fid, {}).get('article_ids', []), *map(str, ids)]))
         facts[fid] = {'fact_id': fid, 'text_pl': known.get(fid, {}).get('text_pl', text), 'article_ids': ids}
+        if kind or old.get('kind'):
+            facts[fid]['kind'] = kind or old['kind']
         key_to_id[_text_key(text)] = fid
     for fact in facts.values():
-        fact['lane'] = fact_lane({groups[i] for i in fact['article_ids']}, mode)
+        support_groups = {groups[i] for i in fact['article_ids']}
+        fact.pop('editorial_sources', None)
+        if not support_groups - {'STATE'}:
+            fact['lane'] = 'STATE'
+        elif fact.get('kind') in ('FACT', 'STATEMENT'):
+            fact['lane'] = 'COMMON'
+        elif fact.get('kind') == 'EDITORIAL':
+            fact['lane'] = 'EDITORIAL'
+            fact['editorial_sources'] = {group: [aid for aid in fact['article_ids'] if groups[aid] == group]
+                                        for group in ('LEFT', 'RIGHT', 'CENTER', 'STATE') if group in support_groups}
+        else:
+            # Saved facts predating classification retain their old rules
+            # until the extraction actually classifies them.
+            fact['lane'] = fact_lane(support_groups, mode)
     return mode, list(facts.values())
 
 
-def make_update(facts, previous_facts, is_update, new_ids):
+def make_update(facts, previous_facts, is_update, new_ids, articles=None):
     previous = {f['fact_id']: f for f in previous_facts}
-    sections = {lane: [] for lane in LANES}
+    new_facts = []
     promotions = []
     if is_update:
         for fact in facts:
             old = previous.get(fact['fact_id'])
             if old is None:
-                sections[fact['lane']].append(fact)
+                new_facts.append(fact)
+            elif articles is not None and fact.get('kind') in ('FACT', 'STATEMENT'):
+                # Classification alone is not news. A later article may
+                # genuinely broaden support even for an already neutral fact.
+                if shared_support(fact, articles) and not shared_support(old, articles):
+                    promotions.append(fact)
             elif old['lane'] != 'COMMON' and fact['lane'] == 'COMMON':
                 promotions.append(fact)
-    texts = [f['text_pl'] for items in sections.values() for f in items]
+    sections = fact_sections(new_facts)
+    texts = [f['text_pl'] for f in new_facts]
     if promotions:
         texts.append('Szersze potwierdzenie: ' + ' '.join(f['text_pl'] for f in promotions))
     return {'status': ('NEW_INFORMATION' if texts else 'NO_NEW_INFORMATION') if is_update else 'BASE_SUMMARY',
@@ -454,9 +543,12 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
     prepared = [{**a, 'source_group': article_group(a)} for a in articles]
     facts, offset, extracted, headline, categories = known, 0, None, None, []
     while offset < len(prepared):
-        base = {'topic': payload['topic'], 'previous_facts': facts}
+        base = {'topic': payload['topic'], 'previous_facts': [
+            {k: v for k, v in fact.items() if k != 'editorial_sources'} for fact in facts]}
         batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
         def validate_extracted(response):
+            if any(raw.get('kind') not in FACT_KINDS for raw in response.get('facts') or []):
+                raise ValueError('Każde ustalenie musi mieć typ FACT, STATEMENT lub EDITORIAL.')
             validate_batch_citations(response, batch, facts, normalize)
             validate_article_coverage(response, batch)
             return route_facts(response, articles, facts, normalize)
@@ -466,7 +558,9 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
             validate_extracted, on_validation_retry)
         headline = headline or extracted['headline_pl']
         categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
-    main = [f for f in facts if f['lane'] == 'COMMON']
+    by_id = {str(a['article_id']): a for a in articles}
+    main = sorted((f for f in facts if f['lane'] == 'COMMON'),
+                  key=lambda f: not shared_support(f, by_id))
     if previous is not None:
         # All later calls are fact extraction only. Keep the published text,
         # lead and context, even when new facts or confirmations arrive.
@@ -488,7 +582,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         sources = [{key: a.get(key) for key in ('article_id', 'source_name', 'published_at')}
                    for a in articles if str(a['article_id']) in main_article_ids]
         written, _ = validated_call(
-            call, WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main, 'main_sources': sources},
+            call, WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main, 'main_sources': sources,
+                                        'core_fact_count': sum(shared_support(f, by_id) for f in main)},
             writing_schema(main), 'perspective_summary', lambda response: validate_written(response, main),
             on_validation_retry)
         headline = normalize(headline)
@@ -501,9 +596,11 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                   'general_context': written.get('general_context') if str((written.get('general_context') or {}).get('text_pl') or '').strip() else None,
                   'background_context': written.get('background_context') or [],
                   'synthesis_coverage_mode': mode}
-    sections = {lane: [f for f in facts if f['lane'] == lane] for lane in ('LEFT', 'RIGHT', 'STATE')}
-    update = make_update(facts, known, previous is not None, payload.get('new_article_ids') or [])
-    state = {'perspective_version': FORMAT_VERSION, 'coverage_mode': mode, 'shared_available': bool(main),
+    sections = {lane: items for lane, items in fact_sections(facts).items() if lane != 'COMMON'}
+    update = make_update(facts, known, previous is not None, payload.get('new_article_ids') or [], by_id)
+    update['fact_classification_version'] = FACT_CLASSIFICATION_VERSION
+    state = {'perspective_version': FORMAT_VERSION, 'fact_classification_version': FACT_CLASSIFICATION_VERSION,
+             'coverage_mode': mode, 'shared_available': bool(main),
              'perspective_sections': sections, 'perspective_facts': facts, 'facts': main}
     result.update(state)
     result['perspective_state'] = state

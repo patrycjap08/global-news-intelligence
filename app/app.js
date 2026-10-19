@@ -41,7 +41,7 @@ let openDialogTopicId = null;
 let dialogRequestToken = 0;
 const REQUEST_TIMEOUT_MS = 15000;
 const LOAD_TIMEOUT_MS = 90000;
-const SUMMARY_PREVIEW_COLUMNS = 'current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
+const SUMMARY_PREVIEW_COLUMNS = 'current_fact_classification_version:summary->perspective_state->fact_classification_version,fact_classification_version:summary->base_summary->fact_classification_version,current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
 const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
 const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
@@ -653,7 +653,7 @@ function summaryPreview(row) {
   if (row.summary) return row;
   return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
     summary: { base_summary: { topic: row.base_topic || row.legacy_topic || {},
-      summary_pl: row.base_text || row.legacy_text || '', perspective_version: row.perspective_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
+      summary_pl: row.base_text || row.legacy_text || '', perspective_version: row.perspective_version, fact_classification_version: row.current_fact_classification_version ?? row.fact_classification_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
       latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
       last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
 }
@@ -1062,6 +1062,7 @@ function isNonContradictionItem(item) {
 }
 
 const PERSPECTIVE_LABELS = { COMMON: 'Nowe informacje wspólne', LEFT: 'Nowe informacje w źródłach lewicowych', RIGHT: 'Nowe informacje w źródłach prawicowych', STATE: 'Nowe informacje w mediach kontrolowanych przez państwo' };
+const CLASSIFIED_UPDATE_LABELS = { COMMON: 'Nowe ustalenia', LEFT: 'Nowe oceny w źródłach lewicowych', RIGHT: 'Nowe oceny w źródłach prawicowych', CENTER: 'Nowe oceny w źródłach centrowych', STATE: 'Nowe doniesienia mediów kontrolowanych przez państwo' };
 
 function editorialGroup(article) {
   const profile = String(article.source_profile || '').toUpperCase();
@@ -1098,37 +1099,40 @@ function coverageNotice(summary) {
 function perspectiveSectionsHtml(summary, detailsState, updates = []) {
   if (summary.perspective_version !== 1) return '';
   if (detailsState !== 'ready') return '<p class="perspective-pending">Perspektywy będą dostępne po pobraniu pełnego opracowania.</p>';
-  const labels = { LEFT: 'Źródła lewicowe', RIGHT: 'Źródła prawicowe', STATE: 'Media kontrolowane przez państwo' };
+  const labels = { LEFT: 'Źródła lewicowe', RIGHT: 'Źródła prawicowe', CENTER: 'Źródła centrowe', STATE: 'Media kontrolowane przez państwo' };
   // The current fact ledger includes later additions. Those already have a
   // place in the update timeline; do not repeat them in the sections below
   // the original synthesis. Keep the stored ledger and update history intact.
-  const updateFacts = updates.flatMap(update => [
-    ...Object.values(update.perspective_sections || {}).flatMap(items => Array.isArray(items) ? items : []),
-    ...(Array.isArray(update.promoted_facts) ? update.promoted_facts : []),
-  ]);
   const textKey = fact => normalizeDisplayText(typeof fact === 'string' ? fact : fact?.text_pl || fact?.text || '')
     .replace(/\s+/g, ' ').trim().toLocaleLowerCase('pl');
-  const updateIds = new Set(updateFacts.map(fact => fact?.fact_id).filter(Boolean));
-  const updateTexts = new Set(updateFacts.map(textKey).filter(Boolean));
-  const sections = Object.fromEntries(Object.keys(labels).map(group => [group,
-    (summary.perspective_sections?.[group] || []).filter(fact =>
-      !updateIds.has(fact?.fact_id) && !updateTexts.has(textKey(fact))),
-  ]));
+  const sections = Object.fromEntries(Object.keys(labels).map(group => {
+    const updateFacts = updates.flatMap(update => [
+      ...(Array.isArray(update.perspective_sections?.[group]) ? update.perspective_sections[group] : []),
+      ...(Array.isArray(update.promoted_facts) ? update.promoted_facts : []),
+    ]);
+    const updateIds = new Set(updateFacts.map(fact => fact?.fact_id).filter(Boolean));
+    const updateTexts = new Set(updateFacts.map(textKey).filter(Boolean));
+    return [group, (summary.perspective_sections?.[group] || []).filter(fact =>
+      !updateIds.has(fact?.fact_id) && !updateTexts.has(textKey(fact)))];
+  }));
   const groups = Object.keys(labels).filter(g => sections[g].length);
   if (!groups.length) return '';
-  return `<section class="perspectives-section"><h3>Co dodatkowo podają źródła</h3><div class="perspective-tabs" role="tablist" aria-label="Dodatkowe perspektywy">${groups.map((g,i) => `<button type="button" role="tab" id="perspective-tab-${g}" data-perspective-tab="${g}" aria-controls="perspective-panel-${g}" aria-selected="${i===0}" class="perspective-tab ${i===0?'is-active':''}">${labels[g]}</button>`).join('')}</div>${groups.map((g,i) => `<div role="tabpanel" id="perspective-panel-${g}" aria-labelledby="perspective-tab-${g}" data-perspective-panel="${g}" ${i===0?'':'hidden'}><ul class="insight-list">${listValue(sections[g])}</ul></div>`).join('')}</section>`;
+  const heading = summary.fact_classification_version === 1 ? 'Perspektywy źródeł' : 'Co dodatkowo podają źródła';
+  return `<section class="perspectives-section"><h3>${heading}</h3><div class="perspective-tabs" role="tablist" aria-label="Dodatkowe perspektywy">${groups.map((g,i) => `<button type="button" role="tab" id="perspective-tab-${g}" data-perspective-tab="${g}" aria-controls="perspective-panel-${g}" aria-selected="${i===0}" class="perspective-tab ${i===0?'is-active':''}">${labels[g]}</button>`).join('')}</div>${groups.map((g,i) => `<div role="tabpanel" id="perspective-panel-${g}" aria-labelledby="perspective-tab-${g}" data-perspective-panel="${g}" ${i===0?'':'hidden'}><ul class="insight-list">${listValue(sections[g])}</ul></div>`).join('')}</section>`;
 }
 
 function perspectiveUpdateLabel(update) {
   if (!update.perspective_sections) return 'AKTUALIZACJA';
-  const labels = Object.keys(PERSPECTIVE_LABELS).filter(g => update.perspective_sections[g]?.length).map(g => PERSPECTIVE_LABELS[g]);
+  const mapping = update.fact_classification_version === 1 ? CLASSIFIED_UPDATE_LABELS : PERSPECTIVE_LABELS;
+  const labels = Object.keys(mapping).filter(g => update.perspective_sections[g]?.length).map(g => mapping[g]);
   if (update.promoted_facts?.length) labels.push('Szersze potwierdzenie');
   return labels.join(' · ') || 'AKTUALIZACJA';
 }
 
 function perspectiveUpdateHtml(update) {
   if (!update.perspective_sections) return richTextHtml(updateText(update));
-  return Object.entries(PERSPECTIVE_LABELS).filter(([g]) => update.perspective_sections[g]?.length)
+  const labels = update.fact_classification_version === 1 ? CLASSIFIED_UPDATE_LABELS : PERSPECTIVE_LABELS;
+  return Object.entries(labels).filter(([g]) => update.perspective_sections[g]?.length)
     .map(([g,label]) => `<h4>${label}</h4><ul class="insight-list">${listValue(update.perspective_sections[g])}</ul>`).join('')
     + (update.promoted_facts?.length ? `<h4>Szersze potwierdzenie</h4><ul class="insight-list">${listValue(update.promoted_facts)}</ul>` : '');
 }
@@ -1157,7 +1161,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const factsPanel = detailsState !== 'ready'
     ? `<section class="dialog-section"><h3>Fakty</h3><p>${detailsState === 'error' ? 'Fakty będą dostępne po pobraniu pełnego opracowania. Użyj przycisku „Spróbuj ponownie” u góry.' : 'Trwa pobieranie faktów…'}</p></section>`
     : Array.isArray(summary.facts) && summary.facts.length
-    ? section('Fakty', summary.facts, 'insight-facts', 'Szczegółowe ustalenia z przypisaniem do źródeł.')
+    ? section('Fakty', summary.facts, 'insight-facts', summary.fact_classification_version === 1 ? 'Neutralne ustalenia oraz wypowiedzi i zarzuty z przypisaniem do źródeł.' : 'Szczegółowe ustalenia z przypisaniem do źródeł.')
     : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
   return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     ${coverageNotice(summary)}
@@ -1166,7 +1170,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
     ${updatesHtml}
-    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
+    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : summary.fact_classification_version === 1 ? 'W zebranych materiałach nie ma neutralnych ustaleń do syntezy. Dostępne są perspektywy źródeł.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
       ${factsOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
       <button class="dialog-tab ${factsOnly ? 'is-active' : ''}" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="${factsOnly}" aria-controls="dialog-panel-facts">Fakty</button>

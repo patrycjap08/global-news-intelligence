@@ -22,6 +22,11 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
     def setUpClass(cls):
         path = Path(__file__).parent / 'test_data' / 'perspective_validation_regressions.json'
         cls.fixtures = {row['case']: row for row in json.loads(path.read_text())}
+        # Preserve the historical errors while supplying the newly required
+        # classification field to these mocked extraction responses.
+        for fixture in cls.fixtures.values():
+            for row in fixture['response'].get('facts', []):
+                row['kind'] = 'FACT'
 
     def payload(self, fixture):
         # Actual profiles/previous ledger from the public snapshot; synthetic
@@ -119,7 +124,7 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
         result = p.generate({'topic': {}, 'all_articles': rows,
                              'previous_aggregation': {'base_summary': base}}, call, ai.normalize_generated_text)
         self.assertEqual(calls, ['perspective_facts', 'perspective_facts'])
-        self.assertEqual(result['perspective_facts'], known)
+        self.assertEqual(result['perspective_facts'], [{**f, 'kind':'FACT'} for f in known])
         self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
         self.assertEqual(result['summary_pl'], base['summary_pl'])
 
@@ -130,7 +135,7 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
         def call(instructions, data, schema, name):
             calls.append(name)
             if name == 'perspective_facts':
-                return extraction([fact('Ustalenie lewicy.', ['l']), fact('Ustalenie prawicy.', ['r'])], rows)
+                return extraction([fact('Ustalenie lewicy.', ['l'],kind='EDITORIAL'), fact('Ustalenie prawicy.', ['r'],kind='EDITORIAL')], rows)
             self.assertEqual(data['main_facts'], [])
             response = copy.deepcopy(self.fixtures['empty_context_without_common_facts']['response'])
             jsonschema.validate(response, schema)

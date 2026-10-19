@@ -52,7 +52,7 @@ class SummaryRequestSettingsTests(unittest.TestCase):
             {'article_id':'r','source_profile':'RIGHT'},{'article_id':'x','source_profile':'LEFT'}]}
         def response(instructions,data,model,**settings):
             if settings['response_schema_name']=='perspective_facts':
-                return extraction([fact('Wspólne.',['l','r']),fact('Tylko lewica.',['x'])],data['all_articles'])
+                return extraction([fact('Wspólne.',['l','r']),fact('Tylko lewica.',['x'],kind='EDITORIAL')],data['all_articles'])
             return {'paragraphs':[{'text_pl':'Wspólne.','fact_ids':[data['main_facts'][0]['fact_id']]}],
                 'general_context':{'text_pl':'Tło.','article_ids':['x']},'background_context':[]}
         with patch.object(ai,'call_openai',side_effect=response),patch.object(ai,'log'):

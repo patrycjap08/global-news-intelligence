@@ -12,21 +12,30 @@ Nie wymaga migracji SQL. Profil źródła nie oznacza oceny prawdziwości publik
   z przypisanym zwykłym profilem zachowuje ten profil.
 - Niesklasyfikowane źródło zatrzymuje wygenerowanie danego opracowania z błędem
   opisującym źródło. Nie przyznajemy mu milcząco statusu centrum.
-- Fakt z centrum albo z lewicy i prawicy jest wspólny. Sam materiał państwowy
-  nie potwierdza informacji do wspólnej części. Liczą się wskazane artykuły
-  podające konkretne ustalenie, a nie wspólny temat nagłówków.
-- Gdy wszystkie niepaństwowe artykuły są jednej grupy, synteza/fakty obejmują
-  tę grupę, a nad tytułem pojawia się informacja o jednostronnej podstawie.
+- Od fact_classification_version=1 FACT (neutralna informacja) i STATEMENT
+  (przypisana wypowiedź, zapowiedź, zarzut) trafiają do części ogólnej, także
+  jako uzupełnienie z jednego profilu źródeł. EDITORIAL (własna ocena redakcji)
+  trafia do osobnych perspektyw, również gdy występuje w centrum lub kilku
+  grupach. Cytowany pogląd polityka nie jest stanowiskiem redakcji.
+- Dotychczasowe kryterium centrum albo lewica+prawica wyznacza kolejność
+  wspólnego rdzenia przed neutralnymi uzupełnieniami. Nie jest dowodem prawdy.
+  Sam materiał państwowy nie dopuszcza ustalenia do części ogólnej.
+- Gdy wszystkie niepaństwowe artykuły są jednej grupy, neutralne ustalenia
+  tej grupy mogą tworzyć syntezę, a oceny nadal pozostają osobno.
+  Nad tytułem pojawia się informacja o jednostronnej podstawie.
   Ewentualne dodatkowe doniesienia państwowe zostają osobno.
-- Bez wspólnych ustaleń brak zakładek Synteza/Fakty; widoczny jest komunikat
-  „Źródła o różnych profilach nie podają wspólnych informacji”. Przy samych
-  państwowych materiałach komunikat wskazuje ich wyłączną obecność.
+- Bez neutralnych ustaleń brak zakładek Synteza/Fakty; nowa wersja wskazuje
+  brak neutralnych ustaleń do syntezy. Starsze opracowania zachowują komunikat
+  o braku wspólnych informacji. Przy samych państwowych materiałach komunikat
+  wskazuje ich wyłączną obecność.
 - Puste perspektywy są ukrywane. Pozostałe części to kontekst i źródła.
   Usunięcie z widoku różnic/sprzeczności/sygnałów nie usuwa danych z bazy.
 - Pasek na karcie i w oknie tematu liczy artykuły, także kilka jednej redakcji;
   państwowe i niesklasyfikowane nie należą do mianownika ani segmentów.
-- Aktualizacja ma wydzielone nowe ustalenia wspólne/lewicowe/prawicowe/państwowe.
-  Przejście znanego faktu do części wspólnej daje „Szersze potwierdzenie”.
+- Aktualizacja ma wydzielone nowe ustalenia neutralne oraz oceny lewicowe,
+  prawicowe, centrowe i doniesienia państwowe. Rzeczywiste rozszerzenie
+  potwierdzenia neutralnego ustalenia daje „Szersze potwierdzenie”.
+  Sama klasyfikacja wcześniej zapisanego faktu nie tworzy aktualizacji.
   Powtórzenie znanych informacji nie tworzy aktualizacji ani nie cofa przeczytania.
 
 ## Generowanie i zgodność
@@ -296,3 +305,36 @@ ma minimalną szerokość 4 px, pozostałe fragmenty mają minimum 2 px.
 Pozostała szerokość jest rozdzielana proporcjonalnie do liczby artykułów.
 Rzeczywiste procenty i liczniki pozostają bez zmian. Przy samych mediach
 kontrolowanych przez państwo nadal nie pokazujemy tego paska.
+
+## Klasyfikacja treści ustalenia — v64
+
+W dotychczasowym perspective_facts każde nowe ustalenie i potwierdzenie ma
+obowiązkowy kind: FACT, STATEMENT lub EDITORIAL. To jeden krótki atrybut;
+nie ma osobnych wywołań klasyfikatora, zmiany modelu, równoległości ani
+skracania artykułów. Profil źródła nie określa typu treści. Prompt wymaga
+rozdzielania zdarzenia od wartościowania i zachowania autora zarzutu/tezy.
+Przy pojedynczej redakcji autor syntezy ma wskazywać źródło, a przy wypowiedzi
+zachowywać jej autora, warunkowość i niepewność. Typ nie oznacza weryfikacji
+prawdziwości twierdzenia. Oceny redakcyjne nie są przekazywane piszącemu
+syntezę; neutralny rdzeń jest przekazywany przed uzupełnieniami.
+
+Rejestr przechowuje jeden fakt EDITORIAL, a widoki LEFT/RIGHT/CENTER/STATE
+cytują tylko artykuły tej grupy wyrażające daną ocenę. Zbieżna ocena wielu
+grup nadal nie staje się neutralnym faktem. Media kontrolowane przez państwo
+nie tworzą samodzielnie syntezy niezależnie od rodzaju treści.
+
+Brak kind w starym rejestrze oznacza zachowanie dawnych reguł do momentu
+rzeczywistego sklasyfikowania ustalenia w zwykłej analizie. Raz zapisany typ
+jest chroniony przy potwierdzeniach, podobnie jak treść. Przypisanie typu lub
+przeniesienie starego ustalenia do części ogólnej bez nowych potwierdzeń nie
+jest aktualizacją. Nowe potwierdzenie spełniające kryterium centrum/lewica+
+prawica jest wykrywane również dla faktu już obecnego w części neutralnej.
+Opublikowana synteza i kontekst pozostają niezmienne. Nie uruchamiamy
+przebudowy historycznych tekstów ani masowej migracji.
+
+Metadane fact_classification_version=1 są zapisywane w stanie, aktualizacjach
+i podglądzie eksportu; stare opracowania zachowują stare etykiety. Nowe
+aktualizacje używają „Nowe ustalenia” oraz etykiet ocen, aby neutralnego
+dopełnienia nie nazywać wspólnie potwierdzonym. Ukrywanie powtórzeń dotyczy
+tej samej grupy perspektyw, więc wcześniejsza aktualizacja lewicowa nie
+ukrywa późniejszego potwierdzenia danej oceny przez redakcję prawicową.

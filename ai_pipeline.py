@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v63-validated-perspective-correction"
+PROMPT_VERSION = "ai-prompts-v64-fact-kind-routing"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2527,6 +2527,9 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                 log("AI", f"Fakty perspektyw — odpowiedź: ustaleń: {len(response.get('facts') or [])}, "
                     f"artykułów w kontroli pokrycia: {len(coverage)}/{len(data['all_articles'])}, "
                     f"potwierdzeń faktów: {sum(counts)}, ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
+                kinds = {kind: sum(f.get('kind') == kind for f in response.get('facts') or [])
+                         for kind in perspectives.FACT_KINDS}
+                log("AI", f"Typy ustaleń: neutralne: {kinds['FACT']}, wypowiedzi/zarzuty: {kinds['STATEMENT']}, oceny redakcyjne: {kinds['EDITORIAL']}.")
                 reasons = coverage if isinstance(coverage, dict) else {
                     str(row.get('article_id')): row for row in coverage if isinstance(row, dict)}
                 unaccounted = [str(article['article_id']) for article, count in zip(data['all_articles'], counts)
@@ -2551,7 +2554,7 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             error.response_details = {"schema": last_schema, "validation_error": str(exc)}
             raise error from exc
         normalized = normalize_summary_response(raw)
-        for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = raw.get(field)
         return normalized
     return generate_full_article_legacy_update(payload, model)
@@ -2793,6 +2796,11 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
     if not text:
         return None
     normalized = {"text_pl": text, "article_ids": article_ids}
+    if field == "facts":
+        if item.get("fact_id"):
+            normalized["fact_id"] = item["fact_id"]
+        if item.get("kind") in perspectives.FACT_KINDS:
+            normalized["kind"] = item["kind"]
     if field == "background_context":
         entity_type = item.get("entity_type")
         if entity_type in {"PERSON", "ORGANIZATION", "BACKGROUND"}:
@@ -2859,7 +2867,7 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         if not is_non_contradiction_statement(item.get("text_pl"))
     ]
     if response.get("perspective_version") == 1:
-        for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = response.get(field)
     quality = response.get("quality")
     normalized["quality"] = quality if isinstance(quality, dict) else {
