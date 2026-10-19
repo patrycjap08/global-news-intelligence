@@ -36,6 +36,16 @@ const bar=articleProfileBar({articles});
 assert(bar.includes('60% (3)') && bar.includes('20% (1)'));
 assert(!bar.includes('(5)') && !bar.includes('state'));
 assert.strictEqual(articleProfileBar({articles:[{source_profile:'STATE_ALIGNED'}]}),'');
+const oneProfile=articleProfileBar({articles:[{source_profile:'LEFT'},{source_profile:'CENTER_LEFT'}]});
+assert(oneProfile.includes('Lewicowe <strong>100% (2)</strong>'));
+assert(!oneProfile.includes('Centrum') && !oneProfile.includes('Prawicowe'));
+const twoProfiles=articleProfileBar({articles:[{source_profile:'CENTER'},{source_profile:'RIGHT'}]});
+assert(twoProfiles.includes('Centrum <strong>50% (1)</strong>') && twoProfiles.includes('Prawicowe <strong>50% (1)</strong>'));
+assert(!twoProfiles.includes('Lewicowe') && !twoProfiles.includes('<strong>0%'));
+// Hide a displayed zero even if an unusually small share rounds down to 0%.
+const roundedZero=articleProfileBar({articles:[...Array.from({length:200},()=>({source_profile:'LEFT'})),
+  ...Array.from({length:200},()=>({source_profile:'CENTER'})),{source_profile:'RIGHT'}]});
+assert(!roundedZero.includes('Prawicowe') && !roundedZero.includes('<strong>0%'));
 assert.strictEqual(editorialGroup({source_profile:'CENTER',source_type:'GOVERNMENT_AGENCY'}),'CENTER');
 // Updates remain split and indicate promotion without repeating it as new news.
 const update={status:'NEW_INFORMATION',new_information_pl:'Ustalenie.',generated_at:'2026-10-19T12:00:00Z',perspective_sections:{COMMON:[],LEFT:[fact('Nowe lewicowe.')],RIGHT:[],STATE:[]},promoted_facts:[fact('Znany fakt ma szersze potwierdzenie.')]};

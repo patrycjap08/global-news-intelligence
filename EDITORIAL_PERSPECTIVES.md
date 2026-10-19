@@ -288,3 +288,7 @@ nie wyświetlamy, więc nie odfiltrowujemy na ich podstawie doniesień STATE.
 Poprawka działa na istniejących danych bez ponownego AI i bez zapisu do bazy.
 Regresja OS82 z publicznego eksportu jest w test_data; sprawdza ją
 `node test_frontend_perspective_updates.js`.
+
+Etykiety nad paskiem udziału artykułów pokazujemy tylko dla procentów większych
+od zera po zaokrągleniu. Wpisy typu „Lewicowe 0% (0)” znikają; obliczenia
+udziałów i sam pasek zachowują dotychczasowe wartości.
