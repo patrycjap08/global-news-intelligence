@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v65-perspective-novelty-audit"
+PROMPT_VERSION = "ai-prompts-v66-explanatory-context"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -1700,19 +1700,23 @@ summary_pl dodaj krótkie objaśnienie, jeżeli jest potrzebne do zrozumienia
 zdania. Nie twórz nowego pola reader_context ani osobnej struktury poza
 istniejącym background_context.
 
-PODZIAŁ SYNTEZY I KONTEKSTU — BEZ POWTÓRZEŃ:
-Każde ustalenie opisuj tylko raz w widocznych sekcjach summary_pl oraz
-background_context. Zakaz obejmuje również parafrazy tej samej informacji.
+PODZIAŁ SYNTEZY I KONTEKSTU — DODATKOWE WYJAŚNIENIE:
+Synteza opisuje wydarzenie, a kontekst dostarcza dodatkowej wiedzy potrzebnej
+do jego zrozumienia: wcześniejszych wydarzeń, genezy, uwarunkowań i mechanizmów.
+Nie obowiązuje sztywny zakaz przywołania w kontekście faktu z syntezy.
+Krótkie nawiązanie jest właściwe, jeśli prowadzi do dodatkowego objaśnienia;
+sama parafraza, ponowne streszczenie lub wyliczenie uczestników nie wystarcza.
 Najpierw zdecyduj, gdzie informacja jest potrzebna: fakty ważne dla przebiegu,
 skutków i zrozumienia wydarzenia oraz niezbędne objaśnienie roli uczestnika
 umieść w summary_pl, jeżeli mają potwierdzenie w artykułach. Nie chowaj ich
 wyłącznie w kontekście. background_context uzupełnia narrację o dodatkowe
 objaśnienia i tło, zamiast streszczać lub powtarzać summary_pl.
 Jeśli podczas przygotowania kontekstu zauważysz istotny fakt z materiałów,
-którego brakuje w syntezie, przenieś go do summary_pl i usuń z kontekstu.
+którego brakuje w syntezie, opisz go w summary_pl; kontekst nie może zastępować
+opisu wydarzenia. Nawiąż do tego faktu tylko, gdy wymaga tego dodatkowe tło.
 Nie przenoś do syntezy niezweryfikowanej wiedzy ogólnej. Techniczny indeks
 facts nadal może powtarzać ustalenia z summary_pl dla przypisania źródeł;
-nie jest to zgoda na ich ponowne opisanie w background_context.
+nie jest to powód, by pisać kolejne streszczenie w background_context.
 
 OBJAŚNIENIA OSÓB I ORGANIZACJI:
 Po napisaniu summary_pl oraz facts przejrzyj OBA pola i zbierz wszystkie
@@ -1744,8 +1748,19 @@ wyjaśnij, kim jest i jaką funkcję lub rolę pełni w tej sprawie. Nie powtarz
 jej wypowiedzi ani przebiegu zdarzeń; nie pisz biogramu.
 Dla organizacji wymagającej dodatkowego objaśnienia dodaj osobny element:
 „Organizacja — Nazwa (skrót):
-...”. Krótko wyjaśnij, czym jest, czym się zajmuje oraz jaki związek ma ze
-sprawą, jeżeli wynika to z materiałów. Nie traktuj samej nazwy kraju lub
+...”. Wyjaśnij konkretnie, czym jest, jaki ma cel lub zakres działalności
+i czym zajmuje się w praktyce. Samą nazwę, rozwinięcie skrótu, etykietę
+„organizacja” lub informację, że występuje w artykule, uznaj za niepełny opis.
+Związek ze sprawą może uzupełniać definicję, lecz jej nie zastępuje.
+Ruch protestacyjny i partię polityczną opisz osobno, zamiast łączyć je
+w listę nazw. Np. Gilets jaunes (Żółte Kamizelki) to francuski ruch protestacyjny
+związany m.in. z kosztami życia i nierównościami, a La France insoumise (LFI)
+to francuski lewicowy ruch polityczny działający m.in. na rzecz polityki
+społecznej i redystrybucji. Nie dopowiadaj ich udziału w danym wydarzeniu.
+Nie traktuj określenia rzekomej sieci użytego przez jedną redakcję jako
+potwierdzonej formalnej organizacji. Sporne powiązania i zarzuty przypisz
+autorowi, zachowując niepewność; nie zgaduj struktury ani członkostwa.
+Nie traktuj samej nazwy kraju lub
 miasta jako organizacji. Podaj rozwinięcie skrótu tylko, gdy jest pewne.
 Każdy potrzebny wpis o osobie lub organizacji ma być oddzielnym elementem
 tablicy background_context — to lista punktów prezentowana w sekcji Kontekst.
@@ -1757,7 +1772,8 @@ Role, funkcje i informacje z materiałów poprzyj article_ids tych materiałów
 oraz needs_verification=false. Nie zgaduj tożsamości na podstawie nazwiska,
 aktualnego stanowiska, narodowości, biografii ani działalności firmy. Jeśli
 materiały nie pozwalają ustalić roli, zachowaj wpis tej osoby/organizacji,
-napisz wprost, że jej rola lub charakter nie zostały określone w materiałach,
+napisz konkretnie, czego nie można wiarygodnie ustalić, zamiast zwracać samą
+nazwę lub pozorną definicję,
 i oznacz needs_verification=true. Definicja lub tło z wiedzy ogólnej, bez
 potwierdzenia w dostarczonych materiałach: article_ids=[], needs_verification=true.
 Nie przypisuj artykułowi informacji, której nie zawiera. Nie wprowadzaj do
@@ -1765,10 +1781,14 @@ summary_pl ani facts takich dodatkowych objaśnień jako nowych ustaleń.
 
 OGÓLNY KONTEKST TEMATU — OSOBNE OBOWIĄZKOWE POLE general_context:
 Przygotuj general_context.text_pl niezależnie od listy osób i organizacji.
-To nie jest słowniczek uczestników ani streszczenie nowych wydarzeń. Ma
-wprowadzić czytelnika, który pierwszy raz słyszy o tej sprawie: co to za
-projekt, konflikt, zjawisko lub problem, gdzie się dzieje, skąd się wziął,
-o co w nim chodzi i dlaczego opisywane wydarzenie ma znaczenie.
+Czytelnik zna już syntezę. general_context ma wyjaśnić, co poprzedzało tę
+historię, skąd wziął się problem, jakie wcześniejsze decyzje lub uwarunkowania
+pomagają go zrozumieć, jak działa istotny mechanizm i z czym wiąże się sprawa.
+Wybierz potrzebne elementy, bez obowiązku omówienia wszystkich. Nie pisz,
+o czym jest artykuł; nie zaczynaj od „Artykuł dotyczy…”, „Temat opisuje…”
+ani „Wydarzenie ma miejsce…”. To nie jest słowniczek uczestników ani kolejne
+streszczenie. Każde zdanie ma wnosić dodatkową wiedzę. Możesz krótko przywołać
+znany fakt jako punkt wyjścia do wyjaśnienia genezy lub powiązań.
 Napisz zwykle 2–5 zwięzłych zdań, konkretnych i po polsku, bez ogólników.
 Nie zastępuj tego fragmentu opisem osoby, instytucji ani firmy. Same wpisy
 PERSON i ORGANIZATION NIE realizują wymogu ogólnego kontekstu.
@@ -1795,23 +1815,28 @@ Dla wiedzy ogólnej użyj general_context.article_ids=[] oraz
 needs_verification=true. Dla informacji faktycznie pochodzących z materiałów
 wskaż właściwe article_ids; nie przypisuj wiedzy ogólnej artykułom.
 Dla prostego tematu daj krótkie wyjaśnienie zamiast sztucznego rozbudowywania.
-Nie powtarzaj znaczeniowo treści głównej syntezy. Nie przenoś wiedzy ogólnej
-do summary_pl jako nowych ustaleń. Zachowaj potrzebne objaśnienia osób,
+Nie zastępuj dodatkowego tła parafrazą głównej syntezy. Nie zgaduj wcześniejszych
+zdarzeń ani przyczyn; oddziel potwierdzony związek przyczynowy od szerszych
+uwarunkowań. Jeśli geneza jest nieznana, wyjaśnij pewny mechanizm lub potrzebne
+pojęcie. Krótkie nawiązanie do znanego faktu może służyć temu objaśnieniu.
+Nie przenoś wiedzy ogólnej do summary_pl jako nowych ustaleń.
+Zachowaj potrzebne objaśnienia osób,
 organizacji i specjalistycznych pojęć w background_context; ogólne tło
 umieszczaj wyłącznie w general_context, aby nie powtarzać go na obu listach.
 
 Przed zwróceniem odpowiedzi sprawdź KAŻDĄ osobę i organizację wymienioną
 w summary_pl lub facts: musi być objaśniona w syntezie/faktach albo mieć
 uzupełniający wpis w background_context. Następnie porównaj wszystkie
-twierdzenia z kontekstu z summary_pl i facts. Usuń z kontekstu powtórzenia
-znaczeniowe, również części zdania, a puste po tej kontroli wpisy pomiń.
+twierdzenia z kontekstu z summary_pl i facts. Usuń zdania będące wyłącznie
+powtórzeniem; zachowaj krótkie nawiązania niezbędne do dodatkowego wyjaśnienia.
+Puste po tej kontroli wpisy pomiń.
 Nie zastępuj usuniętych wpisów sztucznym tekstem ani komentarzem, że
 informację podano wcześniej. background_context=[] jest poprawne, jeżeli
 nie ma dodatkowych objaśnień lub tła ponad treść syntezy i facts.
 
-Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Jeżeli data
-jest konieczna do zrozumienia sprawy, umieść ją w summary_pl, facts albo
-differences przy odpowiednim fakcie. W przeciwnym razie pomiń ją.
+Nie twórz osobnej osi wydarzeń ani listy powtarzających się dat. Daty bieżących
+wydarzeń podaj przy odpowiednich faktach w syntezie. Datę wcześniejszego
+wydarzenia możesz podać w kontekście, jeśli pomaga wyjaśnić genezę sprawy.
 
 Jeżeli previous_aggregation nie jest null, zawiera `base_summary` oraz
 `prior_updates`. Potraktuj oba elementy jako opublikowaną wcześniej, NIEZMIENNĄ

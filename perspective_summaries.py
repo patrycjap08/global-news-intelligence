@@ -285,23 +285,72 @@ akapitem, ale nie pomijaj istotnych działań, skutków i reakcji wyłącznie dl
 skrócenia syntezy do jednego zdania.
 Gdy main_facts jest puste, paragraphs=[] — NIE pisz „brak syntezy” ani nie
 zastępuj syntezy ustaleniami z innych perspektyw. Nie komentuj traktowania centrum.
-Kontekst jest osobnym, obowiązkowym uzupełnieniem: general_context wyjaśnia
-ogólne tło wydarzenia, gdzie się dzieje i dlaczego ma znaczenie. Dla inwestycji
-wyjaśnij m.in. położenie, co z czym łączy i czemu służy. Korzystaj z main_facts
-oraz ostrożnie z wiedzy ogólnej; nie przenoś tam doniesień innych perspektyw.
+KONTEKST TO DODATKOWE TŁO, NIE PONOWNE STRESZCZENIE WYDARZENIA.
+general_context ma poszerzać rozumienie sytuacji: co poprzedzało opisaną
+historię, skąd wziął się problem lub spór, jakie wcześniejsze decyzje,
+uwarunkowania historyczne, prawne, społeczne lub gospodarcze pomagają go
+zrozumieć. Wybierz te elementy, które faktycznie pasują do tematu; nie musisz
+omawiać wszystkich. Wyjaśnij powiązania, mechanizm lub szersze okoliczności,
+zamiast opowiadać drugi raz, co właśnie się wydarzyło. Nie zaczynaj od
+„Artykuł dotyczy…”, „Temat opisuje…” ani ogólnego „Wydarzenie ma miejsce…”.
+Czytelnik zna już treść syntezy. Każde zdanie kontekstu ma dawać mu dodatkową
+wiedzę, a nie tylko inaczej nazywać główną historię.
+
+Nie obowiązuje sztywny zakaz ponownego przywołania faktu: możesz krótko
+nawiązać do ustalenia z syntezy, jeśli jest to potrzebne do wyjaśnienia
+wcześniejszych wydarzeń, przyczyn lub powiązań. Takie nawiązanie ma prowadzić
+do dodatkowego objaśnienia. Sama parafraza znanej informacji ani ponowne
+wyliczenie uczestników, dat i przebiegu wydarzenia nie wystarcza.
+Np. przy dymisji po protestach wyjaśnij wcześniejsze źródła sporu lub
+mechanizm odpowiedzialności ministra, zamiast powtarzać, kto złożył dymisję
+i czy ją przyjęto. Przy tunelu opisz potrzebę komunikacyjną, uwarunkowania
+geograficzne lub historię połączenia; podaj, co z czym ma łączyć, jeśli bez
+tego tło byłoby niezrozumiałe. Nie dopisuj nieznanej trasy ani historii projektu.
+
+Korzystaj z main_facts oraz ostrożnie z ustalonej wiedzy ogólnej. Ograniczenie
+syntezy do main_facts nie wyklucza dodatkowego tła z wiedzy ogólnej w kontekście;
+oznacz je article_ids=[] i needs_verification=true. Nie przypisuj materiałom
+tła, którego nie zawierają. Nie wymyślaj wcześniejszych wydarzeń, dat,
+aktualnych stanowisk ani związków przyczynowych. Oddziel potwierdzoną przyczynę
+od szerszych uwarunkowań: samo następstwo zdarzeń nie dowodzi przyczynowości.
+Nie przenoś do kontekstu doniesień z innych perspektyw. Gdy brak podstaw do
+wyjaśnienia genezy, opisz pewny mechanizm lub potrzebne pojęcie, zamiast
+zastępować tło streszczeniem. Dobierz długość do dostępnej dodatkowej wiedzy.
 Gdy main_facts jest puste, wykorzystaj tylko tytuł do neutralnego objaśnienia
 geografii/pojęć; nie dodawaj twierdzeń o bieżącym wydarzeniu. Jeżeli nie ma
 podstaw do takiego objaśnienia, general_context.text_pl="", article_ids=[]
 i background_context=[] są poprawne. Brak wspólnych ustaleń jest poprawnym
 wynikiem, nie powodem do wymyślania syntezy ani kontekstu.
-background_context: wypunktuj osoby i organizacje występujące w main_facts lub
-syntezie, z krótkim objaśnieniem ich roli, chyba że zostało to już wyjaśnione.
-PERSON oznacza człowieka, ORGANIZATION firmę/agencję/instytucję; Donald Trump
-jest PERSON. Synteza i zakładka Fakty przedstawiają TE SAME ustalenia w różnej
+background_context: osobno objaśnij osoby i organizacje występujące w main_facts
+lub syntezie, chyba że potrzebne wyjaśnienie już tam podano. Dla osoby podaj
+krótko jej funkcję i rolę. Dla organizacji, partii, ruchu, firmy lub agencji
+wyjaśnij konkretnie: czym jest, jaki ma cel lub zakres działalności i czym
+zajmuje się w praktyce. Związek z opisywanym wydarzeniem jest dodatkiem,
+nie zamiennikiem tego objaśnienia. Sama nazwa, rozwinięcie skrótu, etykieta
+„organizacja” ani „podmiot wymieniony w artykule” nie stanowią opisu.
+Każdy odrębny podmiot ma osobny wpis; nie łącz dwóch organizacji w jedną
+listę nazw. Np. Gilets jaunes (Żółte Kamizelki) objaśnij jako francuski ruch
+protestacyjny związany m.in. z kosztami życia i nierównościami społecznymi,
+a La France insoumise (LFI) jako francuski lewicowy ruch polityczny działający
+m.in. na rzecz polityki społecznej i redystrybucji. Nie przypisuj im wspólnej
+struktury ani udziału w danym wydarzeniu, jeśli materiały tego nie potwierdzają.
+
+Korzystaj z wiarygodnych informacji z main_facts oraz ostrożnie z ustalonej
+wiedzy ogólnej. Nie zgaduj profilu, celów, powiązań ani tożsamości po samej
+nazwie. Gdy brak podstaw do identyfikacji, powiedz konkretnie, czego nie
+ustalono, zamiast tworzyć pozorny opis. Nie przedstawiaj określenia użytego
+przez jedną redakcję (np. nazwy rzekomej sieci) jako potwierdzonej, formalnej
+organizacji. Zarzuty i sporne powiązania przypisuj ich autorowi, zachowując
+niepewność; nie dopowiadaj struktury, członkostwa ani celów. Dla informacji
+z wiedzy ogólnej stosuj article_ids=[] i needs_verification=true.
+PERSON oznacza człowieka, ORGANIZATION firmę/agencję/instytucję lub ruch;
+Donald Trump jest PERSON. Synteza i zakładka Fakty przedstawiają TE SAME ustalenia w różnej
 formie: synteza jako artykuł, Fakty jako pojedyncze punkty. Nie pomijaj faktu
-w syntezie dlatego, że znajduje się już na liście. Kontekst ma uzupełniać
-artykuł o potrzebne tło i definicje, bez powtarzania informacji już w nim
-wyjaśnionych. Nie przenoś do kontekstu faktów, które powinien opisać artykuł.
+w syntezie dlatego, że znajduje się już na liście. Przed oddaniem odpowiedzi
+porównaj kontekst z syntezą: czy wnosi wcześniejsze wydarzenia, dodatkowe tło
+lub wyjaśnienie powiązań? Usuń zdania, które tylko streszczają syntezę.
+Zachowaj krótkie nawiązania do jej faktów, gdy służą dodatkowemu objaśnieniu.
+Nie chowaj w kontekście istotnego nowego ustalenia zamiast opisać je w syntezie.
 Wiedza ogólna bez źródła: article_ids=[], needs_verification=true.
 '''.strip()
 

@@ -36,6 +36,17 @@ oczyszczenia. Wdrożenie nie wykonuje produkcyjnych wywołań AI ani zmian w baz
 
 ## Reguły
 
+- Od v66 ogólny kontekst wyjaśnia wcześniejsze wydarzenia, genezę, szersze
+  uwarunkowania i mechanizmy. Nie opisuje ponownie, o czym jest artykuł.
+  Krótkie nawiązanie do faktu z syntezy jest dozwolone, gdy prowadzi do
+  dodatkowego objaśnienia. Brak sztywnego zakazu powtórzenia nie oznacza
+  zgody na kolejne streszczenie. Niepotwierdzonych przyczyn i historii nie
+  dopowiadamy. Zmiana dotyczy kolejnych pierwszych publikacji, bez dodatkowego
+  zapytania AI i bez przepisywania już opublikowanego kontekstu.
+- Opis organizacji wyjaśnia jej rodzaj, cel/zakres i faktyczną działalność;
+  sama nazwa, skrót lub obecność w artykule nie wystarczają. Odrębne organizacje
+  i ruchy mają osobne wpisy. Sporne nazwy sieci/powiązania zachowują przypisanie
+  do autora; nie stają się automatycznie potwierdzonymi definicjami.
 - LEFT/CENTER_LEFT to lewica; RIGHT/CENTER_RIGHT to prawica; CENTER to centrum.
 - STATE_ALIGNED lub STATE_MEDIA to media kontrolowane przez państwo.
   Sam source_type=GOVERNMENT_AGENCY nie oznacza kontroli; agencja publiczna
