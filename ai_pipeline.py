@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v62-derived-fact-coverage"
+PROMPT_VERSION = "ai-prompts-v63-validated-perspective-correction"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2537,7 +2537,11 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                         + "; zachowuję poprawne fakty, nie dopisuję tym artykułom potwierdzeń automatycznie.", level="WARN")
             return response
         try:
-            raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)
+            raw = perspectives.generate(payload, call, normalize_generated_text,
+                max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS,
+                on_validation_retry=lambda name, error: log("AI",
+                    f"{name}: odpowiedź nie przeszła kontroli ({error}); "
+                    "wykonuję jedną próbę poprawy tego etapu z tymi samymi danymi.", level="WARN"))
         except AIResponseParseError:
             raise
         except ValueError as exc:

@@ -54,6 +54,7 @@ def obj(properties):
 
 
 STRING = {'type': 'string'}
+NONBLANK_STRING = {'type': 'string', 'pattern': r'\S'}
 STRINGS = {'type': 'array', 'items': STRING}
 FACT_SCHEMA = obj({'known_fact_id': STRING, 'text_pl': STRING, 'article_ids': STRINGS, 'why_new_pl': STRING})
 COVERAGE_SCHEMA = obj({
@@ -80,16 +81,24 @@ def allowed_strings(values):
 
 
 def extraction_schema(known, article_ids=()):
-    """First extraction cannot invent known IDs; confirmations never rewrite text."""
+    """Constrain exact evidence IDs and separate new claims from confirmations."""
     schema = copy.deepcopy(EXTRACTION_SCHEMA)
     new_fact = copy.deepcopy(FACT_SCHEMA)
     new_fact['properties']['known_fact_id'] = {'type': 'string', 'enum': ['']}
+    new_fact['properties']['text_pl'] = copy.deepcopy(NONBLANK_STRING)
+    new_fact['properties']['article_ids'] = allowed_strings(article_ids)
+    if article_ids:
+        new_fact['properties']['article_ids']['minItems'] = 1
     items = new_fact
     if known:
+        new_fact['properties']['why_new_pl'] = copy.deepcopy(NONBLANK_STRING)
         confirmation = copy.deepcopy(FACT_SCHEMA)
         confirmation['properties']['known_fact_id'] = {'type': 'string', 'enum': sorted({f['fact_id'] for f in known})}
         confirmation['properties']['text_pl'] = {'type': 'string', 'enum': ['']}
         confirmation['properties']['why_new_pl'] = {'type': 'string', 'enum': ['']}
+        confirmation['properties']['article_ids'] = allowed_strings([
+            *article_ids, *(aid for f in known for aid in f['article_ids'])])
+        confirmation['properties']['article_ids']['minItems'] = 1
         items = {'anyOf': [new_fact, confirmation]}
     schema['properties']['facts']['items'] = items
     schema['properties']['article_coverage'] = obj({str(aid): copy.deepcopy(COVERAGE_SCHEMA) for aid in article_ids})
@@ -102,6 +111,11 @@ def writing_schema(main):
     schema['properties']['paragraphs']['items']['properties']['fact_ids'] = allowed_strings(f['fact_id'] for f in main)
     if not main:
         schema['properties']['paragraphs']['maxItems'] = 0
+    else:
+        schema['properties']['paragraphs']['minItems'] = 1
+        schema['properties']['paragraphs']['items']['properties']['text_pl'] = copy.deepcopy(NONBLANK_STRING)
+        schema['properties']['paragraphs']['items']['properties']['fact_ids']['minItems'] = 1
+        schema['properties']['general_context']['properties']['text_pl'] = copy.deepcopy(NONBLANK_STRING)
     schema['properties']['general_context']['properties']['article_ids'] = allowed_strings(article_ids)
     schema['properties']['background_context']['items']['properties']['article_ids'] = allowed_strings(article_ids)
     return schema
@@ -173,6 +187,11 @@ Dla nowego faktu known_fact_id=""; przy poprzedniej syntezie why_new_pl musi
 konkretnie wyjaśniać, jakiej informacji nie było w previous_facts. Dla znanego
 why_new_pl="". Także wcześniej przetworzony artykuł może ponownie potwierdzać
 znany fakt: zwróć ten fakt z known_fact_id, nie nazywaj go nową informacją.
+Nie zostawiaj pustego why_new_pl przy nowym ustaleniu, jeśli previous_facts
+nie jest puste. Jeżeli nie umiesz wskazać nowej informacji względem znanych
+ustaleń, sprawdź, czy to potwierdzenie jednego z nich, zamiast wymyślać powód.
+W article_ids kopiuj identyfikatory DOKŁADNIE, znak po znaku, z all_articles
+lub potwierdzeń danego znanego faktu. Nie poprawiaj i nie odgaduj ID.
 Pusta lista facts jest poprawna tylko gdy żaden artykuł bieżącej paczki nie
 zawiera istotnego nowego ANI znanego ustalenia o wydarzeniu. Nie usuwaj ani nie zmieniaj
 wcześniejszych ustaleń. Kategorie: POLSKA, POLITYKA, SWIAT, GOSPODARKA,
@@ -225,7 +244,10 @@ ogólne tło wydarzenia, gdzie się dzieje i dlaczego ma znaczenie. Dla inwestyc
 wyjaśnij m.in. położenie, co z czym łączy i czemu służy. Korzystaj z main_facts
 oraz ostrożnie z wiedzy ogólnej; nie przenoś tam doniesień innych perspektyw.
 Gdy main_facts jest puste, wykorzystaj tylko tytuł do neutralnego objaśnienia
-geografii/pojęć; nie dodawaj twierdzeń o bieżącym wydarzeniu. Nie wymyślaj tła.
+geografii/pojęć; nie dodawaj twierdzeń o bieżącym wydarzeniu. Jeżeli nie ma
+podstaw do takiego objaśnienia, general_context.text_pl="", article_ids=[]
+i background_context=[] są poprawne. Brak wspólnych ustaleń jest poprawnym
+wynikiem, nie powodem do wymyślania syntezy ani kontekstu.
 background_context: wypunktuj osoby i organizacje występujące w main_facts lub
 syntezie, z krótkim objaśnieniem ich roli, chyba że zostało to już wyjaśnione.
 PERSON oznacza człowieka, ORGANIZATION firmę/agencję/instytucję; Donald Trump
@@ -368,7 +390,60 @@ def validate_article_coverage(response, batch):
         raise ValueError('Ekstrakcja faktów pominęła artykuły bieżącej paczki.')
     response['article_coverage'] = normalized
 
-def generate(payload, call, normalize, *, max_payload_chars=300000):
+
+CORRECTION_INSTRUCTIONS = '''
+Poprzednia odpowiedź nie przeszła kontroli kodu. validation_feedback zawiera
+konkretny błąd i response_to_correct. Popraw tę odpowiedź na podstawie tych
+samych danych i zwróć cały wymagany JSON. Zachowaj poprawne ustalenia i ich
+rzeczywiste potwierdzenia. Nie pomijaj faktów tylko po to, by ominąć błąd.
+Nie zgaduj źródła na podstawie podobieństwa identyfikatorów: sprawdź treść
+artykułu i skopiuj jego dokładny article_id. Nie dodawaj niepotwierdzonych
+cytowań. Przy nowych ustaleniach porównaj treść z previous_facts: znane
+twierdzenie oznacz istniejącym known_fact_id (text_pl="", why_new_pl=""),
+a rzeczywistą nowość konkretnie uzasadnij w why_new_pl. Nie twórz pozornego
+uzasadnienia dla parafrazy znanej informacji. Kontekst i akapity nadal mogą
+korzystać wyłącznie ze wspólnej części według pierwotnych instrukcji.
+'''.strip()
+
+
+def validated_call(call, instructions, data, schema, name, validate, on_retry):
+    """One correction of a semantically invalid response, only in that phase.
+
+    API/transport failures retain their existing retry policy. Never weaken
+    validation, guess evidence IDs, or commit a partial batch on failure.
+    """
+    response = call(instructions, data, schema, name)
+    original = copy.deepcopy(response)
+    try:
+        return response, validate(response)
+    except ValueError as exc:
+        if on_retry:
+            on_retry(name, str(exc))
+        feedback = {'validation_error_pl': str(exc), 'response_to_correct': original}
+    corrected = call(instructions + '\n\n' + CORRECTION_INSTRUCTIONS,
+                     {**data, 'validation_feedback': feedback}, schema, name)
+    return corrected, validate(corrected)
+
+
+def validate_written(written, main):
+    allowed = {f['fact_id'] for f in main}
+    paragraphs = written.get('paragraphs')
+    if not isinstance(paragraphs, list) or bool(paragraphs) != bool(main):
+        raise ValueError('Synteza musi odpowiadać dostępności wspólnych ustaleń.')
+    for paragraph in paragraphs:
+        if (not str(paragraph.get('text_pl') or '').strip() or not paragraph.get('fact_ids')
+                or not set(paragraph['fact_ids']) <= allowed):
+            raise ValueError('Akapit syntezy odwołuje się do faktów spoza wspólnej części.')
+    main_article_ids = {i for f in main for i in f['article_ids']}
+    contexts = [written.get('general_context') or {}, *(written.get('background_context') or [])]
+    if main and not str(contexts[0].get('text_pl') or '').strip():
+        raise ValueError('Brak ogólnego kontekstu tematu.')
+    for item in contexts:
+        if not set(item.get('article_ids') or []) <= main_article_ids:
+            raise ValueError('Kontekst odwołuje się do materiałów spoza wspólnej części.')
+
+
+def generate(payload, call, normalize, *, max_payload_chars=300000, on_validation_retry=None):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
     previous_base = (previous or {}).get('base_summary') or {}
@@ -381,11 +456,14 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
     while offset < len(prepared):
         base = {'topic': payload['topic'], 'previous_facts': facts}
         batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
-        extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch},
-                         extraction_schema(facts, [a['article_id'] for a in batch]), 'perspective_facts')
-        validate_batch_citations(extracted, batch, facts, normalize)
-        validate_article_coverage(extracted, batch)
-        mode, facts = route_facts(extracted, articles, facts, normalize)
+        def validate_extracted(response):
+            validate_batch_citations(response, batch, facts, normalize)
+            validate_article_coverage(response, batch)
+            return route_facts(response, articles, facts, normalize)
+        extracted, (mode, facts) = validated_call(
+            call, EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch},
+            extraction_schema(facts, [a['article_id'] for a in batch]), 'perspective_facts',
+            validate_extracted, on_validation_retry)
         headline = headline or extracted['headline_pl']
         categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
     main = [f for f in facts if f['lane'] == 'COMMON']
@@ -409,30 +487,18 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
         main_article_ids = {i for f in main for i in f['article_ids']}
         sources = [{key: a.get(key) for key in ('article_id', 'source_name', 'published_at')}
                    for a in articles if str(a['article_id']) in main_article_ids]
-        written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main, 'main_sources': sources},
-                       writing_schema(main), 'perspective_summary')
-        allowed = {f['fact_id'] for f in main}
-        paragraphs = written.get('paragraphs')
-        if not isinstance(paragraphs, list) or bool(paragraphs) != bool(main):
-            raise ValueError('Synteza musi odpowiadać dostępności wspólnych ustaleń.')
-        for p in paragraphs:
-            if not str(p.get('text_pl') or '').strip() or not p.get('fact_ids') or not set(p['fact_ids']) <= allowed:
-                raise ValueError('Akapit syntezy odwołuje się do faktów spoza wspólnej części.')
-        main_article_ids = {i for f in main for i in f['article_ids']}
-        contexts = [written.get('general_context') or {}, *(written.get('background_context') or [])]
-        if not str(contexts[0].get('text_pl') or '').strip():
-            raise ValueError('Brak ogólnego kontekstu tematu.')
-        for item in contexts:
-            if not set(item.get('article_ids') or []) <= main_article_ids:
-                raise ValueError('Kontekst odwołuje się do materiałów spoza wspólnej części.')
+        written, _ = validated_call(
+            call, WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main, 'main_sources': sources},
+            writing_schema(main), 'perspective_summary', lambda response: validate_written(response, main),
+            on_validation_retry)
         headline = normalize(headline)
         if re.search(r'[\u0400-\u052f\u2de0-\u2dff\ua640-\ua69f]', headline):
             raise ValueError('Tytuł perspektyw zawiera cyrylicę.')
         result = {'topic': {'headline_pl': headline,
                             'what_happened_one_sentence_pl': main[0]['text_pl'] if main else '',
                             'categories': categories},
-                  'summary_pl': '\n\n'.join(normalize(p['text_pl']) for p in paragraphs),
-                  'general_context': written.get('general_context'),
+                  'summary_pl': '\n\n'.join(normalize(p['text_pl']) for p in written['paragraphs']),
+                  'general_context': written.get('general_context') if str((written.get('general_context') or {}).get('text_pl') or '').strip() else None,
                   'background_context': written.get('background_context') or [],
                   'synthesis_coverage_mode': mode}
     sections = {lane: [f for f in facts if f['lane'] == lane] for lane in ('LEFT', 'RIGHT', 'STATE')}

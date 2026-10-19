@@ -236,3 +236,37 @@ w diagnostyce pokrycia oraz ostrzegamy w logach. Nie odrzucamy przez ten
 brak całego opracowania, nie uznajemy artykułu za nieistotny i nie dopisujemy
 mu automatycznie żadnego potwierdzenia. Nie dodajemy wywołań AI.
 Przypadki z rzeczywistych logów są utrwalone w test_data i testowane bez API.
+
+## Ścisłe cytowania i pojedyncza korekta odpowiedzi
+
+Od v63 nowe fakty mogą cytować wyłącznie dokładne article_ids z wysłanej
+paczki. Potwierdzenia znanych faktów mogą ponadto zachować wcześniejsze
+cytowania; kod nadal sprawdza ten warunek osobno dla każdego faktu. Nie ma
+dopasowywania podobnych identyfikatorów ani automatycznego zmieniania źródła.
+Schemat wymaga niepustej treści nowego faktu, a przy istniejącym rejestrze
+także niepustego why_new_pl. Potwierdzenia mają pustą treść i uzasadnienie,
+bo kod przywraca ich niezmieniony, znany tekst.
+
+Jeśli odpowiedź ekstrakcji lub pisania nie przejdzie walidacji semantycznej,
+ponawiamy tylko ten etap jeden raz. Model dostaje konkretne zastrzeżenie,
+wadliwą odpowiedź i te same dane wejściowe, w tym pełne treści artykułów
+przy ekstrakcji. Musi ponownie sprawdzić źródło lub nowość ustalenia;
+kod nie dopisuje uzasadnień. Ponowna wadliwa odpowiedź kończy temat błędem
+z diagnostyką, bez zapisywania częściowego opracowania. Poprawne odpowiedzi
+nie powodują dodatkowych zapytań. Błędy transportu mają osobną dotychczasową
+politykę ponowień. Aktualizacja nadal nie wywołuje pisania syntezy i nie
+zmienia opublikowanego tekstu ani kontekstu.
+
+Przy braku wspólnych faktów paragraphs=[] jest wymagane. Kontekst może być
+pusty, jeśli tytuł nie daje podstaw do neutralnego objaśnienia; nie jest to
+błąd ani powód do wymyślania tła. Zachowujemy fakty poszczególnych perspektyw,
+a strona pokazuje komunikat o braku wspólnych informacji zamiast zakładek
+głównej syntezy/faktów. Jeśli wspólne fakty istnieją, ogólny kontekst nadal
+jest obowiązkowy. STATE_ONLY w dalszym ciągu nie wywołuje pisania w ogóle.
+
+Testy regresji odtwarzają cztery wadliwe odpowiedzi z Actions 39236469690,
+wraz z rzeczywistymi profilami źródeł i wcześniejszym rejestrem faktów
+z publicznego eksportu. Odpowiedzi naprawcze są symulowane; testy nie
+wywołują OpenAI ani nie modyfikują bazy. Uruchomienie:
+`python -m pip install -r requirements-dev.txt`, następnie
+`python -m unittest discover -p 'test_*.py'`.

@@ -213,7 +213,7 @@ class PerspectiveTests(unittest.TestCase):
                     'article_coverage':[{'article_id':'l','fact_indexes':[0],'no_relevant_facts_reason_pl':''}]}
         with self.assertRaisesRegex(ValueError,'pominęła artykuły'):
             p.generate({'topic':{},'all_articles':[article('l','LEFT'),article('r','RIGHT')]},call,ai.normalize_generated_text)
-        self.assertEqual(calls,['perspective_facts'])
+        self.assertEqual(calls,['perspective_facts','perspective_facts'])
 
     def test_atomic_decisions_and_distinct_count_scopes_keep_their_own_support(self):
         rows=[article('l','LEFT'),article('r','RIGHT'),article('c','CENTER')]

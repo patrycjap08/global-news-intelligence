@@ -1,0 +1,1383 @@
+[
+  {
+    "workflow_run_id": 39236469690,
+    "case": "article_id_typo",
+    "response": {
+      "headline_pl": "[Świat] Atak na konwój z polskimi dyplomatami",
+      "categories": [
+        "SWIAT"
+      ],
+      "facts": [
+        {
+          "known_fact_id": "",
+          "text_pl": "Zatrzymano ośmiu podejrzanych o udział w weekendowych atakach izraelskich osadników na Zachodnim Brzegu; wszyscy zatrzymani to izraelscy osadnicy.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97d",
+            "c4be82e075fbd71c666ac729",
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": "W poprzedniej paczce nie było ustaleń o liczbie zatrzymanych ani ich tożsamości; ten fakt określa ich liczbę i charakter."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Zatrzymano dziesięciu podejrzanych o udział w atakach w Zachodnim Brzegu; akcja prowadzona była pod kryptonimem Liść oliwny.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "e3d153c0475703da9f662482"
+          ],
+          "why_new_pl": "W poprzednich ustaleniach nie było informacji o liczbie 10; ten fakt potwierdza liczbę aresztowanych."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Dziennikarka Heidi Levine z The Washington Post została zaatakowana przez zamaskowanych osadników podczas relacjonowania zbiorów oliwek na Zachodnim Brzegu; Levine została hospitalizowana i przeszła operację palca.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "8846f889b81b4bc313fac97d",
+            "c4be82e075fbd71c666ac729",
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": "Informacja o bezpośredniej napaści na Levine była potwierdzona przez kilka źródeł; wcześniej nie było ustaleń o tym incydencie w paczce."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "W sobotę doszło do ataku na konwój dyplomatów na Zachodnim Brzegu w Taybeh; w pojazdach znajdowali się polscy dyplomaci, a atak miał miejsce podczas wizyty.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97d",
+            "c4be82e075fbd71c666ac729",
+            "d94c588fac0f726fba054e62",
+            "e3d153c0475703da9f662482",
+            "40825bda390776e7cba79481"
+          ],
+          "why_new_pl": "To kluczowy element relacji: konwój dyplomatów europejskich w tym Polaków był celem ataku podczas wizyty na Zachodnim Brzegu; potwierdzają to większość źródeł."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Polskie MSZ potępia atak izraelskich osadników na konwój oraz apeluje o powstrzymanie przemocy i pociągnięcie sprawców do odpowiedzialności.",
+          "article_ids": [
+            "453f5b82ec86d562b2bc093d",
+            "8846f889b81b4bc313fac97d",
+            "c4be82e075fbd71c666ac729",
+            "d94c588fac0f726fba054e62",
+            "40825bda390776e7cba79481"
+          ],
+          "why_new_pl": "MSZ wydało stanowisko potępiające atak i wezwało do odpowiedzialności; inne źródła także potwierdzają stanowisko państwowych władz."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Israelski premier Benjamin Netanyahu był ostrożny w ocenach, stwierdzając, że dyplomaci weszli na „wrażliwy obszar o historii konfliktów bez wcześniejszej koordynacji” z armią, a okoliczności napaści na Levine były „niejasne.”",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "c4be82e075fbd71c666ac729"
+          ],
+          "why_new_pl": "Kwestia interpretacji incydentu była podnoszona przez różne źródła; ta informacja pochodzi z wypowiedzi najważniejszych stron."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Prezydent Izraela Isaac Herzog przeprosił za incydenty, mówiąc, że „nawet jeśli doszło do przemocy, nie odzwierciedla wartości Izraela”.",
+          "article_ids": [
+            "40825bda390776e7cba79481"
+          ],
+          "why_new_pl": "Wyjątkowo istotny gest państwowy, potwierdzony w źródle. Do tej pory nie było wcześniejszych ustaleń o tym przeproszeniu w poprzedniej paczce."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Według danych ONZ, do połowy września 2026 roku odnotowano ponad 1600 ataków osadników na Palestyńczyków i ich mienie.",
+          "article_ids": [
+            "d94c588fac0f726fba054e62"
+          ],
+          "why_new_pl": "Konkretna liczba ataków według ONZ pojawia się w tej relacji; nie była podana wcześniej."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Wideo opublikowane przez policję pokazało, że jeden z aresztowanych nosił frędzle tzitzit; przy jednym z lokali znaleziono także dwa proce (slingshots).",
+          "article_ids": [
+            "40825bda390776e7cba79481"
+          ],
+          "why_new_pl": "Szczegół wizualny dotyczący ubioru i dowodów materialnych został ujawniony w źródle; nie było to wcześniej ustalone."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Według danych Yesh Din od 27 września 2026 roku doszło do co najmniej 170 ataków osadników na Palestyńczyków.",
+          "article_ids": [
+            "40825bda390776e7cba79481"
+          ],
+          "why_new_pl": "Podane dane liczebne przez organizację praw człowieka pojawiają się w jednym źródle; nie były wcześniej zestawione w paczce."
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Pojazd dyplomatyczny Belgii został uszkodzony podczas ataku na konwój.",
+          "article_ids": [
+            "40825bda390776e7cba79481",
+            "8846f889b81b4bc313fac97d"
+          ],
+          "why_new_pl": "Informacja o uszkodzeniu konkretnego pojazdu vi Belgi została odnotowana w źródłach; nie była wcześniej ujęta."
+        }
+      ],
+      "article_coverage": {
+        "40825bda390776e7cba79481": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "453f5b82ec86d562b2bc093d": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "8846f889b81b4bc313fac97c": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "c4be82e075fbd71c666ac729": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "d94c588fac0f726fba054e62": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "e3d153c0475703da9f662482": {
+          "no_relevant_facts_reason_pl": ""
+        }
+      }
+    },
+    "articles": [
+      {
+        "article_id": "40825bda390776e7cba79481",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "NBC News"
+      },
+      {
+        "article_id": "453f5b82ec86d562b2bc093d",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Do Rzeczy"
+      },
+      {
+        "article_id": "8846f889b81b4bc313fac97c",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Polsat News"
+      },
+      {
+        "article_id": "c4be82e075fbd71c666ac729",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "WP"
+      },
+      {
+        "article_id": "d94c588fac0f726fba054e62",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "TVN24"
+      },
+      {
+        "article_id": "e3d153c0475703da9f662482",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "France 24"
+      }
+    ]
+  },
+  {
+    "workflow_run_id": 39236469690,
+    "case": "missing_novelty_reason",
+    "response": {
+      "headline_pl": "[Francja] Minister rezygnuje, Macron odmawia jej przyjęcia",
+      "categories": [
+        "POLITYKA",
+        "SWIAT"
+      ],
+      "facts": [
+        {
+          "known_fact_id": "fact_af5c9b1ddeb8f710f3a91503",
+          "text_pl": "",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "dfe44f608a5e4062b670f674",
+            "52a0df0542cec54ddcbbc8e2",
+            "a93dae5e3ab67599f63885ef",
+            "58ed002038d3e531245bc60d",
+            "938a7226d692e1770b9625ce",
+            "7dcb73a8263d4dfc82550e25"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_67555c359d6d17099e57bec2",
+          "text_pl": "",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "dfe44f608a5e4062b670f674",
+            "58ed002038d3e531245bc60d",
+            "938a7226d692e1770b9625ce",
+            "52a0df0542cec54ddcbbc8e2",
+            "a93dae5e3ab67599f63885ef",
+            "fe3bfea568989500e86e44dc"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_5f67f6d2934495ed7f3d14b7",
+          "text_pl": "",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "58ed002038d3e531245bc60d",
+            "a93dae5e3ab67599f63885ef",
+            "fe3bfea568989500e86e44dc"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_3c05126a546ad296ca4f2f07",
+          "text_pl": "",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "dfe44f608a5e4062b670f674",
+            "58ed002038d3e531245bc60d",
+            "a93dae5e3ab67599f63885ef",
+            "88c8b8dc81f982ee175437cf"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_c2625ea03331fed3029ccfaf",
+          "text_pl": "",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "58ed002038d3e531245bc60d",
+            "a93dae5e3ab67599f63885ef",
+            "88c8b8dc81f982ee175437cf",
+            "938a7226d692e1770b9625ce"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_3f54c31c6771ab2235ddd482",
+          "text_pl": "",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "7dcb73a8263d4dfc82550e25",
+            "58ed002038d3e531245bc60d",
+            "a93dae5e3ab67599f63885ef"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "W Paryżu w niedzielę zatrzymano 350 osób.",
+          "article_ids": [
+            "1618939f187486573dd69255"
+          ],
+          "why_new_pl": "Nowa informacja potwierdzona w artykule Polsat News"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Szacunki liczby uczestników demonstracji w całym kraju: setki tysięcy, a ostatecznie około 500 tysięcy.",
+          "article_ids": [
+            "58ed002038d3e531245bc60d",
+            "182aa7739d9d31ff3c3b84c0",
+            "938a7226d692e1770b9625ce",
+            "7dcb73a8263d4dfc82550e25",
+            "1618939f187486573dd69255"
+          ],
+          "why_new_pl": "Nowa informacja, potwierdzona przez wiele źródeł"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Macron zażądał od Nuñeza natychmiastowego wprowadzenia nowych metod działania sił bezpieczeństwa przeciwko chuliganom.",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "58ed002038d3e531245bc60d",
+            "f585c257bcdfd967b849adb9"
+          ],
+          "why_new_pl": "Nowa informacja potwierdzona w artykułach"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Minister spraw wewnętrznych Laurent Nuñez przyznał, że jego plan był, w niektórych aspektach, asymetryczny w stosunku do liczby uczestników demonstracji.",
+          "article_ids": [
+            "dfe44f608a5e4062b670f674",
+            "58ed002038d3e531245bc60d",
+            "fe3bfea568989500e86e44dc",
+            "afaf2bdba735b4968133abc9"
+          ],
+          "why_new_pl": "Nowa informacja potwierdzona w wywiadach"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Nad ranem poniedziałku prezydent Macron nie przyjął rezygnacji Laurenta Nuñeza i polecił mu pozostanie na stanowisku.",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "182aa7739d9d31ff3c3b84c0",
+            "58ed002038d3e531245bc60d",
+            "fe3bfea568989500e86e44dc"
+          ],
+          "why_new_pl": "Nowa informacja potwierdzona w artykułach"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Limoges: spłonął zabytkowy ratusz w mieście.",
+          "article_ids": [
+            "1618939f187486573dd69255",
+            "88c8b8dc81f982ee175437cf",
+            "a93dae5e3ab67599f63885ef"
+          ],
+          "why_new_pl": "Nowa informacja potwierdzona w artykułach"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Liczba zatrzymanych w sobotę i niedzielę wyniosła około 2 400 osób.",
+          "article_ids": [
+            "58ed002038d3e531245bc60d",
+            "938a7226d692e1770b9625ce",
+            "a93dae5e3ab67599f63885ef",
+            "1618939f187486573dd69255"
+          ],
+          "why_new_pl": "Nowa informacja potwierdzona w artykułach"
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Ranny personelu policji i służb porządkowych – liczba została podana w źródłach jako 997 osób rannych.",
+          "article_ids": [
+            "938a7226d692e1770b9625ce",
+            "58ed002038d3e531245bc60d",
+            "fe3bfea568989500e86e44dc",
+            "a93dae5e3ab67599f63885ef"
+          ],
+          "why_new_pl": ""
+        }
+      ],
+      "article_coverage": {
+        "1618939f187486573dd69255": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "182aa7739d9d31ff3c3b84c0": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "52a0df0542cec54ddcbbc8e2": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "58ed002038d3e531245bc60d": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "7dcb73a8263d4dfc82550e25": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "88c8b8dc81f982ee175437cf": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "938a7226d692e1770b9625ce": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "a93dae5e3ab67599f63885ef": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "afaf2bdba735b4968133abc9": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "dfe44f608a5e4062b670f674": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "f585c257bcdfd967b849adb9": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "fe3bfea568989500e86e44dc": {
+          "no_relevant_facts_reason_pl": ""
+        }
+      }
+    },
+    "articles": [
+      {
+        "article_id": "1618939f187486573dd69255",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Polsat News"
+      },
+      {
+        "article_id": "182aa7739d9d31ff3c3b84c0",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "EFE"
+      },
+      {
+        "article_id": "52a0df0542cec54ddcbbc8e2",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "WP"
+      },
+      {
+        "article_id": "58ed002038d3e531245bc60d",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Euronews"
+      },
+      {
+        "article_id": "7dcb73a8263d4dfc82550e25",
+        "source_profile": "LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Guardian"
+      },
+      {
+        "article_id": "88c8b8dc81f982ee175437cf",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Rzeczpospolita"
+      },
+      {
+        "article_id": "938a7226d692e1770b9625ce",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "El País"
+      },
+      {
+        "article_id": "a93dae5e3ab67599f63885ef",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "TVN24"
+      },
+      {
+        "article_id": "afaf2bdba735b4968133abc9",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "El Mundo"
+      },
+      {
+        "article_id": "dfe44f608a5e4062b670f674",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Niezależna"
+      },
+      {
+        "article_id": "f585c257bcdfd967b849adb9",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "France 24"
+      },
+      {
+        "article_id": "fe3bfea568989500e86e44dc",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Der Spiegel"
+      }
+    ],
+    "previous_aggregation": {
+      "base_summary": {
+        "facts": [
+          {
+            "text_pl": "Laurent Nunez złożył rezygnację ze stanowiska ministra spraw wewnętrznych Francji.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "text_pl": "Prezydent Emmanuel Macron nie przyjął rezygnacji Laurenta Nuneza i polecił mu pozostanie na stanowisku, aby zapewnić ciągłość dowodzenia w policji i służbach bezpieczeństwa.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "text_pl": "W sobotę demonstracje w całej Francji przerodziły się w zamieszki; demonstranci atakowali budynki publiczne, plądrowali sklepy; w Limoges spłonął zabytkowy ratusz.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          }
+        ],
+        "topic": {
+          "categories": [
+            "SWIAT",
+            "POLITYKA"
+          ],
+          "headline_pl": "[Francja] Minister złożył rezygnację, Macron nie przyjął jej",
+          "what_happened_one_sentence_pl": "Laurent Nunez złożył rezygnację ze stanowiska ministra spraw wewnętrznych Francji."
+        },
+        "update": {
+          "status": "BASE_SUMMARY",
+          "is_update": false,
+          "new_article_ids": [],
+          "what_changed_pl": "",
+          "new_information_pl": ""
+        },
+        "quality": {
+          "source_count": 0,
+          "article_count": 0,
+          "limitations_pl": "",
+          "overall_confidence": "MEDIUM",
+          "has_multiple_perspectives": false
+        },
+        "sources": [],
+        "agreement": [],
+        "summary_pl": "Laurent Nunez złożył rezygnację ze stanowiska ministra spraw wewnętrznych Francji.\n\nMacron nie przyjął rezygnacji Laurenta Nuneza i polecił mu pozostanie na stanowisku, aby zapewnić ciągłość dowodzenia w policji i służbach bezpieczeństwa.\n\nW sobotę demonstracje w całej Francji przerodziły się w zamieszki; demonstranci atakowali budynki publiczne, plądrowali sklepy; w Limoges spłonął zabytkowy ratusz.",
+        "differences": [],
+        "coverage_mode": "MIXED",
+        "contradictions": [],
+        "reader_context": [],
+        "shared_available": true,
+        "perspective_facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_af5c9b1ddeb8f710f3a91503",
+            "text_pl": "Laurent Nunez złożył rezygnację ze stanowiska ministra spraw wewnętrznych Francji.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_67555c359d6d17099e57bec2",
+            "text_pl": "Prezydent Emmanuel Macron nie przyjął rezygnacji Laurenta Nuneza i polecił mu pozostanie na stanowisku, aby zapewnić ciągłość dowodzenia w policji i służbach bezpieczeństwa.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_5f67f6d2934495ed7f3d14b7",
+            "text_pl": "W niedzielnym orędziu Macron zapowiedział konsekwencje wobec sprawców aktów przemocy i plądrowania; dodał, że setki tysięcy obywateli demonstruje z uzasadnionymi żądaniami.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_3c05126a546ad296ca4f2f07",
+            "text_pl": "W sobotę demonstracje w całej Francji przerodziły się w zamieszki; demonstranci atakowali budynki publiczne, plądrowali sklepy; w Limoges spłonął zabytkowy ratusz.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_c2625ea03331fed3029ccfaf",
+            "text_pl": "W sobotę zatrzymano ponad 2400 osób.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_3f54c31c6771ab2235ddd482",
+            "text_pl": "W demonstracjach w całym kraju w sobotę uczestniczyło setki tysięcy osób.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "7dcb73a8263d4dfc82550e25"
+            ]
+          }
+        ],
+        "background_context": [
+          {
+            "text_pl": "**Ogólny kontekst**\n\nWydarzenia dotyczą Francji: rezygnacja ministra spraw wewnętrznych, próba jej przyjęcia przez prezydenta i towarzyszące temu protesty; sytuacja ma znaczenie z powodu roli służb porządku publicznego.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ],
+            "entity_type": "BACKGROUND",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Osoba — Laurent Nunez – minister spraw wewnętrznych Francji, który złożył rezygnację.",
+            "article_ids": [],
+            "entity_type": "PERSON",
+            "needs_verification": true
+          },
+          {
+            "text_pl": "Osoba — Emmanuel Macron – prezydent Francji, nie przyjął rezygnacji i poprosił o pozostanie na stanowisku.",
+            "article_ids": [],
+            "entity_type": "PERSON",
+            "needs_verification": true
+          },
+          {
+            "text_pl": "Organizacja — policja – siły porządkowe odpowiedzialne za utrzymanie bezpieczeństwa i ciągłość dowodzenia.",
+            "article_ids": [],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": true
+          },
+          {
+            "text_pl": "Organizacja — służby bezpieczeństwa – zaplecze instytucjonalne wspierające policję w działaniach ochronnych.",
+            "article_ids": [],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": true
+          }
+        ],
+        "perspective_version": 1,
+        "perspective_sections": {
+          "LEFT": [
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_5f67f6d2934495ed7f3d14b7",
+              "text_pl": "W niedzielnym orędziu Macron zapowiedział konsekwencje wobec sprawców aktów przemocy i plądrowania; dodał, że setki tysięcy obywateli demonstruje z uzasadnionymi żądaniami.",
+              "article_ids": [
+                "a93dae5e3ab67599f63885ef"
+              ]
+            },
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_c2625ea03331fed3029ccfaf",
+              "text_pl": "W sobotę zatrzymano ponad 2400 osób.",
+              "article_ids": [
+                "a93dae5e3ab67599f63885ef"
+              ]
+            },
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_3f54c31c6771ab2235ddd482",
+              "text_pl": "W demonstracjach w całym kraju w sobotę uczestniczyło setki tysięcy osób.",
+              "article_ids": [
+                "a93dae5e3ab67599f63885ef",
+                "7dcb73a8263d4dfc82550e25"
+              ]
+            }
+          ],
+          "RIGHT": [],
+          "STATE": []
+        },
+        "synthesis_coverage_mode": "MIXED",
+        "potential_manipulation_signals": []
+      },
+      "perspective_state": {
+        "facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_af5c9b1ddeb8f710f3a91503",
+            "text_pl": "Laurent Nunez złożył rezygnację ze stanowiska ministra spraw wewnętrznych Francji.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_67555c359d6d17099e57bec2",
+            "text_pl": "Prezydent Emmanuel Macron nie przyjął rezygnacji Laurenta Nuneza i polecił mu pozostanie na stanowisku, aby zapewnić ciągłość dowodzenia w policji i służbach bezpieczeństwa.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_3c05126a546ad296ca4f2f07",
+            "text_pl": "W sobotę demonstracje w całej Francji przerodziły się w zamieszki; demonstranci atakowali budynki publiczne, plądrowali sklepy; w Limoges spłonął zabytkowy ratusz.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          }
+        ],
+        "coverage_mode": "MIXED",
+        "shared_available": true,
+        "perspective_facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_af5c9b1ddeb8f710f3a91503",
+            "text_pl": "Laurent Nunez złożył rezygnację ze stanowiska ministra spraw wewnętrznych Francji.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_67555c359d6d17099e57bec2",
+            "text_pl": "Prezydent Emmanuel Macron nie przyjął rezygnacji Laurenta Nuneza i polecił mu pozostanie na stanowisku, aby zapewnić ciągłość dowodzenia w policji i służbach bezpieczeństwa.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_5f67f6d2934495ed7f3d14b7",
+            "text_pl": "W niedzielnym orędziu Macron zapowiedział konsekwencje wobec sprawców aktów przemocy i plądrowania; dodał, że setki tysięcy obywateli demonstruje z uzasadnionymi żądaniami.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_3c05126a546ad296ca4f2f07",
+            "text_pl": "W sobotę demonstracje w całej Francji przerodziły się w zamieszki; demonstranci atakowali budynki publiczne, plądrowali sklepy; w Limoges spłonął zabytkowy ratusz.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "dfe44f608a5e4062b670f674"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_c2625ea03331fed3029ccfaf",
+            "text_pl": "W sobotę zatrzymano ponad 2400 osób.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_3f54c31c6771ab2235ddd482",
+            "text_pl": "W demonstracjach w całym kraju w sobotę uczestniczyło setki tysięcy osób.",
+            "article_ids": [
+              "a93dae5e3ab67599f63885ef",
+              "7dcb73a8263d4dfc82550e25"
+            ]
+          }
+        ],
+        "perspective_version": 1,
+        "perspective_sections": {
+          "LEFT": [
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_5f67f6d2934495ed7f3d14b7",
+              "text_pl": "W niedzielnym orędziu Macron zapowiedział konsekwencje wobec sprawców aktów przemocy i plądrowania; dodał, że setki tysięcy obywateli demonstruje z uzasadnionymi żądaniami.",
+              "article_ids": [
+                "a93dae5e3ab67599f63885ef"
+              ]
+            },
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_c2625ea03331fed3029ccfaf",
+              "text_pl": "W sobotę zatrzymano ponad 2400 osób.",
+              "article_ids": [
+                "a93dae5e3ab67599f63885ef"
+              ]
+            },
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_3f54c31c6771ab2235ddd482",
+              "text_pl": "W demonstracjach w całym kraju w sobotę uczestniczyło setki tysięcy osób.",
+              "article_ids": [
+                "a93dae5e3ab67599f63885ef",
+                "7dcb73a8263d4dfc82550e25"
+              ]
+            }
+          ],
+          "RIGHT": [],
+          "STATE": []
+        }
+      }
+    }
+  },
+  {
+    "workflow_run_id": 39236469690,
+    "case": "empty_context_without_common_facts",
+    "response": {
+      "paragraphs": [],
+      "general_context": {
+        "text_pl": "",
+        "article_ids": [],
+        "needs_verification": false
+      },
+      "background_context": []
+    },
+    "articles": []
+  },
+  {
+    "workflow_run_id": 39236469690,
+    "case": "missing_novelty_reasons_after_merge",
+    "response": {
+      "headline_pl": "[Ukraina] Brak ostrzeżenia przed rosyjskim atakiem balistycznym",
+      "categories": [
+        "SWIAT"
+      ],
+      "facts": [
+        {
+          "known_fact_id": "fact_aae2b9e3234ac3b3422e90c4",
+          "text_pl": "",
+          "article_ids": [
+            "b74a5bfb6a3b2de8d76a34e5",
+            "fc1f82d8295d1b2e0ca9182a"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_848f0f609c84fc40879c7d34",
+          "text_pl": "",
+          "article_ids": [
+            "b74a5bfb6a3b2de8d76a34e5"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_4ec73c8f98df9bc57cee47a1",
+          "text_pl": "",
+          "article_ids": [
+            "fc1f82d8295d1b2e0ca9182a"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_2f0c8356aa720dc8233f6628",
+          "text_pl": "",
+          "article_ids": [
+            "fc1f82d8295d1b2e0ca9182a"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_2a877d9b6f16feea994f1209",
+          "text_pl": "",
+          "article_ids": [
+            "fc1f82d8295d1b2e0ca9182a"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_21bab2e4c8ab49158292475c",
+          "text_pl": "",
+          "article_ids": [
+            "b74a5bfb6a3b2de8d76a34e5"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_7611d33812f28467f01066eb",
+          "text_pl": "",
+          "article_ids": [
+            "b74a5bfb6a3b2de8d76a34e5"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_ac09fccca87d78e510425e86",
+          "text_pl": "",
+          "article_ids": [
+            "fc1f82d8295d1b2e0ca9182a"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "fact_590735bc1df1d6162cb8e481",
+          "text_pl": "",
+          "article_ids": [
+            "fc1f82d8295d1b2e0ca9182a"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Rosjanie wystrzelili 16 pocisków balistycznych w ataku na Kijów i obwód kijowski.",
+          "article_ids": [
+            "25ba2980824de357312d8148"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Ponad 200 dronów różnych typów zostało wystrzelonych w ataku na Kijów i okolice.",
+          "article_ids": [
+            "25ba2980824de357312d8148"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Ponad 10 obiektów energetycznych zostało uszkodzonych w wyniku ataku na Ukrainę.",
+          "article_ids": [
+            "25ba2980824de357312d8148"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "W rejonie desniańskim płonął budynek niemieszkalny, w rejonie sołomiańskim doszło do pożaru w placówce medycznej, a w rejonie dnieprzańskim uszkodzona została placówka oświatowa; pożary zostały ugaszone.",
+          "article_ids": [
+            "3f0e141a8212746d02a613c2",
+            "3f21d04a564d0b11eae43953"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Ukraiński producent odzieży Harvest poinformował, że rosyjski pocisk rakietowy uszkodził jeden z ich obiektów produkcyjnych; żaden pracownik nie został ranny.",
+          "article_ids": [
+            "3f0e141a8212746d02a613c2"
+          ],
+          "why_new_pl": ""
+        },
+        {
+          "known_fact_id": "",
+          "text_pl": "Zełenski powiedział, że USA odblokowały wymianę danych wywiadowczych z Ukrainą; Rubio zaprzeczył, że wstrzymano przekazywanie danych.",
+          "article_ids": [
+            "3f0e141a8212746d02a613c2",
+            "44f9da2e97b9b78f257e209f",
+            "e7ce6a5229cdbfb70293fc18"
+          ],
+          "why_new_pl": ""
+        }
+      ],
+      "article_coverage": {
+        "0f12cda49063424abbf0c593": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "0f2793c9e66b88333c952f22": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "25ba2980824de357312d8148": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "3f0e141a8212746d02a613c2": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "3f21d04a564d0b11eae43953": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "44f9da2e97b9b78f257e209f": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "5b5d295f1a53fa1974d74d6a": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "b51b79502f89b92641bd0554": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "b74a5bfb6a3b2de8d76a34e5": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "e7ce6a5229cdbfb70293fc18": {
+          "no_relevant_facts_reason_pl": ""
+        },
+        "fc1f82d8295d1b2e0ca9182a": {
+          "no_relevant_facts_reason_pl": ""
+        }
+      }
+    },
+    "articles": [
+      {
+        "article_id": "0f12cda49063424abbf0c593",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "PAP"
+      },
+      {
+        "article_id": "0f2793c9e66b88333c952f22",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "EFE"
+      },
+      {
+        "article_id": "25ba2980824de357312d8148",
+        "source_profile": "STATE_ALIGNED",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "CGTN"
+      },
+      {
+        "article_id": "3f0e141a8212746d02a613c2",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Do Rzeczy"
+      },
+      {
+        "article_id": "3f21d04a564d0b11eae43953",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Polsat News"
+      },
+      {
+        "article_id": "44f9da2e97b9b78f257e209f",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "PAP"
+      },
+      {
+        "article_id": "5b5d295f1a53fa1974d74d6a",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "WP"
+      },
+      {
+        "article_id": "b51b79502f89b92641bd0554",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Bankier"
+      },
+      {
+        "article_id": "b74a5bfb6a3b2de8d76a34e5",
+        "source_profile": "STATE_ALIGNED",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "CGTN"
+      },
+      {
+        "article_id": "e7ce6a5229cdbfb70293fc18",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Rzeczpospolita"
+      },
+      {
+        "article_id": "fc1f82d8295d1b2e0ca9182a",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "source_name": "Interfax-Ukraine"
+      }
+    ],
+    "previous_aggregation": {
+      "base_summary": {
+        "facts": [
+          {
+            "text_pl": "Rosyjskie ataki na obiekty energetyczne w Ukrainie miały miejsce w nocy z 18 na 19 października 2026.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5",
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "text_pl": "W wyniku dronowych i rakietowych ataków Rosji doszło do wyłączeń w 10 obwodach Ukrainy: Wołyńska, Żytomierska, Rówieńska, Tarnopolska, Chmielnicka, Winnicka, Kirowohradzka, Charkowska, Odeska i Mykołajewska.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "text_pl": "Prawie 140 miejscowości zostało całkowicie lub częściowo pozbawionych dostaw energii.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "text_pl": "Energetycy prowadzą prace awaryjne i starają się jak najszybciej przywrócić zasilanie.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "text_pl": "W niektórych regionach nadal obowiązują ograniczenia w dostawie energii dla odbiorców; ograniczenia mają być realizowane od 6:00 do końca dnia, w dwóch etapach.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "text_pl": "Według ukraińskiego operatora Ukrenergo energetycy podejmują działania, by jak najszybciej przywrócić zasilanie wszystkim odbiorcom.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          }
+        ],
+        "topic": {
+          "categories": [
+            "SWIAT",
+            "POLITYKA",
+            "GOSPODARKA"
+          ],
+          "headline_pl": "[Ukraina] Rosyjskie ataki na obiekty energetyczne",
+          "what_happened_one_sentence_pl": "Rosyjskie ataki na obiekty energetyczne w Ukrainie miały miejsce w nocy z 18 na 19 października 2026."
+        },
+        "update": {
+          "status": "BASE_SUMMARY",
+          "is_update": false,
+          "new_article_ids": [],
+          "what_changed_pl": "",
+          "new_information_pl": ""
+        },
+        "quality": {
+          "source_count": 0,
+          "article_count": 0,
+          "limitations_pl": "",
+          "overall_confidence": "MEDIUM",
+          "has_multiple_perspectives": false
+        },
+        "sources": [],
+        "agreement": [],
+        "summary_pl": "Rosyjskie ataki na obiekty energetyczne w Ukrainie miały miejsce w nocy z 18 na 19 października 2026. Dronowe i rakietowe ataki doprowadziły do wyłączeń w 10 obwodach: Wołyńska, Żytomierska, Rówieńska, Tarnopolska, Chmielnicka, Winnicka, Kirowohradzka, Charkowska, Odeska i Mykołajewska. Prawie 140 miejscowości zostało całkowicie lub częściowo pozbawionych dostaw energii. Energetycy prowadzą prace awaryjne i starają się jak najszybciej przywrócić zasilanie. W niektórych regionach nadal obowiązują ograniczenia w dostawie energii dla odbiorców; ograniczenia mają być realizowane od 6:00 do końca dnia, w dwóch etapach. Według ukraińskiego operatora Ukrenergo energetycy podejmują działania, by jak najszybciej przywrócić zasilanie wszystkim odbiorcom.",
+        "differences": [],
+        "coverage_mode": "SINGLE_CENTER",
+        "contradictions": [],
+        "reader_context": [],
+        "shared_available": true,
+        "perspective_facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_aae2b9e3234ac3b3422e90c4",
+            "text_pl": "Rosyjskie ataki na obiekty energetyczne w Ukrainie miały miejsce w nocy z 18 na 19 października 2026.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5",
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "STATE",
+            "fact_id": "fact_848f0f609c84fc40879c7d34",
+            "text_pl": "Liczba regionów objętych atakami wynosiła 11.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_4ec73c8f98df9bc57cee47a1",
+            "text_pl": "W wyniku dronowych i rakietowych ataków Rosji doszło do wyłączeń w 10 obwodach Ukrainy: Wołyńska, Żytomierska, Rówieńska, Tarnopolska, Chmielnicka, Winnicka, Kirowohradzka, Charkowska, Odeska i Mykołajewska.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_2f0c8356aa720dc8233f6628",
+            "text_pl": "Prawie 140 miejscowości zostało całkowicie lub częściowo pozbawionych dostaw energii.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_2a877d9b6f16feea994f1209",
+            "text_pl": "Energetycy prowadzą prace awaryjne i starają się jak najszybciej przywrócić zasilanie.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "STATE",
+            "fact_id": "fact_21bab2e4c8ab49158292475c",
+            "text_pl": "Zużycie energii w ukraińskiej sieci energetycznej wzrosło o 4,5% w porannych godzinach w porównaniu z piątkiem 16 października.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5"
+            ]
+          },
+          {
+            "lane": "STATE",
+            "fact_id": "fact_7611d33812f28467f01066eb",
+            "text_pl": "Deszczowa i pochmurna pogoda ograniczała wydajność domowych instalacji solarnych, co przyczyniło się do wzrostu zapotrzebowania na energię z sieci.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_ac09fccca87d78e510425e86",
+            "text_pl": "W niektórych regionach nadal obowiązują ograniczenia w dostawie energii dla odbiorców; ograniczenia mają być realizowane od 6:00 do końca dnia, w dwóch etapach.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_590735bc1df1d6162cb8e481",
+            "text_pl": "Według ukraińskiego operatora Ukrenergo energetycy podejmują działania, by jak najszybciej przywrócić zasilanie wszystkim odbiorcom.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          }
+        ],
+        "background_context": [
+          {
+            "text_pl": "**Ogólny kontekst**\n\nOgólne tło: Rosyjskie ataki na ukraińską infrastrukturę energetyczną w październiku 2026 doprowadziły do przerw w dostawie energii w wielu regionach i wymusiły ograniczenia oraz działania naprawcze.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5",
+              "fc1f82d8295d1b2e0ca9182a"
+            ],
+            "entity_type": "BACKGROUND",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Organizacja — Ukrenergo — ukraiński operator sieci energetycznej odpowiedzialny za naprawy i przywracanie zasilania.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Organizacja — Rosyjskie siły zbrojne — agresor prowadzący ataki na ukraińską infrastrukturę energetyczną.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": false
+          }
+        ],
+        "perspective_version": 1,
+        "perspective_sections": {
+          "LEFT": [],
+          "RIGHT": [],
+          "STATE": [
+            {
+              "lane": "STATE",
+              "fact_id": "fact_848f0f609c84fc40879c7d34",
+              "text_pl": "Liczba regionów objętych atakami wynosiła 11.",
+              "article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5"
+              ]
+            },
+            {
+              "lane": "STATE",
+              "fact_id": "fact_21bab2e4c8ab49158292475c",
+              "text_pl": "Zużycie energii w ukraińskiej sieci energetycznej wzrosło o 4,5% w porannych godzinach w porównaniu z piątkiem 16 października.",
+              "article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5"
+              ]
+            },
+            {
+              "lane": "STATE",
+              "fact_id": "fact_7611d33812f28467f01066eb",
+              "text_pl": "Deszczowa i pochmurna pogoda ograniczała wydajność domowych instalacji solarnych, co przyczyniło się do wzrostu zapotrzebowania na energię z sieci.",
+              "article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5"
+              ]
+            }
+          ]
+        },
+        "synthesis_coverage_mode": "SINGLE_CENTER",
+        "potential_manipulation_signals": []
+      },
+      "perspective_state": {
+        "facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_aae2b9e3234ac3b3422e90c4",
+            "text_pl": "Rosyjskie ataki na obiekty energetyczne w Ukrainie miały miejsce w nocy z 18 na 19 października 2026.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5",
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_4ec73c8f98df9bc57cee47a1",
+            "text_pl": "W wyniku dronowych i rakietowych ataków Rosji doszło do wyłączeń w 10 obwodach Ukrainy: Wołyńska, Żytomierska, Rówieńska, Tarnopolska, Chmielnicka, Winnicka, Kirowohradzka, Charkowska, Odeska i Mykołajewska.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_2f0c8356aa720dc8233f6628",
+            "text_pl": "Prawie 140 miejscowości zostało całkowicie lub częściowo pozbawionych dostaw energii.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_2a877d9b6f16feea994f1209",
+            "text_pl": "Energetycy prowadzą prace awaryjne i starają się jak najszybciej przywrócić zasilanie.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_ac09fccca87d78e510425e86",
+            "text_pl": "W niektórych regionach nadal obowiązują ograniczenia w dostawie energii dla odbiorców; ograniczenia mają być realizowane od 6:00 do końca dnia, w dwóch etapach.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_590735bc1df1d6162cb8e481",
+            "text_pl": "Według ukraińskiego operatora Ukrenergo energetycy podejmują działania, by jak najszybciej przywrócić zasilanie wszystkim odbiorcom.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          }
+        ],
+        "coverage_mode": "SINGLE_CENTER",
+        "shared_available": true,
+        "perspective_facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_aae2b9e3234ac3b3422e90c4",
+            "text_pl": "Rosyjskie ataki na obiekty energetyczne w Ukrainie miały miejsce w nocy z 18 na 19 października 2026.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5",
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "STATE",
+            "fact_id": "fact_848f0f609c84fc40879c7d34",
+            "text_pl": "Liczba regionów objętych atakami wynosiła 11.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_4ec73c8f98df9bc57cee47a1",
+            "text_pl": "W wyniku dronowych i rakietowych ataków Rosji doszło do wyłączeń w 10 obwodach Ukrainy: Wołyńska, Żytomierska, Rówieńska, Tarnopolska, Chmielnicka, Winnicka, Kirowohradzka, Charkowska, Odeska i Mykołajewska.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_2f0c8356aa720dc8233f6628",
+            "text_pl": "Prawie 140 miejscowości zostało całkowicie lub częściowo pozbawionych dostaw energii.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_2a877d9b6f16feea994f1209",
+            "text_pl": "Energetycy prowadzą prace awaryjne i starają się jak najszybciej przywrócić zasilanie.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "STATE",
+            "fact_id": "fact_21bab2e4c8ab49158292475c",
+            "text_pl": "Zużycie energii w ukraińskiej sieci energetycznej wzrosło o 4,5% w porannych godzinach w porównaniu z piątkiem 16 października.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5"
+            ]
+          },
+          {
+            "lane": "STATE",
+            "fact_id": "fact_7611d33812f28467f01066eb",
+            "text_pl": "Deszczowa i pochmurna pogoda ograniczała wydajność domowych instalacji solarnych, co przyczyniło się do wzrostu zapotrzebowania na energię z sieci.",
+            "article_ids": [
+              "b74a5bfb6a3b2de8d76a34e5"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_ac09fccca87d78e510425e86",
+            "text_pl": "W niektórych regionach nadal obowiązują ograniczenia w dostawie energii dla odbiorców; ograniczenia mają być realizowane od 6:00 do końca dnia, w dwóch etapach.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_590735bc1df1d6162cb8e481",
+            "text_pl": "Według ukraińskiego operatora Ukrenergo energetycy podejmują działania, by jak najszybciej przywrócić zasilanie wszystkim odbiorcom.",
+            "article_ids": [
+              "fc1f82d8295d1b2e0ca9182a"
+            ]
+          }
+        ],
+        "perspective_version": 1,
+        "perspective_sections": {
+          "LEFT": [],
+          "RIGHT": [],
+          "STATE": [
+            {
+              "lane": "STATE",
+              "fact_id": "fact_848f0f609c84fc40879c7d34",
+              "text_pl": "Liczba regionów objętych atakami wynosiła 11.",
+              "article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5"
+              ]
+            },
+            {
+              "lane": "STATE",
+              "fact_id": "fact_21bab2e4c8ab49158292475c",
+              "text_pl": "Zużycie energii w ukraińskiej sieci energetycznej wzrosło o 4,5% w porannych godzinach w porównaniu z piątkiem 16 października.",
+              "article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5"
+              ]
+            },
+            {
+              "lane": "STATE",
+              "fact_id": "fact_7611d33812f28467f01066eb",
+              "text_pl": "Deszczowa i pochmurna pogoda ograniczała wydajność domowych instalacji solarnych, co przyczyniło się do wzrostu zapotrzebowania na energię z sieci.",
+              "article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+]
