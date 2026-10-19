@@ -94,6 +94,27 @@ Jeżeli artykuły są już w Supabase, a chcesz ponowić tylko grupowanie i
 opracowania AI, w formularzu `Run workflow` wybierz tryb `ai-only`. Ten tryb
 nie odwiedza źródeł i korzysta z artykułów oczekujących w bazie.
 
+Do pobrania jednego źródła wybierz **Actions → Global News Intelligence — jedno
+źródło + AI → Run workflow**, gałąź `main`, a następnie redakcję z listy
+`source` (domyślnie Zero.pl). Lista zawiera aktywne źródła z `sources.yaml`.
+Po pobraniu i synchronizacji wybranej redakcji wykonuje się zwykły, pełny etap AI:
+nazywanie oczekujących artykułów, embeddingi, scalenia, syntezy i aktualizacje.
+AI korzysta z dotychczasowej kolejki i aktywnych wątków ze wszystkich źródeł.
+Pozostają zwykłe limity pobierania, w tym standardowe 15 kandydatów dla Polski.
+
+Nowy workflow wywołuje wspólny `harvest.yml`, więc używa tych samych modeli,
+progów, równoległości i retry. Wspólna kolejka `global-news-harvest` porządkuje
+zapisy razem z głównym workflow. Po zakończeniu powstaje eksport `gni-public-data`,
+a wdrożenie Pages nasłuchuje również tego nowego workflow. Błędy AI pozostają
+widoczne; poprawnie zapisane wyniki i eksport zachowują dotychczasowe zasady.
+Opcja `retry_rejected` ma to samo znaczenie co w `full`, dla wybranego źródła.
+
+Odpowiednik w CLI: `python news_pipeline.py --source zero_pl --browser`.
+`--source` przyjmuje ID lub nazwę aktywnego źródła i jest weryfikowany przed
+połączeniem z bazą; nie można łączyć go z `--ai-only` ani `--titles-only`.
+Po zmianie katalogu zaktualizuj też listę `options` w `harvest-source.yml`;
+test zgodności listy z aktywnym katalogiem wykrywa rozbieżności.
+
 Jeżeli istniejące syntezy zostały rozdzielone na kilka osobnych wątków, w
 formularzu `Run workflow` wybierz tryb `merge-existing-summaries`. Ten tryb
 analizuje tylko aktywne wątki z ostatnich 36 godzin, które mają już zapisaną

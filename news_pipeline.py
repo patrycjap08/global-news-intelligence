@@ -12,6 +12,7 @@ import sys
 
 from ai_pipeline import analyze_run, normalize_topic_titles
 from pipeline_logging import log
+from source_tester import load_config
 from supabase_client import SupabaseRestClient
 from supabase_sync import pull_state, push_run
 
@@ -25,6 +26,20 @@ def latest_run_id(db_path: Path) -> str:
         return str(row[0])
     finally:
         conn.close()
+
+
+def resolve_harvest_source(config_path: Path, requested: str) -> dict:
+    """Resolve one enabled catalog entry before opening database connections."""
+    _, sources = load_config(config_path)
+    key = requested.strip().casefold()
+    matches = [
+        source for source in sources
+        if source.get("enabled", True) and key
+        and key in {str(source["id"]).casefold(), str(source.get("name", "")).casefold()}
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"Źródło nie istnieje, jest wyłączone lub niejednoznaczne: {requested!r}.")
+    return matches[0]
 
 
 def count_summary(values: dict[str, int], labels: tuple[tuple[str, str], ...]) -> str:
@@ -61,6 +76,9 @@ def ai_summary(values: dict[str, int]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the Global News Intelligence ingestion pipeline.")
     parser.add_argument("--config", type=Path, default=Path("sources.yaml"))
+    parser.add_argument(
+        "--source", help="ID lub nazwa jednego aktywnego źródła; ogranicza tylko pobieranie, nie etap AI.",
+    )
     parser.add_argument("--db", type=Path, default=Path("article_harvest/articles.sqlite3"))
     parser.add_argument("--output-dir", type=Path, default=Path("article_harvest"))
     parser.add_argument(
@@ -113,6 +131,14 @@ def main() -> int:
         parser.error("--titles-only jest osobnym trybem.")
     if args.merge_existing_summaries and not args.ai_only:
         parser.error("--merge-existing-summaries wymaga także --ai-only, aby nie uruchomić harvestera.")
+    selected_source = None
+    if args.source is not None:
+        if args.ai_only or args.titles_only:
+            parser.error("--source wybiera źródło do pobrania; nie łącz go z --ai-only ani --titles-only.")
+        try:
+            selected_source = resolve_harvest_source(args.config, args.source)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
 
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
@@ -149,13 +175,18 @@ def main() -> int:
             "--max-sitemap-probes", str(args.max_sitemap_probes),
             "--max-sitemap-children", str(args.max_sitemap_children),
         ]
+        if selected_source is not None:
+            command.extend(["--source", str(selected_source["id"])])
         if args.browser:
             command.append("--browser")
         if args.retry_failed:
             command.append("--retry-failed")
         if args.retry_rejected:
             command.append("--retry-rejected")
-        log("RUN", "Etap 2/4 — pobieram strony główne i nowe artykuły.")
+        log("RUN", (
+            f"Etap 2/4 — pobieram nowe artykuły tylko ze źródła: {selected_source.get('name', selected_source['id'])}."
+            if selected_source is not None else "Etap 2/4 — pobieram strony główne i nowe artykuły."
+        ))
         subprocess.run(command, check=True)
         run_id = latest_run_id(args.db)
         log("RUN", f"Etap 2/4 zakończony: run {run_id} zapisany lokalnie.")

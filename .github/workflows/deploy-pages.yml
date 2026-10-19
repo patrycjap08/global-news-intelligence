@@ -9,7 +9,9 @@ on:
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
   workflow_run:
-    workflows: ["Global News Intelligence — harvest and analysis"]
+    workflows:
+      - "Global News Intelligence — harvest and analysis"
+      - "Global News Intelligence — jedno źródło + AI"
     types: [completed]
     branches: [main]
 

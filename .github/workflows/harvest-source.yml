@@ -1,0 +1,98 @@
+name: Global News Intelligence — jedno źródło + AI
+run-name: Jedno źródło + AI — ${{ inputs.source }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Źródło do pobrania; potem pełny etap AI na obecnej kolejce"
+        required: true
+        default: Zero.pl
+        type: choice
+        options:
+          - PAP
+          - Zero.pl
+          - TVN24
+          - TVP Info
+          - Polsat News
+          - Onet
+          - WP
+          - Rzeczpospolita
+          - Dziennik Gazeta Prawna
+          - Business Insider Polska
+          - Bankier
+          - Parkiet
+          - Do Rzeczy
+          - Niezależna
+          - Krytyka Polityczna
+          - Reuters
+          - Washington Post
+          - CNN
+          - Fox News
+          - NBC News
+          - ABC News
+          - CBS News
+          - NPR
+          - Axios
+          - Vox
+          - HuffPost
+          - National Review
+          - The Daily Signal
+          - Washington Examiner
+          - New York Post
+          - Mother Jones
+          - BBC
+          - Financial Times
+          - Guardian
+          - Times
+          - Sky News
+          - Independent
+          - Politico Europe
+          - Euronews
+          - Deutsche Welle
+          - Der Spiegel
+          - FAZ
+          - Bild
+          - France 24
+          - Le Monde
+          - Le Figaro
+          - ANSA
+          - Corriere della Sera
+          - La Repubblica
+          - EFE
+          - El País
+          - El Mundo
+          - Xinhua
+          - CGTN
+          - China Daily
+          - Global Times
+          - Caixin
+          - South China Morning Post
+          - TASS
+          - RIA Novosti
+          - RT
+          - Kommersant
+          - Meduza
+          - Moscow Times
+          - Suspilne
+          - Kyiv Independent
+          - Interfax-Ukraine
+      retry_rejected:
+        description: "Ponownie sprawdź odrzucenia za krótkiej treści dla wybranego źródła"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# Concurrency and all execution settings live in the reusable main workflow.
+# Only the harvesting source changes; the AI queue remains global.
+jobs:
+  harvest:
+    uses: ./.github/workflows/harvest.yml
+    with:
+      mode: single-source
+      source: ${{ inputs.source }}
+      retry_rejected: ${{ inputs.retry_rejected }}
+    secrets: inherit
