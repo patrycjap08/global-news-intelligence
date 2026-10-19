@@ -88,6 +88,9 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
 
                 def call(instructions, data, schema, name):
                     calls.append(name)
+                    if name == 'perspective_novelty_audit':
+                        return {'decisions': {f['fact_id']: {'new_text_pl': f['text_pl'],
+                            'covered_fact_ids': [], 'reason_pl': 'Nowy szczegół testowy.'} for f in data['candidate_facts']}}
                     self.assertEqual(name, 'perspective_facts')  # Never rewrite old prose.
                     self.assertEqual(data['all_articles'], [{**a, 'source_group': p.article_group(a)} for a in payload['all_articles']])
                     if len(calls) == 1:
@@ -99,7 +102,7 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
                     return copy.deepcopy(corrected)
 
                 result = p.generate(payload, call, ai.normalize_generated_text)
-                self.assertEqual(calls, ['perspective_facts', 'perspective_facts'])
+                self.assertEqual(calls, ['perspective_facts', 'perspective_facts', 'perspective_novelty_audit'])
                 self.assertEqual(result['summary_pl'], base['summary_pl'])
                 self.assertEqual(result.get('general_context'), base.get('general_context'))
                 self.assertEqual(result.get('background_context'), base.get('background_context'))

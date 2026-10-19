@@ -291,6 +291,9 @@ class PerspectiveTests(unittest.TestCase):
         base={'perspective_version':1,'coverage_mode':'MIXED','summary_pl':'Dokładnie ta pierwotna synteza.','background_context':[{'text_pl':'Dokładnie ten kontekst.','article_ids':[]}],'topic':{'headline_pl':'[Polska] Pierwotny tytuł'},'perspective_facts':known,'facts':known}
         original=copy.deepcopy(base)
         def call(instructions,data,schema,name):
+            if name == 'perspective_novelty_audit':
+                return {'decisions': {f['fact_id']: {'new_text_pl': f['text_pl'],
+                    'covered_fact_ids': [], 'reason_pl': 'Odrębne nowe ustalenie.'} for f in data['candidate_facts']}}
             self.assertEqual(name,'perspective_facts')
             return extraction([fact('Nowy fakt prawicy.',['r'])],data['all_articles'],headline_pl='[Polska] Inny tytuł',categories=[])
         result=p.generate({'topic':{},'all_articles':rows,'previous_aggregation':{'base_summary':base},'new_article_ids':['r']},call,ai.normalize_generated_text)

@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v64-fact-kind-routing"
+PROMPT_VERSION = "ai-prompts-v65-perspective-novelty-audit"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2531,11 +2531,21 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             nonlocal last_response, last_schema
             if name == "perspective_facts":
                 log("AI", f"Fakty perspektyw: paczka {len(data['all_articles'])} artykułów z pełnymi treściami, bez skracania tekstów.")
+            elif name == "perspective_novelty_audit":
+                log("AI", f"Kontrola nowości perspektyw: kandydatów: {len(data['candidate_facts'])}, "
+                    f"znanych ustaleń: {len(data['previous_facts'])}; porównuję treści ustaleń, bez ponownego przesyłania artykułów.")
             response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                 timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                 reasoning_effort=summary_reasoning_effort(model),
                 response_schema=schema, response_schema_name=name)
             last_response, last_schema = dict(response), name
+            if name == "perspective_novelty_audit":
+                decisions = response.get('decisions') or {}
+                if isinstance(decisions, dict):
+                    rejected = sum(isinstance(d, dict) and not str(d.get('new_text_pl') or '').strip()
+                                   for d in decisions.values())
+                    log("AI", f"Kontrola nowości perspektyw — odpowiedź: decyzji: {len(decisions)}, "
+                        f"bez nowej treści: {rejected}.")
             if name == "perspective_facts":
                 coverage = response.get('article_coverage') or []
                 counts = [sum(str(article['article_id']) in fact.get('article_ids', [])

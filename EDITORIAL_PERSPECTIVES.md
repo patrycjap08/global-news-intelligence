@@ -4,6 +4,36 @@ Zmiana obejmuje generowanie, aktualizacje, eksport Pages i interfejs. Nie zmieni
 klasyfikacji redakcji, modelu OpenAI, progów embeddingów ani historycznych syntez.
 Nie wymaga migracji SQL. Profil źródła nie oznacza oceny prawdziwości publikacji.
 
+## Kontrola nowości znaczeniowej (v65)
+
+Aktualizacje proponujące nowe identyfikatory faktów wykonują krótką niezależną
+kontrolę `perspective_novelty_audit`. Dostaje wyłącznie treści i typy znanych
+ustaleń oraz kandydatów, bez tekstów artykułów, syntezy i metadanych źródeł.
+Model, rozumowanie medium i limit równoległych syntez pozostają dotychczasowe.
+Zwykle to jedno dodatkowe zapytanie tylko przy proponowanych nowych faktach;
+duży rejestr jest pakowany w całe ustalenia, bez skracania ich treści.
+Pierwsza publikacja i analiza samych znanych potwierdzeń nie dodają tego kroku.
+
+Kontrola odrzuca parafrazy i połączenia kilku znanych faktów. Jeśli zdanie
+łączy stary rdzeń z nowym szczegółem, zachowuje tylko samodzielne zdanie o tym
+szczególe, z pierwotnym przypisaniem i niepewnością. Rzeczywiste zmiany liczb,
+rozbieżności, nowe wypowiedzi lub odmienne oceny nie są scalane tylko dlatego,
+że brzmią podobnie. Każdy kandydat wymaga decyzji i uzasadnienia; odrzucenie
+lub wydzielenie szczegółu także wskazania wcześniejszych identyfikatorów.
+Niekompletna/niepoprawna odpowiedź ma jedną próbę korekty i następnie zatrzymuje
+zapis całego tematu. Audyt pozostaje w technicznych danych analizy.
+
+Kontrola odbywa się przed dopisaniem zarówno bieżących faktów, jak i aktualizacji.
+Nie zgaduje dodatkowych cytowań dla znanych faktów; uzupełnianie ich dowodów nadal
+wykonuje ekstraktor czytający pełne artykuły. Odrzucenie wszystkich kandydatów
+zachowuje poprawne potwierdzenia, zapisuje przetworzone artykuły i nie tworzy
+aktualizacji. Pierwotny tekst/kontekst pozostaje bez zmian. Ocena równoważności
+nadal zależy od modelu, a nie od gwarantującego poprawność algorytmu formalnego.
+
+Korekta nie usuwa automatycznie duplikatów już zapisanych w bazie ani historii.
+Takie opracowanie wymaga osobnego ponownego przeliczenia lub kontrolowanego
+oczyszczenia. Wdrożenie nie wykonuje produkcyjnych wywołań AI ani zmian w bazie.
+
 ## Reguły
 
 - LEFT/CENTER_LEFT to lewica; RIGHT/CENTER_RIGHT to prawica; CENTER to centrum.
@@ -107,8 +137,9 @@ Korekta nie zmienia modelu embeddingów ani zasady odświeżania bieżącej synt
 Korekta `Keep published syntheses immutable during topic updates` wyłącza
 ponowne pisanie syntezy i kontekstu przy KAŻDEJ późniejszej analizie nowego
 formatu, także po scaleniu. Wywołanie perspective_summary występuje wyłącznie
-przy pierwszym opracowaniu. Później wykonywane jest tylko wyciąganie faktów
-z pełnych artykułów w paczkach. Brak nowych ustaleń oznacza brak aktualizacji.
+przy pierwszym opracowaniu. Później wyciągane są fakty z pełnych artykułów
+w paczkach. Od v65 propozycje nowych faktów przechodzą dodatkowo opisaną niżej
+kontrolę nowości znaczeniowej. Brak nowych ustaleń oznacza brak aktualizacji.
 
 base_summary pozostaje dokładną kopią poprzednio opublikowanego opracowania.
 Bieżące fakty, cytowania, podział i perspektywy znajdują się w osobnym

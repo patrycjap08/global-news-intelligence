@@ -1,0 +1,898 @@
+{
+  "topic_id": "topic_perspectives_13eb963d0e261f135093e70c",
+  "base_summary": {
+    "facts": [
+      {
+        "kind": "FACT",
+        "fact_id": "fact_01187d8296c911b77ed727be",
+        "text_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_1741bab1f31c1c872f0718f7",
+        "text_pl": "Propozycja mogłaby zostać zrealizowana podczas szczytu APAC w Shenzhen, zaplanowanego na 18–19 listopada.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_7f5b7357e7a64786d7f18020",
+        "text_pl": "Donald Trump nie zaakceptował dotąd propozycji, ale może być na nią otwarty.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_a83d777f2bf1f3bbc87f9c51",
+        "text_pl": "Strona chińska zasugerowała, że nie będzie przeciwna temu szczytowi, jeśli Trump wyrazi zgodę.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_2dd1823bcc9de5d75ad9d7e7",
+        "text_pl": "Według The Wall Street Journal Putin chciałby, aby szczyt stał się 'drugą Jałtą', w której trzy mocarstwa podzieliłyby świat na strefy wpływów.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_3c60268000c435e0c3c3e6e0",
+        "text_pl": "Obraz trzech przywódców negocjujących przyszłość Ukrainy bez udziału Zełenskiego budziłby niepokój w europejskich stolicach i na Tajwanie.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_9ac0b1916cf6e6289dc5bff1",
+        "text_pl": "Biały Dom dotychczas odmówił komentarza w sprawie doniesień o możliwym spotkaniu.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "fact_id": "fact_c7d2595006a79694ff1ef2ad",
+        "text_pl": "Udział Chin w takich rozmowach byłby ryzykowny, wymagający równoważenia relacji z Moskwą i interesów gospodarczych w Europie.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "STATEMENT",
+        "fact_id": "fact_52674e8ad0be4883570e21b8",
+        "text_pl": "Sikorski skomentował doniesienia, pisząc: 'Pierwsza Jałta uznawała sowiecką dominację nad obszarami Europy Wschodniej, które Armia Czerwona kontrolowała. Teraz Putin chce w prezencie ukraińskie terytoria, których nie daje rady podbić'.",
+        "article_ids": [
+          "333ddda812e34412c041895c"
+        ]
+      }
+    ],
+    "topic": {
+      "categories": [
+        "SWIAT"
+      ],
+      "headline_pl": "[Świat] Putin zaprasza Trumpa i Xi do rozmów o Ukrainie",
+      "what_happened_one_sentence_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego."
+    },
+    "update": {
+      "status": "BASE_SUMMARY",
+      "is_update": false,
+      "new_article_ids": [],
+      "what_changed_pl": "",
+      "new_information_pl": ""
+    },
+    "quality": {
+      "source_count": 0,
+      "article_count": 0,
+      "limitations_pl": "",
+      "overall_confidence": "MEDIUM",
+      "has_multiple_perspectives": false
+    },
+    "sources": [],
+    "agreement": [],
+    "summary_pl": "Sedno wydarzenia stanowi propozycja Władimira Putina zaproponowania Donaldowi Trumpowi trójstronnego spotkania z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymira Zełenskiego. Propozycja ta mogłaby zostać zrealizowana podczas szczytu APAC w Shenzhen, zaplanowanego na 18–19 listopada. Donald Trump dotąd nie zaakceptował propozycji, ale może być na nią otwarty. Strona chińska zasugerowała, że nie będzie przeciwna temu szczytowi, jeśli Trump wyrazi zgodę. Według The Wall Street Journal Putin chciałby, aby szczyt stał się 'drugą Jałtą', w której trzy mocarstwa podzieliłyby świat na strefy wpływów. Obraz trzech przywódców negocjujących przyszłość Ukrainy bez Zełenskiego budziłby niepokój w europejskich stolicach i na Tajwanie. Biały Dom dotychczas odmówił komentarza w sprawie doniesień o możliwym spotkaniu. Udział Chin w takich rozmowach byłby ryzykowny, wymagający równoważenia relacji z Moskwą i interesów gospodarczych w Europie.\n\nSikorski skomentował doniesienia, pisząc: 'Pierwsza Jałta uznawała sowiecką dominację nad obszarami Europy Wschodniej, które Armia Czerwona kontrolowała. Teraz Putin chce w prezencie ukraińskie terytoria, których nie daje rady podbić'.",
+    "differences": [],
+    "coverage_mode": "MIXED",
+    "contradictions": [],
+    "reader_context": [],
+    "shared_available": true,
+    "perspective_facts": [
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_01187d8296c911b77ed727be",
+        "text_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_1741bab1f31c1c872f0718f7",
+        "text_pl": "Propozycja mogłaby zostać zrealizowana podczas szczytu APAC w Shenzhen, zaplanowanego na 18–19 listopada.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_7f5b7357e7a64786d7f18020",
+        "text_pl": "Donald Trump nie zaakceptował dotąd propozycji, ale może być na nią otwarty.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_a83d777f2bf1f3bbc87f9c51",
+        "text_pl": "Strona chińska zasugerowała, że nie będzie przeciwna temu szczytowi, jeśli Trump wyrazi zgodę.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_2dd1823bcc9de5d75ad9d7e7",
+        "text_pl": "Według The Wall Street Journal Putin chciałby, aby szczyt stał się 'drugą Jałtą', w której trzy mocarstwa podzieliłyby świat na strefy wpływów.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_3c60268000c435e0c3c3e6e0",
+        "text_pl": "Obraz trzech przywódców negocjujących przyszłość Ukrainy bez udziału Zełenskiego budziłby niepokój w europejskich stolicach i na Tajwanie.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "STATEMENT",
+        "lane": "COMMON",
+        "fact_id": "fact_52674e8ad0be4883570e21b8",
+        "text_pl": "Sikorski skomentował doniesienia, pisząc: 'Pierwsza Jałta uznawała sowiecką dominację nad obszarami Europy Wschodniej, które Armia Czerwona kontrolowała. Teraz Putin chce w prezencie ukraińskie terytoria, których nie daje rady podbić'.",
+        "article_ids": [
+          "333ddda812e34412c041895c"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_9ac0b1916cf6e6289dc5bff1",
+        "text_pl": "Biały Dom dotychczas odmówił komentarza w sprawie doniesień o możliwym spotkaniu.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      },
+      {
+        "kind": "FACT",
+        "lane": "COMMON",
+        "fact_id": "fact_c7d2595006a79694ff1ef2ad",
+        "text_pl": "Udział Chin w takich rozmowach byłby ryzykowny, wymagający równoważenia relacji z Moskwą i interesów gospodarczych w Europie.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ]
+      }
+    ],
+    "background_context": [
+      {
+        "text_pl": "**Ogólny kontekst**\n\nOgólne tło sytuacji wokół Ukrainy wiąże się z rosnącym zaangażowaniem wielkich mocarstw w poszukiwanie politycznego rozwiązania; rola Stanów Zjednoczonych, Rosji i Chin jest kluczowa, a propozycja spotkania bez udziału Zełenskiego budzi obawy o równowagę sił w Europie i na osi Zachód–Wschód.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "BACKGROUND",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Osoba — Władimir Putin – prezydent Rosji, inicjator propozycji trójstronnego dialogu w sprawie Ukrainy.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "PERSON",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Osoba — Donald Trump – były prezydent USA, uczestniczący w negocjacjach i potencjalny uczestnik szczytu, niepotwierdzająco jeszcze wyraźnie.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "PERSON",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Osoba — Xi Jinping – przewodniczący Chińskiej Republiki Ludowej, potencjalny uczestnik rozmów.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "PERSON",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Osoba — Wołodymyr Zełensky – prezydent Ukrainy, niebrałby udziału w proponowanym trójstronnym torze rozmów.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "PERSON",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Osoba — Radosław Sikorski – były minister spraw zagranicznych, skomentował doniesienia o szczycie i Jałcie jako tłem historycznym.",
+        "article_ids": [
+          "333ddda812e34412c041895c"
+        ],
+        "entity_type": "PERSON",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Organizacja — Biały Dom – na razie odmówił komentarza w sprawie doniesień o możliwym spotkaniu.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "ORGANIZATION",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Szczyt APAC w Shenzhen, planowany na 18–19 listopada, jako potencjalne miejsce szczytu, według raportów o możliwości spotkania.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "BACKGROUND",
+        "needs_verification": false
+      },
+      {
+        "text_pl": "Jałta – historyczne odniesienie do stref wpływów; analitycy mówią o ryzyku, że powrót do formatów negocjacyjnych bez udziału Ukrainy mógłby być postrzegany jako utrata suwerenności i podział regionalny.",
+        "article_ids": [
+          "18d62504c981f754b8a09dd9",
+          "1d8fc4455e9cf825f5880f51",
+          "333ddda812e34412c041895c",
+          "4d1a1facfea202e64f7daa41",
+          "90608f9ab615b328d85b20d0",
+          "d58943108e2e6f26eac1440d",
+          "dc511d603d8e7bf73995f187"
+        ],
+        "entity_type": "BACKGROUND",
+        "needs_verification": false
+      }
+    ],
+    "perspective_version": 1,
+    "perspective_sections": {
+      "LEFT": [],
+      "RIGHT": [],
+      "STATE": [],
+      "CENTER": []
+    },
+    "synthesis_coverage_mode": "MIXED",
+    "fact_classification_version": 1,
+    "potential_manipulation_signals": []
+  },
+  "articles": [
+    {
+      "article_id": "18d62504c981f754b8a09dd9",
+      "source_id": "polsat_news",
+      "source_name": "Polsat News",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "1d8fc4455e9cf825f5880f51",
+      "source_id": "meduza",
+      "source_name": "Meduza",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "333ddda812e34412c041895c",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "4abe855a3bb52d4447191e26",
+      "source_id": "moscow_times",
+      "source_name": "Moscow Times",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "4d1a1facfea202e64f7daa41",
+      "source_id": "do_rzeczy",
+      "source_name": "Do Rzeczy",
+      "source_profile": "RIGHT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "5640351eb0af353645d2fd3d",
+      "source_id": "rzeczpospolita",
+      "source_name": "Rzeczpospolita",
+      "source_profile": "CENTER_RIGHT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "90608f9ab615b328d85b20d0",
+      "source_id": "der_spiegel",
+      "source_name": "Der Spiegel",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "d1f5229fa9b722c5230f5416",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "d4271095c4fa7b8d68ffa5f3",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "d58943108e2e6f26eac1440d",
+      "source_id": "business_insider_pl",
+      "source_name": "Business Insider Polska",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED"
+    },
+    {
+      "article_id": "dc511d603d8e7bf73995f187",
+      "source_id": "der_spiegel",
+      "source_name": "Der Spiegel",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED"
+    }
+  ],
+  "extracted_facts": [
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_01187d8296c911b77ed727be",
+      "text_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_1741bab1f31c1c872f0718f7",
+      "text_pl": "Propozycja mogłaby zostać zrealizowana podczas szczytu APAC w Shenzhen, zaplanowanego na 18–19 listopada.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_7f5b7357e7a64786d7f18020",
+      "text_pl": "Donald Trump nie zaakceptował dotąd propozycji, ale może być na nią otwarty.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_a83d777f2bf1f3bbc87f9c51",
+      "text_pl": "Strona chińska zasugerowała, że nie będzie przeciwna temu szczytowi, jeśli Trump wyrazi zgodę.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_2dd1823bcc9de5d75ad9d7e7",
+      "text_pl": "Według The Wall Street Journal Putin chciałby, aby szczyt stał się 'drugą Jałtą', w której trzy mocarstwa podzieliłyby świat na strefy wpływów.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_3c60268000c435e0c3c3e6e0",
+      "text_pl": "Obraz trzech przywódców negocjujących przyszłość Ukrainy bez udziału Zełenskiego budziłby niepokój w europejskich stolicach i na Tajwanie.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187",
+        "4abe855a3bb52d4447191e26"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_52674e8ad0be4883570e21b8",
+      "text_pl": "Sikorski skomentował doniesienia, pisząc: 'Pierwsza Jałta uznawała sowiecką dominację nad obszarami Europy Wschodniej, które Armia Czerwona kontrolowała. Teraz Putin chce w prezencie ukraińskie terytoria, których nie daje rady podbić'.",
+      "article_ids": [
+        "333ddda812e34412c041895c"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_9ac0b1916cf6e6289dc5bff1",
+      "text_pl": "Biały Dom dotychczas odmówił komentarza w sprawie doniesień o możliwym spotkaniu.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_c7d2595006a79694ff1ef2ad",
+      "text_pl": "Udział Chin w takich rozmowach byłby ryzykowny, wymagający równoważenia relacji z Moskwą i interesów gospodarczych w Europie.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_aa87dac380cff645812c2061",
+      "text_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego, które mogłoby odbyć się podczas szczytu APAC w Shenzhen (18–19 listopada).",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187",
+        "d1f5229fa9b722c5230f5416",
+        "d4271095c4fa7b8d68ffa5f3",
+        "4abe855a3bb52d4447191e26",
+        "5640351eb0af353645d2fd3d"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_96b07eb111b2b7b88f18aa56",
+      "text_pl": "Donald Trump dotąd nie zaakceptował dotąd propozycji, ale może być na nią otwarty.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_85abc069dda3ddbaff66f913",
+      "text_pl": "Według The Wall Street Journal propozycja Putina byłaby próbą wykorzystania ocieplenia relacji między Trumpem a Rosją; obraz trzech przywódców negocjujących przyszłość Ukrainy budzi niepokój.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_158a5bff90d134a776a5fe71",
+      "text_pl": "Szczyt bez udziału Zełenskiego wywołałby niepokój w europejskich stolicach i na Tajwanie.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_8240e13e1f2170f55d0c8ec7",
+      "text_pl": "Chiński przywódca stara się zachować równowagę między wspieraniem Putina a utrzymywaniem dobrych stosunków gospodarczych z Europą.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_7b9e3dfe4a660c0bb1eebd15",
+      "text_pl": "Udział Pekinu w rozmowach mógłby oznaczać jego bardziej bezpośrednie zaangażowanie w konflikt i wywołać negatywną reakcję europejskich państw.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_3ce6916ea9c6f2d098282e69",
+      "text_pl": "Według Gi WSJ, propozycja może być próbą porozumienia przy stole trzech mocarstw bez Ukrainy, co wpłynęłoby na przyszły porządek międzynarodowy.",
+      "article_ids": [
+        "18d62504c981f754b8a09dd9",
+        "1d8fc4455e9cf825f5880f51",
+        "333ddda812e34412c041895c",
+        "4d1a1facfea202e64f7daa41",
+        "90608f9ab615b328d85b20d0",
+        "d58943108e2e6f26eac1440d",
+        "dc511d603d8e7bf73995f187"
+      ]
+    },
+    {
+      "kind": "EDITORIAL",
+      "lane": "EDITORIAL",
+      "fact_id": "fact_c276bd7f0c3bd41a0c9c8cae",
+      "text_pl": "Autor artykułu z RP twierdzi, że Trump chciałby ułożyć się z Putinem i Xi, lecz Zełenski utrudnia potencjalne porozumienie.",
+      "article_ids": [
+        "5640351eb0af353645d2fd3d"
+      ],
+      "editorial_sources": {
+        "RIGHT": [
+          "5640351eb0af353645d2fd3d"
+        ]
+      }
+    }
+  ],
+  "update": {
+    "run_id": "harvest_20261019T153333Z",
+    "status": "NEW_INFORMATION",
+    "version": 2,
+    "is_update": true,
+    "update_id": "update_9d5ba5cbb00e4f44ae3400d8",
+    "generated_at": "2026-10-19T16:12:42.955089+00:00",
+    "promoted_facts": [],
+    "new_article_ids": [
+      "4abe855a3bb52d4447191e26",
+      "5640351eb0af353645d2fd3d",
+      "d4271095c4fa7b8d68ffa5f3",
+      "d1f5229fa9b722c5230f5416"
+    ],
+    "what_changed_pl": "",
+    "new_information_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego, które mogłoby odbyć się podczas szczytu APAC w Shenzhen (18–19 listopada). Donald Trump dotąd nie zaakceptował dotąd propozycji, ale może być na nią otwarty. Według The Wall Street Journal propozycja Putina byłaby próbą wykorzystania ocieplenia relacji między Trumpem a Rosją; obraz trzech przywódców negocjujących przyszłość Ukrainy budzi niepokój. Szczyt bez udziału Zełenskiego wywołałby niepokój w europejskich stolicach i na Tajwanie. Chiński przywódca stara się zachować równowagę między wspieraniem Putina a utrzymywaniem dobrych stosunków gospodarczych z Europą. Udział Pekinu w rozmowach mógłby oznaczać jego bardziej bezpośrednie zaangażowanie w konflikt i wywołać negatywną reakcję europejskich państw. Według Gi WSJ, propozycja może być próbą porozumienia przy stole trzech mocarstw bez Ukrainy, co wpłynęłoby na przyszły porządek międzynarodowy. Autor artykułu z RP twierdzi, że Trump chciałby ułożyć się z Putinem i Xi, lecz Zełenski utrudnia potencjalne porozumienie.",
+    "perspective_sections": {
+      "LEFT": [],
+      "RIGHT": [
+        {
+          "kind": "EDITORIAL",
+          "lane": "EDITORIAL",
+          "fact_id": "fact_c276bd7f0c3bd41a0c9c8cae",
+          "text_pl": "Autor artykułu z RP twierdzi, że Trump chciałby ułożyć się z Putinem i Xi, lecz Zełenski utrudnia potencjalne porozumienie.",
+          "article_ids": [
+            "5640351eb0af353645d2fd3d"
+          ]
+        }
+      ],
+      "STATE": [],
+      "CENTER": [],
+      "COMMON": [
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_aa87dac380cff645812c2061",
+          "text_pl": "Władimir Putin zaproponował Donaldowi Trumpowi trójstronne spotkanie z udziałem Xi Jinpinga w sprawie zakończenia wojny w Ukrainie, bez udziału Wołodymyra Zełenskiego, które mogłoby odbyć się podczas szczytu APAC w Shenzhen (18–19 listopada).",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187",
+            "d1f5229fa9b722c5230f5416",
+            "d4271095c4fa7b8d68ffa5f3",
+            "4abe855a3bb52d4447191e26",
+            "5640351eb0af353645d2fd3d"
+          ]
+        },
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_96b07eb111b2b7b88f18aa56",
+          "text_pl": "Donald Trump dotąd nie zaakceptował dotąd propozycji, ale może być na nią otwarty.",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187"
+          ]
+        },
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_85abc069dda3ddbaff66f913",
+          "text_pl": "Według The Wall Street Journal propozycja Putina byłaby próbą wykorzystania ocieplenia relacji między Trumpem a Rosją; obraz trzech przywódców negocjujących przyszłość Ukrainy budzi niepokój.",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187"
+          ]
+        },
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_158a5bff90d134a776a5fe71",
+          "text_pl": "Szczyt bez udziału Zełenskiego wywołałby niepokój w europejskich stolicach i na Tajwanie.",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187"
+          ]
+        },
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_8240e13e1f2170f55d0c8ec7",
+          "text_pl": "Chiński przywódca stara się zachować równowagę między wspieraniem Putina a utrzymywaniem dobrych stosunków gospodarczych z Europą.",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187"
+          ]
+        },
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_7b9e3dfe4a660c0bb1eebd15",
+          "text_pl": "Udział Pekinu w rozmowach mógłby oznaczać jego bardziej bezpośrednie zaangażowanie w konflikt i wywołać negatywną reakcję europejskich państw.",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187"
+          ]
+        },
+        {
+          "kind": "FACT",
+          "lane": "COMMON",
+          "fact_id": "fact_3ce6916ea9c6f2d098282e69",
+          "text_pl": "Według Gi WSJ, propozycja może być próbą porozumienia przy stole trzech mocarstw bez Ukrainy, co wpłynęłoby na przyszły porządek międzynarodowy.",
+          "article_ids": [
+            "18d62504c981f754b8a09dd9",
+            "1d8fc4455e9cf825f5880f51",
+            "333ddda812e34412c041895c",
+            "4d1a1facfea202e64f7daa41",
+            "90608f9ab615b328d85b20d0",
+            "d58943108e2e6f26eac1440d",
+            "dc511d603d8e7bf73995f187"
+          ]
+        }
+      ]
+    },
+    "fact_classification_version": 1
+  }
+}
