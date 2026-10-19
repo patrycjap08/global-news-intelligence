@@ -302,7 +302,7 @@ button { color: inherit; }
 .profile-share-legend strong { font-weight: 600; white-space: nowrap; }
 .profile-share-bar { display: flex; height: 7px; border-radius: 4px; overflow: hidden; margin-top: .45rem; background: #ddd5c9; }
 .profile-share-bar .profile-share-left { background: #a76260; }
-.profile-share-bar .profile-share-center { background: #aca18c; }
+.profile-share-bar .profile-share-center { background: #d4a12a; }
 .profile-share-bar .profile-share-right { background: #718e9e; }
 .coverage-notice, .no-common-facts { padding: 1rem; border-left: 3px solid #a34432; background: #eee5d6; font-size: .9rem; line-height: 1.6; }
 .perspectives-section { margin: 1.5rem 0; border-top: 1px solid #b7aa99; padding-top: 1.25rem; }
