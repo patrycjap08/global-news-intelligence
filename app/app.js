@@ -169,7 +169,7 @@ const PROFILE_COLORS = {
   STATE_ALIGNED: 'dot-state',
   UNCLASSIFIED: 'dot-unclassified',
 };
-const STATE_SOURCE_PROFILES = new Set(['STATE_ALIGNED', 'STATE_MEDIA', 'GOVERNMENT_AGENCY']);
+const STATE_SOURCE_PROFILES = new Set(['STATE_ALIGNED', 'STATE_MEDIA']);
 
 const CATEGORY_LABELS = {
   ALL: 'Wszystkie kategorie',
@@ -320,7 +320,7 @@ function humanCategory(category) { return CATEGORY_LABELS[category] || CATEGORY_
 function isStateSource(article) {
   const profile = String(article?.source_profile || '').trim().toUpperCase();
   const sourceType = String(article?.source_type || '').trim().toUpperCase();
-  return STATE_SOURCE_PROFILES.has(profile) || STATE_SOURCE_PROFILES.has(sourceType);
+  return STATE_SOURCE_PROFILES.has(profile) || sourceType === 'STATE_MEDIA';
 }
 function articleMap() { return indexes().articlesById; }
 function updateText(summaryOrUpdate) {
@@ -533,6 +533,13 @@ function topicModel(topic) {
   const baseSummary = storedSummary.base_summary || storedSummary;
   const summary = { ...baseSummary, ...(storedSummary.perspective_state || {}) };
   if (summary.perspective_version === 1) summary.synthesis_coverage_mode = baseSummary.synthesis_coverage_mode ?? baseSummary.coverage_mode;
+  const stateOnly = articles.length > 0 && articles.every(isStateSource);
+  if (stateOnly) {
+    // Apply to previews and historical stored publications as well. Keep
+    // the original database record immutable and show only state reports.
+    Object.assign(summary, { coverage_mode: 'STATE_ONLY', shared_available: false,
+      summary_pl: '', facts: [], background_context: [], synthesis_coverage_mode: 'STATE_ONLY' });
+  }
   const storedHistory = state.history.get(topic.topic_id) || [];
   const updates = collectTopicUpdates(storedSummary, storedHistory);
   const latestUpdate = updates[0] || {};
@@ -561,18 +568,19 @@ function topicModel(topic) {
     sources: [...sources],
     sourceCount,
     hasAggregation,
+    stateOnly,
     isCurrent: topicIsCurrent(topic),
     newestArticleAt,
     profileCounts,
     summary: hasAggregation ? summary : {},
-    latestUpdate: hasAggregation ? latestUpdate : {},
+    latestUpdate: hasAggregation && !stateOnly ? latestUpdate : {},
     latestAnalysisStatus: storedSummary.last_analysis?.status || latestUpdate.status || null,
-    updates: hasAggregation ? updates : [],
+    updates: hasAggregation && !stateOnly ? updates : [],
     summaryVersion: summaryRow.version || 1,
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
-    history: hasAggregation ? storedHistory : [],
+    history: hasAggregation && !stateOnly ? storedHistory : [],
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
-    lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Ustalenia z dostępnych materiałów oraz aktualizacje są przedstawione poniżej.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
+    lead: stateOnly ? 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' : hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Ustalenia z dostępnych materiałów oraz aktualizacje są przedstawione poniżej.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
   model.lead = model.lead.replace(/;\s*/g, ', ');
   model.searchText = `${model.title} ${model.lead} ${model.sources.join(' ')}`.toLowerCase();
@@ -1057,7 +1065,7 @@ const PERSPECTIVE_LABELS = { COMMON: 'Nowe informacje wspólne', LEFT: 'Nowe inf
 
 function editorialGroup(article) {
   const profile = String(article.source_profile || '').toUpperCase();
-  if (['STATE_ALIGNED', 'STATE_MEDIA'].includes(profile) || article.source_type === 'STATE_MEDIA') return 'STATE';
+  if (isStateSource(article)) return 'STATE';
   if (['LEFT', 'CENTER_LEFT'].includes(profile)) return 'LEFT';
   if (['RIGHT', 'CENTER_RIGHT'].includes(profile)) return 'RIGHT';
   return profile === 'CENTER' ? 'CENTER' : null;
@@ -1079,6 +1087,7 @@ function articleProfileBar(model) {
 }
 
 function coverageNotice(summary) {
+  if (summary.coverage_mode === 'STATE_ONLY') return '<p class="coverage-notice">Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.</p>';
   if (summary.perspective_version !== 1) return '';
   const original = { SINGLE_LEFT: 'źródeł lewicowych', SINGLE_RIGHT: 'źródeł prawicowych', SINGLE_CENTER: 'źródeł centrowych' };
   if (summary.synthesis_coverage_mode && summary.synthesis_coverage_mode !== summary.coverage_mode && original[summary.synthesis_coverage_mode]) return `<p class="coverage-notice">Pierwotna synteza powstała wyłącznie na podstawie ${original[summary.synthesis_coverage_mode]}.</p>`;
@@ -1111,13 +1120,14 @@ function perspectiveUpdateHtml(update) {
 
 function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const summary = model.summary || {};
+  const stateOnly = model.stateOnly || summary.coverage_mode === 'STATE_ONLY';
   const contradictions = Array.isArray(summary.contradictions)
     ? summary.contradictions.filter((item) => !isNonContradictionItem(item))
     : [];
   const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '', subtitle = '') => Array.isArray(items) && items.length ? `<section class="dialog-section insight-section ${className}"><div class="insight-heading"><div><h3>${title}</h3>${subtitle ? `<p class="insight-subtitle">${subtitle}</p>` : ''}</div><span class="insight-count">${items.length}</span></div><ul class="insight-list">${listValue(items)}</ul></section>` : '';
-  const updatesHtml = (model.updates || []).map((update, index) => {
+  const updatesHtml = (stateOnly ? [] : model.updates || []).map((update, index) => {
     const newArticleIds = Array.isArray(update.new_article_ids) ? update.new_article_ids.map(String) : [];
     const newArticleIdSet = new Set(newArticleIds);
     const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
@@ -1134,14 +1144,14 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     : Array.isArray(summary.facts) && summary.facts.length
     ? section('Fakty', summary.facts, 'insight-facts', 'Szczegółowe ustalenia z przypisaniem do źródeł.')
     : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
-  return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
+  return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     ${coverageNotice(summary)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
     ${updatesHtml}
-    ${summary.perspective_version === 1 && summary.shared_available === false ? `<p class="no-common-facts" role="status">${summary.coverage_mode === 'STATE_ONLY' ? 'Doniesienia mediów kontrolowanych przez państwo są dostępne w osobnej sekcji poniżej.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
+    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
       ${factsOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
       <button class="dialog-tab ${factsOnly ? 'is-active' : ''}" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="${factsOnly}" aria-controls="dialog-panel-facts">Fakty</button>
@@ -1150,7 +1160,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     <div class="dialog-tab-panel ${factsOnly ? 'is-active' : ''}" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" ${factsOnly ? '' : 'hidden'}>${factsPanel}</div>
     `}
     ${perspectiveSectionsHtml(summary, detailsState)}
-    ${section('Kontekst', summary.background_context, 'insight-context')}
+    ${stateOnly ? '' : section('Kontekst', summary.background_context, 'insight-context')}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
 }
@@ -1162,8 +1172,8 @@ function renderTopicDialog(topicId, detailsState, preserveTab = true) {
   const scroll = preserveTab ? dialog.scrollTop : 0;
   const tab = preserveTab ? dialog.querySelector('[data-dialog-tab].is-active')?.dataset.dialogTab : null;
   const perspective = preserveTab ? dialog.querySelector('[data-perspective-tab].is-active')?.dataset.perspectiveTab : null;
-  const notice = detailsState === 'loading' ? '<p class="topic-detail-status" role="status">Pobieram pełną syntezę i fakty…</p>'
-    : detailsState === 'error' ? `<div class="topic-detail-error" role="alert"><p>Nie udało się pobrać pełnej syntezy i faktów. Poniżej jest tylko skrócony podgląd.</p><button type="button" data-retry-topic-details="${escapeHtml(topicId)}">Spróbuj ponownie</button></div>` : '';
+  const notice = detailsState === 'loading' ? `<p class="topic-detail-status" role="status">${model.stateOnly ? 'Pobieram doniesienia źródłowe…' : 'Pobieram pełną syntezę i fakty…'}</p>`
+    : detailsState === 'error' ? `<div class="topic-detail-error" role="alert"><p>${model.stateOnly ? 'Nie udało się pobrać doniesień źródłowych.' : 'Nie udało się pobrać pełnej syntezy i faktów. Poniżej jest tylko skrócony podgląd.'}</p><button type="button" data-retry-topic-details="${escapeHtml(topicId)}">Spróbuj ponownie</button></div>` : '';
   $('#dialog-content').innerHTML = notice + dialogHtml(model, { detailsState });
   if (tab && dialog.querySelector(`[data-dialog-tab="${tab}"]`)) {
     dialog.querySelectorAll('[data-dialog-tab]').forEach(button => {

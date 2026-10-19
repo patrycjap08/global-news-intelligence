@@ -55,6 +55,24 @@ assert(!isTopicRead(topicModel(topic)));
 state.articles = state.articles.map(a=>({...a,source_profile:'STATE_ALIGNED'}));
 invalidateViewCache();
 assert.strictEqual(topicModel(topic).hasAggregation,true);
+const stateOnlyModel=topicModel(topic);
+assert.strictEqual(stateOnlyModel.stateOnly,true);
+assert.strictEqual(stateOnlyModel.summary.summary_pl,'');
+assert(!stateOnlyModel.lead.includes('Przeredagowana'));
+assert.strictEqual(stateOnlyModel.updates.length,0);
+html=dialogHtml(stateOnlyModel);
+assert(!html.includes('data-dialog-tab=') && !html.includes('Przeredagowana'));
+// A stored synthesis with incorrect/missing STATE_ONLY metadata cannot leak
+// into the card or dialog when all actual source articles are state media.
+base.coverage_mode='MIXED';base.shared_available=true;base.summary_pl='STATE_SYNTHESIS_MUST_NOT_APPEAR';
+base.topic={what_happened_one_sentence_pl:'STATE_LEAD_MUST_NOT_APPEAR'};
+html=dialogHtml(topicModel(topic));
+assert(!html.includes('STATE_SYNTHESIS_MUST_NOT_APPEAR') && !html.includes('STATE_LEAD_MUST_NOT_APPEAR'));
+assert(!html.includes('data-dialog-tab='));
+assert(html.includes('nie tworzymy syntezy'));
+assert.strictEqual(isStateSource({source_profile:'CENTER',source_type:'GOVERNMENT_AGENCY'}),false);
+// Subsequent mixed-source fixtures regain their independent source data.
+state.articles=state.articles.map(a=>({...a,source_profile:'CENTER'}));invalidateViewCache();
 // Preview metadata is preserved in direct-Supabase mode as well.
 const preview=summaryPreview({perspective_version:1,coverage_mode:'MIXED',shared_available:false,base_text:''});
 assert.strictEqual(preview.summary.base_summary.shared_available,false);

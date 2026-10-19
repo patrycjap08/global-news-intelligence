@@ -60,6 +60,17 @@ class SummaryQueueTests(unittest.TestCase):
         generate.assert_not_called()
         self.assertTrue(any('nie odnaleziono 1' in str(call) for call in logger.call_args_list))
 
+    def test_legacy_state_only_topic_never_generates_first_synthesis_or_update(self):
+        topic={'topic_id':'legacy','headline_pl':'Komunikaty państwowe','last_seen_at':'2026-10-07T12:00:00Z'}
+        links=[{'topic_id':'legacy','article_id':key} for key in 'ab']
+        for summaries in ([],[{'topic_id':'legacy','summary':{'summary_pl':'Dawna synteza.'},'updated_at':'2026-10-07T10:00:00Z'}]):
+            with self.subTest(existing=bool(summaries)):
+                stats,generate,persist,logger=self.run_queue([topic],[('a','one','STATE_ALIGNED'),('b','two','STATE_ALIGNED')],
+                    links,summaries=summaries,forced={'legacy':['b']})
+                self.assertEqual(stats,{'summaries':0,'failed_summaries':0})
+                generate.assert_not_called();persist.assert_not_called()
+                self.assertTrue(any('wyłącznie media kontrolowane przez państwo' in str(call) for call in logger.call_args_list))
+
     def test_five_multisource_topics_are_generated_and_three_single_source_topics_are_explained(self):
         topics = [{'topic_id': str(i), 'headline_pl': f'Temat {i}', 'last_seen_at': '2026-10-07T12:00:00Z'} for i in range(8)]
         links = [{'topic_id': str(i), 'article_id': f'{i}-{j}'} for i in range(8) for j in range(2)]

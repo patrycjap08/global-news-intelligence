@@ -19,6 +19,10 @@ class StateSourceEligibilityTests(unittest.TestCase):
             {"source_profile": "CENTER"},
         ]))
 
+    def test_public_agency_uses_its_editorial_profile(self):
+        self.assertFalse(is_state_source({'source_profile':'CENTER','source_type':'GOVERNMENT_AGENCY'}))
+        self.assertTrue(is_state_source({'source_profile':'STATE_ALIGNED','source_type':'GOVERNMENT_AGENCY'}))
+
 
 if __name__ == "__main__":
     unittest.main()

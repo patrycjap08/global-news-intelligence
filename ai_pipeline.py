@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v59-constrained-perspective-ids"
+PROMPT_VERSION = "ai-prompts-v60-no-state-only-synthesis"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -3182,14 +3182,14 @@ def distinct_source_keys(rows: list[dict[str, Any]]) -> set[str]:
     }
 
 
-STATE_SOURCE_PROFILES = {"STATE_ALIGNED", "STATE_MEDIA", "GOVERNMENT_AGENCY"}
+STATE_SOURCE_PROFILES = {"STATE_ALIGNED", "STATE_MEDIA"}
 
 
 def is_state_source(row: dict[str, Any]) -> bool:
     """Return whether an article comes from a state-aligned/state outlet."""
     profile = str(row.get("source_profile") or "").strip().upper()
     source_type = str(row.get("source_type") or "").strip().upper()
-    return profile in STATE_SOURCE_PROFILES or source_type in STATE_SOURCE_PROFILES
+    return profile in STATE_SOURCE_PROFILES or source_type == "STATE_MEDIA"
 
 
 def has_independent_source(rows: list[dict[str, Any]]) -> bool:
@@ -4740,6 +4740,11 @@ def retry_incomplete_summaries(
             if len(distinct_source_keys(all_rows)) < 2:
                 skipped(topic, "artykuły pochodzą tylko z jednego źródła")
                 continue
+            if not has_independent_source(all_rows) and topic_generation(
+                topic_id, stored_base_summary((previous_row or {}).get("summary"))
+            ) == "legacy":
+                skipped(topic, "wyłącznie media kontrolowane przez państwo; bez syntezy")
+                continue
             previous_aggregation = previous_aggregation_context(previous_row.get("summary")) if previous_row else None
             summary_input_base = {
                 "topic": {
@@ -5336,6 +5341,10 @@ def _analyze_pending_batch(
                 stats["skipped_single_source"] += 1
                 continue
             old = client.select("topic_summaries", filters=[("topic_id", f"eq.{topic_id}")], limit=1)
+            if not has_independent_source(all_rows) and topic_generation(
+                topic_id, stored_base_summary(old[0].get("summary")) if old else None
+            ) == "legacy":
+                continue
             previous_aggregation = previous_aggregation_context(old[0].get("summary")) if old else None
             summary_input_base = {
                 "topic": {

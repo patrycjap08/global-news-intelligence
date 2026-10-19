@@ -190,3 +190,17 @@ NOWYCH kandydatów przeznaczonych do usunięcia. Starsze przekierowania do
 ich docelowe wątki nadal istnieją. Pierwsza wersja SQL zbyt szeroko obejmowała
 oba zbiory. Przerwanie przez tę kontrolę wycofywało całą operację; można
 wkleić poprawiony plik i wykonać go ponownie.
+
+## Wyłącznie media kontrolowane przez państwo
+
+W STATE_ONLY etap perspective_summary nie jest wywoływany. Zapis obejmuje
+wyłącznie przypisane źródłom doniesienia w sekcji STATE, bez głównej syntezy,
+leadów z faktów i generowanego kontekstu. Stare wątki oparte wyłącznie na
+takich źródłach są pomijane w kolejce pierwszych syntez i aktualizacji.
+Interfejs ustala ten warunek również z rzeczywistych artykułów, więc ukrywa
+stary tekst/lead, główne zakładki i wcześniejsze aktualizacje nawet przy
+nieaktualnych metadanych opracowania. Dane w bazie pozostają bez zmian.
+
+Publiczna agencja typu GOVERNMENT_AGENCY z normalnym profilem redakcyjnym
+nie jest automatycznie medium kontrolowanym przez państwo. Regułę oznaczają
+STATE_ALIGNED/STATE_MEDIA w profilu albo source_type=STATE_MEDIA.

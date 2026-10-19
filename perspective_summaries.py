@@ -16,8 +16,8 @@ STATE_FIELDS = ('perspective_version', 'coverage_mode', 'shared_available', 'per
 
 
 def article_group(row: dict) -> str:
-    profile = str(row.get('source_profile') or '').upper()
-    kind = str(row.get('source_type') or '').upper()
+    profile = str(row.get('source_profile') or '').strip().upper()
+    kind = str(row.get('source_type') or '').strip().upper()
     if profile in {'STATE_ALIGNED', 'STATE_MEDIA'} or kind == 'STATE_MEDIA':
         return 'STATE'
     if profile in {'LEFT', 'CENTER_LEFT'}:
@@ -363,6 +363,16 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
         result = dict(previous_base)
         result.pop('perspective_state', None)
         result.setdefault('synthesis_coverage_mode', previous_base.get('coverage_mode', mode))
+    elif mode == 'STATE_ONLY':
+        # Preserve separately attributed state reports, without commissioning
+        # a main synthesis or context from an empty independent fact set.
+        headline = normalize(headline)
+        if re.search(r'[\u0400-\u052f\u2de0-\u2dff\ua640-\ua69f]', headline):
+            raise ValueError('Tytuł perspektyw zawiera cyrylicę.')
+        result = {'topic': {'headline_pl': normalize(headline),
+                            'what_happened_one_sentence_pl': '', 'categories': categories},
+                  'summary_pl': '', 'background_context': [],
+                  'synthesis_coverage_mode': mode}
     else:
         main_article_ids = {i for f in main for i in f['article_ids']}
         sources = [{key: a.get(key) for key in ('article_id', 'source_name', 'published_at')}

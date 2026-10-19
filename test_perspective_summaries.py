@@ -53,6 +53,36 @@ class PerspectiveTests(unittest.TestCase):
         _,facts=self.route([article('l','LEFT'),article('r','RIGHT')],[fact('A.',['l']),fact('B.',['r'])])
         self.assertFalse(any(f['lane']=='COMMON' for f in facts))
 
+    def test_state_only_extracts_attributed_reports_without_calling_synthesis_writer(self):
+        rows=[article('a','STATE_ALIGNED'),article('b','STATE_MEDIA')]
+        calls=[]
+        def call(instructions,data,schema,name):
+            calls.append(name)
+            self.assertEqual(name,'perspective_facts')
+            return extraction([fact('Według agencji: komunikat.',['a','b'])],data['all_articles'])
+        result=p.generate({'topic':{},'all_articles':rows},call,ai.normalize_generated_text)
+        self.assertEqual(calls,['perspective_facts'])
+        self.assertEqual(result['coverage_mode'],'STATE_ONLY')
+        self.assertEqual(result['summary_pl'],'')
+        self.assertEqual(result['facts'],[])
+        self.assertFalse(result['shared_available'])
+        self.assertEqual(result['background_context'],[])
+        self.assertEqual(result['topic']['what_happened_one_sentence_pl'],'')
+        self.assertEqual(len(result['perspective_sections']['STATE']),1)
+
+    def test_public_agency_with_center_profile_still_gets_synthesis(self):
+        rows=[{**article('a','CENTER'),'source_type':'GOVERNMENT_AGENCY'},article('b','STATE_ALIGNED')]
+        calls=[]
+        def call(instructions,data,schema,name):
+            calls.append(name)
+            if name=='perspective_facts':return extraction([fact('Wiadomość agencji publicznej.',['a'])],data['all_articles'])
+            return {'paragraphs':[{'text_pl':'Wiadomość agencji publicznej.','fact_ids':[data['main_facts'][0]['fact_id']]}],
+                    'general_context':{'text_pl':'Tło.','article_ids':[]},'background_context':[]}
+        result=p.generate({'topic':{},'all_articles':rows},call,ai.normalize_generated_text)
+        self.assertEqual(calls,['perspective_facts','perspective_summary'])
+        self.assertEqual(result['coverage_mode'],'SINGLE_CENTER')
+        self.assertTrue(result['shared_available'])
+
     def test_confirmations_promotions_and_new_perspective_updates(self):
         rows=[article('l','LEFT'),article('r','RIGHT')]
         _,known=self.route(rows,[fact('Znana decyzja.',['l'])])
