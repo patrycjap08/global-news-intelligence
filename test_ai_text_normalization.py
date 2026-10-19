@@ -65,8 +65,8 @@ class AITextNormalizationTests(unittest.TestCase):
         self.assertIn("Po napisaniu summary_pl oraz facts przejrzyj OBA pola", SUMMARY_INSTRUCTIONS)
         self.assertIn("Dla osoby wymagającej dodatkowego objaśnienia dodaj osobny element", SUMMARY_INSTRUCTIONS)
         self.assertIn("Dla organizacji wymagającej dodatkowego objaśnienia dodaj osobny element", SUMMARY_INSTRUCTIONS)
-        self.assertIn("Zakaz obejmuje również parafrazy tej samej informacji", SUMMARY_INSTRUCTIONS)
-        self.assertIn("przenieś go do summary_pl i usuń z kontekstu", SUMMARY_INSTRUCTIONS)
+        self.assertIn("Nie obowiązuje sztywny zakaz przywołania w kontekście faktu z syntezy", SUMMARY_INSTRUCTIONS)
+        self.assertIn("kontekst nie może zastępować", SUMMARY_INSTRUCTIONS)
         self.assertIn("Nie traktuj samej nazwy kraju lub", SUMMARY_INSTRUCTIONS)
         self.assertIn("Nie zgaduj tożsamości na podstawie nazwiska", SUMMARY_INSTRUCTIONS)
 

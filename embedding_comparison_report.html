@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Porównanie embeddingów — dwa warianty</title>
+<style>
+body{margin:0;background:#f7f1e7;color:#24221e;font:15px/1.5 system-ui,sans-serif}main{max-width:1250px;margin:auto;padding:24px}h1{font:32px Georgia,serif}h2{font-size:19px}p{max-width:950px}.muted{color:#756e63}.controls{position:sticky;top:0;padding:12px;background:#eee5d6;z-index:1;border:1px solid #cfc4b4}input{width:min(440px,65%);vertical-align:middle}output{font-weight:700}.grids{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.panel{overflow-x:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{padding:8px;border:1px solid #cfc4b4;text-align:right}th:first-child,td:first-child{text-align:left}td.pass{background:#dce7d7;color:#274325}td.fail{background:#eee9df;color:#686057}td.diagonal{background:#ded5c6}.pairs{min-width:700px}.pairs td:nth-child(2){text-align:left}.groups{min-height:64px;font-size:13px}li{margin-bottom:7px}details{margin:14px 0}pre{white-space:pre-wrap;font:12px/1.5 monospace;overflow-wrap:anywhere}summary{cursor:pointer}@media(max-width:760px){.grids{grid-template-columns:1fr}main{padding:14px}th,td{padding:5px;font-size:12px}}
+</style>
+<main>
+<h1>Porównanie embeddingów</h1>
+<p id="metadata" class="muted"></p>
+<p><strong>A — obecny wariant:</strong> tytuł, krótki opis, początek pierwotnej syntezy i do trzech najnowszych nagłówków. Dokładny tekst przygotowuje obecna funkcja produkcyjna.</p>
+<p><strong>B — tytuł i opis:</strong> wyłącznie tytuł wątku i jego zapisany krótki opis. Oba warianty używają tego samego modelu, wymiarów i chwili odczytu danych. Żaden nie wysyła treści artykułów.</p>
+<p>To raport bez zmian w bazie. Zielone pola przekraczają wybrany próg. Podział na grupy korzysta z obecnej reguły dwóch stałych punktów odniesienia, z zachowaniem rozdziału formatów; pozostałe wątki są pokazane osobno.</p>
+<div class="controls"><label for="threshold">Próg ogólny: </label><input id="threshold" type="range" min="0.60" max="0.95" step="0.01" value="0.82"><output id="value" for="threshold">0.82</output></div>
+<h2>Porównywane wątki</h2><ol id="topics"></ol>
+<div class="grids"><section><h2>A — obecny wariant</h2><p id="stats-current"></p><div id="matrix-current" class="panel"></div><p id="groups-current" class="groups"></p></section><section><h2>B — tytuł i opis</h2><p id="stats-title_description"></p><div id="matrix-title_description" class="panel"></div><p id="groups-title_description" class="groups"></p></section></div>
+<h2>Wszystkie pary</h2><div class="panel"><table class="pairs"><thead><tr><th>Wątek A</th><th>Wątek B</th><th>A</th><th>B</th><th>B − A</th></tr></thead><tbody id="pairs"></tbody></table></div>
+<h2>Dokładne teksty wysłane do embeddingu</h2><div id="inputs"></div>
+</main>
+<script id="report" type="application/json">__REPORT_JSON__</script>
+<script>
+const data=JSON.parse(document.getElementById('report').textContent);
+const $=id=>document.getElementById(id);
+const add=(parent,tag,text,cls='')=>{const el=document.createElement(tag);el.textContent=text;if(cls)el.className=cls;parent.append(el);return el;};
+const numbers=new Map(data.topics.map((t,i)=>[t.topic_id,i+1]));
+const lookup=new Map(data.pairs.flatMap(p=>[[p.topic_id_a+'|'+p.topic_id_b,p],[p.topic_id_b+'|'+p.topic_id_a,p]]));
+$('metadata').textContent=`Odczyt od ${data.snapshot_started_at} · wynik ${data.created_at} · ${data.model} · ${data.dimensions} wymiarów · ${data.pairs.length} par · ${data.usage.total_tokens??'—'} tokenów.`;
+for(const t of data.topics)add($('topics'),'li',t.headline_pl+(t.status==='ACTIVE'?'':` [${t.status}]`));
+for(const t of data.topics){const box=add($('inputs'),'details','');add(box,'summary',`#${numbers.get(t.topic_id)} — ${t.headline_pl}`);for(const v of ['current','title_description']){add(box,'h3',v==='current'?'A — obecny':'B — tytuł i opis');add(box,'pre',data.inputs.find(i=>i.topic_id===t.topic_id&&i.variant===v).text);}}
+function render(){
+ const threshold=Number($('threshold').value);$('value').value=threshold.toFixed(2);
+ const sim=data.simulations[threshold.toFixed(2)];
+ for(const variant of ['current','title_description']){
+  const holder=$('matrix-'+variant);holder.replaceChildren();const table=add(holder,'table','');const head=add(table,'tr','');add(head,'th','#');for(const t of data.topics)add(head,'th',numbers.get(t.topic_id));
+  for(const a of data.topics){const row=add(table,'tr','');add(row,'th',numbers.get(a.topic_id));for(const b of data.topics){const p=lookup.get(a.topic_id+'|'+b.topic_id);if(!p){add(row,'td','—','diagonal');continue;}const cutoff=p.threshold< data.threshold?Math.min(threshold,p.threshold):threshold;const cell=add(row,'td',p[variant].toFixed(3),p[variant]>=cutoff?'pass':'fail');cell.title=a.headline_pl+' / '+b.headline_pl;}}
+  $('stats-'+variant).textContent=`Pary kwalifikujące się: ${sim[variant].qualifying_pairs}/${data.pairs.length}. Wątków po symulowanym scaleniu: ${sim[variant].group_count}.`;
+  $('groups-'+variant).textContent='Grupy: '+sim[variant].groups.map(g=>g.map(id=>'#'+numbers.get(id)).join(' + ')).join(' | ');
+ }
+ $('pairs').replaceChildren();
+ for(const p of [...data.pairs].sort((a,b)=>Math.max(b.current,b.title_description)-Math.max(a.current,a.title_description))){const row=add($('pairs'),'tr','');add(row,'td',`#${numbers.get(p.topic_id_a)} ${p.title_a}`);add(row,'td',`#${numbers.get(p.topic_id_b)} ${p.title_b}`);const cutoff=p.threshold<data.threshold?Math.min(threshold,p.threshold):threshold;for(const v of ['current','title_description'])add(row,'td',p[v].toFixed(6),p[v]>=cutoff?'pass':'fail');add(row,'td',(p.difference>=0?'+':'')+p.difference.toFixed(6));}
+}
+$('threshold').addEventListener('input',render);render();
+</script>
+</html>

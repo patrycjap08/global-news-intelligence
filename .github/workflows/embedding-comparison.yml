@@ -1,0 +1,54 @@
+name: GNI — porównanie embeddingów bez scalania
+run-name: Porównanie embeddingów — obecny tekst oraz tytuł i opis
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic_ids:
+        description: "Puste = 8 wątków Francji ze zrzutów; opcjonalnie 2–20 topic_id"
+        required: false
+        default: ""
+        type: string
+  # Isolated diagnostic branch permits the initial run without starting full/AI-only.
+  push:
+    branches: [diagnostics/embedding-france-20261019]
+    paths:
+      - compare_topic_embeddings.py
+      - .github/workflows/embedding-comparison.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: embedding-comparison-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_DIMENSIONS || '256' }}
+      AI_TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_REQUEST_TIMEOUT_SECONDS || '60' }}
+      AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES: ${{ vars.AI_TOPIC_MERGE_EMBEDDING_MAX_RETRIES || '2' }}
+      TOPIC_IDS: ${{ inputs.topic_ids || '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install embedding client
+        run: python -m pip install 'openai>=1.84,<2'
+      - name: Compare both variants (read-only)
+        run: python compare_topic_embeddings.py --topic-ids "$TOPIC_IDS" --output embedding-comparison
+      - name: Add all pair scores to run summary
+        run: cat embedding-comparison/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: embedding-comparison-${{ github.run_id }}
+          path: embedding-comparison/
+          if-no-files-found: error
+          retention-days: 14
