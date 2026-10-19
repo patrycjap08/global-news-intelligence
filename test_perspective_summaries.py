@@ -76,6 +76,35 @@ class PerspectiveTests(unittest.TestCase):
         for raw in [fact('A.',['alien']),fact('A.',[]),fact('Zmieniony.',['l'],known[0]['fact_id']),fact('Znany fakt.',['r'],'alien'),fact('Nowy.',['r'],reason='')]:
             with self.subTest(raw=raw),self.assertRaises(ValueError):self.route(rows,[raw],known)
 
+    def test_first_extraction_cannot_reference_invented_known_fact_ids(self):
+        schema=p.extraction_schema([])
+        self.assertEqual(schema['properties']['facts']['items']['properties']['known_fact_id']['enum'],[''])
+        self.assertNotIn('enum',p.FACT_SCHEMA['properties']['known_fact_id'])
+
+    def test_known_fact_confirmation_reuses_text_without_rewriting_it(self):
+        rows=[article('l','LEFT'),article('r','RIGHT')]
+        _,known=self.route(rows,[fact('Osiem osób zatrzymano po ataku.',['l'])])
+        schema=p.extraction_schema(known)
+        confirmation_schema=schema['properties']['facts']['items']['anyOf'][1]['properties']
+        self.assertEqual(confirmation_schema['known_fact_id']['enum'],[known[0]['fact_id']])
+        self.assertEqual(confirmation_schema['text_pl']['enum'],[''])
+        _,confirmed=self.route(rows,[fact('',['r'],known[0]['fact_id'],reason='')],known)
+        self.assertEqual(confirmed[0]['text_pl'],known[0]['text_pl'])
+        self.assertEqual(confirmed[0]['article_ids'],['l','r'])
+        self.assertEqual(len(confirmed),1)
+        _,again=self.route(rows,[fact('',['r'],known[0]['fact_id'],reason='')],confirmed)
+        self.assertEqual(p.make_update(again,confirmed,True,['r'])['status'],'NO_NEW_INFORMATION')
+
+    def test_context_schema_only_accepts_article_ids_admitted_to_main_facts(self):
+        schema=p.writing_schema([{'fact_id':'f1','article_ids':['l','r']}])
+        self.assertEqual(schema['properties']['general_context']['properties']['article_ids']['items']['enum'],['l','r'])
+        self.assertEqual(schema['properties']['background_context']['items']['properties']['article_ids']['items']['enum'],['l','r'])
+        self.assertEqual(schema['properties']['paragraphs']['items']['properties']['fact_ids']['items']['enum'],['f1'])
+        empty=p.writing_schema([])
+        self.assertEqual(empty['properties']['general_context']['properties']['article_ids']['maxItems'],0)
+        self.assertEqual(empty['properties']['paragraphs']['maxItems'],0)
+        self.assertNotIn('enum',p.WRITING_SCHEMA['properties']['general_context']['properties']['article_ids']['items'])
+
     def test_article_coverage_rejects_omissions_and_inconsistent_evidence(self):
         rows=[article('l','LEFT'),article('r','RIGHT')]
         valid=extraction([fact('Wspólne.',['l','r'])],rows)

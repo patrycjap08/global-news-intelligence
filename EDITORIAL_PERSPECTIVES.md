@@ -148,3 +148,38 @@ opublikowanej syntezy. Większa kompletność może zwiększyć liczbę tokenów
 odpowiedzi. Dotychczasowych opracowań nie przebudowujemy automatycznie;
 nowe instrukcje dotyczą kolejnych analiz, bez migracji i produkcyjnych wywołań
 przy wdrażaniu. Cofnięcie tego commita przywraca poprzednią ekstrakcję.
+
+## Identyfikatory faktów i źródeł
+
+Korekta `Constrain perspective evidence IDs and add targeted AI rollback SQL`
+ogranicza identyfikatory w ścisłym schemacie odpowiedzi. Przy pierwszej
+ekstrakcji known_fact_id może być tylko pusty. Przy potwierdzeniu znanego
+faktu model wybiera istniejący identyfikator i zwraca pusty text_pl; kod
+sam zachowuje oryginalny tekst. Nowe fakty nadal wymagają własnej treści
+i uzasadnienia nowości. Nie rozluźniamy weryfikacji zmienionych twierdzeń.
+
+Schemat pierwszej syntezy dopuszcza w kontekście tylko article_ids materiałów
+potwierdzających wspólne fakty. fact_ids akapitów też mają zamknięty zbiór.
+Bez takich materiałów listy cytowań muszą być puste, a wiedza ogólna wymaga
+needs_verification=true. Weryfikacja w kodzie pozostaje dodatkową kontrolą.
+W razie błędu walidacji zapisujemy także odpowiedź i nazwę etapu w topic_runs;
+wcześniej zwykły ValueError nie zachowywał tych danych. Nie zwiększamy liczby
+zapytań ani nie zmieniamy opublikowanych syntez.
+
+`sql_rollback_ai_20261019T080527Z.sql` to jednorazowy skrypt wyłącznie dla
+wskazanego przebiegu, z metadanymi i 162 powiązaniami 13 starych wątków
+z archiwalnego eksportu 2026-10-19 04:18:57 UTC (artefakt 12162828048).
+Przywraca ich syntezy z zachowanych wersji, usuwa 286 nowych kandydatów
+i decyzje wykluczenia 142 artykułów, zachowuje pobrane artykuły i harvest.
+Prywatna kopia cofanych danych trafia do gni_recovery.ai_rollbacks.
+Skrypt odmawia wykonania po nowszym harveście/analizie lub przy braku historii.
+Nie odtwarza dokładnych technicznych dat starych przypisań, których eksport
+nie zawiera; ustawia je nie później niż poprzednia analiza, aby samo cofnięcie
+nie tworzyło aktualizacji. input_hash przywróconej starszej wersji dostaje
+znacznik odtworzenia, jeśli nie zachowano poprzedniego hasha.
+
+Po SQL uruchomić NOWE ai-only na aktualnym main, a nie Re-run jobs starego
+uruchomienia, które odtwarzałoby stary commit. Pobrane artykuły kwalifikują się
+do nazwania w ciągu 24 godzin od fetched_at. SQL raportuje materiały starsze
+od tego okna, nie przestawia ich dat. Eksport Pages odświeży kolejny workflow;
+sam SQL nie zmienia już opublikowanych plików strony.

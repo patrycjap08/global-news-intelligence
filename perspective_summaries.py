@@ -5,6 +5,7 @@ from cited article profiles; prose can cite only facts admitted to the main lane
 """
 from __future__ import annotations
 import hashlib
+import copy
 import json
 import re
 from typing import Any
@@ -74,6 +75,39 @@ WRITING_SCHEMA = obj({
     })},
 })
 
+def allowed_strings(values):
+    values = sorted(set(values))
+    return {'type': 'array', 'items': {'type': 'string', 'enum': values}} if values else {
+        'type': 'array', 'items': STRING, 'maxItems': 0}
+
+
+def extraction_schema(known):
+    """First extraction cannot invent known IDs; confirmations never rewrite text."""
+    schema = copy.deepcopy(EXTRACTION_SCHEMA)
+    new_fact = copy.deepcopy(FACT_SCHEMA)
+    new_fact['properties']['known_fact_id'] = {'type': 'string', 'enum': ['']}
+    items = new_fact
+    if known:
+        confirmation = copy.deepcopy(FACT_SCHEMA)
+        confirmation['properties']['known_fact_id'] = {'type': 'string', 'enum': sorted({f['fact_id'] for f in known})}
+        confirmation['properties']['text_pl'] = {'type': 'string', 'enum': ['']}
+        confirmation['properties']['why_new_pl'] = {'type': 'string', 'enum': ['']}
+        items = {'anyOf': [new_fact, confirmation]}
+    schema['properties']['facts']['items'] = items
+    return schema
+
+
+def writing_schema(main):
+    schema = copy.deepcopy(WRITING_SCHEMA)
+    article_ids = {i for f in main for i in f['article_ids']}
+    schema['properties']['paragraphs']['items']['properties']['fact_ids'] = allowed_strings(f['fact_id'] for f in main)
+    if not main:
+        schema['properties']['paragraphs']['maxItems'] = 0
+    schema['properties']['general_context']['properties']['article_ids'] = allowed_strings(article_ids)
+    schema['properties']['background_context']['items']['properties']['article_ids'] = allowed_strings(article_ids)
+    return schema
+
+
 EXTRACTION_INSTRUCTIONS = '''
 Zbuduj kompletny rejestr istotnych, atomowych ustaleń o jednym wydarzeniu,
 wyłącznie z pełnych tekstów all_articles. To ekstrakcja faktów, NIE streszczenie.
@@ -127,12 +161,14 @@ Materiały STATE przedstawiaj jako doniesienia, np. „Według agencji TASS…�
 previous_facts zawiera WSZYSTKIE wcześniej zapisane ustalenia, również ustalenia
 z poprzednich paczek tego samego przetwarzania. all_articles zawiera bieżącą
 paczkę pełnych artykułów. Nie powołuj się na niewysłane artykuły jako nowe potwierdzenie. Gdy artykuł
-potwierdza znany fakt, zwróć jego known_fact_id oraz DOKŁADNIE dotychczasowy
-text_pl i uzupełnione article_ids. Rozpoznawaj parafrazy i tłumaczenia — to nie
+potwierdza znany fakt, wybierz jego known_fact_id WYŁĄCZNIE z previous_facts,
+ustaw text_pl="", why_new_pl="" i podaj uzupełnione article_ids. Kod sam zachowa
+oryginalną treść faktu. Nie twórz ani nie odgaduj identyfikatorów; gdy
+previous_facts=[], każdy known_fact_id musi być pusty. Rozpoznawaj parafrazy i tłumaczenia — to nie
 nowy fakt. Nie zamieniaj znanego ustalenia w nowy fakt o pustym known_fact_id.
 Znane fakty nie są listą zamykającą ekstrakcję: szukaj także istotnych szczegółów,
 których wcześniej nie zapisano. Nie przepisuj jednak starego faktu pod nowym
-ID tylko po to, by go inaczej sformułować lub rozbić; jego tekst zachowaj.
+ID tylko po to, by go inaczej sformułować lub rozbić.
 Dla nowego faktu known_fact_id=""; przy poprzedniej syntezie why_new_pl musi
 konkretnie wyjaśniać, jakiej informacji nie było w previous_facts. Dla znanego
 why_new_pl="". Także wcześniej przetworzony artykuł może ponownie potwierdzać
@@ -149,6 +185,11 @@ Każdy akapit musi mieć fact_ids wszystkich ustaleń, które opisuje. Nie dodaw
 żadnych faktów, liczb ani ocen spoza main_facts. Nie używaj angielskich słów
 pospolitych ani cyrylicy. Zachowaj polskie nazwy i poprawne polskie transkrypcje.
 main_sources mapuje cytowane article_ids na nazwy redakcji i daty publikacji.
+W general_context i background_context article_ids mogą zawierać WYŁĄCZNIE
+identyfikatory artykułów z main_sources.article_id. Nie wpisuj tam fact_id,
+nazw redakcji ani wymyślonych ID. Jeżeli objaśnienie wynika z wiedzy ogólnej,
+zwróć article_ids=[] i needs_verification=true. Gdy main_sources=[], wszystkie
+article_ids w kontekście muszą być puste. Nie przypisuj fikcyjnego źródła.
 Nie sklejaj niezgodnych liczb lub wersji w jedno twierdzenie. Zachowaj ich
 zakres i czas; gdy rzeczywiście są rozbieżne, napisz np. „Część źródeł podaje
 osiem zatrzymań, inne dziesięć” ze wskazaniem redakcji. Nie pisz „równocześnie
@@ -194,11 +235,13 @@ def route_facts(response, articles, previous_facts, normalize):
     for raw in raw_facts:
         text = normalize(raw.get('text_pl')).strip()
         ids = raw.get('article_ids')
+        fid = str(raw.get('known_fact_id') or '')
+        if fid and (fid not in known or (text and _text_key(text) != _text_key(known[fid]['text_pl']))):
+            raise ValueError('Nieznany identyfikator lub zmieniona treść znanego faktu.')
+        if fid:
+            text = known[fid]['text_pl']
         if not text or not isinstance(ids, list) or not ids or any(str(i) not in by_id for i in ids):
             raise ValueError('Fakt perspektyw nie ma treści lub poprawnych materiałów źródłowych.')
-        fid = str(raw.get('known_fact_id') or '')
-        if fid and (fid not in known or _text_key(text) != _text_key(known[fid]['text_pl'])):
-            raise ValueError('Nieznany identyfikator lub zmieniona treść znanego faktu.')
         if not fid:
             fid = key_to_id.get(_text_key(text), '')
         if not fid:
@@ -307,7 +350,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
     while offset < len(prepared):
         base = {'topic': payload['topic'], 'previous_facts': facts}
         batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
-        extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch}, EXTRACTION_SCHEMA, 'perspective_facts')
+        extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch}, extraction_schema(facts), 'perspective_facts')
         validate_batch_citations(extracted, batch, facts, normalize)
         validate_article_coverage(extracted, batch)
         mode, facts = route_facts(extracted, articles, facts, normalize)
@@ -325,7 +368,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
         sources = [{key: a.get(key) for key in ('article_id', 'source_name', 'published_at')}
                    for a in articles if str(a['article_id']) in main_article_ids]
         written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main, 'main_sources': sources},
-                       WRITING_SCHEMA, 'perspective_summary')
+                       writing_schema(main), 'perspective_summary')
         allowed = {f['fact_id'] for f in main}
         paragraphs = written.get('paragraphs')
         if not isinstance(paragraphs, list) or bool(paragraphs) != bool(main):

@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v58-complete-atomic-facts"
+PROMPT_VERSION = "ai-prompts-v59-constrained-perspective-ids"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2510,13 +2510,16 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
     # Existing legacy publications keep their established update flow. New
     # publications and subsequent updates use the explicitly versioned format.
     if previous is None or (previous.get("base_summary") or {}).get("perspective_version") == 1:
+        last_response, last_schema = None, None
         def call(instructions, data, schema, name):
+            nonlocal last_response, last_schema
             if name == "perspective_facts":
                 log("AI", f"Fakty perspektyw: paczka {len(data['all_articles'])} artykułów z pełnymi treściami, bez skracania tekstów.")
             response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                 timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                 reasoning_effort=summary_reasoning_effort(model),
                 response_schema=schema, response_schema_name=name)
+            last_response, last_schema = response, name
             if name == "perspective_facts":
                 coverage = response.get('article_coverage') or []
                 counts = [len(row.get('fact_indexes') or []) for row in coverage]
@@ -2524,7 +2527,16 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                     f"artykułów w kontroli pokrycia: {len(coverage)}/{len(data['all_articles'])}, "
                     f"potwierdzeń faktów: {sum(counts)}, ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
             return response
-        raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)
+        try:
+            raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)
+        except AIResponseParseError:
+            raise
+        except ValueError as exc:
+            if last_response is None:
+                raise
+            error = AIResponseParseError(str(exc), json.dumps(last_response, ensure_ascii=False))
+            error.response_details = {"schema": last_schema, "validation_error": str(exc)}
+            raise error from exc
         normalized = normalize_summary_response(raw)
         for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = raw.get(field)
