@@ -179,9 +179,13 @@ class AtomicUpdateTests(unittest.TestCase):
             ai.generate_summary_response(payload(), 'model')
             update.assert_called_once()
             synthesis.assert_not_called()
-            ai.generate_summary_response({'previous_aggregation': None, 'new_articles': []}, 'model')
-            synthesis.assert_called_once()
-            self.assertIs(synthesis.call_args.kwargs['response_schema'], ai.SUMMARY_RESPONSE_SCHEMA)
+            with patch.object(ai.perspectives, 'generate', return_value={
+                'perspective_version':1, 'coverage_mode':'STATE_ONLY', 'shared_available':False,
+                'perspective_sections':{}, 'perspective_facts':[],
+            }) as perspective:
+                ai.generate_summary_response({'previous_aggregation': None, 'all_articles': []}, 'model')
+                perspective.assert_called_once()
+                synthesis.assert_not_called()
 
 
 if __name__ == '__main__':

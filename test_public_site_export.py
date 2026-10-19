@@ -25,6 +25,22 @@ class PublicExportTests(unittest.TestCase):
             self.assertEqual(len(detail['summary']['summary']['updates']), 1)
             self.assertNotIn('NEVER_EXPORT_BODY', (path/'index.json').read_text())
 
+    def test_perspective_preview_metadata_without_fact_ledger(self):
+        rows=self.rows()
+        base=rows[0]['summary']['summary']['base_summary']
+        base.update(perspective_version=1,coverage_mode='MIXED',shared_available=False,
+                    perspective_facts=[{'text_pl':'PRIVATE_LEDGER_NOT_IN_INDEX'}],
+                    perspective_sections={'LEFT':[{'text_pl':'LEFT_DETAILS'}]})
+        with tempfile.TemporaryDirectory() as folder:
+            index=write_site(rows,Path(folder))
+            preview=index['summaries'][0]['summary']['base_summary']
+            self.assertEqual(preview['perspective_version'],1)
+            self.assertIs(preview['shared_available'],False)
+            self.assertNotIn('perspective_facts',preview)
+            self.assertNotIn('PRIVATE_LEDGER_NOT_IN_INDEX',json.dumps(index))
+            detail=json.loads((Path(folder)/index['generation']/'topics/topic_1.json').read_text())
+            self.assertEqual(detail['summary']['summary']['base_summary']['perspective_sections'],base['perspective_sections'])
+
     def test_incomplete_export_preserves_previous_index(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)

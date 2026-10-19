@@ -295,3 +295,20 @@ button { color: inherit; }
 .topic-detail-error { padding: 12px 14px; border: 1px solid var(--red); background: var(--paper-deep); }
 .topic-detail-error p { margin: 0 0 10px; }
 .topic-detail-error button { padding: 8px 14px; border: 1px solid var(--ink); border-radius: 999px; color: var(--ink); background: var(--paper); font: inherit; cursor: pointer; }
+
+/* Article shares are informative, not an interactive slider. */
+.article-profile-share { margin: 1rem 0; }
+.profile-share-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .35rem .75rem; font: .72rem/1.5 var(--font-sans, sans-serif); color: var(--muted, #766e64); }
+.profile-share-legend strong { font-weight: 600; white-space: nowrap; }
+.profile-share-bar { display: flex; height: 7px; border-radius: 4px; overflow: hidden; margin-top: .45rem; background: #ddd5c9; }
+.profile-share-bar .profile-share-left { background: #a76260; }
+.profile-share-bar .profile-share-center { background: #aca18c; }
+.profile-share-bar .profile-share-right { background: #718e9e; }
+.coverage-notice, .no-common-facts { padding: 1rem; border-left: 3px solid #a34432; background: #eee5d6; font-size: .9rem; line-height: 1.6; }
+.perspectives-section { margin: 1.5rem 0; border-top: 1px solid #b7aa99; padding-top: 1.25rem; }
+.perspective-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.perspective-tab { font: inherit; font-size: .85rem; border: 1px solid #a99c8c; padding: .6rem .8rem; border-radius: 1.2rem; background: transparent; color: inherit; cursor: pointer; }
+.perspective-tab.is-active { background: #e3d5bf; border-color: #403a32; }
+.perspective-tab:focus-visible { outline: 2px solid #a34432; outline-offset: 3px; }
+.update-section h4 { margin: 1rem 0 .4rem; font-size: .9rem; }
+@media (max-width: 600px) { .profile-share-legend { font-size: .65rem; gap: .25rem .5rem; } .perspective-tab { font-size: .78rem; } }

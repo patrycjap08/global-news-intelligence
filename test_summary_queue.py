@@ -152,7 +152,9 @@ class SummaryQueueTests(unittest.TestCase):
         ), patch.object(ai, 'retry_incomplete_summaries', return_value={'summaries': 1, 'failed_summaries': 0}) as retry, patch.object(ai, 'log'):
             result = ai.analyze_run(Path(folder) / 'articles.sqlite3', 'run', object())
         self.assertEqual(retry.call_args.kwargs['forced_new_article_ids_by_topic'], {'retained': ['moved']})
-        self.assertEqual(result['summaries'], 1)
+        self.assertEqual(result['summaries'], 2)  # Main queue plus post-publication merge queue.
+        self.assertEqual(retry.call_args_list[0].kwargs['only_generation'], 'perspectives')
+        self.assertEqual(retry.call_args_list[1].kwargs['only_topic_ids'], {'retained'})
 
 
 if __name__ == '__main__':

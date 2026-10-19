@@ -118,3 +118,9 @@ Samo podpięcie nowego artykułu albo analiza NO_NEW_INFORMATION nie oznacza
 nieprzeczytanego wątku, także przy włączonym „Ukryj przeczytane”. Dotychczasowe
 lokalne oznaczenia z datą przeczytania są zachowywane; nowsza opublikowana
 aktualizacja ponownie oznacza wątek jako nieprzeczytany.
+
+Nowe syntezy mają wspólne ustalenia oraz przełączane perspektywy lewicowe,
+prawicowe i mediów kontrolowanych przez państwo. Bez wspólnych faktów znikają
+zakładki Synteza/Fakty. Pasek pokazuje udział artykułów (bez państwowych).
+Zasady aktualizacji, izolacji wersji i cofnięcia jednego commita opisuje
+[EDITORIAL_PERSPECTIVES.md](../EDITORIAL_PERSPECTIVES.md).

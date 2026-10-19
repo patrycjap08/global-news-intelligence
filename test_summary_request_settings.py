@@ -21,11 +21,15 @@ class SummaryRequestSettingsTests(unittest.TestCase):
                 return {'facts':[{'text_pl':'Nowy fakt','why_new_pl':'Nowa decyzja','article_ids':['a1']}]}
             if kwargs['response_schema_name']=='update_novelty_audit':
                 return {'verdicts':{'0':{'keep':True,'reason_pl':'Nowa decyzja'}}}
+            if kwargs['response_schema_name']=='perspective_facts':
+                return {'headline_pl':'[Polska] Decyzja', 'categories':['POLSKA'], 'facts':[{'known_fact_id':'', 'text_pl':'Decyzja.', 'article_ids':['a1'], 'why_new_pl':''}]}
+            if kwargs['response_schema_name']=='perspective_summary':
+                return {'paragraphs':[{'text_pl':'Decyzja.', 'fact_ids':[payload['main_facts'][0]['fact_id']]}], 'general_context':{'text_pl':'Tło.', 'article_ids':[], 'needs_verification':True}, 'background_context':[]}
             return {'summary_pl':'Synteza'}
         with patch.dict(os.environ, {'AI_SUMMARY_REASONING_EFFORT':'low'}), patch.object(ai,'call_openai',side_effect=response):
-            ai.generate_summary_response({}, 'gpt-5-nano')
+            ai.generate_summary_response({'topic':{}, 'all_articles':[{'article_id':'a1','source_profile':'CENTER'}]}, 'gpt-5-nano')
             ai.generate_summary_response({'previous_aggregation':{'base_summary':{}},'new_articles':[{'article_id':'a1'}]},'gpt-5-nano')
-        self.assertEqual(len(seen),3)
+        self.assertEqual(len(seen),4)
         for settings in seen:
             self.assertEqual(settings['reasoning_effort'],'low')
             self.assertEqual(settings['timeout_seconds'],ai.SUMMARY_REQUEST_TIMEOUT_SECONDS)

@@ -41,7 +41,7 @@ let openDialogTopicId = null;
 let dialogRequestToken = 0;
 const REQUEST_TIMEOUT_MS = 15000;
 const LOAD_TIMEOUT_MS = 90000;
-const SUMMARY_PREVIEW_COLUMNS = 'topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
+const SUMMARY_PREVIEW_COLUMNS = 'perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
 const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
 const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
@@ -460,7 +460,7 @@ function itemArticleSources(item) {
 function topicReadContent(model) {
   const update = model.updates?.[0];
   return JSON.stringify({
-    base: String(model.summary?.summary_pl || '').slice(0, 650),
+    base: model.summary?.perspective_version === 1 ? 'perspectives-v1' : String(model.summary?.summary_pl || '').slice(0, 650),
     update: update ? { text: updateText(update), when: update.generated_at || null } : null,
   });
 }
@@ -545,7 +545,7 @@ function topicModel(topic) {
   });
   const sourceCount = new Set(articles.map((article) => article.source_id || article.source_name).filter(Boolean)).size;
   const hasIndependentSource = articles.some((article) => !isStateSource(article));
-  const hasAggregation = sourceCount >= 2 && hasIndependentSource;
+  const hasAggregation = sourceCount >= 2 && (hasIndependentSource || summary.perspective_version === 1);
   const articleTimestamps = articles
     .map((article) => Date.parse(article.published_at || article.fetched_at || ''))
     .filter(Number.isFinite);
@@ -570,7 +570,7 @@ function topicModel(topic) {
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
     history: hasAggregation ? storedHistory : [],
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
-    lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || 'Opracowanie tego tematu jest jeszcze niedostępne.') : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
+    lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Ustalenia z dostępnych materiałów są przedstawione w osobnych perspektywach.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
   model.lead = model.lead.replace(/;\s*/g, ', ');
   model.searchText = `${model.title} ${model.lead} ${model.sources.join(' ')}`.toLowerCase();
@@ -643,7 +643,7 @@ function summaryPreview(row) {
   if (row.summary) return row;
   return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
     summary: { base_summary: { topic: row.base_topic || row.legacy_topic || {},
-      summary_pl: row.base_text || row.legacy_text || '' },
+      summary_pl: row.base_text || row.legacy_text || '', perspective_version: row.perspective_version, coverage_mode: row.coverage_mode, shared_available: row.shared_available },
       latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
       last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
 }
@@ -1015,9 +1015,10 @@ function cardHtml(model, index) {
   const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   const category = categoryBadges(model.categories, 'card-category-tag');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
-    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? 'AKTUALIZACJA' : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}<span class="card-category-group">${category}</span></span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
+    <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? escapeHtml(perspectiveUpdateLabel(model.latestUpdate)) : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}<span class="card-category-group">${category}</span></span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
     <h4>${escapeHtml(model.title)}</h4>
     <p class="card-dek">${richInlineHtml(model.lead)}</p>
+    ${articleProfileBar(model)}
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
   </article>`;
 }
@@ -1050,6 +1051,60 @@ function isNonContradictionItem(item) {
     || /(?:różnic|rozbieżn).{0,100}(?:nie oznacz|nie są|nie stanow).{0,60}(?:sprzecz|kontradyk)/.test(normalized);
 }
 
+const PERSPECTIVE_LABELS = { COMMON: 'Nowe informacje wspólne', LEFT: 'Nowe informacje w źródłach lewicowych', RIGHT: 'Nowe informacje w źródłach prawicowych', STATE: 'Nowe informacje w mediach kontrolowanych przez państwo' };
+
+function editorialGroup(article) {
+  const profile = String(article.source_profile || '').toUpperCase();
+  if (['STATE_ALIGNED', 'STATE_MEDIA'].includes(profile) || article.source_type === 'STATE_MEDIA') return 'STATE';
+  if (['LEFT', 'CENTER_LEFT'].includes(profile)) return 'LEFT';
+  if (['RIGHT', 'CENTER_RIGHT'].includes(profile)) return 'RIGHT';
+  return profile === 'CENTER' ? 'CENTER' : null;
+}
+
+function articleProfileBar(model) {
+  const counts = { LEFT: 0, CENTER: 0, RIGHT: 0 };
+  model.articles.forEach(a => { const group = editorialGroup(a); if (Object.hasOwn(counts, group)) counts[group] += 1; });
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  if (!total) return '';
+  const labels = { LEFT: 'Lewicowe', CENTER: 'Centrum', RIGHT: 'Prawicowe' };
+  const groups = Object.keys(counts);
+  const percentages = Object.fromEntries(groups.map(g => [g, Math.floor(counts[g] * 100 / total)]));
+  let remaining = 100 - Object.values(percentages).reduce((a,b) => a+b,0);
+  [...groups].sort((a,b) => (counts[b]*100/total%1) - (counts[a]*100/total%1)).forEach(g => { if (remaining > 0) { percentages[g] += 1; remaining -= 1; } });
+  const legend = groups.map(g => `<span class="profile-share-${g.toLowerCase()}">${labels[g]} <strong>${percentages[g]}% (${counts[g]})</strong></span>`).join('');
+  const bar = groups.filter(g => counts[g]).map(g => `<span class="profile-share-${g.toLowerCase()}" style="width:${counts[g]*100/total}%"></span>`).join('');
+  return `<div class="article-profile-share" aria-label="Udział artykułów według profilu redakcyjnego"><div class="profile-share-legend">${legend}</div><div class="profile-share-bar" aria-hidden="true">${bar}</div></div>`;
+}
+
+function coverageNotice(summary) {
+  if (summary.perspective_version !== 1) return '';
+  const messages = { SINGLE_LEFT: 'Opracowanie wyłącznie na podstawie źródeł lewicowych.', SINGLE_RIGHT: 'Opracowanie wyłącznie na podstawie źródeł prawicowych.', SINGLE_CENTER: 'Opracowanie wyłącznie na podstawie źródeł centrowych.', STATE_ONLY: 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' };
+  return messages[summary.coverage_mode] ? `<p class="coverage-notice">${messages[summary.coverage_mode]}</p>` : '';
+}
+
+function perspectiveSectionsHtml(summary, detailsState) {
+  if (summary.perspective_version !== 1) return '';
+  if (detailsState !== 'ready') return '<p class="perspective-pending">Perspektywy będą dostępne po pobraniu pełnego opracowania.</p>';
+  const labels = { LEFT: 'Źródła lewicowe', RIGHT: 'Źródła prawicowe', STATE: 'Media kontrolowane przez państwo' };
+  const groups = Object.keys(labels).filter(g => summary.perspective_sections?.[g]?.length);
+  if (!groups.length) return '';
+  return `<section class="perspectives-section"><h3>Co dodatkowo podają źródła</h3><div class="perspective-tabs" role="tablist" aria-label="Dodatkowe perspektywy">${groups.map((g,i) => `<button type="button" role="tab" id="perspective-tab-${g}" data-perspective-tab="${g}" aria-controls="perspective-panel-${g}" aria-selected="${i===0}" class="perspective-tab ${i===0?'is-active':''}">${labels[g]}</button>`).join('')}</div>${groups.map((g,i) => `<div role="tabpanel" id="perspective-panel-${g}" aria-labelledby="perspective-tab-${g}" data-perspective-panel="${g}" ${i===0?'':'hidden'}><ul class="insight-list">${listValue(summary.perspective_sections[g])}</ul></div>`).join('')}</section>`;
+}
+
+function perspectiveUpdateLabel(update) {
+  if (!update.perspective_sections) return 'AKTUALIZACJA';
+  const labels = Object.keys(PERSPECTIVE_LABELS).filter(g => update.perspective_sections[g]?.length).map(g => PERSPECTIVE_LABELS[g]);
+  if (update.promoted_facts?.length) labels.push('Szersze potwierdzenie');
+  return labels.join(' · ') || 'AKTUALIZACJA';
+}
+
+function perspectiveUpdateHtml(update) {
+  if (!update.perspective_sections) return richTextHtml(updateText(update));
+  return Object.entries(PERSPECTIVE_LABELS).filter(([g]) => update.perspective_sections[g]?.length)
+    .map(([g,label]) => `<h4>${label}</h4><ul class="insight-list">${listValue(update.perspective_sections[g])}</ul>`).join('')
+    + (update.promoted_facts?.length ? `<h4>Szersze potwierdzenie</h4><ul class="insight-list">${listValue(update.promoted_facts)}</ul>` : '');
+}
+
 function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const summary = model.summary || {};
   const contradictions = Array.isArray(summary.contradictions)
@@ -1064,7 +1119,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
     const updateCopy = updateText(update);
     const when = update.generated_at ? ` · ${formatDateTime(update.generated_at)}` : '';
-    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">AKTUALIZACJA${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${richTextHtml(updateCopy)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
+    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">${escapeHtml(perspectiveUpdateLabel(update))}${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${perspectiveUpdateHtml(update)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
   }).join('');
   const summaryPanel = summary.summary_pl
     ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? 'Synteza' : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
@@ -1075,19 +1130,21 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     ? section('Fakty', summary.facts, 'insight-facts', 'Szczegółowe ustalenia z przypisaniem do źródeł.')
     : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
   return `<div class="dialog-content"><p class="dialog-kicker">${model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
+    ${coverageNotice(summary)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
+    ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
     ${updatesHtml}
+    ${summary.perspective_version === 1 && summary.shared_available === false ? `<p class="no-common-facts" role="status">${summary.coverage_mode === 'STATE_ONLY' ? 'Doniesienia mediów kontrolowanych przez państwo są dostępne w osobnej sekcji poniżej.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
       <button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>
       <button class="dialog-tab" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="false" aria-controls="dialog-panel-facts">Fakty</button>
     </div>
     <div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>
     <div class="dialog-tab-panel" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" hidden>${factsPanel}</div>
-    ${section('Różne dane lub akcenty', summary.differences, 'insight-differences', 'Rozbieżności, które nie muszą oznaczać sprzeczności.')}
-    ${section('Sprzeczne relacje', contradictions, 'insight-contradictions', 'Materiały podają wzajemnie wykluczające się wersje.')}
-    ${section('Co warto zweryfikować', summary.potential_manipulation_signals, 'insight-verification', 'Obserwowalne sygnały wymagające dodatkowego sprawdzenia — nie werdykt o źródle.')}
+    `}
+    ${perspectiveSectionsHtml(summary, detailsState)}
     ${section('Kontekst', summary.background_context, 'insight-context')}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
@@ -1099,10 +1156,11 @@ function renderTopicDialog(topicId, detailsState, preserveTab = true) {
   const dialog = $('#story-dialog');
   const scroll = preserveTab ? dialog.scrollTop : 0;
   const tab = preserveTab ? dialog.querySelector('[data-dialog-tab].is-active')?.dataset.dialogTab : null;
+  const perspective = preserveTab ? dialog.querySelector('[data-perspective-tab].is-active')?.dataset.perspectiveTab : null;
   const notice = detailsState === 'loading' ? '<p class="topic-detail-status" role="status">Pobieram pełną syntezę i fakty…</p>'
     : detailsState === 'error' ? `<div class="topic-detail-error" role="alert"><p>Nie udało się pobrać pełnej syntezy i faktów. Poniżej jest tylko skrócony podgląd.</p><button type="button" data-retry-topic-details="${escapeHtml(topicId)}">Spróbuj ponownie</button></div>` : '';
   $('#dialog-content').innerHTML = notice + dialogHtml(model, { detailsState });
-  if (tab) {
+  if (tab && dialog.querySelector(`[data-dialog-tab="${tab}"]`)) {
     dialog.querySelectorAll('[data-dialog-tab]').forEach(button => {
       const active = button.dataset.dialogTab === tab;
       button.classList.toggle('is-active', active); button.setAttribute('aria-selected', String(active));
@@ -1110,6 +1168,12 @@ function renderTopicDialog(topicId, detailsState, preserveTab = true) {
     dialog.querySelectorAll('[data-dialog-panel]').forEach(panel => {
       const active = panel.dataset.dialogPanel === tab; panel.classList.toggle('is-active', active); panel.hidden = !active;
     });
+  }
+  if (perspective && dialog.querySelector(`[data-perspective-tab="${perspective}"]`)) {
+    dialog.querySelectorAll('[data-perspective-tab]').forEach(button => {
+      const active = button.dataset.perspectiveTab === perspective; button.classList.toggle('is-active', active); button.setAttribute('aria-selected', String(active));
+    });
+    dialog.querySelectorAll('[data-perspective-panel]').forEach(panel => { panel.hidden = panel.dataset.perspectivePanel !== perspective; });
   }
   dialog.scrollTop = scroll;
 }
@@ -1228,6 +1292,16 @@ document.addEventListener('click', (event) => {
   if (retryDetails) {
     event.preventDefault(); const id = retryDetails.dataset.retryTopicDetails;
     renderTopicDialog(id, 'loading'); void fillTopicDialog(id); return;
+  }
+  const perspectiveTab = event.target.closest('[data-perspective-tab]');
+  if (perspectiveTab) {
+    event.preventDefault();
+    const section = perspectiveTab.closest('.perspectives-section');
+    section.querySelectorAll('[data-perspective-tab]').forEach(tab => {
+      const active = tab === perspectiveTab; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active));
+    });
+    section.querySelectorAll('[data-perspective-panel]').forEach(panel => { panel.hidden = panel.dataset.perspectivePanel !== perspectiveTab.dataset.perspectiveTab; });
+    return;
   }
   const dialogTab = event.target.closest('[data-dialog-tab]');
   if (dialogTab) {
