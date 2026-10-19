@@ -31,14 +31,23 @@ Nie wymaga migracji SQL. Profil źródła nie oznacza oceny prawdziwości publik
 
 ## Generowanie i zgodność
 
-Nowa synteza: dwa zapytania w obecnej puli równoległych zadań. Pierwsze wyciąga
-atomowe fakty i cytowania; kod wyznacza ich części. Drugie dostaje wyłącznie
+Nowa synteza: co najmniej dwa zapytania w obecnej puli równoległych zadań.
+Pierwszy etap wyciąga atomowe fakty i cytowania z pełnych artykułów; przy dużym
+zestawie wykonuje kolejne paczki, a każda widzi ustalenia z poprzednich.
+Kod wyznacza ich części. Drugie dostaje wyłącznie
 fakty dopuszczone do głównej syntezy oraz tytuł i tworzy narrację/kontekst.
 Kod sprawdza identyfikatory artykułów, stabilność znanych faktów i odwołania
 akapitów/kontekstu. Ocena znaczenia i poprawności przypisań jest zadaniem modelu.
 
-Aktualizacja nowego formatu analizuje wszystkie artykuły wątku z ograniczeniem
-rozmiaru payloadu. Zachowuje rejestr dotychczasowych faktów, uzupełnia ich
+Aktualizacja nowego formatu analizuje wszystkie artykuły wątku. Limit
+AI_SUMMARY_MAX_PAYLOAD_CHARS (domyślnie 300000 znaków) jest celem rozmiaru
+paczki, a nie limitem treści. Artykuły nigdy nie są zastępowane wyciągami ani
+metadanymi w analizie syntez i faktów. Pojedynczy artykuł przekraczający cel
+przekazywany jest w całości; jeśli przekroczy twardy limit modelu, analiza
+kończy się błędem zamiast zapisać niepełne opracowanie. Stare aktualizacje
+również analizują całe artykuły w paczkach i przekazują zaakceptowane
+aktualizacje z poprzednich paczek do następnych. Zapis następuje dopiero po
+przejściu wszystkich paczek. Zachowuje rejestr dotychczasowych faktów, uzupełnia ich
 potwierdzenia i odświeża bieżący widok podziału. Historia aktualizacji pozostaje.
 Syntezy starego formatu nadal korzystają ze starego sposobu aktualizacji;
 nie przebudowujemy ich automatycznie.
@@ -78,3 +87,8 @@ walidacja cytowań, potwierdzenia, promocje, zapis i historia, izolacja dopasowa
 oraz końcowe scalanie przy silniejszej krawędzi pomiędzy wersjami. Interfejs:
 ukrywanie pustej syntezy, niezależne przełączniki, liczniki artykułów, odczyt
 oraz pełny/przycięty eksport. Przeglądarka: telefon 390 px i komputer 1280 px.
+
+Korekta pod tytułem `Preserve full article texts in synthesis and update batches`
+usuwa skracanie tekstów. Przy cofaniu całego formatu perspektyw należy najpierw
+cofnąć tę późniejszą korektę, a następnie commit wprowadzający perspektywy.
+Korekta nie zmienia modelu embeddingów ani zasady odświeżania bieżącej syntezy.

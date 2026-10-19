@@ -527,7 +527,7 @@ class TopicTitleTests(unittest.TestCase):
             client.deletes,
         )
 
-    def test_large_summary_payload_falls_back_to_metadata(self):
+    def test_large_summary_payload_preserves_full_article_bodies(self):
         rows = [
             {
                 "article_id": "article_one",
@@ -567,13 +567,14 @@ class TopicTitleTests(unittest.TestCase):
         finally:
             ai_pipeline.SUMMARY_MAX_PAYLOAD_CHARS = original_limit
 
-        self.assertEqual(payload_mode, "same metadane")
+        self.assertIn("pełne treści", payload_mode)
         self.assertGreater(payload_chars, 0)
         self.assertEqual(
             [row["article_id"] for row in payload["all_articles"]],
             ["article_one", "article_two"],
         )
-        self.assertNotIn("body_original", payload["all_articles"][0])
+        self.assertEqual(payload["all_articles"][0]["body_original"], rows[0]["body"])
+        self.assertEqual(payload["all_articles"][1]["body_original"], rows[1]["body"])
 
 
 if __name__ == "__main__":

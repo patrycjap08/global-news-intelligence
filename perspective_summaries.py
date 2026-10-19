@@ -75,7 +75,9 @@ Nie dopowiadaj liczb, przyczyn, motywów ani potwierdzeń. Sprzeczne liczby lub
 wersje to różne ustalenia, opisane z przypisaniem do źródła. Nie twórz metazdań
 „nie ma nowych faktów”, „inne źródła milczą”, „śledztwo nadal trwa” bez nowości.
 Materiały STATE przedstawiaj jako doniesienia, np. „Według agencji TASS…”.
-previous_facts zawiera WSZYSTKIE wcześniej zapisane ustalenia. Gdy artykuł
+previous_facts zawiera WSZYSTKIE wcześniej zapisane ustalenia, również ustalenia
+z poprzednich paczek tego samego przetwarzania. all_articles zawiera bieżącą
+paczkę pełnych artykułów. Nie powołuj się na niewysłane artykuły jako nowe potwierdzenie. Gdy artykuł
 potwierdza znany fakt, zwróć jego known_fact_id oraz DOKŁADNIE dotychczasowy
 text_pl i uzupełnione article_ids. Rozpoznawaj parafrazy i tłumaczenia — to nie
 nowy fakt. Nie zamieniaj znanego ustalenia w nowy fakt o pustym known_fact_id.
@@ -168,7 +170,39 @@ def make_update(facts, previous_facts, is_update, new_ids):
             'new_article_ids': new_ids, 'perspective_sections': sections, 'promoted_facts': promotions}
 
 
-def generate(payload, call, normalize):
+
+def take_full_article_batch(articles, start, base_payload, field, max_chars):
+    """Pack whole articles, never fragments. The target is not a content cap.
+
+    If one article/context exceeds the target, send that article intact. A
+    model hard-context error fails the topic; no incomplete result is saved.
+    """
+    batch = []
+    offset = start
+    while offset < len(articles):
+        candidate = [*batch, articles[offset]]
+        size = len(json.dumps({**base_payload, field: candidate}, ensure_ascii=False, separators=(',', ':')))
+        if batch and size > max_chars:
+            break
+        batch = candidate
+        offset += 1
+        if size > max_chars:
+            break
+    return batch, offset
+
+
+def validate_batch_citations(response, batch, known, normalize):
+    """A batch can add support only from full articles actually sent in it."""
+    batch_ids = {str(a['article_id']) for a in batch}
+    known_by_id = {f['fact_id']: f for f in known}
+    known_by_text = {_text_key(f['text_pl']): f for f in known}
+    for raw in response.get('facts') or []:
+        previous = known_by_id.get(raw.get('known_fact_id')) or known_by_text.get(_text_key(normalize(raw.get('text_pl'))))
+        allowed = batch_ids | set((previous or {}).get('article_ids') or [])
+        if not set(raw.get('article_ids') or []) <= allowed:
+            raise ValueError('Fakt cytuje artykuł spoza bieżącej paczki i znanych potwierdzeń.')
+
+def generate(payload, call, normalize, *, max_payload_chars=300000):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
     previous_base = (previous or {}).get('base_summary') or {}
@@ -176,11 +210,17 @@ def generate(payload, call, normalize):
     if not articles:
         raise ValueError('Brak materiałów do opracowania perspektyw.')
     prepared = [{**a, 'source_group': article_group(a)} for a in articles]
-    extracted = call(EXTRACTION_INSTRUCTIONS, {'topic': payload['topic'], 'all_articles': prepared,
-                     'previous_facts': known}, EXTRACTION_SCHEMA, 'perspective_facts')
-    mode, facts = route_facts(extracted, articles, known, normalize)
+    facts, offset, extracted, headline, categories = known, 0, None, None, []
+    while offset < len(prepared):
+        base = {'topic': payload['topic'], 'previous_facts': facts}
+        batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
+        extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch}, EXTRACTION_SCHEMA, 'perspective_facts')
+        validate_batch_citations(extracted, batch, facts, normalize)
+        mode, facts = route_facts(extracted, articles, facts, normalize)
+        headline = headline or extracted['headline_pl']
+        categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
     main = [f for f in facts if f['lane'] == 'COMMON']
-    written = call(WRITING_INSTRUCTIONS, {'headline_pl': extracted['headline_pl'], 'main_facts': main},
+    written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main},
                    WRITING_SCHEMA, 'perspective_summary')
     allowed = {f['fact_id'] for f in main}
     paragraphs = written.get('paragraphs')
@@ -196,13 +236,13 @@ def generate(payload, call, normalize):
     for item in contexts:
         if not set(item.get('article_ids') or []) <= main_article_ids:
             raise ValueError('Kontekst odwołuje się do materiałów spoza wspólnej części.')
-    headline = normalize(extracted['headline_pl'])
+    headline = normalize(headline)
     if re.search(r'[\u0400-\u052f\u2de0-\u2dff\ua640-\ua69f]', headline):
         raise ValueError('Tytuł perspektyw zawiera cyrylicę.')
     sections = {lane: [f for f in facts if f['lane'] == lane] for lane in ('LEFT', 'RIGHT', 'STATE')}
     update = make_update(facts, known, previous is not None, payload.get('new_article_ids') or [])
     return {'topic': {'headline_pl': headline, 'what_happened_one_sentence_pl': main[0]['text_pl'] if main else '',
-                     'categories': extracted.get('categories') or []},
+                     'categories': categories},
             'summary_pl': '\n\n'.join(normalize(p['text_pl']) for p in paragraphs), 'facts': main,
             'general_context': written.get('general_context'), 'background_context': written.get('background_context') or [],
             'perspective_version': FORMAT_VERSION, 'coverage_mode': mode, 'shared_available': bool(main),

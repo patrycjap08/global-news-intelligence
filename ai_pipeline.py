@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v55-editorial-perspectives"
+PROMPT_VERSION = "ai-prompts-v56-full-article-batches"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -156,9 +156,6 @@ SUMMARY_REQUEST_TIMEOUT_SECONDS = max(
 )
 SUMMARY_MAX_PAYLOAD_CHARS = max(
     50000, int(os.environ.get("AI_SUMMARY_MAX_PAYLOAD_CHARS", "300000"))
-)
-SUMMARY_FALLBACK_EXCERPT_WORDS = max(
-    200, int(os.environ.get("AI_SUMMARY_FALLBACK_EXCERPT_WORDS", "900"))
 )
 AI_BREAK_TAG_RE = re.compile(r"<\s*/?\s*br\s*/?\s*>", re.IGNORECASE)
 
@@ -2514,21 +2511,56 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
     # publications and subsequent updates use the explicitly versioned format.
     if previous is None or (previous.get("base_summary") or {}).get("perspective_version") == 1:
         def call(instructions, data, schema, name):
+            if name == "perspective_facts":
+                log("AI", f"Fakty perspektyw: paczka {len(data['all_articles'])} artykułów z pełnymi treściami, bez skracania tekstów.")
             return call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                 timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                 reasoning_effort=summary_reasoning_effort(model),
                 response_schema=schema, response_schema_name=name)
-        raw = perspectives.generate(payload, call, normalize_generated_text)
+        raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)
         normalized = normalize_summary_response(raw)
         for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts"):
             normalized[field] = raw[field]
         return normalized
-    if payload.get("previous_aggregation") is not None:
-        return generate_topic_update(payload, model)
-    return normalize_summary_response(call_openai(SUMMARY_INSTRUCTIONS, payload, model,
-        timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
-        reasoning_effort=summary_reasoning_effort(model),
-        response_schema=SUMMARY_RESPONSE_SCHEMA, response_schema_name="topic_summary"))
+    return generate_full_article_legacy_update(payload, model)
+
+
+def generate_full_article_legacy_update(payload: dict[str, Any], model: str) -> ParsedAIResponse:
+    """Analyse full legacy-update articles, committing only a complete result.
+
+    Each next batch sees accepted updates from earlier batches, so repeated
+    facts across batches are still compared against the whole known history.
+    """
+    articles = payload.get("new_articles") or []
+    if not articles:
+        raise ValueError("Aktualizacja nie ma nowych artykułów.")
+    context = {**payload["previous_aggregation"],
+               "prior_updates": list(payload["previous_aggregation"].get("prior_updates") or [])}
+    offset, accepted, audits, result = 0, [], [], None
+    while offset < len(articles):
+        base = {**payload, "previous_aggregation": {**context, "prior_updates": list(context["prior_updates"])}}
+        base.pop("new_articles", None)
+        batch, offset = perspectives.take_full_article_batch(
+            articles, offset, base, "new_articles", SUMMARY_MAX_PAYLOAD_CHARS)
+        log("AI", f"Aktualizacja: analizuję pełne treści {len(batch)} artykułów; "
+            f"przekazano {offset}/{len(articles)} artykułów, bez skracania tekstów.")
+        result = generate_topic_update({**base, "new_articles": batch}, model)
+        update = result["update"]
+        if update.get("status") == "NEW_INFORMATION":
+            accepted.append(update)
+            context["prior_updates"] = [*context["prior_updates"], {k: v for k, v in update.items() if k != "novelty_audit"}]
+        if update.get("novelty_audit"):
+            audits.append(update["novelty_audit"])
+    if len(audits) <= 1 and len(articles) == len(batch):
+        return result
+    result["update"] = {
+        "status": "NEW_INFORMATION" if accepted else "NO_NEW_INFORMATION",
+        "is_update": bool(accepted),
+        "new_information_pl": " ".join(update_text_value({"update": u}) for u in accepted),
+        "what_changed_pl": "", "new_article_ids": list(dict.fromkeys(str(a["article_id"]) for a in articles)),
+        "novelty_audit": {"full_article_batches": audits},
+    }
+    return normalize_summary_response(result)
 
 UPDATE_META_PATTERNS = (
     re.compile(r"\bnajnowsz(?:y|a|e) artykuł\b", re.IGNORECASE),
@@ -3195,62 +3227,22 @@ def build_bounded_summary_input(
     new_rows: list[dict[str, Any]],
     all_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], int, str]:
-    """Build a summary payload without allowing article bodies to grow unbounded.
+    """Preserve each fetched body in full; bound API calls by article batches.
 
-    First syntheses carry bodies once in ``all_articles`` and identify the
-    current batch with ``new_article_ids``. Updates carry ``new_articles``.
-    Reduce body detail only above the configured limit, preserving article
-    IDs and metadata throughout.
+    SUMMARY_MAX_PAYLOAD_CHARS is a soft batch target used during generation,
+    never a reason to replace article content with excerpts or metadata.
     """
-    # Preserve older rows when the new batch is a subset, and include any new
-    # rows missing from all_rows. Prefer the current batch's copy of a row.
-    first_summary_rows = None
+    payload = dict(base_input)
     if all_rows is not None:
-        first_summary_rows = list({
-            str(row["article_id"]): row for row in [*all_rows, *new_rows]
-        }.values())
-
-    def build(excerpt_words: int | None) -> dict[str, Any]:
-        def render(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-            if excerpt_words is None:
-                return [article_for_ai(row) for row in rows]
-            if excerpt_words > 0:
-                return [
-                    article_for_ai(row, excerpt_words_limit=excerpt_words)
-                    for row in rows
-                ]
-            metadata_rows = []
-            for row in rows:
-                item = article_for_ai(row, excerpt_words_limit=1)
-                item.pop("body_excerpt_original", None)
-                item.pop("excerpt_word_limit", None)
-                metadata_rows.append(item)
-            return metadata_rows
-
-        payload = dict(base_input)
-        if first_summary_rows is not None:
-            payload.pop("new_articles", None)
-            payload["new_article_ids"] = list(dict.fromkeys(
-                str(row["article_id"]) for row in new_rows
-            ))
-            payload["all_articles"] = render(first_summary_rows)
-        else:
-            payload["new_articles"] = render(new_rows)
-        return payload
-
-    candidates: list[tuple[int | None, str]] = [(None, "pełne treści")]
-    excerpt_words = SUMMARY_FALLBACK_EXCERPT_WORDS
-    while excerpt_words >= 200:
-        candidates.append((excerpt_words, f"wyciągi do {excerpt_words} słów"))
-        excerpt_words //= 2
-    candidates.append((0, "same metadane"))
-
-    for excerpt_limit, mode in candidates:
-        payload = build(excerpt_limit)
-        payload_chars = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
-        if payload_chars <= SUMMARY_MAX_PAYLOAD_CHARS or excerpt_limit == 0:
-            return payload, payload_chars, mode
-    raise AssertionError("Nie udało się zbudować ograniczonego payloadu syntezy.")
+        rows = list({str(row["article_id"]): row for row in [*all_rows, *new_rows]}.values())
+        payload.pop("new_articles", None)
+        payload["new_article_ids"] = list(dict.fromkeys(str(row["article_id"]) for row in new_rows))
+        payload["all_articles"] = [article_for_ai(row) for row in rows]
+    else:
+        payload["new_articles"] = [article_for_ai(row) for row in new_rows]
+    size = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+    mode = "pełne treści" if size <= SUMMARY_MAX_PAYLOAD_CHARS else "pełne treści; podział na paczki bez skracania artykułów"
+    return payload, size, mode
 
 
 def active_topic_payload(
