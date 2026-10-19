@@ -83,9 +83,12 @@ begin
         raise exception 'Brakuje starszego watku lub jego zapisanej wersji syntezy. Przywrocenie przerwane bez zmian.';
     end if;
     all_ids := new_ids || old_ids;
-    if exists (select 1 from public.topics t where t.merged_into_topic_id = any(all_ids)
+    -- Starsze przekierowania do old_ids pozostaja poprawne: te watki
+    -- przywracamy, a nie usuwamy. Blokujemy tylko zewnetrzne referencje
+    -- do nowych kandydatow przeznaczonych do usuniecia.
+    if exists (select 1 from public.topics t where t.merged_into_topic_id = any(new_ids)
                and not (t.topic_id = any(all_ids))) then
-        raise exception 'Sa dodatkowe zalezne scalenia spoza zakresu. Nic nie usunieto.';
+        raise exception 'Tematy spoza zakresu wskazuja na NOWE watki przeznaczone do usuniecia. Nic nie usunieto.';
     end if;
     select count(*) into before_articles from public.articles;
     select jsonb_build_object(

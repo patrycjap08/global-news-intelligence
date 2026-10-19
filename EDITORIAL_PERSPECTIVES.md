@@ -183,3 +183,10 @@ uruchomienia, które odtwarzałoby stary commit. Pobrane artykuły kwalifikują 
 do nazwania w ciągu 24 godzin od fetched_at. SQL raportuje materiały starsze
 od tego okna, nie przestawia ich dat. Eksport Pages odświeży kolejny workflow;
 sam SQL nie zmienia już opublikowanych plików strony.
+
+Kontrola zależnych scaleń blokuje wyłącznie zewnętrzne przekierowania do
+NOWYCH kandydatów przeznaczonych do usunięcia. Starsze przekierowania do
+13 przywracanych wątków pozostają bez zmian i nie blokują operacji, ponieważ
+ich docelowe wątki nadal istnieją. Pierwsza wersja SQL zbyt szeroko obejmowała
+oba zbiory. Przerwanie przez tę kontrolę wycofywało całą operację; można
+wkleić poprawiony plik i wykonać go ponownie.
