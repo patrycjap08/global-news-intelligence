@@ -9,9 +9,9 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/gni-180.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <title>GNI — dzisiejszy przegląd</title>
-    <link rel="stylesheet" href="styles.css?v=profile-label-colors-20261019" />
+    <link rel="stylesheet" href="styles.css?v=search-clear-20261019" />
     <script src="config.js" onerror="this.remove()"></script>
-    <script defer src="app.js?v=fact-kind-routing-20261019"></script>
+    <script defer src="app.js?v=search-clear-20261019"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -72,10 +72,11 @@
             </label>
             <label class="read-toggle"><input id="hide-read" type="checkbox" /> Ukryj przeczytane</label>
           </div>
-          <label class="search-field">
+          <div class="search-field" role="search">
             <span aria-hidden="true">⌕</span>
-            <input id="search-input" type="search" placeholder="Szukaj w tytułach i opisach…" autocomplete="off" />
-          </label>
+            <input id="search-input" type="search" aria-label="Szukaj w tytułach i opisach" placeholder="Szukaj w tytułach i opisach…" autocomplete="off" />
+            <button id="search-clear" class="search-clear" type="button" aria-label="Wyczyść wyszukiwanie" title="Wyczyść wyszukiwanie" hidden><span aria-hidden="true">×</span></button>
+          </div>
         </section>
 
         <div class="content-layout">

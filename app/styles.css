@@ -107,8 +107,13 @@ button { color: inherit; }
 .read-toggle:hover, .read-toggle.is-active { border-color: var(--ink); background: var(--paper-deep); color: var(--ink); }
 .read-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .search-field { display: flex; align-items: center; gap: 7px; min-width: 210px; border-bottom: 1px solid var(--line-dark); color: var(--muted); }
-.search-field input { width: 100%; border: 0; outline: 0; padding: 8px 0; background: transparent; color: var(--ink); font-size: 12px; }
+.search-field input { flex: 1; min-width: 0; width: 100%; border: 0; outline: 0; padding: 8px 0; background: transparent; color: var(--ink); font-size: 12px; }
 .search-field input::placeholder { color: var(--muted); }
+.search-field input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.search-clear { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.search-clear[hidden] { display: none; }
+.search-clear:hover { color: var(--ink); background: var(--paper-deep); }
+.search-clear:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 .content-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 36px; border-top: 1px solid var(--line); padding-top: 24px; }
 .sidebar { border-right: 1px solid var(--line); padding-right: 24px; }

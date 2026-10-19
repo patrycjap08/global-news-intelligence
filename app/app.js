@@ -78,6 +78,7 @@ function syncFilterControls() {
   $('#hide-read').checked = state.hideRead;
   $('#hide-read').closest('.read-toggle')?.classList.toggle('is-active', state.hideRead);
   $('#search-input').value = state.search;
+  syncSearchClearButton();
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('is-active', button.dataset.view === state.view));
   document.querySelectorAll('[data-category-match]').forEach(button => {
     const selected = button.dataset.categoryMatch === state.categoryMatch;
@@ -86,6 +87,11 @@ function syncFilterControls() {
   $('#category-match-help').textContent = state.categoryMatch === 'ALL'
     ? 'Temat musi mieć wszystkie wybrane kategorie. Liczniki pokazują ich wspólne tematy.'
     : 'Temat może mieć dowolną z wybranych kategorii. Liczniki nie zależą od zaznaczonych kategorii.';
+}
+
+function syncSearchClearButton() {
+  const button = $('#search-clear');
+  if (button) button.hidden = state.search.length === 0;
 }
 
 function matchesCategories(topic, categories = state.categories, mode = state.categoryMatch) {
@@ -1375,7 +1381,12 @@ document.querySelectorAll('[data-category-match]').forEach(button => button.addE
   state.categoryMatch = button.dataset.categoryMatch; saveFilterPreferences(); syncFilterControls(); render();
 }));
 
-$('#search-input').addEventListener('input', (event) => { state.search = event.target.value; saveFilterPreferences(); scheduleSearchRender(); });
+$('#search-input').addEventListener('input', (event) => { state.search = event.target.value; syncSearchClearButton(); saveFilterPreferences(); scheduleSearchRender(); });
+$('#search-clear')?.addEventListener('click', () => {
+  window.clearTimeout(searchRenderTimer); searchRenderTimer = null;
+  state.search = ''; $('#search-input').value = ''; syncSearchClearButton();
+  saveFilterPreferences(); render({ searchOnly: true }); $('#search-input').focus();
+});
 $('#sort-select').addEventListener('change', (event) => { state.sort = event.target.value; saveFilterPreferences(); render(); });
 $('#hide-read').addEventListener('change', (event) => {
   state.hideRead = event.target.checked; saveFilterPreferences();
