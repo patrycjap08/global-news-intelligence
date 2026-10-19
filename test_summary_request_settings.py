@@ -2,6 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 import ai_pipeline as ai
+from test_perspective_summaries import extraction, fact
 
 class SummaryRequestSettingsTests(unittest.TestCase):
     def test_medium_reasoning_only_for_supported_models(self):
@@ -22,7 +23,7 @@ class SummaryRequestSettingsTests(unittest.TestCase):
             if kwargs['response_schema_name']=='update_novelty_audit':
                 return {'verdicts':{'0':{'keep':True,'reason_pl':'Nowa decyzja'}}}
             if kwargs['response_schema_name']=='perspective_facts':
-                return {'headline_pl':'[Polska] Decyzja', 'categories':['POLSKA'], 'facts':[{'known_fact_id':'', 'text_pl':'Decyzja.', 'article_ids':['a1'], 'why_new_pl':''}]}
+                return extraction([fact('Decyzja.',['a1'],reason='')],payload['all_articles'])
             if kwargs['response_schema_name']=='perspective_summary':
                 return {'paragraphs':[{'text_pl':'Decyzja.', 'fact_ids':[payload['main_facts'][0]['fact_id']]}], 'general_context':{'text_pl':'Tło.', 'article_ids':[], 'needs_verification':True}, 'background_context':[]}
             return {'summary_pl':'Synteza'}

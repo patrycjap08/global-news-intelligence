@@ -5,7 +5,7 @@ from unittest.mock import patch
 import ai_pipeline as ai
 import perspective_summaries as p
 from test_ai_input_optimization import article
-from test_perspective_summaries import fact
+from test_perspective_summaries import fact, extraction
 
 
 class FullArticleBatchTests(unittest.TestCase):
@@ -42,7 +42,7 @@ class FullArticleBatchTests(unittest.TestCase):
                 current=data['all_articles'][0];seen.append(current)
                 self.assertEqual(current['body_original'],next(a for a in rows if a['article_id']==current['article_id'])['body_original'])
                 known=data['previous_facts']
-                return {'headline_pl':'[Polska] Decyzja','categories':['POLSKA'],'facts':[fact('Ten sam fakt.',[current['article_id']],known[0]['fact_id'] if known else '',reason='' if known else 'Pierwsze ustalenie.')]}
+                return extraction([fact('Ten sam fakt.',[current['article_id']],known[0]['fact_id'] if known else '',reason='' if known else 'Pierwsze ustalenie.')],data['all_articles'])
             writer.append(data)
             self.assertEqual(len(data['main_facts']),1)
             self.assertEqual(data['main_facts'][0]['article_ids'],['a','b','c'])
@@ -84,7 +84,7 @@ class FullArticleBatchTests(unittest.TestCase):
         def call(instructions,data,schema,name):
             calls.append(name)
             if len(calls)==2:raise RuntimeError('context limit')
-            return {'headline_pl':'[Polska] Decyzja','categories':[],'facts':[fact('Fakt.',['a'])]}
+            return extraction([fact('Fakt.',['a'])],data['all_articles'])
         with self.assertRaisesRegex(RuntimeError,'context limit'):
             p.generate(payload,call,ai.normalize_generated_text,max_payload_chars=100)
         self.assertEqual(calls,['perspective_facts','perspective_facts'])

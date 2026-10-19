@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v57-immutable-synthesis"
+PROMPT_VERSION = "ai-prompts-v58-complete-atomic-facts"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2513,10 +2513,17 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
         def call(instructions, data, schema, name):
             if name == "perspective_facts":
                 log("AI", f"Fakty perspektyw: paczka {len(data['all_articles'])} artykułów z pełnymi treściami, bez skracania tekstów.")
-            return call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
+            response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                 timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                 reasoning_effort=summary_reasoning_effort(model),
                 response_schema=schema, response_schema_name=name)
+            if name == "perspective_facts":
+                coverage = response.get('article_coverage') or []
+                counts = [len(row.get('fact_indexes') or []) for row in coverage]
+                log("AI", f"Fakty perspektyw — odpowiedź: ustaleń: {len(response.get('facts') or [])}, "
+                    f"artykułów w kontroli pokrycia: {len(coverage)}/{len(data['all_articles'])}, "
+                    f"potwierdzeń faktów: {sum(counts)}, ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
+            return response
         raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)
         normalized = normalize_summary_response(raw)
         for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):

@@ -118,3 +118,33 @@ Korekta nie przywraca automatycznie wcześniejszych historycznych wersji już
 przepisanych syntez. Od momentu zastosowania zachowuje ich obecny zapis.
 Nie zmienia modelu embeddingów ani progów. Przy cofaniu całego formatu cofnąć
 korekty w odwrotnej kolejności, przed commitem wprowadzającym perspektywy.
+
+## Kompletność i atomowość faktów
+
+Korekta `Extract complete atomic facts with per-article coverage` precyzuje
+ekstrakcję w dotychczasowym zapytaniu. Model ma przejrzeć każdy pełny artykuł,
+w tym dalsze akapity, zebrać istotne działania, decyzje, okoliczności, skalę,
+reakcje i skutki, a następnie porównać każde ustalenie ze wszystkimi artykułami
+paczki. Jedno ustalenie to jedno samodzielnie sprawdzalne twierdzenie;
+wspólna informacja i szczegół występujący tylko w części źródeł są rozdzielane.
+Nie ma minimalnej ani narzuconej liczby faktów. Parafrazy nie tworzą duplikatów.
+
+Wymagane article_coverage podaje dla każdego artykułu indeksy zwracanych
+ustaleń albo powód braku istotnych informacji o wydarzeniu. Kod odrzuca
+odpowiedź pomijającą artykuł lub niespójną z cytowaniami; nie publikuje jej
+częściowo i nie uruchamia dodatkowego zapytania naprawczego. Log odpowiedzi
+podaje liczbę ustaleń, artykułów, potwierdzeń oraz zakres ustaleń na artykuł.
+Kontrola nie dowodzi prawdziwości ani semantycznej kompletności odpowiedzi;
+te nadal zależą od modelu. Znane potwierdzenia nie tworzą aktualizacji.
+
+Rozbieżne liczby wymagają zachowania źródła, czasu i zakresu: osiem zatrzymań
+w jednym zdarzeniu nie musi przeczyć dziesięciu łącznie w dwóch zdarzeniach.
+Pierwszy tekst syntezy dostaje nazwy redakcji i daty tylko materiałów
+potwierdzających dopuszczone fakty, aby móc czytelnie opisać rozbieżności.
+Nie otrzymuje tekstów ani ustaleń pozostałych perspektyw.
+
+Bez zmiany modelu, progów embeddingów, reguł profili i niezmienności
+opublikowanej syntezy. Większa kompletność może zwiększyć liczbę tokenów
+odpowiedzi. Dotychczasowych opracowań nie przebudowujemy automatycznie;
+nowe instrukcje dotyczą kolejnych analiz, bez migracji i produkcyjnych wywołań
+przy wdrażaniu. Cofnięcie tego commita przywraca poprzednią ekstrakcję.

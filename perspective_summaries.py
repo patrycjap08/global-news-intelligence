@@ -55,7 +55,16 @@ def obj(properties):
 STRING = {'type': 'string'}
 STRINGS = {'type': 'array', 'items': STRING}
 FACT_SCHEMA = obj({'known_fact_id': STRING, 'text_pl': STRING, 'article_ids': STRINGS, 'why_new_pl': STRING})
-EXTRACTION_SCHEMA = obj({'headline_pl': STRING, 'categories': STRINGS, 'facts': {'type': 'array', 'items': FACT_SCHEMA}})
+COVERAGE_SCHEMA = obj({
+    'article_id': STRING,
+    'fact_indexes': {'type': 'array', 'items': {'type': 'integer'}},
+    'no_relevant_facts_reason_pl': STRING,
+})
+EXTRACTION_SCHEMA = obj({
+    'headline_pl': STRING, 'categories': STRINGS,
+    'facts': {'type': 'array', 'items': FACT_SCHEMA},
+    'article_coverage': {'type': 'array', 'items': COVERAGE_SCHEMA},
+})
 WRITING_SCHEMA = obj({
     'paragraphs': {'type': 'array', 'items': obj({'text_pl': STRING, 'fact_ids': STRINGS})},
     'general_context': obj({'text_pl': STRING, 'article_ids': STRINGS, 'needs_verification': {'type': 'boolean'}}),
@@ -66,14 +75,53 @@ WRITING_SCHEMA = obj({
 })
 
 EXTRACTION_INSTRUCTIONS = '''
-Przygotuj atomowe ustalenia o jednym wydarzeniu, wyłącznie z all_articles.
+Zbuduj kompletny rejestr istotnych, atomowych ustaleń o jednym wydarzeniu,
+wyłącznie z pełnych tekstów all_articles. To ekstrakcja faktów, NIE streszczenie.
 Wszystko pisz poprawną polszczyzną, bez angielskich wtrąceń i bez cyrylicy
 (w nazwach używaj polskich nazw lub transkrypcji). Tytuł krótki: [Kraj] wydarzenie.
 Dostajesz source_group każdego artykułu: LEFT, RIGHT, CENTER, STATE.
-Dla każdego konkretnego ustalenia wypisz WSZYSTKIE article_ids, które naprawdę
-podają to samo ustalenie. Wspólny temat artykułów nie oznacza wspólnych szczegółów.
-Nie dopowiadaj liczb, przyczyn, motywów ani potwierdzeń. Sprzeczne liczby lub
-wersje to różne ustalenia, opisane z przypisaniem do źródła. Nie twórz metazdań
+
+W jednym przebiegu wykonaj kolejno:
+1. Przeczytaj KAŻDY artykuł osobno, nie tylko nagłówek i pierwszy akapit.
+   Zbierz istotne informacje także z dalszych akapitów: działania i decyzje,
+   uczestników, datę i miejsce, skalę i liczby, bezpośrednie okoliczności,
+   podane przyczyny, skutki, reakcje i konkretne zapowiedzi dalszych działań.
+   Wypowiedź/zarzut to fakt, że dana osoba coś powiedziała, nie dowód jej tezy.
+   Pomijaj reklamy, nawigację, obce wydarzenia z relacji na żywo, powtórzenia
+   i objaśnienia encyklopedyczne należące do kontekstu. Nie pomijaj szczegółu
+   dlatego, że występuje tylko w jednej redakcji albo jednej grupie źródeł.
+2. Jeden fakt = jedno samodzielnie sprawdzalne twierdzenie. Rozdziel decyzje,
+   działania różnych osób oraz informację główną i dodatkowe szczegóły,
+   jeśli mogą mieć inne potwierdzenia. Zachowaj konieczne określenia: kto,
+   co, gdzie/kiedy, o jakiej grupie osób/liczbie mowa. Nie rozdrabniaj
+   tego samego twierdzenia na parafrazy, urwane frazy i oczywiste wnioski.
+   Np. „Minister złożył dymisję po zamieszkach, prezydent jej nie przyjął
+   i zażądał nowych metod działania” to osobne ustalenia o złożeniu dymisji,
+   odmowie jej przyjęcia i żądaniu prezydenta, każde z własnymi źródłami.
+3. Połącz równoważne ustalenia z różnych języków w jeden fakt. Następnie
+   sprawdź KAŻDY fakt względem KAŻDEGO artykułu w tej paczce i wypisz WSZYSTKIE
+   article_ids, które rzeczywiście podają CAŁE to twierdzenie. Samo inne
+   brzmienie nie wyklucza potwierdzenia; wspólny temat nie potwierdza szczegółu.
+   Jeśli kilka źródeł podaje wspólny rdzeń, a tylko jedno dodatkowy szczegół,
+   zapisz rdzeń osobno z wszystkimi potwierdzeniami, a szczegół osobno.
+   Przykład: fakt o złożeniu dymisji nie jest „tylko lewicowy”, jeśli opisują
+   go również źródła prawicowe lub centrum. O podziale decyduje później kod.
+4. W article_coverage uwzględnij dokładnie raz KAŻDY article_id z all_articles.
+   fact_indexes to indeksy od 0 w ZWRÓCONEJ liście facts wszystkich ustaleń
+   potwierdzanych przez ten artykuł; muszą odpowiadać ich article_ids.
+   Jeśli brak ustaleń na temat wydarzenia, podaj konkretny powód w
+   no_relevant_facts_reason_pl; w pozostałych przypadkach powód="".
+   Przed odpowiedzią sprawdź, czy nie pominąłeś istotnych ustaleń ani źródeł.
+   Nie ograniczaj liczby faktów do 1–2 ani innego odgórnego limitu. Nie ma
+   minimalnej liczby: powtarzające się artykuły nie uzasadniają sztucznych faktów.
+
+Nie dopowiadaj liczb, przyczyn, motywów ani potwierdzeń. Rozbieżne liczby lub
+wersje opisuj osobno z przypisaniem do źródła oraz czasem/zakresem, jeśli są
+w tekście. Sprawdź, czy np. osiem zatrzymań dotyczy jednego ataku, a dziesięć
+łącznie kilku ataków, albo czy liczba wzrosła w czasie. Nie zacieraj różnicy
+zakresów i nie wymyślaj chronologii. Gdy nie da się rozstrzygnąć, zaznacz
+rozbieżność zamiast przedstawiać obie liczby jako pewny bilans tego samego.
+Nie twórz metazdań
 „nie ma nowych faktów”, „inne źródła milczą”, „śledztwo nadal trwa” bez nowości.
 Materiały STATE przedstawiaj jako doniesienia, np. „Według agencji TASS…”.
 previous_facts zawiera WSZYSTKIE wcześniej zapisane ustalenia, również ustalenia
@@ -82,10 +130,15 @@ paczkę pełnych artykułów. Nie powołuj się na niewysłane artykuły jako no
 potwierdza znany fakt, zwróć jego known_fact_id oraz DOKŁADNIE dotychczasowy
 text_pl i uzupełnione article_ids. Rozpoznawaj parafrazy i tłumaczenia — to nie
 nowy fakt. Nie zamieniaj znanego ustalenia w nowy fakt o pustym known_fact_id.
+Znane fakty nie są listą zamykającą ekstrakcję: szukaj także istotnych szczegółów,
+których wcześniej nie zapisano. Nie przepisuj jednak starego faktu pod nowym
+ID tylko po to, by go inaczej sformułować lub rozbić; jego tekst zachowaj.
 Dla nowego faktu known_fact_id=""; przy poprzedniej syntezie why_new_pl musi
 konkretnie wyjaśniać, jakiej informacji nie było w previous_facts. Dla znanego
-why_new_pl="". Pusta lista facts jest poprawna, jeżeli nie ma nowych ustaleń
-ani nowych materiałów potwierdzających znane. Nie usuwaj ani nie zmieniaj
+why_new_pl="". Także wcześniej przetworzony artykuł może ponownie potwierdzać
+znany fakt: zwróć ten fakt z known_fact_id, nie nazywaj go nową informacją.
+Pusta lista facts jest poprawna tylko gdy żaden artykuł bieżącej paczki nie
+zawiera istotnego nowego ANI znanego ustalenia o wydarzeniu. Nie usuwaj ani nie zmieniaj
 wcześniejszych ustaleń. Kategorie: POLSKA, POLITYKA, SWIAT, GOSPODARKA,
 SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE, KULTURA_SPORT.
 '''.strip()
@@ -95,6 +148,14 @@ Napisz po polsku zwięzłą, spójną syntezę WYŁĄCZNIE na podstawie main_fac
 Każdy akapit musi mieć fact_ids wszystkich ustaleń, które opisuje. Nie dodawaj
 żadnych faktów, liczb ani ocen spoza main_facts. Nie używaj angielskich słów
 pospolitych ani cyrylicy. Zachowaj polskie nazwy i poprawne polskie transkrypcje.
+main_sources mapuje cytowane article_ids na nazwy redakcji i daty publikacji.
+Nie sklejaj niezgodnych liczb lub wersji w jedno twierdzenie. Zachowaj ich
+zakres i czas; gdy rzeczywiście są rozbieżne, napisz np. „Część źródeł podaje
+osiem zatrzymań, inne dziesięć” ze wskazaniem redakcji. Nie pisz „równocześnie
+osiem i dziesięć” o tym samym bilansie. Nie zakładaj wzrostu liczby w czasie,
+jeśli main_facts tego nie podają. Kilka odrębnych faktów można opisać jednym
+akapitem, ale nie pomijaj istotnych działań, skutków i reakcji wyłącznie dla
+skrócenia syntezy do jednego zdania.
 Gdy main_facts jest puste, paragraphs=[] — NIE pisz „brak syntezy” ani nie
 zastępuj syntezy ustaleniami z innych perspektyw. Nie komentuj traktowania centrum.
 Kontekst jest osobnym, obowiązkowym uzupełnieniem: general_context wyjaśnia
@@ -203,6 +264,36 @@ def validate_batch_citations(response, batch, known, normalize):
         if not set(raw.get('article_ids') or []) <= allowed:
             raise ValueError('Fakt cytuje artykuł spoza bieżącej paczki i znanych potwierdzeń.')
 
+
+def validate_article_coverage(response, batch):
+    """Check that the extraction explicitly accounts for every sent article.
+
+    This detects omitted articles/inconsistent citations, not semantic truth or
+    a minimum number of facts. Evidence matching remains the model's task.
+    """
+    rows = response.get('article_coverage')
+    facts = response.get('facts')
+    if not isinstance(rows, list) or not isinstance(facts, list):
+        raise ValueError('Brak kontroli pokrycia artykułów w ekstrakcji faktów.')
+    expected = {str(a['article_id']) for a in batch}
+    seen = set()
+    for row in rows:
+        aid = str(row.get('article_id') or '')
+        if aid not in expected or aid in seen:
+            raise ValueError('Obcy lub powtórzony artykuł w kontroli pokrycia faktów.')
+        seen.add(aid)
+        indexes = row.get('fact_indexes')
+        if not isinstance(indexes, list) or any(type(i) is not int or i < 0 or i >= len(facts) for i in indexes):
+            raise ValueError('Niepoprawne indeksy faktów w kontroli pokrycia artykułu.')
+        cited = {i for i, fact in enumerate(facts) if aid in fact.get('article_ids', [])}
+        if len(indexes) != len(set(indexes)) or set(indexes) != cited:
+            raise ValueError('Pokrycie artykułu nie zgadza się z cytowaniami faktów.')
+        reason = str(row.get('no_relevant_facts_reason_pl') or '').strip()
+        if bool(indexes) == bool(reason):
+            raise ValueError('Artykuł wymaga faktów albo uzasadnienia braku istotnych informacji.')
+    if seen != expected:
+        raise ValueError('Ekstrakcja faktów pominęła artykuły bieżącej paczki.')
+
 def generate(payload, call, normalize, *, max_payload_chars=300000):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
@@ -218,6 +309,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
         batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
         extracted = call(EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch}, EXTRACTION_SCHEMA, 'perspective_facts')
         validate_batch_citations(extracted, batch, facts, normalize)
+        validate_article_coverage(extracted, batch)
         mode, facts = route_facts(extracted, articles, facts, normalize)
         headline = headline or extracted['headline_pl']
         categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
@@ -229,7 +321,10 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
         result.pop('perspective_state', None)
         result.setdefault('synthesis_coverage_mode', previous_base.get('coverage_mode', mode))
     else:
-        written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main},
+        main_article_ids = {i for f in main for i in f['article_ids']}
+        sources = [{key: a.get(key) for key in ('article_id', 'source_name', 'published_at')}
+                   for a in articles if str(a['article_id']) in main_article_ids]
+        written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main, 'main_sources': sources},
                        WRITING_SCHEMA, 'perspective_summary')
         allowed = {f['fact_id'] for f in main}
         paragraphs = written.get('paragraphs')
