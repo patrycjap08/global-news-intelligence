@@ -270,3 +270,21 @@ z publicznego eksportu. Odpowiedzi naprawcze są symulowane; testy nie
 wywołują OpenAI ani nie modyfikują bazy. Uruchomienie:
 `python -m pip install -r requirements-dev.txt`, następnie
 `python -m unittest discover -p 'test_*.py'`.
+
+## Fakty perspektyw a oś aktualizacji
+
+Pełny perspective_state obejmuje również fakty dopisane w aktualizacjach.
+Interfejs nie powtarza ich w dolnej sekcji „Co dodatkowo podają źródła”:
+porównuje jej fakty z wszystkimi wyświetlanymi aktualizacjami i szerszymi
+potwierdzeniami według fact_id, a dla starszych wpisów także identycznej
+treści po ujednoliceniu białych znaków i wielkości liter. Nie stosuje
+przybliżonego dopasowania ani nie łączy różniących się liczb/twierdzeń.
+
+Nowe informacje pozostają w swojej aktualizacji, wcześniejsze odrębne
+ustalenia pozostają w sekcjach profili. Puste grupy i pusta sekcja znikają.
+Pełny rejestr faktów, pierwotna synteza, dane źródłowe, historia aktualizacji
+i oznaczenia przeczytania pozostają bez zmian. Przy STATE_ONLY aktualizacji
+nie wyświetlamy, więc nie odfiltrowujemy na ich podstawie doniesień STATE.
+Poprawka działa na istniejących danych bez ponownego AI i bez zapisu do bazy.
+Regresja OS82 z publicznego eksportu jest w test_data; sprawdza ją
+`node test_frontend_perspective_updates.js`.

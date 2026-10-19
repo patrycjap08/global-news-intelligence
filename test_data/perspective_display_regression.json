@@ -1,0 +1,829 @@
+{
+  "exported_at": "2026-10-19T10:36:47.407578+00:00",
+  "topic": {
+    "topic_id": "topic_perspectives_5a09ace7ba26839c7d53d423",
+    "headline_pl": "[Bułgaria] Awaryjne lądowanie z powodu zagrożenia bombowego",
+    "status": "ACTIVE",
+    "first_seen_at": "2026-10-19T09:36:21.933604+00:00",
+    "last_seen_at": "2026-10-19T09:47:13.263285+00:00",
+    "article_count": 4,
+    "source_count": 4,
+    "coverage_status": "MULTI_SOURCE",
+    "needs_review": false,
+    "merged_into_topic_id": null,
+    "merged_at": null,
+    "updated_at": "2026-10-19T10:25:08.734437+00:00",
+    "categories": [
+      "SWIAT"
+    ],
+    "is_current": true
+  },
+  "articles": [
+    {
+      "article_id": "63d27ad507e988cf7c56bce9",
+      "source_id": "euronews",
+      "source_name": "Euronews",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Bomb threat forces Austrian Airlines plane from Tel Aviv to divert to Bulgaria",
+      "original_url": "https://www.euronews.com/2026/10/19/bomb-threat-forces-austrian-airlines-plane-from-tel-aviv-to-divert-to-bulgaria",
+      "published_at": "2026-10-19T09:40:43+02:00",
+      "fetched_at": "2026-10-19T08:16:24.95989+00:00",
+      "word_count": 299
+    },
+    {
+      "article_id": "868077ecac59e28b3803fa5d",
+      "source_id": "bankier",
+      "source_name": "Bankier",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Samolot z Tel Awiwu do Wiednia przekierowany. Powodem alarm bombowy",
+      "original_url": "https://www.bankier.pl/wiadomosc/Samolot-z-Tel-Awiwu-do-Wiednia-przekierowany-Powodem-alarm-bombowy-9214566.html",
+      "published_at": "2026-10-19T08:41:00+0200",
+      "fetched_at": "2026-10-19T08:11:08.753658+00:00",
+      "word_count": 179
+    },
+    {
+      "article_id": "9ef43e5a21f38236c3cb374e",
+      "source_id": "nbc_news",
+      "source_name": "NBC News",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Austrian Airlines flight from Tel Aviv diverts to Bulgaria after ‘threat’",
+      "original_url": "https://www.nbcnews.com/world/europe/austrian-airlines-flight-tel-aviv-diverts-bulgaria-threat-rcna604289",
+      "published_at": "2026-10-19T06:22:57.331Z",
+      "fetched_at": "2026-10-19T08:13:19.216031+00:00",
+      "word_count": 277
+    },
+    {
+      "article_id": "d6c319161aa2215afdc4a5bd",
+      "source_id": "pap",
+      "source_name": "PAP",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Alarm bombowy na pokładzie. Samolot lecący z Tel Awiwu awaryjnie lądował w Sofii",
+      "original_url": "https://pap.pl/aktualnosci/alarm-bombowy-na-pokladzie-samolot-lecacy-z-tel-awiwu-awaryjnie-ladowal-w-sofii",
+      "published_at": "",
+      "fetched_at": "2026-10-19T08:05:28.619959+00:00",
+      "word_count": 186
+    }
+  ],
+  "links": [
+    {
+      "topic_id": "topic_perspectives_5a09ace7ba26839c7d53d423",
+      "article_id": "63d27ad507e988cf7c56bce9",
+      "confidence": 0.8554637668033824
+    },
+    {
+      "topic_id": "topic_perspectives_5a09ace7ba26839c7d53d423",
+      "article_id": "868077ecac59e28b3803fa5d",
+      "confidence": 0.8554637668033824
+    },
+    {
+      "topic_id": "topic_perspectives_5a09ace7ba26839c7d53d423",
+      "article_id": "9ef43e5a21f38236c3cb374e",
+      "confidence": 0.8554637668033824
+    },
+    {
+      "topic_id": "topic_perspectives_5a09ace7ba26839c7d53d423",
+      "article_id": "d6c319161aa2215afdc4a5bd",
+      "confidence": 0.8554637668033824
+    }
+  ],
+  "summary": {
+    "topic_id": "topic_perspectives_5a09ace7ba26839c7d53d423",
+    "version": 2,
+    "summary": {
+      "updates": [
+        {
+          "run_id": "harvest_20261019T080527Z",
+          "status": "NEW_INFORMATION",
+          "version": 2,
+          "is_update": true,
+          "update_id": "update_7630fd226f373bf774f13d96",
+          "generated_at": "2026-10-19T10:27:53.599137+00:00",
+          "promoted_facts": [],
+          "new_article_ids": [
+            "9ef43e5a21f38236c3cb374e",
+            "63d27ad507e988cf7c56bce9"
+          ],
+          "what_changed_pl": "",
+          "new_information_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE. Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego. Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu. Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+          "perspective_sections": {
+            "LEFT": [
+              {
+                "lane": "LEFT",
+                "fact_id": "fact_1e7da041740e8921f615842c",
+                "text_pl": "Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+                "article_ids": [
+                  "9ef43e5a21f38236c3cb374e"
+                ]
+              }
+            ],
+            "RIGHT": [],
+            "STATE": [],
+            "COMMON": [
+              {
+                "lane": "COMMON",
+                "fact_id": "fact_4a50ecd4a236f366252d7587",
+                "text_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE.",
+                "article_ids": [
+                  "63d27ad507e988cf7c56bce9"
+                ]
+              },
+              {
+                "lane": "COMMON",
+                "fact_id": "fact_8cb7f4c8727d9a125a28b921",
+                "text_pl": "Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego.",
+                "article_ids": [
+                  "63d27ad507e988cf7c56bce9"
+                ]
+              },
+              {
+                "lane": "COMMON",
+                "fact_id": "fact_a1059872dc7d6b96803dfd0f",
+                "text_pl": "Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu.",
+                "article_ids": [
+                  "63d27ad507e988cf7c56bce9"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "base_summary": {
+        "facts": [
+          {
+            "text_pl": "Samolot linii Austrian Airlines lecący z Tel Awiwu do Wiednia został przekierowany do Sofii z powodu zagrożenia bombowego na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "W samolocie znajdowało się 57 osób, w tym 51 pasażerów i sześcioro członków załogi.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Samolotem był Airbus A320.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Airbus A320 bezpiecznie wylądował w Sofii o godz. 21:42 czasu lokalnego (20:42 w Polsce).",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Maszyna była eskortowana przez myśliwiec bułgarskich sił powietrznych.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Po kontroli samolotu, pasażerów i załogi nie wykryto zagrożenia, a lot był kontynuowany.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Według izraelskiego dziennika Haaretz powodem awaryjnego lądowania było anonimowe zgłoszenie o podejrzanym przedmiocie na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Możliwe zagrożenie zgłosił obywatel Austrii, który nie znajdował się na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Bułgarskie ministerstwo transportu nie odpowiedziało na prośbę Reutersa o komentarz.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Przekierowanie nastąpiło podczas przelotu w pobliżu granicy z Rumunią.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "text_pl": "Jeszcze tej samej nocy maszyna wznowiła lot ze Sofii do Wiednia ze wszystkimi pasażerami na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          }
+        ],
+        "topic": {
+          "categories": [
+            "SWIAT"
+          ],
+          "headline_pl": "[Sofia] Awaryjne lądowanie z powodu zagrożenia bombowego",
+          "what_happened_one_sentence_pl": "Samolot linii Austrian Airlines lecący z Tel Awiwu do Wiednia został przekierowany do Sofii z powodu zagrożenia bombowego na pokładzie."
+        },
+        "update": {
+          "status": "BASE_SUMMARY",
+          "is_update": false,
+          "new_article_ids": [],
+          "what_changed_pl": "",
+          "new_information_pl": ""
+        },
+        "quality": {
+          "source_count": 0,
+          "article_count": 0,
+          "limitations_pl": "",
+          "overall_confidence": "MEDIUM",
+          "has_multiple_perspectives": false
+        },
+        "sources": [],
+        "agreement": [],
+        "summary_pl": "Samolot linii Austrian Airlines lecący z Tel Awiwu do Wiednia został przekierowany do Sofii z powodu zagrożenia bombowego na pokładzie. W samolocie było 57 osób (51 pasażerów i 6 członków załogi). Maszyna była Airbus A320. Wylądowała bezpiecznie w Sofii o godz. 21:42 czasu lokalnego. Maszyna była eskortowana przez myśliwiec bułgarskich sił powietrznych. Po kontroli samolotu, pasażerów i załogi nie wykryto zagrożenia, a lot został kontynuowany. Według izraelskiego Haaretz powodem awaryjnego lądowania było anonimowe zgłoszenie o podejrzanym przedmiocie na pokładzie. Możliwe zagrożenie zgłosił obywatel Austrii, który nie znajdował się na pokładzie. Przekierowanie nastąpiło podczas przelotu w pobliżu granicy z Rumunią. Jeszcze tej samej nocy maszyna wznowiła lot ze Sofii do Wiednia ze wszystkimi pasażerami na pokładzie.\n\nBułgarskie ministerstwo transportu nie odpowiedziało na prośbę Reutersa o komentarz.",
+        "differences": [],
+        "coverage_mode": "SINGLE_CENTER",
+        "contradictions": [],
+        "reader_context": [],
+        "shared_available": true,
+        "perspective_facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_d51f085fe228c39d1ebdb191",
+            "text_pl": "Samolot linii Austrian Airlines lecący z Tel Awiwu do Wiednia został przekierowany do Sofii z powodu zagrożenia bombowego na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_352b06b61fad2065cad3b385",
+            "text_pl": "W samolocie znajdowało się 57 osób, w tym 51 pasażerów i sześcioro członków załogi.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_0fe276d11927564fd95bc163",
+            "text_pl": "Samolotem był Airbus A320.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_16a5984389b8584ddc99f0a5",
+            "text_pl": "Airbus A320 bezpiecznie wylądował w Sofii o godz. 21:42 czasu lokalnego (20:42 w Polsce).",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_1a4b3c7e93def3ce9c977d52",
+            "text_pl": "Maszyna była eskortowana przez myśliwiec bułgarskich sił powietrznych.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_173e79ab7c5e8dcd83701d22",
+            "text_pl": "Po kontroli samolotu, pasażerów i załogi nie wykryto zagrożenia, a lot był kontynuowany.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_e2fccbcfcc08931acdc7872d",
+            "text_pl": "Według izraelskiego dziennika Haaretz powodem awaryjnego lądowania było anonimowe zgłoszenie o podejrzanym przedmiocie na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_ce6ede01d6996c53897013ef",
+            "text_pl": "Możliwe zagrożenie zgłosił obywatel Austrii, który nie znajdował się na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_25fce8655eab52270b4113b1",
+            "text_pl": "Bułgarskie ministerstwo transportu nie odpowiedziało na prośbę Reutersa o komentarz.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_56da045aca6dd1072bec5ddf",
+            "text_pl": "Przekierowanie nastąpiło podczas przelotu w pobliżu granicy z Rumunią.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_3540bd7b3af2b47a15f6cc2b",
+            "text_pl": "Jeszcze tej samej nocy maszyna wznowiła lot ze Sofii do Wiednia ze wszystkimi pasażerami na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          }
+        ],
+        "background_context": [
+          {
+            "text_pl": "**Ogólny kontekst**\n\nIncydent dotyczy awaryjnego lądowania samolotu w Sofii podczas lotu z Tel Awiwu do Wiednia; przekierowanie nastąpiło z powodu zgłoszenia podejrzanego przedmiotu i po przeprowadzeniu kontroli nie stwierdzono zagrożenia, a lot kontynuowano.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ],
+            "entity_type": "BACKGROUND",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Organizacja — Austrian Airlines – operator lotu z Tel Awiwu do Wiednia.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Organizacja — Bułgarskie siły powietrzne – eskortowały samolot nad Bułgarią.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Organizacja — Haaretz – izraelski dziennik podający powód lądowania.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Organizacja — Bułgarskie ministerstwo transportu – nie skomentowało prośby Reutersa o komentarz.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ],
+            "entity_type": "ORGANIZATION",
+            "needs_verification": false
+          },
+          {
+            "text_pl": "Osoba — obywatel Austrii – rzekomy zgłaszający możliwość zagrożenia (nie na pokładzie).",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ],
+            "entity_type": "PERSON",
+            "needs_verification": false
+          }
+        ],
+        "perspective_version": 1,
+        "perspective_sections": {
+          "LEFT": [],
+          "RIGHT": [],
+          "STATE": []
+        },
+        "synthesis_coverage_mode": "SINGLE_CENTER",
+        "potential_manipulation_signals": []
+      },
+      "last_analysis": {
+        "run_id": "harvest_20261019T080527Z",
+        "status": "NEW_INFORMATION",
+        "version": 2,
+        "is_update": true,
+        "update_id": "update_7630fd226f373bf774f13d96",
+        "generated_at": "2026-10-19T10:27:53.599137+00:00",
+        "promoted_facts": [],
+        "new_article_ids": [
+          "9ef43e5a21f38236c3cb374e",
+          "63d27ad507e988cf7c56bce9"
+        ],
+        "what_changed_pl": "",
+        "new_information_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE. Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego. Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu. Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+        "perspective_sections": {
+          "LEFT": [
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_1e7da041740e8921f615842c",
+              "text_pl": "Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+              "article_ids": [
+                "9ef43e5a21f38236c3cb374e"
+              ]
+            }
+          ],
+          "RIGHT": [],
+          "STATE": [],
+          "COMMON": [
+            {
+              "lane": "COMMON",
+              "fact_id": "fact_4a50ecd4a236f366252d7587",
+              "text_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE.",
+              "article_ids": [
+                "63d27ad507e988cf7c56bce9"
+              ]
+            },
+            {
+              "lane": "COMMON",
+              "fact_id": "fact_8cb7f4c8727d9a125a28b921",
+              "text_pl": "Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego.",
+              "article_ids": [
+                "63d27ad507e988cf7c56bce9"
+              ]
+            },
+            {
+              "lane": "COMMON",
+              "fact_id": "fact_a1059872dc7d6b96803dfd0f",
+              "text_pl": "Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu.",
+              "article_ids": [
+                "63d27ad507e988cf7c56bce9"
+              ]
+            }
+          ]
+        }
+      },
+      "latest_update": {
+        "run_id": "harvest_20261019T080527Z",
+        "status": "NEW_INFORMATION",
+        "version": 2,
+        "is_update": true,
+        "update_id": "update_7630fd226f373bf774f13d96",
+        "generated_at": "2026-10-19T10:27:53.599137+00:00",
+        "promoted_facts": [],
+        "new_article_ids": [
+          "9ef43e5a21f38236c3cb374e",
+          "63d27ad507e988cf7c56bce9"
+        ],
+        "what_changed_pl": "",
+        "new_information_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE. Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego. Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu. Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+        "perspective_sections": {
+          "LEFT": [
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_1e7da041740e8921f615842c",
+              "text_pl": "Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+              "article_ids": [
+                "9ef43e5a21f38236c3cb374e"
+              ]
+            }
+          ],
+          "RIGHT": [],
+          "STATE": [],
+          "COMMON": [
+            {
+              "lane": "COMMON",
+              "fact_id": "fact_4a50ecd4a236f366252d7587",
+              "text_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE.",
+              "article_ids": [
+                "63d27ad507e988cf7c56bce9"
+              ]
+            },
+            {
+              "lane": "COMMON",
+              "fact_id": "fact_8cb7f4c8727d9a125a28b921",
+              "text_pl": "Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego.",
+              "article_ids": [
+                "63d27ad507e988cf7c56bce9"
+              ]
+            },
+            {
+              "lane": "COMMON",
+              "fact_id": "fact_a1059872dc7d6b96803dfd0f",
+              "text_pl": "Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu.",
+              "article_ids": [
+                "63d27ad507e988cf7c56bce9"
+              ]
+            }
+          ]
+        }
+      },
+      "perspective_state": {
+        "facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_d51f085fe228c39d1ebdb191",
+            "text_pl": "Samolot linii Austrian Airlines lecący z Tel Awiwu do Wiednia został przekierowany do Sofii z powodu zagrożenia bombowego na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_352b06b61fad2065cad3b385",
+            "text_pl": "W samolocie znajdowało się 57 osób, w tym 51 pasażerów i sześcioro członków załogi.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_0fe276d11927564fd95bc163",
+            "text_pl": "Samolotem był Airbus A320.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_16a5984389b8584ddc99f0a5",
+            "text_pl": "Airbus A320 bezpiecznie wylądował w Sofii o godz. 21:42 czasu lokalnego (20:42 w Polsce).",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_1a4b3c7e93def3ce9c977d52",
+            "text_pl": "Maszyna była eskortowana przez myśliwiec bułgarskich sił powietrznych.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_173e79ab7c5e8dcd83701d22",
+            "text_pl": "Po kontroli samolotu, pasażerów i załogi nie wykryto zagrożenia, a lot był kontynuowany.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_e2fccbcfcc08931acdc7872d",
+            "text_pl": "Według izraelskiego dziennika Haaretz powodem awaryjnego lądowania było anonimowe zgłoszenie o podejrzanym przedmiocie na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_ce6ede01d6996c53897013ef",
+            "text_pl": "Możliwe zagrożenie zgłosił obywatel Austrii, który nie znajdował się na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_25fce8655eab52270b4113b1",
+            "text_pl": "Bułgarskie ministerstwo transportu nie odpowiedziało na prośbę Reutersa o komentarz.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_56da045aca6dd1072bec5ddf",
+            "text_pl": "Przekierowanie nastąpiło podczas przelotu w pobliżu granicy z Rumunią.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_3540bd7b3af2b47a15f6cc2b",
+            "text_pl": "Jeszcze tej samej nocy maszyna wznowiła lot ze Sofii do Wiednia ze wszystkimi pasażerami na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_4a50ecd4a236f366252d7587",
+            "text_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE.",
+            "article_ids": [
+              "63d27ad507e988cf7c56bce9"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_8cb7f4c8727d9a125a28b921",
+            "text_pl": "Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego.",
+            "article_ids": [
+              "63d27ad507e988cf7c56bce9"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_a1059872dc7d6b96803dfd0f",
+            "text_pl": "Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu.",
+            "article_ids": [
+              "63d27ad507e988cf7c56bce9"
+            ]
+          }
+        ],
+        "coverage_mode": "MIXED",
+        "shared_available": true,
+        "perspective_facts": [
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_d51f085fe228c39d1ebdb191",
+            "text_pl": "Samolot linii Austrian Airlines lecący z Tel Awiwu do Wiednia został przekierowany do Sofii z powodu zagrożenia bombowego na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_352b06b61fad2065cad3b385",
+            "text_pl": "W samolocie znajdowało się 57 osób, w tym 51 pasażerów i sześcioro członków załogi.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_0fe276d11927564fd95bc163",
+            "text_pl": "Samolotem był Airbus A320.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_16a5984389b8584ddc99f0a5",
+            "text_pl": "Airbus A320 bezpiecznie wylądował w Sofii o godz. 21:42 czasu lokalnego (20:42 w Polsce).",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_1a4b3c7e93def3ce9c977d52",
+            "text_pl": "Maszyna była eskortowana przez myśliwiec bułgarskich sił powietrznych.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_173e79ab7c5e8dcd83701d22",
+            "text_pl": "Po kontroli samolotu, pasażerów i załogi nie wykryto zagrożenia, a lot był kontynuowany.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_e2fccbcfcc08931acdc7872d",
+            "text_pl": "Według izraelskiego dziennika Haaretz powodem awaryjnego lądowania było anonimowe zgłoszenie o podejrzanym przedmiocie na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_ce6ede01d6996c53897013ef",
+            "text_pl": "Możliwe zagrożenie zgłosił obywatel Austrii, który nie znajdował się na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_25fce8655eab52270b4113b1",
+            "text_pl": "Bułgarskie ministerstwo transportu nie odpowiedziało na prośbę Reutersa o komentarz.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_56da045aca6dd1072bec5ddf",
+            "text_pl": "Przekierowanie nastąpiło podczas przelotu w pobliżu granicy z Rumunią.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_3540bd7b3af2b47a15f6cc2b",
+            "text_pl": "Jeszcze tej samej nocy maszyna wznowiła lot ze Sofii do Wiednia ze wszystkimi pasażerami na pokładzie.",
+            "article_ids": [
+              "868077ecac59e28b3803fa5d",
+              "d6c319161aa2215afdc4a5bd"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_4a50ecd4a236f366252d7587",
+            "text_pl": "Airbus A320 linii Austrian Airlines miał rejestrację OE-LZE.",
+            "article_ids": [
+              "63d27ad507e988cf7c56bce9"
+            ]
+          },
+          {
+            "lane": "LEFT",
+            "fact_id": "fact_1e7da041740e8921f615842c",
+            "text_pl": "Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+            "article_ids": [
+              "9ef43e5a21f38236c3cb374e"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_8cb7f4c8727d9a125a28b921",
+            "text_pl": "Samolot wszedł w rumuńską przestrzeń powietrzną około 21:10 czasu lokalnego.",
+            "article_ids": [
+              "63d27ad507e988cf7c56bce9"
+            ]
+          },
+          {
+            "lane": "COMMON",
+            "fact_id": "fact_a1059872dc7d6b96803dfd0f",
+            "text_pl": "Zespół reagowania kryzysowego został utworzony przez bułgarskie ministerstwo transportu.",
+            "article_ids": [
+              "63d27ad507e988cf7c56bce9"
+            ]
+          }
+        ],
+        "perspective_version": 1,
+        "perspective_sections": {
+          "LEFT": [
+            {
+              "lane": "LEFT",
+              "fact_id": "fact_1e7da041740e8921f615842c",
+              "text_pl": "Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82.",
+              "article_ids": [
+                "9ef43e5a21f38236c3cb374e"
+              ]
+            }
+          ],
+          "RIGHT": [],
+          "STATE": []
+        }
+      },
+      "processed_article_ids": [
+        "868077ecac59e28b3803fa5d",
+        "d6c319161aa2215afdc4a5bd",
+        "9ef43e5a21f38236c3cb374e",
+        "63d27ad507e988cf7c56bce9"
+      ]
+    },
+    "generated_at": "2026-10-19T10:27:53.599137+00:00",
+    "updated_at": "2026-10-19T10:27:53.599137+00:00"
+  },
+  "history": [],
+  "repeated_fact_id": "fact_1e7da041740e8921f615842c",
+  "repeated_text": "Lot OS82 linii Austrian Airlines z Tel Awiwu do Wiednia nosił oznaczenie OS82."
+}

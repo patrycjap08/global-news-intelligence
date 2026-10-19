@@ -1095,13 +1095,28 @@ function coverageNotice(summary) {
   return messages[summary.coverage_mode] ? `<p class="coverage-notice">${messages[summary.coverage_mode]}</p>` : '';
 }
 
-function perspectiveSectionsHtml(summary, detailsState) {
+function perspectiveSectionsHtml(summary, detailsState, updates = []) {
   if (summary.perspective_version !== 1) return '';
   if (detailsState !== 'ready') return '<p class="perspective-pending">Perspektywy będą dostępne po pobraniu pełnego opracowania.</p>';
   const labels = { LEFT: 'Źródła lewicowe', RIGHT: 'Źródła prawicowe', STATE: 'Media kontrolowane przez państwo' };
-  const groups = Object.keys(labels).filter(g => summary.perspective_sections?.[g]?.length);
+  // The current fact ledger includes later additions. Those already have a
+  // place in the update timeline; do not repeat them in the sections below
+  // the original synthesis. Keep the stored ledger and update history intact.
+  const updateFacts = updates.flatMap(update => [
+    ...Object.values(update.perspective_sections || {}).flatMap(items => Array.isArray(items) ? items : []),
+    ...(Array.isArray(update.promoted_facts) ? update.promoted_facts : []),
+  ]);
+  const textKey = fact => normalizeDisplayText(typeof fact === 'string' ? fact : fact?.text_pl || fact?.text || '')
+    .replace(/\s+/g, ' ').trim().toLocaleLowerCase('pl');
+  const updateIds = new Set(updateFacts.map(fact => fact?.fact_id).filter(Boolean));
+  const updateTexts = new Set(updateFacts.map(textKey).filter(Boolean));
+  const sections = Object.fromEntries(Object.keys(labels).map(group => [group,
+    (summary.perspective_sections?.[group] || []).filter(fact =>
+      !updateIds.has(fact?.fact_id) && !updateTexts.has(textKey(fact))),
+  ]));
+  const groups = Object.keys(labels).filter(g => sections[g].length);
   if (!groups.length) return '';
-  return `<section class="perspectives-section"><h3>Co dodatkowo podają źródła</h3><div class="perspective-tabs" role="tablist" aria-label="Dodatkowe perspektywy">${groups.map((g,i) => `<button type="button" role="tab" id="perspective-tab-${g}" data-perspective-tab="${g}" aria-controls="perspective-panel-${g}" aria-selected="${i===0}" class="perspective-tab ${i===0?'is-active':''}">${labels[g]}</button>`).join('')}</div>${groups.map((g,i) => `<div role="tabpanel" id="perspective-panel-${g}" aria-labelledby="perspective-tab-${g}" data-perspective-panel="${g}" ${i===0?'':'hidden'}><ul class="insight-list">${listValue(summary.perspective_sections[g])}</ul></div>`).join('')}</section>`;
+  return `<section class="perspectives-section"><h3>Co dodatkowo podają źródła</h3><div class="perspective-tabs" role="tablist" aria-label="Dodatkowe perspektywy">${groups.map((g,i) => `<button type="button" role="tab" id="perspective-tab-${g}" data-perspective-tab="${g}" aria-controls="perspective-panel-${g}" aria-selected="${i===0}" class="perspective-tab ${i===0?'is-active':''}">${labels[g]}</button>`).join('')}</div>${groups.map((g,i) => `<div role="tabpanel" id="perspective-panel-${g}" aria-labelledby="perspective-tab-${g}" data-perspective-panel="${g}" ${i===0?'':'hidden'}><ul class="insight-list">${listValue(sections[g])}</ul></div>`).join('')}</section>`;
 }
 
 function perspectiveUpdateLabel(update) {
@@ -1159,7 +1174,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     ${factsOnly ? '' : `<div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>`}
     <div class="dialog-tab-panel ${factsOnly ? 'is-active' : ''}" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" ${factsOnly ? '' : 'hidden'}>${factsPanel}</div>
     `}
-    ${perspectiveSectionsHtml(summary, detailsState)}
+    ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
     ${stateOnly ? '' : section('Kontekst', summary.background_context, 'insight-context')}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
