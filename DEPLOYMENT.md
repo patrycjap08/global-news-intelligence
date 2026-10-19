@@ -102,6 +102,20 @@ nazywanie oczekujących artykułów, embeddingi, scalenia, syntezy i aktualizacj
 AI korzysta z dotychczasowej kolejki i aktywnych wątków ze wszystkich źródeł.
 Pozostają zwykłe limity pobierania, w tym standardowe 15 kandydatów dla Polski.
 
+Jeżeli wybrana redakcja nie zapisze żadnego nowego użytecznego artykułu, przebieg
+kończy się po synchronizacji wyniku pobierania. Nie uruchamia wtedy AI,
+embeddingów, eksportu danych ani ponownego wdrożenia Pages. Liczy się przyrost
+zapisanych artykułów (`valid_article_count`), więc same blokady, krótkie materiały,
+istniejące artykuły i duplikaty również prowadzą do zakończenia bez AI.
+
+Tylko w tym workflow embeddingi porównują wątki utworzone przez bieżący etap
+nazywania między sobą i z resztą aktywnych wątków. Nie liczą podobieństwa par
+złożonych z dwóch pozostałych wątków. Po scaleniu zakres śledzi zachowany ID,
+także w końcowej kontroli wątków z syntezami. Nadal potrzeba wektorów reszty
+wątków, żeby porównać z nimi nowe; ograniczenie dotyczy par porównań.
+Progi 0.82/0.78, okno 36 godzin i rozdzielenie formatów pozostają takie same.
+Zwykłe `full`, `ai-only` i `merge-existing-summaries` zachowują pełną kontrolę par.
+
 Nowy workflow wywołuje wspólny `harvest.yml`, więc używa tych samych modeli,
 progów, równoległości i retry. Wspólna kolejka `global-news-harvest` porządkuje
 zapisy razem z głównym workflow. Po zakończeniu powstaje eksport `gni-public-data`,

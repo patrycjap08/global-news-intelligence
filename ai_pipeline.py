@@ -535,10 +535,12 @@ def build_embedding_candidate_edges(
     min_similarity: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
     diagnostics: dict[str, Any] | None = None,
     ukraine_ids: set[str] | None = None,
+    focus_topic_ids: set[str] | None = None,
 ) -> dict[tuple[str, str], float]:
     """Return semantic pairs passing their applicable threshold.
 
     Ukraine-specific thresholds only affect local selection; no extra API calls.
+    None compares all pairs; an explicit focus compares only pairs touching it.
     """
     if len(topic_ids) != len(embeddings) or len(topic_ids) < 2:
         return {}
@@ -548,12 +550,15 @@ def build_embedding_candidate_edges(
     neighbor_ranks: dict[str, dict[str, int]] = {}
     score_band_heaps: dict[int, list[tuple[float, str, str]]] = defaultdict(list)
     score_band_counts: dict[int, int] = defaultdict(int)
+    focus_indices = [i for i, topic_id in enumerate(topic_ids) if str(topic_id) in (focus_topic_ids or set())]
     for index, vector in enumerate(embeddings):
         scored: list[tuple[float, int]] = []
         diagnostic_neighbors: list[tuple[float, int]] = []
-        for other_index, other_vector in enumerate(embeddings):
+        other_indices = range(len(embeddings)) if focus_topic_ids is None or index in focus_indices else focus_indices
+        for other_index in other_indices:
             if index == other_index:
                 continue
+            other_vector = embeddings[other_index]
             similarity = _cosine_similarity(vector, other_vector)
             if diagnostics is not None and index < other_index and 0.60 <= similarity < 0.86:
                 band = int(similarity * 50)
@@ -613,7 +618,12 @@ def build_embedding_candidate_edges(
             "threshold": min_similarity, "ukraine_threshold": min(min_similarity, 0.78),
             "ukraine_topic_ids": sorted(ukraine_ids or []), "top_k": top_k,
             "diagnostic_floor": diagnostic_floor, "topic_count": len(topic_ids),
-            "compared_pairs": len(topic_ids) * (len(topic_ids) - 1) // 2,
+            "compared_pairs": (len(topic_ids) * (len(topic_ids) - 1) // 2
+                               if focus_topic_ids is None else
+                               len(focus_indices) * (len(topic_ids) - len(focus_indices))
+                               + len(focus_indices) * (len(focus_indices) - 1) // 2),
+            "comparison_scope": "ALL" if focus_topic_ids is None else "NEW_TOPICS",
+            "focus_topic_ids": sorted(str(topic_ids[i]) for i in focus_indices),
             "selected_pair_count": len(edges),
             "bucket_pair_counts": {bucket: len(rows) for bucket, rows in buckets.items()},
             "sampling": "Up to 20 per bucket: 10 closest to threshold + 10 deterministic spread; not representative.",
@@ -655,6 +665,7 @@ def build_topic_embedding_candidate_edges(
     topics: list[dict[str, Any]],
     *,
     diagnostics: dict[str, Any] | None = None,
+    focus_topic_ids: set[str] | None = None,
 ) -> dict[tuple[str, str], float]:
     """Embed compact topic descriptions and return semantic candidate edges.
 
@@ -662,6 +673,8 @@ def build_topic_embedding_candidate_edges(
     outage for retry. They do not add lexical candidate pairs.
     """
     if not TOPIC_MERGE_EMBEDDINGS_ENABLED or len(topics) < 2:
+        return {}
+    if focus_topic_ids is not None and not any(str(t["topic_id"]) in focus_topic_ids for t in topics):
         return {}
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         return {}
@@ -681,7 +694,9 @@ def build_topic_embedding_candidate_edges(
         "EMBEDDING",
         f"Semantyczna selekcja: tworzę embeddingi dla {len(texts)} tematów "
         f"w {batch_count} paczkach (model {TOPIC_MERGE_EMBEDDING_MODEL}); "
-        "paczki dotyczą tylko API, potem porównuję wszystkie pary lokalnie.",
+        + ("paczki dotyczą tylko API, potem porównuję wszystkie pary lokalnie."
+         if focus_topic_ids is None else
+         "paczki dotyczą tylko API; porównuję nowe wątki między sobą i z pozostałymi, bez par dwóch pozostałych wątków."),
     )
     for offset in range(0, len(texts), TOPIC_MERGE_EMBEDDING_BATCH_SIZE):
         batch = texts[offset:offset + TOPIC_MERGE_EMBEDDING_BATCH_SIZE]
@@ -719,7 +734,8 @@ def build_topic_embedding_candidate_edges(
         if last_error is not None:
             raise last_error
 
-    edges = build_embedding_candidate_edges(topic_ids, embeddings, diagnostics=diagnostics, ukraine_ids=ukraine_topic_ids(topics))
+    edges = build_embedding_candidate_edges(topic_ids, embeddings, diagnostics=diagnostics,
+                                           ukraine_ids=ukraine_topic_ids(topics), focus_topic_ids=focus_topic_ids)
     if diagnostics is not None:
         snapshot = {str(topic["topic_id"]): (topic, text) for topic, text in zip(topics, texts)}
         for sample in diagnostics.get("samples", []) + diagnostics.get("score_band_samples", []):
@@ -3485,8 +3501,11 @@ def merge_active_topics(
     merged_article_ids_by_topic: dict[str, list[str]] | None = None,
     prefer_embeddings: bool = False,
     only_generation: str | None = None,
+    focus_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Merge duplicate active topics before any final summary is generated.
+
+    An optional focus limits pairs and is updated to retained IDs after merges.
 
     The repair mode deliberately keeps the normal 36-hour active-topic window,
     but narrows the input to topics that already have a saved synthesis. This
@@ -3555,6 +3574,10 @@ def merge_active_topics(
                 )[:max_topics]
             if len(topics) < 2:
                 return stats
+        if focus_topic_ids is not None and (len(topics) < 2 or not any(
+                str(t["topic_id"]) in focus_topic_ids for t in topics)):
+            log("EMBEDDING", "Brak nowych wątków w tej puli; pomijam porównania pozostałych wątków.")
+            return stats
         ids_by_topic: dict[str, list[str]] = {}
         for row in links:
             ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
@@ -3606,6 +3629,7 @@ def merge_active_topics(
         try:
             semantic_edges = build_topic_embedding_candidate_edges(
                 payload_topics, diagnostics=embedding_diagnostics,
+                **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
             )
             embeddings_available = (
                 TOPIC_MERGE_EMBEDDINGS_ENABLED
@@ -3613,6 +3637,9 @@ def merge_active_topics(
                 and bool((os.environ.get("OPENAI_API_KEY") or "").strip())
             )
             semantic_edges = {pair: score for pair, score in semantic_edges.items() if generations.get(pair[0]) == generations.get(pair[1])}
+            if focus_topic_ids is not None:
+                semantic_edges = {pair: score for pair, score in semantic_edges.items()
+                                  if pair[0] in focus_topic_ids or pair[1] in focus_topic_ids}
             stats["semantic_candidate_edges"] = len(semantic_edges)
         except Exception as exc:
             log(
@@ -4033,6 +4060,11 @@ def merge_active_topics(
                         filters=[("topic_id", f"eq.{old_topic_id}")],
                     )
             stats["topics_merged"] += len(group_ids)
+            if focus_topic_ids is not None:
+                # The next pass must follow the retained identity even when
+                # a newly created candidate was merged into an older topic.
+                focus_topic_ids.difference_update(group_ids)
+                focus_topic_ids.add(canonical_id)
             if automatic_merge:
                 client.upsert("topic_runs", [{
                     "topic_run_id": "topicrun_" + digest({"run": run_id, "stage": "EMBEDDING_MERGE",
@@ -4068,6 +4100,7 @@ def merge_existing_summaries(
     *,
     model: str = DEFAULT_MODEL,
     max_topics: int = 0,
+    focus_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Repair duplicate active synthesized topics and update retained summaries.
 
@@ -4088,6 +4121,7 @@ def merge_existing_summaries(
         prefer_embeddings=True,
         max_topics=max_topics,
         merged_article_ids_by_topic=merged_article_ids_by_topic,
+        **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
     )
     log("AI-REPAIR", "Przekazuję do kolejki aktualizacji: "
         f"wątków: {len(merged_article_ids_by_topic)}, przeniesionych artykułów: "
@@ -4918,6 +4952,7 @@ def _label_pending_batch(
     model: str = DEFAULT_MODEL,
     batch_index: str | int = 1,
     db_path: Path | None = None,
+    created_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Filter scope, then give each accepted article its own named candidate.
 
@@ -5069,6 +5104,8 @@ def _label_pending_batch(
         on_conflict="run_id,article_id",
     )
     stats["labeled_articles"] = len(topic_rows)
+    if created_topic_ids is not None:
+        created_topic_ids.update(str(topic["topic_id"]) for topic in topic_rows)
     return stats
 
 
@@ -5435,6 +5472,7 @@ def analyze_run(
     batch_size: int = 100,
     merge_existing_summaries_mode: bool = False,
     merge_existing_max_topics: int = 0,
+    new_topics_only: bool = False,
 ) -> dict[str, int]:
     """Run the three-stage pipeline: label, merge, then synthesize.
 
@@ -5460,6 +5498,7 @@ def analyze_run(
         log("AI-REPAIR", "Tryb naprawczy istniejących syntez zakończony.")
         return stats
     requested_batch_size = max(1, batch_size)
+    focus_topic_ids: set[str] | None = set() if new_topics_only else None
     batch_size = min(requested_batch_size, MAX_LABEL_BATCH_SIZE)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -5505,6 +5544,7 @@ def analyze_run(
             try:
                 batch_stats = _label_pending_batch(
                     run_id, client, batch, model=LABEL_MODEL, batch_index=label, db_path=db_path,
+                    **({"created_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
                 )
                 merge_batch_stats(batch_stats)
                 log(
@@ -5560,6 +5600,7 @@ def analyze_run(
     merge_stats = merge_active_topics(
         db_path, run_id, client, model=model, prefer_embeddings=True, only_generation="perspectives",
         merged_article_ids_by_topic=merged_article_ids_by_topic,
+        **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
     )
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
@@ -5588,8 +5629,15 @@ def analyze_run(
         f"Etap 3/3 zakończony: gotowe syntezy {stats['summaries']}, "
         f"nieudane {stats['failed_summaries']}.",
     )
-    log("EMBEDDING", "Końcowa kontrola: wszystkie aktywne wątki z syntezami w oknie 36 godzin; stare i nowe formaty bez łączenia między wersjami.")
-    final_stats = merge_existing_summaries(db_path, run_id, client, model=model)
+    log("EMBEDDING", (
+        "Końcowa kontrola: wszystkie aktywne wątki z syntezami w oknie 36 godzin; stare i nowe formaty bez łączenia między wersjami."
+        if focus_topic_ids is None else
+        "Końcowa kontrola: tylko pary z udziałem nowych wątków lub ich zachowanych po scaleniu odpowiedników; pozostałe wątki bez wzajemnego porównywania."
+    ))
+    final_stats = merge_existing_summaries(
+        db_path, run_id, client, model=model,
+        **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
+    )
     for key in ("summaries", "failed_summaries", "topics_merged", "merge_candidates", "merge_failed", "merge_requests", "merge_split_retries"):
         stats[key] += final_stats.get(key, 0)
     stats["final_topics_merged"] = final_stats.get("topics_merged", 0)

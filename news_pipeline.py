@@ -42,6 +42,22 @@ def resolve_harvest_source(config_path: Path, requested: str) -> dict:
     return matches[0]
 
 
+def new_articles_in_run(db_path: Path, run_id: str) -> int:
+    """Count newly saved usable articles, excluding redirects and duplicates."""
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute("SELECT valid_article_count FROM harvest_runs WHERE run_id = ?", (run_id,)).fetchone()
+    if row is None:
+        raise RuntimeError(f"Brak lokalnego przebiegu {run_id}; nie można sprawdzić nowych artykułów.")
+    return int(row[0] or 0)
+
+
+def skip_public_export() -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        with open(output_path, "a", encoding="utf-8") as output:
+            output.write("skip_public_export=true\n")
+
+
 def count_summary(values: dict[str, int], labels: tuple[tuple[str, str], ...]) -> str:
     """Render selected counters without dumping an opaque JSON object."""
     return ", ".join(
@@ -200,6 +216,11 @@ def main() -> int:
                 (("articles", "artykułów"), ("run_articles", "powiązań z runem"), ("source_run_results", "wyników źródeł")),
             ) + ".",
         )
+        if selected_source is not None and new_articles_in_run(args.db, run_id) == 0:
+            log("RUN", "Wybrane źródło nie zapisało nowych artykułów do analizy. "
+                "Kończę bez etapu AI, embeddingów i eksportu strony; wynik pobierania zapisano w Supabase.")
+            skip_public_export()
+            return 0
 
     if args.skip_ai:
         log("RUN", "Etap 4/4 pominięty — użyto --skip-ai.")
@@ -214,6 +235,7 @@ def main() -> int:
             batch_size=args.ai_batch_size,
             merge_existing_summaries_mode=args.merge_existing_summaries,
             merge_existing_max_topics=args.merge_existing_max_topics,
+            **({"new_topics_only": True} if selected_source is not None else {}),
         )
         log("RUN", "Etap 4/4 zakończony: " + ai_summary(result) + ".")
         if result.get("merge_failed", 0) or result.get("failed_summaries", 0):

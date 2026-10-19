@@ -82,6 +82,18 @@ class LabelingScopeTests(unittest.TestCase):
         self.assertEqual(stats['excluded'], 8)
         self.assertEqual({t for t, _ in self.client.writes}, {'topic_runs'})
 
+    def test_new_topic_tracking_contains_only_successfully_accepted_candidates(self):
+        created = set()
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
+            ai, 'call_openai', return_value=self.response,
+        ), patch.object(ai, 'log'):
+            stats = ai._label_pending_batch('run', self.client, self.articles,
+                                           db_path=self.db, created_topic_ids=created)
+        topics = [row for table, rows in self.client.writes if table == 'topics' for row in rows]
+        self.assertEqual(created, {row['topic_id'] for row in topics})
+        self.assertEqual(len(created), 2)
+        self.assertEqual(stats['candidate_topics'], 2)
+
     def test_foreign_or_missing_decision_fails_before_any_article_change_and_preserves_raw_response(self):
         decisions = self.response['decisions']
         for response in [

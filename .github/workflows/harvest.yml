@@ -118,6 +118,7 @@ jobs:
         run: python -m playwright install --with-deps chromium
 
       - name: Run ingestion, sync and AI
+        id: pipeline
         run: |
           args=(
             news_pipeline.py
@@ -146,7 +147,7 @@ jobs:
           python "${args[@]}"
 
       - name: Export public site data
-        if: always() && !cancelled()
+        if: always() && !cancelled() && steps.pipeline.outputs.skip_public_export != 'true'
         id: public_export
         continue-on-error: true
         run: python export_public_site.py --output public_site_data

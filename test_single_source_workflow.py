@@ -1,6 +1,8 @@
 import contextlib
 import io
+import json
 import os
+import sqlite3
 import subprocess
 import tempfile
 import unittest
@@ -22,7 +24,7 @@ def workflow(name):
 
 
 class SingleSourcePipelineTests(unittest.TestCase):
-    def run_pipeline(self, source=None, result=None):
+    def run_pipeline(self, source=None, result=None, new_articles=3):
         events = []
         with tempfile.TemporaryDirectory() as folder, contextlib.ExitStack() as stack:
             argv = ["news_pipeline.py", "--db", str(Path(folder) / "articles.sqlite3"),
@@ -31,6 +33,9 @@ class SingleSourcePipelineTests(unittest.TestCase):
             if source is not None:
                 argv.extend(["--source", source])
             stack.enter_context(patch("sys.argv", argv))
+            output_path = Path(folder) / "outputs"
+            stack.enter_context(patch.dict(os.environ, {"GITHUB_OUTPUT": str(output_path)}))
+            stack.enter_context(patch.object(pipeline, "new_articles_in_run", return_value=new_articles))
             client = stack.enter_context(patch.object(pipeline, "SupabaseRestClient")).return_value
             stack.enter_context(patch.object(pipeline, "log"))
             stack.enter_context(patch.object(pipeline, "pull_state", side_effect=lambda *a: events.append("pull") or {}))
@@ -39,14 +44,20 @@ class SingleSourcePipelineTests(unittest.TestCase):
             push = stack.enter_context(patch.object(pipeline, "push_run", side_effect=lambda *a: events.append("push") or {}))
             analyze = stack.enter_context(patch.object(pipeline, "analyze_run", side_effect=lambda *a, **kw: events.append("ai") or (result or {})))
             status = pipeline.main()
-            self.assertEqual(events, ["pull", "harvest", "push", "ai"])
+            skipped = source is not None and new_articles == 0
+            self.assertEqual(events, ["pull", "harvest", "push"] + ([] if skipped else ["ai"]))
             self.assertEqual(harvest.call_count, 1)
             self.assertEqual(push.call_args.args[1:], ("selected_source_run", client))
-            self.assertEqual(analyze.call_args.args[1:], ("selected_source_run", client))
-            self.assertEqual(analyze.call_args.kwargs, {
-                "max_articles": 0, "batch_size": 25,
-                "merge_existing_summaries_mode": False, "merge_existing_max_topics": 0,
-            })
+            if skipped:
+                analyze.assert_not_called()
+                self.assertEqual(output_path.read_text(), "skip_public_export=true\n")
+            else:
+                self.assertEqual(analyze.call_args.args[1:], ("selected_source_run", client))
+                self.assertEqual(analyze.call_args.kwargs, {
+                    "max_articles": 0, "batch_size": 25,
+                    "merge_existing_summaries_mode": False, "merge_existing_max_topics": 0,
+                    **({"new_topics_only": True} if source is not None else {}),
+                })
             return status, harvest.call_args.args[0]
 
     def test_one_source_limits_harvesting_and_keeps_the_whole_ai_stage(self):
@@ -66,6 +77,25 @@ class SingleSourcePipelineTests(unittest.TestCase):
     def test_one_source_does_not_mask_ai_failures(self):
         status, _ = self.run_pipeline("zero_pl", {"failed_summaries": 1})
         self.assertEqual(status, 1)
+
+    def test_no_new_articles_stops_after_sync_without_ai_or_export(self):
+        status, _ = self.run_pipeline("zero_pl", new_articles=0)
+        self.assertEqual(status, 0)
+
+    def test_full_with_no_new_articles_keeps_the_existing_ai_retry_behavior(self):
+        status, _ = self.run_pipeline(new_articles=0)
+        self.assertEqual(status, 0)
+
+    def test_new_article_count_uses_saved_usable_count_not_fetch_attempts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db = Path(folder) / 'db'
+            with sqlite3.connect(db) as conn:
+                conn.execute('CREATE TABLE harvest_runs(run_id TEXT, valid_article_count INT, fetched_count INT)')
+                conn.executemany('INSERT INTO harvest_runs VALUES(?,?,?)', [('blocked', 0, 10), ('valid', 2, 3)])
+            self.assertEqual(pipeline.new_articles_in_run(db, 'blocked'), 0)
+            self.assertEqual(pipeline.new_articles_in_run(db, 'valid'), 2)
+            with self.assertRaises(RuntimeError):
+                pipeline.new_articles_in_run(db, 'missing')
 
     def test_ids_and_names_resolve_to_exactly_one_enabled_source(self):
         for value in ("zero_pl", "Zero.pl", " ZERO.PL "):
@@ -88,6 +118,31 @@ class SingleSourcePipelineTests(unittest.TestCase):
 
 
 class SingleSourceWorkflowTests(unittest.TestCase):
+    def test_pages_skips_source_run_without_new_snapshot_and_preserves_normal_full_behavior(self):
+        deploy = workflow('deploy-pages.yml')
+        steps = deploy['jobs']['deploy']['steps']
+        script = next(s['with']['script'] for s in steps if s.get('id') == 'snapshot')
+        runner = '''const fs=require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8'));
+const outputs={}; const fn=Object.getPrototypeOf(async function(){}).constructor;
+new fn('github','context','core',input.script)(
+ {paginate:async()=>input.artifacts,rest:{actions:{listArtifactsForRepo(){}}}},
+ {eventName:'workflow_run',payload:{workflow_run:{id:2,name:input.name}},repo:{}},
+ {setOutput:(k,v)=>outputs[k]=v,info:()=>{}}).then(()=>console.log(JSON.stringify(outputs))).catch(e=>{console.error(e);process.exit(1)});'''
+        old = {'expired': False, 'created_at': '2026-10-19T01:00:00Z', 'workflow_run': {'id': 1, 'head_branch': 'main'}}
+        new = {'expired': False, 'created_at': '2026-10-19T02:00:00Z', 'workflow_run': {'id': 2, 'head_branch': 'main'}}
+        source_name = workflow('harvest-source.yml')['name']
+        for name, artifacts, expected in (
+            (source_name, [old], {'skip_deploy': 'true'}),
+            (source_name, [old, new], {'run_id': '2'}),
+            (workflow('harvest.yml')['name'], [old], {'run_id': '1'}),
+        ):
+            result = subprocess.run(['node', '-e', runner], input=json.dumps({'script': script, 'name': name, 'artifacts': artifacts}),
+                                    capture_output=True, text=True, check=True)
+            self.assertEqual(json.loads(result.stdout), expected)
+        for step in steps:
+            if step['name'] in ('Prepare static site', 'Configure GitHub Pages', 'Upload Pages artifact', 'Deploy to GitHub Pages'):
+                self.assertIn('skip_deploy', step['if'])
+
     def test_dropdown_matches_all_enabled_catalog_entries(self):
         _, sources = load_config(ROOT / "sources.yaml")
         field = workflow("harvest-source.yml")["on"]["workflow_dispatch"]["inputs"]["source"]
