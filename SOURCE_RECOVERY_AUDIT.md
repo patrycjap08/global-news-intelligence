@@ -143,3 +143,28 @@ Krótki wynik The Times wymaga nadal dostępu/odczytu przeglądarkowego; migracj
 Regresje: 161 testów Python zakończonych powodzeniem, w tym 11 nowych testów odzyskiwania źródeł.
 
 Próba dodatkowej kontroli The Times w przeglądarce nie doszła do odczytu strony: w środowisku audytu brak zainstalowanego pliku Chromium. Workflow full instaluje Chromium przed pobieraniem; tej części nie potwierdzono tutaj testem na żywej stronie.
+
+## Zero.pl — import wersji pisanej, 19 października 2026
+
+Dodano aktywne źródło `zero_pl` (Zero.pl), język polski. Import korzysta z publicznej
+[mapy wiadomości](https://zero.pl/sitemap-news.xml), zawierającej tytuły i daty publikacji,
+oraz działów Kraj, Świat i Biznes jako dodatkowych miejsc odkrywania adresów.
+Przy standardowym limicie 10 obowiązuje dotychczasowe polskie okno 15 najnowszych
+kandydatów. Nie dodano odczytu YouTube ani transkrypcji.
+
+Treści są dostępne w zwykłym HTTP, w `article .prose`. Odczyt zachowuje pełny tekst,
+autora i datę, pomija reklamy i karty polecanych artykułów. Strona bez tego kontenera
+nie jest zastępowana tekstem menu lub poleceniami innych materiałów.
+
+Profil `CENTER_RIGHT` jest roboczą klasyfikacją redakcyjną. Podstawą rekomendacji
+jest opis szerokiej widowni centrum-prawicy w [analizie Kanału Zero przez Res Futura](https://resfutura.pl/kanal-zero-i-reszta/).
+Nie jest to reprezentatywne badanie opinii o profilu portalu ani klasyfikacja
+każdego autora; [Zero.pl deklaruje różnorodność swoich autorów](https://zero.pl/pisza-dla-nas).
+W dotychczasowym podziale aplikacji profil ten należy do grupy prawicowej.
+
+Weryfikacja: próbny import wyłącznie do lokalnej bazy SQLite zapisał 3 z 3 artykułów
+bez błędów. Trzy dodatkowo sprawdzone publiczne teksty miały 371, 759 i 859 słów,
+z zachowanym autorem i datą. Przeszły 244 testy Pythona, w tym regresje pełnej treści,
+odrzucania stron bez artykułu i konfiguracji nowego źródła.
+Nie uruchamiano produkcyjnego harvestu, zapisu w Supabase ani płatnego AI.
+Źródło zostanie zsynchronizowane i pobrane automatycznie podczas następnego `full`.

@@ -584,6 +584,15 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     content_root = tvn24_main
     if content_root is not None:
         source_kind = "tvn24"
+    if source_id == "zero_pl":
+        # Zero.pl renders the full story in this public HTML container;
+        # sibling article.post cards contain other stories, not this body.
+        content_root = soup.select_one("article .prose")
+        source_kind = "zero_pl"
+        if content_root is None:
+            return {"title": title, "description": description, "author": author,
+                    "published_at": published, "canonical": canonical, "body": "",
+                    "structured": False, "source_kind": source_kind}
     if content_root is None:
         content_root = (soup.select_one("article.article section.main.whitelistPremium")
                         or soup.select_one("article.article")) if source_id == "business_insider_pl" else None
@@ -700,6 +709,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
                 node.decompose()
     elif source_kind == "pap":
         unwanted += ", .articleSprawdzamtoHeader, .articleInfo, .socialList, .imageWrapper, .advertisement-block, .embedded-entity, .readMore"
+    elif source_kind == "zero_pl":
+        unwanted += ", .ad-slot-wrapper, .posts-grid"
     elif source_kind == "tvp":
         unwanted += ", .article__right-box, .article-recommend, .module-banner-ad, .article-tags, .article-right, .article__see-more, .mb-box, .news-box"
     elif source_kind == "onet":
@@ -791,6 +802,15 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         text_nodes = content_root.select("p, h2, h3, li")
     if source_kind == "daily_signal":
         text_nodes = content_root.select("p, h2, h3, li")
+    if source_kind == "zero_pl":
+        selected_ids = {id(node) for node in text_nodes}
+        text_nodes = [
+            node for node in text_nodes
+            if not any(id(parent) in selected_ids for parent in node.parents)
+            and clean_text(node.get_text(" ", strip=True)) not in {
+                "Może zainteresuje Cię również:", "Zobacz także:", "Czytaj także:"
+            }
+        ]
     body_parts = [clean_text(node.get_text(" ", strip=True)) for node in text_nodes]
     body = clean_text(" ".join(part for part in body_parts if part))
     # Some publishers (notably Onet) render only a short premium preview in
@@ -830,8 +850,8 @@ def extract_article(
         if url_date:
             published = "-".join(url_date.groups())
     canonical = structured.get("canonical") or parser.meta.get("canonical") or result.final_url or result.url
-    if source_id == "tvn24" or structured.get("source_kind") == "sky_news_live":
-        # A TVN24 candidate without the semantic article root is usually a
+    if source_id in {"tvn24", "zero_pl"} or structured.get("source_kind") == "sky_news_live":
+        # A candidate without the expected semantic article root is usually a
         # shell, listing, or error page; never turn its global text into body.
         body = structured.get("body", "")
     else:

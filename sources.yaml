@@ -29,6 +29,30 @@ sources:
       - "\\b(kultura|film|serial|aktor|aktorka|muzyka|koncert|festiwal)\\b"
       - "\\b(prognoza pogody|pogoda na|IMGW)\\b"
       - "\\b(materiał promocyjny|artykuł sponsorowany|partner materiału|patronat medialny)\\b"
+  - id: zero_pl
+    name: Zero.pl
+    region: Poland
+    language: pl
+    homepage: https://zero.pl
+    editorial_profile: CENTER_RIGHT
+    discovery_method: NEWS_SITEMAP
+    content_method: HTTP_HTML
+    browser_discovery: false
+    discover_homepage: false
+    sitemap_urls:
+      - https://zero.pl/sitemap-news.xml
+    section_urls:
+      - https://zero.pl/kategoria/kraj
+      - https://zero.pl/kategoria/swiat
+      - https://zero.pl/kategoria/biznes
+    candidate_pool_per_section: 30
+    candidate_include_host_patterns:
+      - '^(?:www\.)?zero\.pl$'
+    candidate_include_url_patterns:
+      - '^/news/[^/?#]+/?$'
+    candidate_exclude_title_patterns:
+      - '\b(sport|mecz|mecze|liga|piłkarz|piłkarka|turniej|tenis|siatkówka|koszykówka|karate|karateków|mistrzostwa|mistrzostwach)\b'
+      - '\b(film|serial|aktor|aktorka|koncert|festiwal|artykuł sponsorowany|materiał promocyjny|partner materiału)\b'
   - id: tvn24
     name: TVN24
     region: Poland
