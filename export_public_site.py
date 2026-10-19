@@ -87,10 +87,13 @@ def write_site(rows, target):
         summary = row.get('summary')
         if summary:
             stored = summary['summary'] or {}
-            base = stored.get('base_summary') or stored
+            original_base = stored.get('base_summary') or stored
+            base = {**original_base, **(stored.get('perspective_state') or {})}
+            if base.get('perspective_version') == 1:
+                base['synthesis_coverage_mode'] = original_base.get('synthesis_coverage_mode') or original_base.get('coverage_mode')
             update = stored.get('latest_update') or stored.get('update') or {}
             previews.append(dict(topic_id=tid, version=summary['version'], updated_at=summary.get('updated_at'),
-                                 summary={'base_summary': {'topic': base.get('topic', {}), 'summary_pl': (base.get('summary_pl') or '')[:650], **{k: base[k] for k in ('perspective_version', 'coverage_mode', 'shared_available') if k in base}},
+                                 summary={'base_summary': {'topic': base.get('topic', {}), 'summary_pl': (base.get('summary_pl') or '')[:650], **{k: base[k] for k in ('perspective_version', 'coverage_mode', 'shared_available', 'synthesis_coverage_mode') if k in base}},
                                           'latest_update': update, 'last_analysis': stored.get('last_analysis', {})}))
         details[tid] = {'summary': summary, 'history': row.get('history', [])}
     if any(l['article_id'] not in articles or l['topic_id'] not in ids for l in links):

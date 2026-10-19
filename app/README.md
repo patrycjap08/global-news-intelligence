@@ -124,3 +124,8 @@ prawicowe i mediów kontrolowanych przez państwo. Bez wspólnych faktów znikaj
 zakładki Synteza/Fakty. Pasek pokazuje udział artykułów (bez państwowych).
 Zasady aktualizacji, izolacji wersji i cofnięcia jednego commita opisuje
 [EDITORIAL_PERSPECTIVES.md](../EDITORIAL_PERSPECTIVES.md).
+
+Po publikacji synteza i jej kontekst nie są ponownie generowane. Aktualizacje
+oraz bieżące fakty/perspektywy są zapisywane osobno; eksport i widok zachowują
+pierwotny tekst. Jeżeli początkowo nie było tekstu syntezy, późniejsze wspólne
+ustalenia są dostępne w Faktach i aktualizacji, bez tworzenia nowej narracji.

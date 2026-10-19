@@ -58,5 +58,26 @@ assert.strictEqual(topicModel(topic).hasAggregation,true);
 // Preview metadata is preserved in direct-Supabase mode as well.
 const preview=summaryPreview({perspective_version:1,coverage_mode:'MIXED',shared_available:false,base_text:''});
 assert.strictEqual(preview.summary.base_summary.shared_available,false);
+// Latest fact state is overlaid without changing the original publication.
+const frozen={perspective_version:1,coverage_mode:'SINGLE_LEFT',shared_available:true,summary_pl:'Zachowana synteza.',background_context:[fact('Zachowany kontekst.')],facts:[fact('Pierwotny fakt.')]};
+const current={perspective_version:1,coverage_mode:'MIXED',shared_available:true,facts:[fact('Aktualny wspólny fakt.')],perspective_sections:{LEFT:[],RIGHT:[],STATE:[]}};
+state.summaries.set(topic.topic_id,{summary:{base_summary:frozen,perspective_state:current,updates:[]}});
+model=topicModel(topic);
+assert.strictEqual(model.summary.summary_pl,'Zachowana synteza.');
+assert.strictEqual(model.summary.facts[0].text_pl,'Aktualny wspólny fakt.');
+assert(coverageNotice(model.summary).includes('Pierwotna synteza powstała wyłącznie na podstawie źródeł lewicowych.'));
+assert.strictEqual(frozen.coverage_mode,'SINGLE_LEFT');
+assert.strictEqual(frozen.facts[0].text_pl,'Pierwotny fakt.');
+// A topic initially published without common facts never creates a new
+// narrative later; promoted common facts are accessible without an empty tab.
+frozen.summary_pl='';
+html=dialogHtml(topicModel(topic));
+assert(!html.includes('data-dialog-tab="summary"'));
+assert(html.includes('aria-selected="true" aria-controls="dialog-panel-facts"'));
+assert(html.includes('Aktualny wspólny fakt.'));
+assert(!html.includes('Brak zapisanej syntezy.'));
+const latestPreview=summaryPreview({perspective_version:1,coverage_mode:'SINGLE_LEFT',shared_available:true,current_coverage_mode:'MIXED',current_shared_available:false});
+assert.strictEqual(latestPreview.summary.base_summary.shared_available,false);
+assert.strictEqual(latestPreview.summary.base_summary.synthesis_coverage_mode,'SINGLE_LEFT');
 console.log('Perspectives UI: no-common message/no tabs, exceptions, separate state view, article shares, split updates, read state and previews — OK.');
 `,c);

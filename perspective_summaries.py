@@ -11,6 +11,7 @@ from typing import Any
 
 LANES = ('COMMON', 'LEFT', 'RIGHT', 'STATE')
 FORMAT_VERSION = 1
+STATE_FIELDS = ('perspective_version', 'coverage_mode', 'shared_available', 'perspective_sections', 'perspective_facts', 'facts')
 
 
 def article_group(row: dict) -> str:
@@ -206,7 +207,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
     previous_base = (previous or {}).get('base_summary') or {}
-    known = previous_base.get('perspective_facts') or []
+    previous_state = (previous or {}).get('perspective_state') or previous_base
+    known = previous_state.get('perspective_facts') or []
     if not articles:
         raise ValueError('Brak materiałów do opracowania perspektyw.')
     prepared = [{**a, 'source_group': article_group(a)} for a in articles]
@@ -220,30 +222,44 @@ def generate(payload, call, normalize, *, max_payload_chars=300000):
         headline = headline or extracted['headline_pl']
         categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
     main = [f for f in facts if f['lane'] == 'COMMON']
-    written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main},
-                   WRITING_SCHEMA, 'perspective_summary')
-    allowed = {f['fact_id'] for f in main}
-    paragraphs = written.get('paragraphs')
-    if not isinstance(paragraphs, list) or bool(paragraphs) != bool(main):
-        raise ValueError('Synteza musi odpowiadać dostępności wspólnych ustaleń.')
-    for p in paragraphs:
-        if not str(p.get('text_pl') or '').strip() or not p.get('fact_ids') or not set(p['fact_ids']) <= allowed:
-            raise ValueError('Akapit syntezy odwołuje się do faktów spoza wspólnej części.')
-    main_article_ids = {i for f in main for i in f['article_ids']}
-    contexts = [written.get('general_context') or {}, *(written.get('background_context') or [])]
-    if not str(contexts[0].get('text_pl') or '').strip():
-        raise ValueError('Brak ogólnego kontekstu tematu.')
-    for item in contexts:
-        if not set(item.get('article_ids') or []) <= main_article_ids:
-            raise ValueError('Kontekst odwołuje się do materiałów spoza wspólnej części.')
-    headline = normalize(headline)
-    if re.search(r'[\u0400-\u052f\u2de0-\u2dff\ua640-\ua69f]', headline):
-        raise ValueError('Tytuł perspektyw zawiera cyrylicę.')
+    if previous is not None:
+        # All later calls are fact extraction only. Keep the published text,
+        # lead and context, even when new facts or confirmations arrive.
+        result = dict(previous_base)
+        result.pop('perspective_state', None)
+        result.setdefault('synthesis_coverage_mode', previous_base.get('coverage_mode', mode))
+    else:
+        written = call(WRITING_INSTRUCTIONS, {'headline_pl': headline, 'main_facts': main},
+                       WRITING_SCHEMA, 'perspective_summary')
+        allowed = {f['fact_id'] for f in main}
+        paragraphs = written.get('paragraphs')
+        if not isinstance(paragraphs, list) or bool(paragraphs) != bool(main):
+            raise ValueError('Synteza musi odpowiadać dostępności wspólnych ustaleń.')
+        for p in paragraphs:
+            if not str(p.get('text_pl') or '').strip() or not p.get('fact_ids') or not set(p['fact_ids']) <= allowed:
+                raise ValueError('Akapit syntezy odwołuje się do faktów spoza wspólnej części.')
+        main_article_ids = {i for f in main for i in f['article_ids']}
+        contexts = [written.get('general_context') or {}, *(written.get('background_context') or [])]
+        if not str(contexts[0].get('text_pl') or '').strip():
+            raise ValueError('Brak ogólnego kontekstu tematu.')
+        for item in contexts:
+            if not set(item.get('article_ids') or []) <= main_article_ids:
+                raise ValueError('Kontekst odwołuje się do materiałów spoza wspólnej części.')
+        headline = normalize(headline)
+        if re.search(r'[\u0400-\u052f\u2de0-\u2dff\ua640-\ua69f]', headline):
+            raise ValueError('Tytuł perspektyw zawiera cyrylicę.')
+        result = {'topic': {'headline_pl': headline,
+                            'what_happened_one_sentence_pl': main[0]['text_pl'] if main else '',
+                            'categories': categories},
+                  'summary_pl': '\n\n'.join(normalize(p['text_pl']) for p in paragraphs),
+                  'general_context': written.get('general_context'),
+                  'background_context': written.get('background_context') or [],
+                  'synthesis_coverage_mode': mode}
     sections = {lane: [f for f in facts if f['lane'] == lane] for lane in ('LEFT', 'RIGHT', 'STATE')}
     update = make_update(facts, known, previous is not None, payload.get('new_article_ids') or [])
-    return {'topic': {'headline_pl': headline, 'what_happened_one_sentence_pl': main[0]['text_pl'] if main else '',
-                     'categories': categories},
-            'summary_pl': '\n\n'.join(normalize(p['text_pl']) for p in paragraphs), 'facts': main,
-            'general_context': written.get('general_context'), 'background_context': written.get('background_context') or [],
-            'perspective_version': FORMAT_VERSION, 'coverage_mode': mode, 'shared_available': bool(main),
-            'perspective_sections': sections, 'perspective_facts': facts, 'update': update}
+    state = {'perspective_version': FORMAT_VERSION, 'coverage_mode': mode, 'shared_available': bool(main),
+             'perspective_sections': sections, 'perspective_facts': facts, 'facts': main}
+    result.update(state)
+    result['perspective_state'] = state
+    result['update'] = update
+    return result

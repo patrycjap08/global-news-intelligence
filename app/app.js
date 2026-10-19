@@ -41,7 +41,7 @@ let openDialogTopicId = null;
 let dialogRequestToken = 0;
 const REQUEST_TIMEOUT_MS = 15000;
 const LOAD_TIMEOUT_MS = 90000;
-const SUMMARY_PREVIEW_COLUMNS = 'perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
+const SUMMARY_PREVIEW_COLUMNS = 'current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
 const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
 const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
@@ -530,7 +530,9 @@ function topicModel(topic) {
   const articles = topicLinks.map((link) => articlesById.get(String(link.article_id))).filter(Boolean);
   const summaryRow = state.summaries.get(topic.topic_id) || {};
   const storedSummary = summaryRow.summary || summaryRow;
-  const summary = storedSummary.base_summary || storedSummary;
+  const baseSummary = storedSummary.base_summary || storedSummary;
+  const summary = { ...baseSummary, ...(storedSummary.perspective_state || {}) };
+  if (summary.perspective_version === 1) summary.synthesis_coverage_mode = baseSummary.synthesis_coverage_mode ?? baseSummary.coverage_mode;
   const storedHistory = state.history.get(topic.topic_id) || [];
   const updates = collectTopicUpdates(storedSummary, storedHistory);
   const latestUpdate = updates[0] || {};
@@ -570,7 +572,7 @@ function topicModel(topic) {
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
     history: hasAggregation ? storedHistory : [],
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
-    lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Ustalenia z dostępnych materiałów są przedstawione w osobnych perspektywach.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
+    lead: hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Ustalenia z dostępnych materiałów oraz aktualizacje są przedstawione poniżej.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
   model.lead = model.lead.replace(/;\s*/g, ', ');
   model.searchText = `${model.title} ${model.lead} ${model.sources.join(' ')}`.toLowerCase();
@@ -643,7 +645,7 @@ function summaryPreview(row) {
   if (row.summary) return row;
   return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
     summary: { base_summary: { topic: row.base_topic || row.legacy_topic || {},
-      summary_pl: row.base_text || row.legacy_text || '', perspective_version: row.perspective_version, coverage_mode: row.coverage_mode, shared_available: row.shared_available },
+      summary_pl: row.base_text || row.legacy_text || '', perspective_version: row.perspective_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
       latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
       last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
 }
@@ -1078,6 +1080,8 @@ function articleProfileBar(model) {
 
 function coverageNotice(summary) {
   if (summary.perspective_version !== 1) return '';
+  const original = { SINGLE_LEFT: 'źródeł lewicowych', SINGLE_RIGHT: 'źródeł prawicowych', SINGLE_CENTER: 'źródeł centrowych' };
+  if (summary.synthesis_coverage_mode && summary.synthesis_coverage_mode !== summary.coverage_mode && original[summary.synthesis_coverage_mode]) return `<p class="coverage-notice">Pierwotna synteza powstała wyłącznie na podstawie ${original[summary.synthesis_coverage_mode]}.</p>`;
   const messages = { SINGLE_LEFT: 'Opracowanie wyłącznie na podstawie źródeł lewicowych.', SINGLE_RIGHT: 'Opracowanie wyłącznie na podstawie źródeł prawicowych.', SINGLE_CENTER: 'Opracowanie wyłącznie na podstawie źródeł centrowych.', STATE_ONLY: 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' };
   return messages[summary.coverage_mode] ? `<p class="coverage-notice">${messages[summary.coverage_mode]}</p>` : '';
 }
@@ -1121,8 +1125,9 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     const when = update.generated_at ? ` · ${formatDateTime(update.generated_at)}` : '';
     return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">${escapeHtml(perspectiveUpdateLabel(update))}${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${perspectiveUpdateHtml(update)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
   }).join('');
+  const factsOnly = summary.perspective_version === 1 && !summary.summary_pl;
   const summaryPanel = summary.summary_pl
-    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? 'Synteza' : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
+    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? (summary.perspective_version === 1 ? 'Synteza pierwotna' : 'Synteza') : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
     : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
   const factsPanel = detailsState !== 'ready'
     ? `<section class="dialog-section"><h3>Fakty</h3><p>${detailsState === 'error' ? 'Fakty będą dostępne po pobraniu pełnego opracowania. Użyj przycisku „Spróbuj ponownie” u góry.' : 'Trwa pobieranie faktów…'}</p></section>`
@@ -1138,11 +1143,11 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     ${updatesHtml}
     ${summary.perspective_version === 1 && summary.shared_available === false ? `<p class="no-common-facts" role="status">${summary.coverage_mode === 'STATE_ONLY' ? 'Doniesienia mediów kontrolowanych przez państwo są dostępne w osobnej sekcji poniżej.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
-      <button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>
-      <button class="dialog-tab" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="false" aria-controls="dialog-panel-facts">Fakty</button>
+      ${factsOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
+      <button class="dialog-tab ${factsOnly ? 'is-active' : ''}" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="${factsOnly}" aria-controls="dialog-panel-facts">Fakty</button>
     </div>
-    <div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>
-    <div class="dialog-tab-panel" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" hidden>${factsPanel}</div>
+    ${factsOnly ? '' : `<div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>`}
+    <div class="dialog-tab-panel ${factsOnly ? 'is-active' : ''}" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" ${factsOnly ? '' : 'hidden'}>${factsPanel}</div>
     `}
     ${perspectiveSectionsHtml(summary, detailsState)}
     ${section('Kontekst', summary.background_context, 'insight-context')}

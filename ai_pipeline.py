@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v56-full-article-batches"
+PROMPT_VERSION = "ai-prompts-v57-immutable-synthesis"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2519,8 +2519,8 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                 response_schema=schema, response_schema_name=name)
         raw = perspectives.generate(payload, call, normalize_generated_text, max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS)
         normalized = normalize_summary_response(raw)
-        for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts"):
-            normalized[field] = raw[field]
+        for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+            normalized[field] = raw.get(field)
         return normalized
     return generate_full_article_legacy_update(payload, model)
 
@@ -2827,7 +2827,7 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         if not is_non_contradiction_statement(item.get("text_pl"))
     ]
     if response.get("perspective_version") == 1:
-        for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts"):
+        for field in ("perspective_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = response.get(field)
     quality = response.get("quality")
     normalized["quality"] = quality if isinstance(quality, dict) else {
@@ -2878,7 +2878,7 @@ def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
     """Send published history, retaining technical audits only in storage."""
     if not isinstance(value, dict):
         return None
-    return {
+    context = {
         "base_summary": stored_base_summary(value),
         "prior_updates": [
             {key: item for key, item in update.items() if key != "novelty_audit"}
@@ -2886,6 +2886,9 @@ def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
             if update.get("status") != "NO_NEW_INFORMATION"
         ],
     }
+    if isinstance(value.get("perspective_state"), dict):
+        context["perspective_state"] = value["perspective_state"]
+    return context
 
 
 def empty_update() -> dict[str, Any]:
@@ -4511,8 +4514,7 @@ def persist_summary(
     analysis = dict(normalize_summary_response(summary)["update"] if previous_stored else empty_update())
     analysis.update({"new_article_ids": article_ids, "run_id": run_id, "generated_at": timestamp})
     if previous_stored:
-        base_summary = (dict(summary) if summary.get("perspective_version") == 1
-                        else stored_base_summary(previous_stored))
+        base_summary = stored_base_summary(previous_stored)
         updates = stored_updates(previous_stored)
         if analysis["status"] not in {"NEW_INFORMATION", "NO_NEW_INFORMATION"}:
             raise ValueError("Istniejący temat wymaga decyzji NEW_INFORMATION lub NO_NEW_INFORMATION.")
@@ -4531,6 +4533,7 @@ def persist_summary(
         latest_update = updates[-1] if updates else empty_update()
     else:
         base_summary = dict(summary)
+        base_summary.pop("perspective_state", None)
         base_summary["update"] = empty_update()
         updates = []
         latest_update = empty_update()
@@ -4544,6 +4547,10 @@ def persist_summary(
             *(previous_stored or {}).get("processed_article_ids", []), *article_ids,
         ])),
     }
+    if summary.get("perspective_version") == 1:
+        stored_summary["perspective_state"] = summary.get("perspective_state") or {
+            key: summary.get(key) for key in perspectives.STATE_FIELDS
+        }
     client.upsert("topic_summaries", [{
         "topic_id": topic_id,
         "version": version,

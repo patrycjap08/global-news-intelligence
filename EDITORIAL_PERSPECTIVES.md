@@ -48,7 +48,7 @@ kończy się błędem zamiast zapisać niepełne opracowanie. Stare aktualizacje
 również analizują całe artykuły w paczkach i przekazują zaakceptowane
 aktualizacje z poprzednich paczek do następnych. Zapis następuje dopiero po
 przejściu wszystkich paczek. Zachowuje rejestr dotychczasowych faktów, uzupełnia ich
-potwierdzenia i odświeża bieżący widok podziału. Historia aktualizacji pozostaje.
+potwierdzenia i odświeża bieżący widok podziału w osobnym perspective_state. Historia aktualizacji pozostaje.
 Syntezy starego formatu nadal korzystają ze starego sposobu aktualizacji;
 nie przebudowujemy ich automatycznie.
 
@@ -92,3 +92,29 @@ Korekta pod tytułem `Preserve full article texts in synthesis and update batche
 usuwa skracanie tekstów. Przy cofaniu całego formatu perspektyw należy najpierw
 cofnąć tę późniejszą korektę, a następnie commit wprowadzający perspektywy.
 Korekta nie zmienia modelu embeddingów ani zasady odświeżania bieżącej syntezy.
+
+## Niezmienna synteza po publikacji
+
+Korekta `Keep published syntheses immutable during topic updates` wyłącza
+ponowne pisanie syntezy i kontekstu przy KAŻDEJ późniejszej analizie nowego
+formatu, także po scaleniu. Wywołanie perspective_summary występuje wyłącznie
+przy pierwszym opracowaniu. Później wykonywane jest tylko wyciąganie faktów
+z pełnych artykułów w paczkach. Brak nowych ustaleń oznacza brak aktualizacji.
+
+base_summary pozostaje dokładną kopią poprzednio opublikowanego opracowania.
+Bieżące fakty, cytowania, podział i perspektywy znajdują się w osobnym
+perspective_state. Jest przekazywany następnej analizie, aby ta nie odkrywała
+ponownie informacji już dopisanych wcześniej. Interfejs i eksport łączą
+pierwotny tekst/kontekst z bieżącymi faktami i perspektywami.
+
+Jeśli pierwotnie nie było wspólnych faktów i tekst syntezy jest pusty, późniejsze
+szersze potwierdzenie udostępnia wspólne fakty i aktualizację, bez tworzenia
+nowej syntezy. Widoczna jest wtedy tylko zakładka Fakty. Bez wspólnych informacji
+wciąż nie ma obu zakładek, zgodnie z wcześniejszym ustaleniem. Jeśli pierwotna
+synteza była jednostronna, komunikat zachowuje informację o jej pierwotnej
+podstawie również po pojawieniu się innych profili.
+
+Korekta nie przywraca automatycznie wcześniejszych historycznych wersji już
+przepisanych syntez. Od momentu zastosowania zachowuje ich obecny zapis.
+Nie zmienia modelu embeddingów ani progów. Przy cofaniu całego formatu cofnąć
+korekty w odwrotnej kolejności, przed commitem wprowadzającym perspektywy.

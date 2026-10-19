@@ -41,6 +41,25 @@ class PublicExportTests(unittest.TestCase):
             detail=json.loads((Path(folder)/index['generation']/'topics/topic_1.json').read_text())
             self.assertEqual(detail['summary']['summary']['base_summary']['perspective_sections'],base['perspective_sections'])
 
+    def test_export_uses_current_fact_state_with_immutable_original_text(self):
+        rows=self.rows()
+        stored=rows[0]['summary']['summary']
+        stored['base_summary'].update(perspective_version=1,coverage_mode='SINGLE_LEFT',shared_available=True)
+        original=json.loads(json.dumps(stored['base_summary']))
+        stored['perspective_state']={'perspective_version':1,'coverage_mode':'MIXED','shared_available':False,
+                                     'facts':[],'perspective_facts':[{'text_pl':'NEW_LEDGER'}],
+                                     'perspective_sections':{'LEFT':[{'text_pl':'Najnowsza perspektywa.'}]}}
+        with tempfile.TemporaryDirectory() as folder:
+            index=write_site(rows,Path(folder))
+            preview=index['summaries'][0]['summary']['base_summary']
+            self.assertEqual(preview['summary_pl'],'Synteza')
+            self.assertIs(preview['shared_available'],False)
+            self.assertEqual(preview['synthesis_coverage_mode'],'SINGLE_LEFT')
+            self.assertNotIn('NEW_LEDGER',json.dumps(index))
+            detail=json.loads((Path(folder)/index['generation']/'topics/topic_1.json').read_text())['summary']['summary']
+            self.assertEqual(detail['base_summary'],original)
+            self.assertEqual(detail['perspective_state'],stored['perspective_state'])
+
     def test_incomplete_export_preserves_previous_index(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)

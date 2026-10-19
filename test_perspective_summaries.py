@@ -91,17 +91,60 @@ class PerspectiveTests(unittest.TestCase):
         _,promoted=self.route([article('l','LEFT'),article('r','RIGHT')],[fact('Znana decyzja.',['r'],known[0]['fact_id'])],known)
         update=p.make_update(promoted,known,True,['r'])
         summary={'perspective_version':1,'coverage_mode':'MIXED','shared_available':True,'perspective_facts':promoted,'perspective_sections':{'LEFT':[],'RIGHT':[],'STATE':[]},'summary_pl':'Znana decyzja.','facts':promoted,'topic':{},'update':update}
-        old={'version':1,'summary':{'base_summary':{'perspective_version':1,'perspective_facts':known},'updates':[]}}
+        old={'version':1,'summary':{'base_summary':{'perspective_version':1,'coverage_mode':'MIXED','summary_pl':'Pierwotna synteza.','background_context':[{'text_pl':'Pierwotny kontekst.'}],'perspective_facts':known,'facts':[]},'updates':[]}}
         client=FakeMergeClient([],[],[])
         ai.persist_summary(client,topic_id='t',run_id='r',model='fake',summary=summary,summary_hash='h',previous_row=old,new_article_ids=['r'])
         saved=[rows[0] for table,rows,_ in client.upserts if table=='topic_summaries'][-1]
-        self.assertEqual(saved['summary']['base_summary']['facts'],promoted)
+        self.assertEqual(saved['summary']['base_summary'],old['summary']['base_summary'])
+        self.assertEqual(saved['summary']['perspective_state']['facts'],promoted)
+        self.assertEqual(ai.previous_aggregation_context(saved['summary'])['perspective_state']['perspective_facts'],promoted)
         self.assertEqual(len(saved['summary']['updates']),1)
         self.assertEqual(len(saved['summary']['updates'][0]['promoted_facts']),1)
         # Retry/confirming analysis records progress without another update.
         summary=copy.deepcopy(summary);summary['update']=p.make_update(promoted,promoted,True,['r'])
         ai.persist_summary(client,topic_id='t',run_id='r2',model='fake',summary=summary,summary_hash='h2',previous_row=saved,new_article_ids=['r'])
         self.assertEqual(len([rows[0] for table,rows,_ in client.upserts if table=='topic_summaries'][-1]['summary']['updates']),1)
+        self.assertEqual([rows[0] for table,rows,_ in client.upserts if table=='topic_summaries'][-1]['summary']['base_summary'],old['summary']['base_summary'])
+
+    def test_updates_never_call_writer_and_preserve_synthesis_and_context(self):
+        rows=[article('l','LEFT'),article('r','RIGHT')]
+        _,known=self.route(rows,[fact('Znany fakt.',['l','r'])])
+        base={'perspective_version':1,'coverage_mode':'MIXED','summary_pl':'Dokładnie ta pierwotna synteza.','background_context':[{'text_pl':'Dokładnie ten kontekst.','article_ids':[]}],'topic':{'headline_pl':'[Polska] Pierwotny tytuł'},'perspective_facts':known,'facts':known}
+        original=copy.deepcopy(base)
+        def call(instructions,data,schema,name):
+            self.assertEqual(name,'perspective_facts')
+            return {'headline_pl':'[Polska] Inny tytuł','categories':[], 'facts':[fact('Nowy fakt prawicy.',['r'])]}
+        result=p.generate({'topic':{},'all_articles':rows,'previous_aggregation':{'base_summary':base},'new_article_ids':['r']},call,ai.normalize_generated_text)
+        self.assertEqual(result['summary_pl'],base['summary_pl'])
+        self.assertEqual(result['background_context'],base['background_context'])
+        self.assertEqual(result['topic'],base['topic'])
+        self.assertEqual(result['update']['status'],'NEW_INFORMATION')
+        self.assertEqual(base,original)
+        # Carry the latest ledger separately; otherwise the same new fact
+        # would be rediscovered on every confirming article.
+        latest=result['perspective_state'];calls=[]
+        def confirm(instructions,data,schema,name):
+            calls.append(name)
+            self.assertEqual(data['previous_facts'],latest['perspective_facts'])
+            return {'headline_pl':'[Polska] Tytuł','categories':[],'facts':[]}
+        again=p.generate({'topic':{},'all_articles':rows,'previous_aggregation':{'base_summary':base,'perspective_state':latest}},confirm,ai.normalize_generated_text)
+        self.assertEqual(calls,['perspective_facts'])
+        self.assertEqual(again['update']['status'],'NO_NEW_INFORMATION')
+        self.assertEqual(again['summary_pl'],base['summary_pl'])
+        self.assertEqual(again['background_context'],base['background_context'])
+
+    def test_first_empty_synthesis_is_not_written_later_when_fact_is_promoted(self):
+        rows=[article('l','LEFT'),article('r','RIGHT')]
+        _,known=self.route(rows,[fact('Decyzja.',['l'])])
+        base={'perspective_version':1,'coverage_mode':'MIXED','shared_available':False,'summary_pl':'','background_context':[{'text_pl':'Neutralne tło.'}],'perspective_facts':known}
+        def promote(instructions,data,schema,name):
+            self.assertEqual(name,'perspective_facts')
+            return {'headline_pl':'[Polska] Decyzja','categories':[],'facts':[fact('Decyzja.',['r'],known[0]['fact_id'],reason='')]}
+        result=p.generate({'topic':{},'all_articles':rows,'previous_aggregation':{'base_summary':base}},promote,ai.normalize_generated_text)
+        self.assertTrue(result['shared_available'])
+        self.assertEqual(result['summary_pl'],'')
+        self.assertEqual(len(result['facts']),1)
+        self.assertEqual(len(result['update']['promoted_facts']),1)
 
     def test_matching_pool_excludes_all_legacy_topics_including_candidates(self):
         new_id=ai.stable_topic_id(['a'],'Tytuł')
