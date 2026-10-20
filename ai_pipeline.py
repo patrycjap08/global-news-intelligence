@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v68-stable-confirmations-batch-evidence"
+PROMPT_VERSION = "ai-prompts-v69-explicit-article-coverage"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2556,6 +2556,9 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             nonlocal last_response, last_schema
             if name == "perspective_facts":
                 log("AI", f"Fakty perspektyw: paczka {len(data['all_articles'])} artykułów z pełnymi treściami, bez skracania tekstów.")
+            elif name == "perspective_article_coverage":
+                log("AI", f"Naprawa pokrycia: {len(data['all_articles'])} artykułów z pełnymi treściami; "
+                    "każdy artykuł musi mieć osobny wynik z ustaleniami albo konkretnym powodem ich braku.")
             elif name == "perspective_novelty_audit":
                 log("AI", f"Kontrola nowości perspektyw: kandydatów: {len(data['candidate_facts'])}, "
                     f"znanych ustaleń: {len(data['previous_facts'])}; porównuję treści ustaleń, bez ponownego przesyłania artykułów.")
@@ -2564,6 +2567,10 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                 reasoning_effort=summary_reasoning_effort(model),
                 response_schema=schema, response_schema_name=name)
             last_response, last_schema = dict(response), name
+            if name == "perspective_article_coverage":
+                results = response.get('article_results')
+                if isinstance(results, dict):
+                    log("AI", f"Naprawa pokrycia — odpowiedź: osobnych wyników: {len(results)}/{len(data['all_articles'])}.")
             if name == "perspective_novelty_audit":
                 decisions = response.get('decisions') or {}
                 if isinstance(decisions, dict):

@@ -142,6 +142,53 @@ def writing_schema(main):
     return schema
 
 
+def article_coverage_schema(known, article_ids):
+    """Require an explicit fact list or substantive exclusion for each article.
+
+    Evidence ownership comes from the article key the model chose. There is
+    no independent citation list that can accidentally omit the same article.
+    """
+    items = extraction_schema(known, article_ids)['properties']['facts']['items']
+    for branch in items.get('anyOf', [items]):
+        branch['properties'].pop('article_ids')
+        branch['required'].remove('article_ids')
+    result = {'anyOf': [
+        obj({'facts': {'type': 'array', 'items': {'$ref': '#/$defs/article_fact'}, 'minItems': 1},
+             'no_relevant_facts_reason_pl': {'type': 'string', 'enum': ['']}}),
+        obj({'facts': {'type': 'array', 'items': {'$ref': '#/$defs/article_fact'}, 'maxItems': 0},
+             'no_relevant_facts_reason_pl': copy.deepcopy(NONBLANK_STRING)}),
+    ]}
+    schema = obj({'headline_pl': STRING, 'categories': STRINGS,
+                  'article_results': obj({str(aid): copy.deepcopy(result) for aid in article_ids})})
+    schema['$defs'] = {'article_fact': items}
+    return schema
+
+
+def flatten_article_coverage(response, batch):
+    """Translate explicit per-article judgments into the existing fact ledger."""
+    results = response.get('article_results')
+    expected = {str(a['article_id']) for a in batch}
+    if not isinstance(results, dict) or set(results) != expected:
+        raise ValueError('Naprawa pokrycia wymaga osobnego wyniku dla każdego artykułu bieżącej paczki.')
+    facts, coverage = [], {}
+    for aid, result in results.items():
+        if not isinstance(result, dict) or not isinstance(result.get('facts'), list):
+            raise ValueError(f'Niepoprawny wynik pokrycia artykułu {aid}.')
+        reason = str(result.get('no_relevant_facts_reason_pl') or '').strip()
+        if not result['facts'] and (not reason or NO_NEW_COVERAGE_REASON.search(reason)):
+            raise ValueError(f'Artykuł {aid} wymaga faktów albo konkretnego powodu braku informacji o wydarzeniu; '
+                             'samo powtórzenie znanych informacji nie jest powodem pominięcia.')
+        if result['facts'] and reason:
+            raise ValueError(f'Artykuł {aid} jednocześnie ma ustalenia i powód ich braku.')
+        for raw in result['facts']:
+            if not isinstance(raw, dict) or 'article_ids' in raw:
+                raise ValueError('W naprawie pokrycia źródło ustalenia określa jego klucz artykułu, bez article_ids.')
+            facts.append({**raw, 'article_ids': [aid]})
+        coverage[aid] = {'no_relevant_facts_reason_pl': reason}
+    return {'headline_pl': response.get('headline_pl', ''), 'categories': response.get('categories') or [],
+            'facts': facts, 'article_coverage': coverage}
+
+
 EXTRACTION_INSTRUCTIONS = '''
 Zbuduj kompletny rejestr istotnych, atomowych ustaleń o jednym wydarzeniu,
 wyłącznie z pełnych tekstów all_articles. To ekstrakcja faktów, NIE streszczenie.
@@ -561,6 +608,22 @@ i tym article_id także wtedy, gdy artykuł wyłącznie powtarza wcześniejsze f
 Dodaj pominięte nowe szczegóły, jeśli są w tekście. Nie twórz sztucznej nowości.
 Tylko materiał rzeczywiście bez istotnych informacji o wydarzeniu może otrzymać
 konkretny no_relevant_facts_reason_pl zamiast potwierdzeń. Nie zgaduj cytowań.
+
+FORMAT NAPRAWY ma pierwszeństwo przed formatem zwykłej ekstrakcji:
+Zwróć article_results, OBIEKT z osobnym obowiązkowym kluczem article_id dla
+KAŻDEGO materiału z all_articles. Każdy artykuł oceń niezależnie. Pod jego
+kluczem zwróć facts zawierające ustalenia rzeczywiście podane W TYM artykule.
+W ustaleniach nie ma article_ids: umieszczenie pod kluczem artykułu JEST
+jawnym przypisaniem mu tego ustalenia. Nie kopiuj listy faktów jednego
+materiału do drugiego bez sprawdzenia jego pełnego tekstu.
+Dla każdego artykułu wybierz jedno:
+- niepuste facts i no_relevant_facts_reason_pl="";
+- facts=[] i konkretny niepusty powód, jeśli tekst rzeczywiście nie zawiera
+  istotnych informacji o wydarzeniu. Brak nowości nie jest takim powodem:
+  wtedy zwróć potwierdzenia known_fact_id. Nie wymyślaj ustalenia ani powodu.
+Nie zwracaj globalnych facts ani article_coverage. Zachowaj headline_pl
+i categories. Nadal obowiązują atomowość, rodzaje ustaleń, identyfikatory
+znanych faktów, rozpoznawanie parafraz oraz zachowanie niepewności i autora.
 '''.strip()
 
 
@@ -788,6 +851,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         base = {'topic': payload['topic'], 'previous_facts': [
             {k: v for k, v in fact.items() if k != 'editorial_sources'} for fact in facts]}
         def validate_extracted(response):
+            response = flatten_article_coverage(response, batch) if repair else response
             if any(raw.get('kind') not in FACT_KINDS for raw in response.get('facts') or []):
                 raise ValueError('Każde ustalenie musi mieć typ FACT, STATEMENT lub EDITORIAL.')
             validate_batch_citations(response, batch, facts, normalize)
@@ -799,11 +863,13 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                                      + '. Zwróć ich rzeczywiste potwierdzenia (także znanych faktów) '
                                      'albo konkretny powód braku informacji o wydarzeniu.')
             return route_facts(response, articles, facts, normalize)
-        return validated_call(
+        extracted, routed = validated_call(
             call, EXTRACTION_INSTRUCTIONS + ('\n\n' + COVERAGE_REPAIR_INSTRUCTIONS if repair else ''),
             {**base, 'all_articles': batch},
-            extraction_schema(facts, [a['article_id'] for a in batch]), 'perspective_facts',
+            (article_coverage_schema if repair else extraction_schema)(facts, [a['article_id'] for a in batch]),
+            'perspective_article_coverage' if repair else 'perspective_facts',
             validate_extracted, on_validation_retry)
+        return (flatten_article_coverage(extracted, batch) if repair else extracted), routed
 
     while offset < len(prepared):
         base = {'topic': payload['topic'], 'previous_facts': facts}

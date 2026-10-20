@@ -22,6 +22,21 @@ def extraction(facts, articles, **metadata):
                 for a in articles}}
 
 
+def coverage_reply(response):
+    """Express fixed flat test judgments in the per-article repair protocol."""
+    if 'article_results' in response:
+        return response
+    coverage = response['article_coverage']
+    if isinstance(coverage, list):
+        coverage = {r['article_id']: r for r in coverage}
+    return {'headline_pl': response['headline_pl'], 'categories': response.get('categories', []),
+            'article_results': {aid: {
+                'facts': [{k: v for k, v in f.items() if k != 'article_ids'}
+                          for f in response['facts'] if aid in f['article_ids']],
+                'no_relevant_facts_reason_pl': row.get('no_relevant_facts_reason_pl', ''),
+            } for aid, row in coverage.items()}}
+
+
 class PerspectiveTests(unittest.TestCase):
     def route(self, rows, facts, known=()):
         return p.route_facts({'facts':facts},rows,list(known),ai.normalize_generated_text)

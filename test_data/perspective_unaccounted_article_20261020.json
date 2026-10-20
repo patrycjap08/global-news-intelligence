@@ -1,0 +1,48 @@
+{
+  "source_job_id": 118508043805,
+  "note": "Actual failed repair response; the prior fact texts were not logged and are reconstructed only for structural regression tests.",
+  "response": {
+    "headline_pl": "[Świat] Trump wstrzymuje nowe sankcje przeciwko Rosji",
+    "categories": [
+      "SWIAT",
+      "POLITYKA"
+    ],
+    "facts": [
+      {
+        "known_fact_id": "fact_7f645a968e79820ce1e3fde2",
+        "text_pl": "",
+        "article_ids": [
+          "ba8e2c29bf0d4564e63f23c2"
+        ],
+        "why_new_pl": "",
+        "kind": "FACT"
+      },
+      {
+        "known_fact_id": "fact_0cbb0112db38c107f5931c72",
+        "text_pl": "",
+        "article_ids": [
+          "ba8e2c29bf0d4564e63f23c2"
+        ],
+        "why_new_pl": "",
+        "kind": "FACT"
+      },
+      {
+        "known_fact_id": "fact_77720624fbab27adacfc7a84",
+        "text_pl": "",
+        "article_ids": [
+          "ba8e2c29bf0d4564e63f23c2"
+        ],
+        "why_new_pl": "",
+        "kind": "STATEMENT"
+      }
+    ],
+    "article_coverage": {
+      "ba8e2c29bf0d4564e63f23c2": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "bee0f0a1b2320c6d9efd27ae": {
+        "no_relevant_facts_reason_pl": ""
+      }
+    }
+  }
+}

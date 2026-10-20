@@ -429,3 +429,21 @@ lokalnie z zachowaniem kolejności. Nie ponawia całej kontroli i nie zmienia
 decyzji o nowości. W historii pozostają zarówno znormalizowane decyzje, jak
 i oryginalna odpowiedź, jeśli usunięto powtórzenia. Każde ID jest wcześniej
 sprawdzane: obce, własne i przyszłe odwołania nadal są odrzucane.
+
+## Jawny wynik naprawy dla każdego artykułu — v69
+
+Naprawa pominiętych artykułów ma osobny format `article_results` i etap
+`perspective_article_coverage`. Każdy ID artykułu jest wymaganym kluczem,
+którego wynik zawiera niepustą listę ustaleń albo konkretny powód braku
+informacji o wydarzeniu. Pusta lista z pustym powodem nie przechodzi już
+schematu API. Nie zmienia to zwykłej ekstrakcji, liczby artykułów w paczce,
+modelu ani równoległości.
+
+Ustalenie pod kluczem artykułu jest jawnym przypisaniem mu treści przez model;
+nie ma drugiej listy `article_ids`, która mogłaby pominąć ten sam materiał.
+Kod przekształca takie wyniki w dotychczasowy rejestr, zachowuje typy i znane
+ID oraz nadal sprawdza treść i uzasadnienia. Nie przypisuje brakującemu
+artykułowi faktów innego źródła ani nie dopisuje automatycznie powodów.
+„Brak nowych informacji” wymaga potwierdzeń znanych faktów, a nie wykluczenia.
+Naprawa nadal czyta pełne treści tylko pominiętych materiałów w paczkach do
+dwóch. Wspólna definicja schematu faktu ogranicza powtarzanie listy znanych ID.

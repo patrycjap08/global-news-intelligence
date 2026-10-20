@@ -7,8 +7,15 @@ import jsonschema
 
 import ai_pipeline as ai
 import perspective_summaries as p
-from test_perspective_summaries import article, extraction, fact
+from test_perspective_summaries import article, extraction, fact, coverage_reply
 from test_perspective_validation_recovery import written
+
+
+def repair_protocol(call):
+    def adapted(instructions, data, schema, name):
+        response = call(instructions, data, schema, name)
+        return coverage_reply(response) if name == 'perspective_article_coverage' else response
+    return adapted
 
 
 class PerspectiveCoverageRepairTests(unittest.TestCase):
@@ -57,12 +64,13 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
             self.assertEqual(data['all_articles'], [{**rows[1], 'source_group': 'RIGHT'}])
             self.assertEqual(len(data['previous_facts']), 1)
             result = extraction([fact('', ['r'], data['previous_facts'][0]['fact_id'], reason='')], data['all_articles'])
+            result = coverage_reply(result)
             jsonschema.validate(result, schema)
             return result
 
-        result = p.generate(payload, call, ai.normalize_generated_text,
+        result = p.generate(payload, repair_protocol(call), ai.normalize_generated_text,
                             on_coverage_repair=lambda ids: repairs.append(ids))
-        self.assertEqual(calls, ['perspective_facts', 'perspective_facts', 'perspective_summary'])
+        self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage', 'perspective_summary'])
         self.assertEqual(repairs, [['r']])
         self.assertEqual(result['perspective_facts'][0]['article_ids'], ['l', 'r'])
         self.assertEqual(len(result['perspective_facts']), 1)
@@ -84,7 +92,7 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
             self.assertLessEqual(len(data['all_articles']), 2)
             return extraction([fact('', sent[-1], data['previous_facts'][0]['fact_id'])], data['all_articles'])
 
-        result = p.generate({'topic': {}, 'all_articles': rows}, call, ai.normalize_generated_text)
+        result = p.generate({'topic': {}, 'all_articles': rows}, repair_protocol(call), ai.normalize_generated_text)
         self.assertEqual(sent[1:], [['1', '2'], ['3', '4'], ['5', '6'], ['7']])
         self.assertEqual(result['perspective_facts'][0]['article_ids'], list(map(str, range(8))))
 
@@ -105,8 +113,8 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
                 fact('Prezydent odmówił przyjęcia dymisji.', ['r']),
             ], data['all_articles'])
 
-        result = p.generate({'topic': {}, 'all_articles': rows}, call, ai.normalize_generated_text)
-        self.assertEqual(calls, ['perspective_facts', 'perspective_facts', 'perspective_summary'])
+        result = p.generate({'topic': {}, 'all_articles': rows}, repair_protocol(call), ai.normalize_generated_text)
+        self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage', 'perspective_summary'])
         self.assertEqual([(f['text_pl'], f['article_ids']) for f in result['perspective_facts']], [
             ('Minister złożył dymisję.', ['l', 'r']),
             ('Prezydent odmówił przyjęcia dymisji.', ['r']),
@@ -122,7 +130,7 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
 
         def call(instructions, data, schema, name):
             calls.append(name)
-            self.assertEqual(name, 'perspective_facts')
+            self.assertIn(name, ('perspective_facts', 'perspective_article_coverage'))
             result = extraction([fact('', ['l'], known[0]['fact_id'])], data['all_articles'])
             if len(calls) == 1:
                 result['article_coverage']['r']['no_relevant_facts_reason_pl'] = 'Brak nowych informacji.'
@@ -134,8 +142,8 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
         # support, is not a visible update. Use two sources of the same profile.
         rows[1]['source_profile'] = 'LEFT'
         result = p.generate({'topic': {}, 'all_articles': rows, 'new_article_ids': ['r'],
-                             'previous_aggregation': {'base_summary': base}}, call, ai.normalize_generated_text)
-        self.assertEqual(calls, ['perspective_facts'] * 2)
+                             'previous_aggregation': {'base_summary': base}}, repair_protocol(call), ai.normalize_generated_text)
+        self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage'])
         self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
         self.assertEqual(result['summary_pl'], base['summary_pl'])
         self.assertEqual(result['general_context'], base['general_context'])
@@ -147,17 +155,17 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
 
         def call(instructions, data, schema, name):
             calls.append((name, [a['article_id'] for a in data['all_articles']]))
-            self.assertEqual(name, 'perspective_facts')  # Never reach the writer.
+            self.assertIn(name, ('perspective_facts', 'perspective_article_coverage'))  # Never reach the writer.
             result = extraction([fact('Poprawny fakt.', ['l'])] if len(calls) == 1 else [], data['all_articles'])
             result['article_coverage']['r']['no_relevant_facts_reason_pl'] = ''
             return result
 
         payload = {'topic': {}, 'all_articles': rows}
         original = copy.deepcopy(payload)
-        with self.assertRaisesRegex(ValueError, 'Kontrola pokrycia nadal pomija artykuły: r'):
-            p.generate(payload, call, ai.normalize_generated_text,
+        with self.assertRaisesRegex(ValueError, 'Artykuł r wymaga faktów'):
+            p.generate(payload, repair_protocol(call), ai.normalize_generated_text,
                        on_validation_retry=lambda *args: retries.append(args))
-        self.assertEqual(calls, [('perspective_facts', ['l', 'r']), ('perspective_facts', ['r']), ('perspective_facts', ['r'])])
+        self.assertEqual(calls, [('perspective_facts', ['l', 'r']), ('perspective_article_coverage', ['r']), ('perspective_article_coverage', ['r'])])
         self.assertEqual(len(retries), 1)
         self.assertEqual(payload, original)
 
@@ -175,8 +183,8 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
                 return result
             return extraction([], data['all_articles'])  # Explicit off-topic reason.
 
-        result = p.generate({'topic': {}, 'all_articles': rows}, call, ai.normalize_generated_text)
-        self.assertEqual(calls, ['perspective_facts', 'perspective_facts', 'perspective_summary'])
+        result = p.generate({'topic': {}, 'all_articles': rows}, repair_protocol(call), ai.normalize_generated_text)
+        self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage', 'perspective_summary'])
         self.assertEqual(result['perspective_facts'][0]['article_ids'], ['l'])
 
     def test_pipeline_reports_successful_repair_without_leaving_the_omission_unhandled(self):
@@ -192,14 +200,14 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
                 result = extraction([fact('Poprawny fakt.', ['l'])], rows)
                 result['article_coverage']['r']['no_relevant_facts_reason_pl'] = ''
                 return result
-            return extraction([fact('', ['r'], data['previous_facts'][0]['fact_id'])], data['all_articles'])
+            return coverage_reply(extraction([fact('', ['r'], data['previous_facts'][0]['fact_id'], reason='')], data['all_articles']))
 
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log') as log:
             result = ai.generate_summary_response({'topic': {}, 'all_articles': rows}, 'gpt-5-nano')
         self.assertEqual(result['perspective_facts'][0]['article_ids'], ['l', 'r'])
         self.assertTrue(any('Kontrola pokrycia: uzupełniam 1' in str(c) for c in log.call_args_list))
         self.assertFalse(any(c.kwargs.get('level') == 'WARN' for c in log.call_args_list))
-        self.assertEqual(calls, ['perspective_facts', 'perspective_facts', 'perspective_summary'])
+        self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage', 'perspective_summary'])
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ import jsonschema
 
 import ai_pipeline as ai
 import perspective_summaries as p
-from test_perspective_summaries import article, extraction, fact
+from test_perspective_summaries import article, extraction, fact, coverage_reply
 
 
 def written(data):
@@ -92,11 +92,11 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
                     if name == 'perspective_novelty_audit':
                         return {'decisions': {f['fact_id']: {'new_text_pl': f['text_pl'],
                             'covered_fact_ids': [], 'reason_pl': 'Nowy szczegół testowy.'} for f in data['candidate_facts']}}
-                    self.assertEqual(name, 'perspective_facts')  # Never rewrite old prose.
-                    if p.COVERAGE_REPAIR_INSTRUCTIONS in instructions:
+                    if name == 'perspective_article_coverage':
                         # These synthetic bodies do not establish additional
                         # evidence. Explicitly account for the historical gaps.
-                        return extraction([], data['all_articles'])
+                        return coverage_reply(extraction([], data['all_articles']))
+                    self.assertEqual(name, 'perspective_facts')  # Never rewrite old prose.
                     self.assertEqual(data['all_articles'], [{**a, 'source_group': p.article_group(a)} for a in payload['all_articles']])
                     if len(calls) == 1:
                         with self.assertRaises(jsonschema.ValidationError):
@@ -112,7 +112,7 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
                     result = p.generate(payload, call, ai.normalize_generated_text)
                 self.assertEqual(calls[:2], ['perspective_facts'] * 2)
                 self.assertEqual(calls[-1], 'perspective_novelty_audit')
-                self.assertTrue(all(name == 'perspective_facts' for name in calls[:-1]))
+                self.assertTrue(all(name in ('perspective_facts', 'perspective_article_coverage') for name in calls[:-1]))
                 self.assertEqual(result['summary_pl'], base['summary_pl'])
                 self.assertEqual(result.get('general_context'), base.get('general_context'))
                 self.assertEqual(result.get('background_context'), base.get('background_context'))
