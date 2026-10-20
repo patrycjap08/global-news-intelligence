@@ -731,14 +731,19 @@ def audit_new_facts(facts, known, articles, call, normalize, max_chars, on_retry
                     raise ValueError(f'Kontrola nowości {cid}: covered_fact_ids może wskazywać tylko previous_facts '
                                      'lub wcześniejszych kandydatów; nie siebie ani późniejszego kandydata. '
                                      f'Otrzymano: {covered!r}.')
-                if len(set(covered)) != len(covered) or not str(verdict.get('reason_pl') or '').strip():
-                    raise ValueError(f'Kontrola nowości {cid}: wymagane niepuste uzasadnienie i brak powtórzonych ID.')
+                # References describe a set. Repeating an already valid ID
+                # changes neither the judgment nor its evidence and must not
+                # discard minutes of work or rerun otherwise valid decisions.
+                # Validate every raw ID above before removing repetitions.
+                covered = list(dict.fromkeys(covered))
+                if not str(verdict.get('reason_pl') or '').strip():
+                    raise ValueError(f'Kontrola nowości {cid}: wymagane niepuste uzasadnienie.')
                 if _text_key(text) != _text_key(candidate['text_pl']) and not covered:
                     raise ValueError(f'Odrzucenie lub wydzielenie szczegółu {cid} wymaga wskazania znanych ustaleń. '
                                      'Jeśli całość jest nowa, skopiuj dokładnie text_pl kandydata bez redagowania.')
                 if text and _text_key(text) in prior_texts:
                     raise ValueError('Kontrola nowości zaakceptowała identyczne znane ustalenie.')
-                checked.append({**verdict, 'new_text_pl': text})
+                checked.append({**verdict, 'new_text_pl': text, 'covered_fact_ids': covered})
                 available.add(cid)
                 if text:
                     prior_texts.add(_text_key(text))
@@ -746,7 +751,11 @@ def audit_new_facts(facts, known, articles, call, normalize, max_chars, on_retry
 
         response, decisions = validated_call(call, NOVELTY_INSTRUCTIONS,
             {**data, 'candidate_facts': batch}, schema, 'perspective_novelty_audit', validate_audit, on_retry)
-        audits.append({'candidate_facts': batch, 'decisions': response['decisions']})
+        audit = {'candidate_facts': batch, 'decisions': dict(zip(batch_ids, decisions))}
+        if any(len(response['decisions'][cid]['covered_fact_ids']) != len(decision['covered_fact_ids'])
+               for cid, decision in zip(batch_ids, decisions)):
+            audit['raw_decisions'] = response['decisions']
+        audits.append(audit)
         # Preserve the extractor's citations and kinds. Dropping a duplicate
         # does not silently infer additional support for a known fact.
         for candidate, decision in zip(batch, decisions):

@@ -299,6 +299,79 @@ class PerspectiveNoveltyTests(unittest.TestCase):
             jsonschema.validate({'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.')}}, schema)
         jsonschema.validate({'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.', ['known'])}}, schema)
 
+    def test_actual_duplicate_reference_failure_is_normalized_without_retrying_decisions(self):
+        fixture = json.loads((Path(__file__).parent / 'test_data/perspective_duplicate_references_20261020.json').read_text())
+        observed = fixture['response']
+        cids = set(observed['decisions'])
+        prior_ids = {fid for d in observed['decisions'].values() for fid in d['covered_fact_ids']} - cids
+        # The exact request was not logged. Reconstruct only the structural
+        # ID relationships, keeping the real verdicts and duplicate unchanged.
+        known = [{'fact_id': fid, 'text_pl': f'Wcześniejsze ustalenie {i}.',
+                  'kind': 'FACT', 'article_ids': ['source'], 'lane': 'COMMON'}
+                 for i, fid in enumerate(sorted(prior_ids))]
+        candidates = [{'fact_id': cid, 'text_pl': d['new_text_pl'] or f'Kandydat {i}.',
+                       'kind': 'FACT', 'article_ids': ['source'], 'lane': 'COMMON'}
+                      for i, (cid, d) in enumerate(observed['decisions'].items())]
+        rows = [article('source', 'CENTER')]
+        retries, calls = [], []
+        original = copy.deepcopy(observed)
+
+        def call(instructions, data, schema, name):
+            calls.append(name)
+            jsonschema.validate(observed, schema)
+            return copy.deepcopy(observed)
+
+        audited, audits = p.audit_new_facts([*known, *candidates], known, rows, call,
+            ai.normalize_generated_text, 300000, lambda *args: retries.append(args))
+        self.assertEqual(calls, ['perspective_novelty_audit'])
+        self.assertEqual(retries, [])
+        self.assertEqual(len(audited), len(known) + 2)
+        verdicts = audits[0]['decisions']
+        cid = 'fact_5e06893a906c8d5a2dda41ce'
+        self.assertEqual(len(observed['decisions'][cid]['covered_fact_ids']), 39)
+        self.assertEqual(len(verdicts[cid]['covered_fact_ids']), 38)
+        self.assertEqual(verdicts[cid]['covered_fact_ids'],
+                         list(dict.fromkeys(observed['decisions'][cid]['covered_fact_ids'])))
+        self.assertEqual(audits[0]['raw_decisions'], observed['decisions'])
+        self.assertEqual(observed, original)
+
+    def test_repeated_valid_references_do_not_create_news_or_infer_citations(self):
+        rows = [article('l', 'CENTER'), article('r', 'CENTER')]
+        known = self.route(rows, [fact('Minister złożył dymisję.', ['l'], kind='FACT')])
+        facts = self.route(rows, [fact('Minister podał się do dymisji.', ['r'], kind='FACT')], known)
+        cid = facts[-1]['fact_id']
+        response = {'decisions': {cid: verdict('', [known[0]['fact_id']] * 3, 'Parafraza znanego faktu.')}}
+        calls, retries = [], []
+        def call(*args):
+            calls.append(args[-1])
+            return copy.deepcopy(response)
+        audited, _ = p.audit_new_facts(facts, known, rows, call, ai.normalize_generated_text,
+                                       300000, lambda *args: retries.append(args))
+        self.assertEqual(audited, known)
+        self.assertEqual(audited[0]['article_ids'], ['l'])
+        self.assertEqual(p.make_update(audited, known, True, ['r'])['status'], 'NO_NEW_INFORMATION')
+        self.assertEqual(calls, ['perspective_novelty_audit'])
+        self.assertEqual(retries, [])
+
+    def test_deduplication_does_not_admit_foreign_self_or_future_references(self):
+        rows = [article('l', 'CENTER')]
+        known = self.route(rows, [fact('Stare.', ['l'], kind='FACT')])
+        facts = self.route(rows, [fact('Nowe A.', ['l'], kind='FACT'), fact('Nowe B.', ['l'], kind='FACT')], known)
+        a, b = facts[-2:]
+        for invalid in ('alien', a['fact_id'], b['fact_id']):
+            with self.subTest(invalid=invalid):
+                response = {'decisions': {
+                    a['fact_id']: verdict('', [known[0]['fact_id'], known[0]['fact_id'], invalid]),
+                    b['fact_id']: verdict(b['text_pl']),
+                }}
+                calls = []
+                def call(*args):
+                    calls.append(args[-1])
+                    return copy.deepcopy(response)
+                with self.assertRaisesRegex(ValueError, 'tylko previous_facts'):
+                    p.audit_new_facts(facts, known, rows, call, ai.normalize_generated_text, 300000, None)
+                self.assertEqual(calls, ['perspective_novelty_audit'] * 2)
+
 
 if __name__ == '__main__':
     unittest.main()

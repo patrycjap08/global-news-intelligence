@@ -423,3 +423,9 @@ Schemat wymaga teraz wyłącznie ID artykułów z bieżącej paczki we wszystkic
 ustaleniach, także potwierdzeniach. Dawne potwierdzenia pozostają w rejestrze
 i są łączone przez kod. Usuwa to możliwość skopiowania źródła innego znanego
 faktu tylko dlatego, że jego ID występowało gdzieś w poprzednim rejestrze.
+
+Powtórzenie tego samego poprawnego ID w `covered_fact_ids` jest normalizowane
+lokalnie z zachowaniem kolejności. Nie ponawia całej kontroli i nie zmienia
+decyzji o nowości. W historii pozostają zarówno znormalizowane decyzje, jak
+i oryginalna odpowiedź, jeśli usunięto powtórzenia. Każde ID jest wcześniej
+sprawdzane: obce, własne i przyszłe odwołania nadal są odrzucane.
