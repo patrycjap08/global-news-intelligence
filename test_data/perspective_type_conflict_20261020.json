@@ -1,0 +1,145 @@
+{
+  "source_job_id": 118463806521,
+  "response": {
+    "headline_pl": "[Świat] Trump wstrzymuje nowe sankcje przeciwko Rosji",
+    "categories": [
+      "SWIAT"
+    ],
+    "facts": [
+      {
+        "known_fact_id": "",
+        "text_pl": "Trump powiedział, że nadszedł czas, by ktoś inny negocjował w imieniu Ukrainy, bo Zełenski nie doprowadził do zakończenia wojny.",
+        "article_ids": [
+          "240c2e6929975a8025027452",
+          "2534227cc7b4b93053465c5b"
+        ],
+        "why_new_pl": "Nowa informacja: bezpośrednie sformułowanie dotyczące zmiany negocjatora w konflikcie ukraińsko-rosyjskim nie była wcześniej zapisana w wcześniejszych ustaleniach.",
+        "kind": "STATEMENT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Zełenski powiedział, że Stany Zjednoczone opóźniają dostawy pocisków przechwytujących do systemów Patriot.",
+        "article_ids": [
+          "240c2e6929975a8025027452",
+          "3be354484cc641e9b0e93807"
+        ],
+        "why_new_pl": "Nowa informacja, identyfikująca problem opóźnień w dostawach Patriotów, nie była wcześniej zapisana.",
+        "kind": "STATEMENT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Zełenski powiedział, że dostęp do Starlink i Starshield pozostaje ograniczony, a USA nie wyjaśniły przyczyn.",
+        "article_ids": [
+          "240c2e6929975a8025027452",
+          "3be354484cc641e9b0e93807"
+        ],
+        "why_new_pl": "Nowa informacja o ograniczeniach dostępu do Starlink/Starshield i braku wyjaśnień ze strony USA.",
+        "kind": "STATEMENT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Trump podpisał rozporządzenie zawieszające wejście w życie sankcji i ceł przeciwko Rosji i jej partnerom przewidziane przez ustawę Lindseya Grahama.",
+        "article_ids": [
+          "240c2e6929975a8025027452",
+          "2534227cc7b4b93053465c5b",
+          "28c75b7ee036eedcfee365d6"
+        ],
+        "why_new_pl": "Nowa informacja: formalne zawieszenie sankcji i ceł na mocy ustawy Lindseya Grahama.",
+        "kind": "FACT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Sekretarz stanu Marco Rubio sugerował, że decyzja Trumpa była przedmiotem analizy w kontekście skutków ekonomicznych w okresie dwumiesięcznym.",
+        "article_ids": [
+          "240c2e6929975a8025027452",
+          "28c75b7ee036eedcfee365d6",
+          "3be354484cc641e9b0e93807"
+        ],
+        "why_new_pl": "Nowa informacja o ramie czasowej analizy efektów ekonomicznych decyzji o sankcjach.",
+        "kind": "STATEMENT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Trump powiedział: «Daliśmy Ukrainie dużo. Oni nie dali nam niczego».",
+        "article_ids": [
+          "240c2e6929975a8025027452",
+          "28c75b7ee036eedcfee365d6",
+          "3be354484cc641e9b0e93807"
+        ],
+        "why_new_pl": "Nowa informacja — cytat Trumpa o braku reciprocity ze strony Ukrainy.",
+        "kind": "STATEMENT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Putin zaproponował trójstronne spotkanie Trump–Xi Jinping na marginesie szczytu APEC w Shenzhen (18–19 listopada), które miałoby dotyczyć zakończenia wojny w Ukrainie bez udziału Zełenskiego.",
+        "article_ids": [
+          "3be354484cc641e9b0e93807",
+          "333ddda812e34412c041895c",
+          "3f3307f3f983348ac5085f87"
+        ],
+        "why_new_pl": "Nowa informacja o propozycji spotkania trzech mocarstw w Shenzhen w kontekście zakończenia konfliktu.",
+        "kind": "FACT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Trump powiedział, że wziąłby udział w takim szczycie, jeśli jego celem byłoby omówienie denuklearyzacji, a nie wojny w Ukrainie.",
+        "article_ids": [
+          "3be354484cc641e9b0e93807",
+          "333ddda812e34412c041895c",
+          "3f3307f3f983348ac5085f87"
+        ],
+        "why_new_pl": "Nowa informacja o warunkach uczestnictwa Trumpa w potencjalnym szczycie.",
+        "kind": "FACT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Rzecznik Kremla Dmitrij Pieskow potwierdził, że prowadzone były rozmowy na temat możliwego spotkania, ale nie ma jeszcze jasnego porozumienia co do agendy szczytu.",
+        "article_ids": [
+          "3be354484cc641e9b0e93807",
+          "333ddda812e34412c041895c",
+          "3f3307f3f983348ac5085f87"
+        ],
+        "why_new_pl": "Nowa informacja o braku jasnego porozumienia co do agendy szczytu.",
+        "kind": "STATEMENT"
+      },
+      {
+        "known_fact_id": "",
+        "text_pl": "Trump zniósł sankcje wobec Rosji i ogłosił porozumienie dotyczące diesla z Putinem.",
+        "article_ids": [
+          "333ddda812e34412c041895c",
+          "3be354484cc641e9b0e93807",
+          "28c75b7ee036eedcfee365d6"
+        ],
+        "why_new_pl": "Nowa informacja o zawieszeniu sankcji i porozumieniu w sprawie diesla.",
+        "kind": "FACT"
+      }
+    ],
+    "article_coverage": {
+      "240c2e6929975a8025027452": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "2534227cc7b4b93053465c5b": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "25805a8ad67ad4f9c053b702": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "28c75b7ee036eedcfee365d6": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "333ddda812e34412c041895c": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "3be354484cc641e9b0e93807": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "3f3307f3f983348ac5085f87": {
+        "no_relevant_facts_reason_pl": ""
+      },
+      "44165bb8eb65b56e9945dab3": {
+        "no_relevant_facts_reason_pl": ""
+      }
+    }
+  },
+  "note": "The last response is from the real failed run. Tests reconstruct an intermediate ledger to exercise the cross-batch exact-text/type conflict; that intermediate AI response was not logged."
+}

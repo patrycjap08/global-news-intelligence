@@ -107,9 +107,11 @@ def extraction_schema(known, article_ids=()):
         confirmation['properties']['known_fact_id'] = {'type': 'string', 'enum': sorted({f['fact_id'] for f in known})}
         confirmation['properties']['text_pl'] = {'type': 'string', 'enum': ['']}
         confirmation['properties']['why_new_pl'] = {'type': 'string', 'enum': ['']}
-        confirmation['properties']['article_ids'] = allowed_strings([
-            *article_ids, *(aid for f in known for aid in f['article_ids'])])
-        confirmation['properties']['article_ids']['minItems'] = 1
+        # The ledger already retains old evidence. Asking the model to repeat
+        # it allowed citations from unrelated known facts through the schema.
+        confirmation['properties']['article_ids'] = allowed_strings(article_ids)
+        if article_ids:
+            confirmation['properties']['article_ids']['minItems'] = 1
         confirmations = []
         for kind in FACT_KINDS:
             ids = sorted(f['fact_id'] for f in known if f.get('kind') in (None, kind))
@@ -216,9 +218,11 @@ Nie twórz metazdań
 Materiały STATE przedstawiaj jako doniesienia, np. „Według agencji TASS…”.
 previous_facts zawiera WSZYSTKIE wcześniej zapisane ustalenia, również ustalenia
 z poprzednich paczek tego samego przetwarzania. all_articles zawiera bieżącą
-paczkę pełnych artykułów. Nie powołuj się na niewysłane artykuły jako nowe potwierdzenie. Gdy artykuł
+paczkę pełnych artykułów. Każde zwracane article_ids, także dla znanego faktu,
+ma zawierać WYŁĄCZNIE ID z bieżącego all_articles. Wcześniejsze potwierdzenia
+kod zachowuje sam; nie przepisuj ich i nie przenoś między ustaleniami. Gdy artykuł
 potwierdza znany fakt, wybierz jego known_fact_id WYŁĄCZNIE z previous_facts,
-ustaw text_pl="", why_new_pl="" i podaj uzupełnione article_ids. Kod sam zachowa
+ustaw text_pl="", why_new_pl="" i podaj potwierdzenia z bieżącej paczki. Kod sam zachowa
 oryginalną treść faktu. Zwróć także kind: zachowaj znany typ. Jeśli wcześniejszy
 fakt nie ma jeszcze kind, sklasyfikuj go na podstawie jego treści i artykułów.
 Klasyfikacja lub zmiana miejsca prezentacji nie jest nową informacją.
@@ -421,14 +425,18 @@ def route_facts(response, articles, previous_facts, normalize):
         if kind is not None and kind not in FACT_KINDS:
             raise ValueError('Nieznany typ ustalenia.')
         old = facts.get(fid, {})
-        if old.get('kind') and kind and old['kind'] != kind:
-            raise ValueError('Potwierdzenie zmienia typ znanego ustalenia.')
+        # Exact text reuse is a confirmation even if the model chose the new
+        # fact branch or proposed another kind. Keep the established identity,
+        # wording and kind; only evidence may grow. This also applies within
+        # one response and across full-article batches, without another AI call.
+        if old.get('kind'):
+            kind = old['kind']
         if not fid:
             if known and not str(raw.get('why_new_pl') or '').strip():
                 raise ValueError('Nowe ustalenie nie ma uzasadnienia nowości.')
             fid = 'fact_' + hashlib.sha256(_text_key(text).encode()).hexdigest()[:24]
         ids = list(dict.fromkeys([*facts.get(fid, {}).get('article_ids', []), *map(str, ids)]))
-        facts[fid] = {'fact_id': fid, 'text_pl': known.get(fid, {}).get('text_pl', text), 'article_ids': ids}
+        facts[fid] = {'fact_id': fid, 'text_pl': old.get('text_pl', text), 'article_ids': ids}
         if kind or old.get('kind'):
             facts[fid]['kind'] = kind or old['kind']
         key_to_id[_text_key(text)] = fid

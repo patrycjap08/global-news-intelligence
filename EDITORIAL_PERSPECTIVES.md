@@ -407,3 +407,19 @@ ograniczają rozmiar schematu. Kontrola nadal nie przesyła treści artykułów.
 Model, równoległość, próg embeddingów 0,78, niezmienność opublikowanej syntezy
 i kontekstu oraz rozdział formatów pozostają bez zmian. Do ponowienia błędnych
 tematów wystarcza zwykłe `ai-only`; nie wymaga to SQL ani ponownego pobierania.
+
+## Stabilne potwierdzenia i cytowania bieżącej paczki — v68
+
+Identyczna treść po normalizacji jest potwierdzeniem również wtedy, gdy model
+zwrócił pusty `known_fact_id` i zaproponował inny `kind`. Kod zachowuje istniejący
+identyfikator, dokładny tekst i typ, a dopisuje tylko rzeczywiste potwierdzenia.
+Ta sama reguła działa w pojedynczej odpowiedzi, między paczkami i przy
+aktualizacji publikacji. Nie ma kolejnego zapytania o klasyfikację ani nowej
+aktualizacji z samego przepisania faktu. Nowa treść i niesklasyfikowane wcześniej
+ustalenia nadal otrzymują typ z ekstrakcji; obce ID lub zmiana treści wskazanego
+znanego faktu pozostają błędem.
+
+Schemat wymaga teraz wyłącznie ID artykułów z bieżącej paczki we wszystkich
+ustaleniach, także potwierdzeniach. Dawne potwierdzenia pozostają w rejestrze
+i są łączone przez kod. Usuwa to możliwość skopiowania źródła innego znanego
+faktu tylko dlatego, że jego ID występowało gdzieś w poprzednim rejestrze.

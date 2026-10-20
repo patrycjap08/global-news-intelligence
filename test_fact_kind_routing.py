@@ -154,8 +154,9 @@ class FactKindRoutingTests(unittest.TestCase):
         bad = extraction([fact('', ['l'], known[0]['fact_id'], reason='', kind='EDITORIAL')], rows)
         with self.assertRaises(jsonschema.ValidationError):
             jsonschema.validate(bad, p.extraction_schema(known, ['l']))
-        with self.assertRaisesRegex(ValueError, 'zmienia typ'):
-            self.route(rows, bad['facts'], known)
+        # The schema still requests the established type. If a caller sends a
+        # conflicting type anyway, the ledger keeps its existing classification.
+        self.assertEqual(self.route(rows, bad['facts'], known)[1], known)
         for kind in (None, 'UNKNOWN'):
             with self.subTest(kind=kind):
                 response = extraction([fact('Decyzja.', ['l'])], rows)

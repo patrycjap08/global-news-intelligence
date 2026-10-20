@@ -202,14 +202,21 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
         known = [{'fact_id': 'f1', 'text_pl': 'Pierwszy.', 'article_ids': ['old1'], 'lane': 'COMMON'},
                  {'fact_id': 'f2', 'text_pl': 'Drugi.', 'article_ids': ['old2'], 'lane': 'COMMON'}]
         schema = p.extraction_schema(known, ['current'])
-        valid = extraction([fact('', ['old1', 'current'], 'f1', reason='')], [article('current', 'CENTER')])
+        valid = extraction([fact('', ['current'], 'f1', reason='')], [article('current', 'CENTER')])
         jsonschema.validate(valid, schema)
         p.validate_batch_citations(valid, [{'article_id': 'current'}], known, ai.normalize_generated_text)
         invalid = copy.deepcopy(valid)
         invalid['facts'][0]['article_ids'] = ['old2']
-        # The enum is a union; the code still checks evidence per known fact.
+        # Old evidence stays in the ledger; it is not requested from the model.
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(invalid, schema)
         with self.assertRaisesRegex(ValueError, 'spoza bieżącej paczki'):
             p.validate_batch_citations(invalid, [{'article_id': 'current'}], known, ai.normalize_generated_text)
+        legacy = copy.deepcopy(valid)
+        legacy['facts'][0]['article_ids'] = ['old1', 'current']
+        p.validate_batch_citations(legacy, [{'article_id': 'current'}], known, ai.normalize_generated_text)
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(legacy, schema)
         for reason in ('', '  ', '\n'):
             invalid = extraction([fact('Nowy.', ['current'], reason=reason)], [article('current', 'CENTER')])
             with self.subTest(reason=reason), self.assertRaises(jsonschema.ValidationError):
