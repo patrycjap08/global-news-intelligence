@@ -141,7 +141,7 @@ class MergeCandidateLimitTests(unittest.TestCase):
         ), patch.object(ai, "classify_topic_categories", return_value=0), patch.object(
             ai, "retry_incomplete_summaries", return_value={"summaries": 0, "failed_summaries": 0},
         ), patch.object(ai, "log"):
-            ai.analyze_run(Path(temp_dir) / "articles.sqlite3", "run", object())
+            ai.analyze_run(Path(temp_dir) / "articles.sqlite3", "run", FakeMergeClient([], [], []))
         self.assertTrue(merge.call_args.kwargs["prefer_embeddings"])
 
     def run_merge(self, topics, requests, response):

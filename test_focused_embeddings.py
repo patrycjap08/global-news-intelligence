@@ -59,24 +59,18 @@ class FocusedEmbeddingTests(unittest.TestCase):
         self.assertEqual({t['topic_id'] for t in topics if t['status'] == 'MERGED'}, {'a'})
         self.assertEqual(client.rows['topic_summaries'][0]['summary']['summary_pl'], 'Zachowana synteza')
 
-    def test_pipeline_passes_new_ids_then_retained_ids_to_final_check_only_when_requested(self):
+    def test_every_pipeline_passes_new_ids_then_retained_ids_to_final_check(self):
         zero = {k: 0 for k in ('merge_candidates', 'topics_merged', 'merge_failed', 'local_candidate_groups',
                                'local_candidate_topics', 'largest_candidate_group', 'merge_requests')}
         for scoped in (False, True):
             seen = []
             def label(*args, **kwargs):
-                if scoped:
-                    kwargs['created_topic_ids'].add('new')
-                else:
-                    self.assertNotIn('created_topic_ids', kwargs)
+                kwargs['created_topic_ids'].add('new')
                 return {'labeled_articles': 1, 'candidate_topics': 1, 'label_needs_review': 0, 'excluded': 0}
             def merge(*args, **kwargs):
-                if scoped:
-                    self.assertEqual(kwargs['focus_topic_ids'], {'new'})
-                    kwargs['focus_topic_ids'].clear()
-                    kwargs['focus_topic_ids'].add('retained')
-                else:
-                    self.assertNotIn('focus_topic_ids', kwargs)
+                self.assertEqual(kwargs['focus_topic_ids'], {'new'})
+                kwargs['focus_topic_ids'].clear()
+                kwargs['focus_topic_ids'].add('retained')
                 return dict(zero)
             def final(*args, **kwargs):
                 seen.append(kwargs.get('focus_topic_ids'))
@@ -90,8 +84,34 @@ class FocusedEmbeddingTests(unittest.TestCase):
             ), patch.object(ai, 'normalize_topic_titles', return_value=0), patch.object(
                 ai, 'classify_topic_categories', return_value=0,
             ), patch.object(ai, 'retry_incomplete_summaries', return_value={'summaries': 0, 'failed_summaries': 0}), patch.object(ai, 'log'):
-                ai.analyze_run(Path(folder) / 'db', 'run', object(), new_topics_only=scoped)
-            self.assertEqual(seen, [{'retained'}] if scoped else [None])
+                ai.analyze_run(Path(folder) / 'db', 'run', FakeMergeClient([], [], []), new_topics_only=scoped)
+            self.assertEqual(seen, [{'retained'}])
+
+    def test_retry_focus_contains_only_current_harvest_unfinished_material(self):
+        client = FakeMergeClient([], [], [
+            {'topic_id': 'finished', 'summary': {'processed_article_ids': ['a']}},
+            {'topic_id': 'unfinished', 'summary': {'processed_article_ids': ['old']}},
+            {'topic_id': 'legacy', 'summary': {'summary_pl': 'Historyczna synteza.'}},
+        ])
+        client.rows['article_topic_assignments'] = [
+            {'run_id': 'run', 'topic_id': tid, 'article_id': 'a'}
+            for tid in ('finished', 'unfinished', 'candidate', 'legacy')
+        ] + [{'run_id': 'previous', 'topic_id': 'old_candidate', 'article_id': 'b'}]
+        self.assertEqual(ai.pending_run_merge_focus(client, 'run'), {'unfinished', 'candidate'})
+
+    def test_empty_retry_focus_skips_both_merge_passes_but_keeps_summary_retry(self):
+        client = FakeMergeClient([
+            {'topic_id': 'old_a'}, {'topic_id': 'old_b'}], [], [])
+        with TemporaryDirectory() as folder, patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
+            ai, 'pending_articles', return_value=[]), patch.object(ai, 'normalize_topic_titles', return_value=0), patch.object(
+            ai, 'classify_topic_categories', return_value=0), patch.object(ai, 'retry_incomplete_summaries',
+                return_value={'summaries': 0, 'failed_summaries': 0}) as retry, patch.object(
+            ai, 'build_topic_embedding_candidate_edges') as embed, patch.object(ai, 'log'):
+            ai.analyze_run(Path(folder) / 'db', 'run', client)
+        embed.assert_not_called()
+        self.assertEqual(retry.call_count, 2)
+        self.assertIsNone(retry.call_args_list[0].kwargs.get('only_topic_ids'))
+        self.assertEqual(retry.call_args_list[1].kwargs['only_topic_ids'], set())
 
 
 if __name__ == '__main__':

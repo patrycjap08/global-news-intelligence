@@ -127,8 +127,8 @@ def main() -> int:
     parser.add_argument(
         "--merge-existing-summaries", action="store_true",
         help=(
-            "Sprawdź wyłącznie aktywne wątki z syntezami, scal podobne wątki "
-            "i zaktualizuj zachowaną najstarszą syntezę."
+            "Sprawdź aktywne syntezy tylko w parach z nowymi materiałami "
+            "bieżącego harvestu; bez porównań stary–stary."
         ),
     )
     parser.add_argument("--ai-max-articles", type=int, default=int(os.environ.get("AI_MAX_ARTICLES_PER_RUN", "0")))
@@ -235,7 +235,7 @@ def main() -> int:
             batch_size=args.ai_batch_size,
             merge_existing_summaries_mode=args.merge_existing_summaries,
             merge_existing_max_topics=args.merge_existing_max_topics,
-            **({"new_topics_only": True} if selected_source is not None else {}),
+            new_topics_only=True,
         )
         log("RUN", "Etap 4/4 zakończony: " + ai_summary(result) + ".")
         if result.get("merge_failed", 0) or result.get("failed_summaries", 0):

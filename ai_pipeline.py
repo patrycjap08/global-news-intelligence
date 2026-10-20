@@ -33,7 +33,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v70-stable-novelty-schema"
+PROMPT_VERSION = "ai-prompts-v71-explicit-novelty-decisions"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2553,7 +2553,10 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
     # Existing legacy publications keep their established update flow. New
     # publications and subsequent updates use the explicitly versioned format.
     if previous is None or (previous.get("base_summary") or {}).get("perspective_version") == 1:
-        last_response, last_schema = None, None
+        last_response, last_schema, extraction_checkpoint = None, None, None
+        def remember_extraction(checkpoint):
+            nonlocal extraction_checkpoint
+            extraction_checkpoint = checkpoint
         def call(instructions, data, schema, name):
             nonlocal last_response, last_schema
             if name == "perspective_facts":
@@ -2564,6 +2567,8 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             elif name == "perspective_novelty_audit":
                 log("AI", f"Kontrola nowości perspektyw: kandydatów: {len(data['candidate_facts'])}, "
                     f"znanych ustaleń: {len(data['previous_facts'])}; porównuję treści ustaleń, bez ponownego przesyłania artykułów.")
+                instructions = perspectives.EXPLICIT_NOVELTY_INSTRUCTIONS
+                schema = perspectives.novelty_decision_schema(data['previous_facts'], data['candidate_facts'])
             response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                 timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                 reasoning_effort=summary_reasoning_effort(model),
@@ -2576,10 +2581,11 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             if name == "perspective_novelty_audit":
                 decisions = response.get('decisions') or {}
                 if isinstance(decisions, dict):
-                    rejected = sum(isinstance(d, dict) and not str(d.get('new_text_pl') or '').strip()
+                    rejected = sum(isinstance(d, dict) and d.get('decision') == 'DUPLICATE'
                                    for d in decisions.values())
                     log("AI", f"Kontrola nowości perspektyw — odpowiedź: decyzji: {len(decisions)}, "
                         f"bez nowej treści: {rejected}.")
+                response = perspectives.decode_novelty_decisions(response, data['candidate_facts'])
             if name == "perspective_facts":
                 coverage = response.get('article_coverage') or []
                 counts = [sum(str(article['article_id']) in fact.get('article_ids', [])
@@ -2594,6 +2600,9 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
         try:
             raw = perspectives.generate(payload, call, normalize_generated_text,
                 max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS,
+                on_extraction_complete=remember_extraction,
+                on_extraction_resume=lambda count: log("AI", f"Wznawiam po ekstrakcji: {count} pełnych artykułów "
+                    "już przeanalizowano i sprawdzono; ponawiam audyt bez ponownego wysyłania artykułów."),
                 on_coverage_repair=lambda ids: log("AI",
                     f"Kontrola pokrycia: uzupełniam {len(ids)} pominiętych artykułów "
                     f"w paczkach do {perspectives.COVERAGE_REPAIR_BATCH_ARTICLES}; "
@@ -2601,14 +2610,20 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                 on_validation_retry=lambda name, error: log("AI",
                     f"{name}: odpowiedź nie przeszła kontroli ({error}); "
                     "wykonuję jedną próbę poprawy tego etapu z tymi samymi danymi.", level="WARN"))
-        except AIResponseParseError:
+        except AIResponseParseError as exc:
+            exc.extraction_checkpoint = extraction_checkpoint
             raise
         except ValueError as exc:
+            exc.extraction_checkpoint = extraction_checkpoint
             if last_response is None:
                 raise
             error = AIResponseParseError(str(exc), json.dumps(last_response, ensure_ascii=False))
             error.response_details = {"schema": last_schema, "validation_error": str(exc)}
+            error.extraction_checkpoint = extraction_checkpoint
             raise error from exc
+        except Exception as exc:
+            exc.extraction_checkpoint = extraction_checkpoint
+            raise
         normalized = normalize_summary_response(raw)
         for field in ("perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = raw.get(field)
@@ -3012,15 +3027,16 @@ def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
+    stored = None
     if isinstance(exc, AIRequestSchemaError):
-        return {"request_schema_error": str(exc), "response_details": exc.response_details}
-    if not isinstance(exc, AIResponseParseError):
-        return None
-    return {
-        "parse_error": str(exc)[:2000],
-        "raw_response": exc.raw_output[:20000],
-        "response_details": exc.response_details,
-    }
+        stored = {"request_schema_error": str(exc), "response_details": exc.response_details}
+    elif isinstance(exc, AIResponseParseError):
+        stored = {"parse_error": str(exc)[:2000], "raw_response": exc.raw_output[:20000],
+                  "response_details": exc.response_details}
+    checkpoint = getattr(exc, 'extraction_checkpoint', None)
+    if isinstance(checkpoint, dict):
+        stored = {**(stored or {}), 'extraction_checkpoint': checkpoint}
+    return stored
 
 
 def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
@@ -3984,6 +4000,7 @@ def merge_active_topics(
                 (not automatic_merge and confidence < TOPIC_MERGE_MIN_CONFIDENCE)
                 or len(group_ids) < 2
                 or len({generations[tid] for tid in group_ids}) != 1
+                or (focus_topic_ids is not None and not set(group_ids).intersection(focus_topic_ids))
                 or used_topic_ids.intersection(group_ids)
             ):
                 continue
@@ -4754,6 +4771,24 @@ def summary_model_for_run(fallback: str) -> str:
     return (os.environ.get("OPENAI_SUMMARY_MODEL") or "").strip() or fallback
 
 
+def load_extraction_checkpoint(client, topic_id, summary_hash, model):
+    history_id = 'topicrun_' + digest({'topic': topic_id, 'stage': 'SUMMARY', 'input': summary_hash})[:24]
+    try:
+        rows = client.select_all('topic_runs', columns='topic_run_id,input_hash,model,status,raw_output',
+            filters=[('topic_run_id', f'eq.{history_id}'), ('status', 'eq.FAILED')])
+    except Exception:
+        # A checkpoint is only an optimization; a failed history read cannot
+        # authorize skipping extraction or block the normal complete analysis.
+        return None
+    for row in rows:
+        if (row.get('topic_run_id') == history_id and row.get('input_hash') == summary_hash
+                and row.get('model') == model and row.get('status') == 'FAILED'):
+            raw = row.get('raw_output')
+            if isinstance(raw, dict) and isinstance(raw.get('extraction_checkpoint'), dict):
+                return raw['extraction_checkpoint']
+    return None
+
+
 def retry_incomplete_summaries(
     db_path: Path,
     run_id: str,
@@ -4974,6 +5009,9 @@ def retry_incomplete_summaries(
                                 job["previous_aggregation"]["base_summary"].get("perspective_version") == 1) else None,
                         )
                         summary_hash = digest(summary_input)
+                        checkpoint = load_extraction_checkpoint(client, job['topic_id'], summary_hash, model)
+                        if checkpoint is not None:
+                            summary_input = {**summary_input, 'resume_extraction': checkpoint}
                         log("AI", f"Synteza {index}/{total_jobs}: {short_text(job['title'])} "
                             f"(nowych: {len(job['new_rows'])}, łącznie: {len(job['all_rows'])}; "
                             f"dane: {payload_mode}, {payload_chars / 1024:.1f} KiB; "
@@ -5545,6 +5583,37 @@ def _analyze_pending_batch(
         conn.close()
 
 
+def pending_run_merge_focus(client: SupabaseRestClient, run_id: str) -> set[str]:
+    """Resume this harvest's unfinished material without reopening old pairs.
+
+    Published topics enter the focus only while an article assigned in this
+    harvest is still unprocessed. Successfully completed old topics do not.
+    Newly labeled candidates are added separately during the current pass.
+    """
+    assignments = client.select_all('article_topic_assignments',
+        columns='run_id,topic_id,article_id', filters=[('run_id', f'eq.{run_id}')])
+    by_topic: dict[str, set[str]] = {}
+    for row in assignments:
+        if str(row.get('run_id') or '') == run_id and row.get('topic_id') and row.get('article_id'):
+            by_topic.setdefault(str(row['topic_id']), set()).add(str(row['article_id']))
+    if not by_topic:
+        return set()
+    summaries = []
+    topic_ids = sorted(by_topic)
+    for offset in range(0, len(topic_ids), 100):
+        summaries.extend(client.select_all('topic_summaries', columns='topic_id,summary',
+            filters=[('topic_id', 'in.(' + ','.join(topic_ids[offset:offset + 100]) + ')')]))
+    by_summary = {str(row['topic_id']): row.get('summary') or {} for row in summaries}
+    focus = set()
+    for tid, aids in by_topic.items():
+        if tid not in by_summary:
+            focus.add(tid)
+        elif isinstance(by_summary[tid].get('processed_article_ids'), list):
+            if aids - set(by_summary[tid]['processed_article_ids']):
+                focus.add(tid)
+    return focus
+
+
 def analyze_run(
     db_path: Path,
     run_id: str,
@@ -5555,7 +5624,7 @@ def analyze_run(
     batch_size: int = 100,
     merge_existing_summaries_mode: bool = False,
     merge_existing_max_topics: int = 0,
-    new_topics_only: bool = False,
+    new_topics_only: bool = True,
 ) -> dict[str, int]:
     """Run the three-stage pipeline: label, merge, then synthesize.
 
@@ -5565,11 +5634,14 @@ def analyze_run(
     """
     if not (os.environ.get("OPENAI_API_KEY") or "").strip():
         raise RuntimeError("Brakuje OPENAI_API_KEY; AI nie może zostać uruchomiona.")
+    # The compatibility argument no longer enables old/old comparisons.
+    # Every production mode follows new material and its retained identity.
+    focus_topic_ids = pending_run_merge_focus(client, run_id)
     if merge_existing_summaries_mode:
         log(
             "AI-REPAIR",
-            "Tryb naprawczy istniejących syntez: analizuję wyłącznie aktywne "
-            f"wątki z ostatnich {TOPIC_MATCH_LOOKBACK_HOURS} godzin, które mają już syntezę.",
+            "Tryb naprawczy istniejących syntez: pary wyłącznie z udziałem "
+            "nowych, niedokończonych materiałów bieżącego harvestu; bez par stary–stary.",
         )
         stats = merge_existing_summaries(
             db_path,
@@ -5577,11 +5649,11 @@ def analyze_run(
             client,
             model=model,
             max_topics=merge_existing_max_topics,
+            focus_topic_ids=focus_topic_ids,
         )
         log("AI-REPAIR", "Tryb naprawczy istniejących syntez zakończony.")
         return stats
     requested_batch_size = max(1, batch_size)
-    focus_topic_ids: set[str] | None = set() if new_topics_only else None
     batch_size = min(requested_batch_size, MAX_LABEL_BATCH_SIZE)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -5627,7 +5699,7 @@ def analyze_run(
             try:
                 batch_stats = _label_pending_batch(
                     run_id, client, batch, model=LABEL_MODEL, batch_index=label, db_path=db_path,
-                    **({"created_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
+                    created_topic_ids=focus_topic_ids,
                 )
                 merge_batch_stats(batch_stats)
                 log(
@@ -5683,7 +5755,7 @@ def analyze_run(
     merge_stats = merge_active_topics(
         db_path, run_id, client, model=model, prefer_embeddings=True, only_generation="perspectives",
         merged_article_ids_by_topic=merged_article_ids_by_topic,
-        **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
+        focus_topic_ids=focus_topic_ids,
     )
     stats["merge_candidates"] = merge_stats["merge_candidates"]
     stats["topics_merged"] = merge_stats["topics_merged"]
@@ -5712,14 +5784,12 @@ def analyze_run(
         f"Etap 3/3 zakończony: gotowe syntezy {stats['summaries']}, "
         f"nieudane {stats['failed_summaries']}.",
     )
-    log("EMBEDDING", (
-        "Końcowa kontrola: wszystkie aktywne wątki z syntezami w oknie 36 godzin; stare i nowe formaty bez łączenia między wersjami."
-        if focus_topic_ids is None else
+    log("EMBEDDING",
         "Końcowa kontrola: tylko pary z udziałem nowych wątków lub ich zachowanych po scaleniu odpowiedników; pozostałe wątki bez wzajemnego porównywania."
-    ))
+    )
     final_stats = merge_existing_summaries(
         db_path, run_id, client, model=model,
-        **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
+        focus_topic_ids=focus_topic_ids,
     )
     for key in ("summaries", "failed_summaries", "topics_merged", "merge_candidates", "merge_failed", "merge_requests", "merge_split_retries"):
         stats[key] += final_stats.get(key, 0)

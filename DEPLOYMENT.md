@@ -61,7 +61,8 @@ dodać:
   Kod nie dopuszcza wartości poniżej 0.78; można podwyższyć próg.
   Workflow ustawia jawnie 0.78, niezależnie od starszej zmiennej repozytorium.
 - Nie ma limitu sąsiadów semantycznych: wybierane są wszystkie pary nad
-  progiem. Starsza zmienna `AI_TOPIC_MERGE_EMBEDDING_TOP_K` jest ignorowana.
+  progiem z udziałem nowych wątków/materiałów; pary stary–stary są pomijane.
+  Starsza zmienna `AI_TOPIC_MERGE_EMBEDDING_TOP_K` jest ignorowana.
 - `AI_TOPIC_MERGE_MAX_RECENT_TITLES`, domyślnie `1`; liczba najnowszych tytułów
   przekazywanych do scalania, żeby duże komponenty nie przekraczały kontekstu.
 - `OPENAI_REQUEST_TIMEOUT_SECONDS`, domyślnie `90`; maksymalny czas oczekiwania
@@ -156,8 +157,12 @@ bez czekania na zakończenie całego przebiegu. Wątki spełniające kryteria ź
 mogą być widoczne także przed wygenerowaniem opisu. Brak syntezy nie stanowi
 dodatkowego warunku ukrywania wątku.
 
-Główny przebieg scala automatycznie wszystkie pary embeddingów o podobieństwie
-co najmniej 0,78, bez limitu sąsiadów i bez zapytań do AI o zatwierdzenie.
+Główny przebieg porównuje nowe wątki między sobą oraz ze starszymi. Nie
+porównuje starszych między sobą. Dotyczy full, ai-only, jednego źródła i
+końcowej kontroli. Próg nadal wynosi 0,78; brak limitu sąsiadów i zapytań do
+AI o zatwierdzenie. Po scaleniu zakres podąża za zachowanym identyfikatorem.
+Ponowienie ai-only może dokończyć wątki z nieprzetworzonymi materiałami
+bieżącego harvestu, bez ponownego otwierania pozostałych starych par.
 Grupę rozpoczyna najsilniejsza dostępna para, której dwa elementy pozostają
 stałymi punktami odniesienia. Każdy dołączany element musi osiągnąć próg
 0.78 z przynajmniej jednym z nich. Samo podobieństwo do później dołączonego

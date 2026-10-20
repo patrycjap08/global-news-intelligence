@@ -155,13 +155,14 @@ class SummaryQueueTests(unittest.TestCase):
         merge_stats = {key: 0 for key in ('merge_candidates', 'topics_merged', 'merge_failed', 'local_candidate_groups', 'local_candidate_topics', 'largest_candidate_group', 'merge_requests')}
         def merge(*args, **kwargs):
             kwargs['merged_article_ids_by_topic']['retained'] = ['moved']
+            kwargs['focus_topic_ids'].add('retained')
             return merge_stats
         with TemporaryDirectory() as folder, patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
             ai, 'pending_articles', return_value=[],
         ), patch.object(ai, 'merge_active_topics', side_effect=merge), patch.object(ai, 'normalize_topic_titles', return_value=0), patch.object(
             ai, 'classify_topic_categories', return_value=0,
         ), patch.object(ai, 'retry_incomplete_summaries', return_value={'summaries': 1, 'failed_summaries': 0}) as retry, patch.object(ai, 'log'):
-            result = ai.analyze_run(Path(folder) / 'articles.sqlite3', 'run', object())
+            result = ai.analyze_run(Path(folder) / 'articles.sqlite3', 'run', FakeMergeClient([], [], []))
         self.assertEqual(retry.call_args.kwargs['forced_new_article_ids_by_topic'], {'retained': ['moved']})
         self.assertEqual(result['summaries'], 2)  # Main queue plus post-publication merge queue.
         self.assertEqual(retry.call_args_list[0].kwargs['only_generation'], 'perspectives')

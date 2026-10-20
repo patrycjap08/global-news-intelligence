@@ -137,13 +137,37 @@ Nowe wątki/kandydaci otrzymują ID topic_perspectives_…; zapisane opracowania
 mają perspective_version=1. Nowe artykuły nie są dopasowywane do starych wątków.
 Nie ma przepinania wcześniej przetworzonych artykułów ze starych opracowań.
 
-Na końcu full/ai-only jest dodatkowa kontrola embeddingów wszystkich ACTIVE
-wątków z syntezami w aktualnym oknie 36 godzin. Wykluczamy krawędzie pomiędzy
+Na końcu full/ai-only jest dodatkowa kontrola embeddingów ACTIVE wątków
+z syntezami w aktualnym oknie 36 godzin, tylko dla par z nowymi wątkami lub
+ich zachowanymi po scaleniu odpowiednikami. Wykluczamy krawędzie pomiędzy
 wersjami przed tworzeniem grup; jest też kontrola przed zapisem scalenia.
 Stare łączą się wyłącznie ze starymi, nowe wyłącznie z nowymi, także w trybie
 merge-existing-summaries. Przeniesione artykuły trafiają do kolejki aktualizacji.
 Kontrola nie pyta AI o zgodę na scalenie. Kosztem są dodatkowe embeddingi
 oraz ewentualne aktualizacje rzeczywiście scalonych tematów.
+
+### Jawne decyzje audytu i wznowienie po ekstrakcji (v71)
+
+Przebieg `39403835206` przeszedł format zapytania v70, ale model w trzeciej
+paczce audytu zwrócił puste `new_text_pl` i `covered_fact_ids`, opisując fakt
+jako całkowicie nowy. Audyt API teraz wybiera `decision=NEW|DUPLICATE|DETAIL`.
+NEW zachowuje oryginalny tekst kandydata w kodzie, bez przepisywania go przez
+model. DUPLICATE wymaga wskazania wcześniejszych faktów. DETAIL wymaga
+odniesień do starej części oraz samodzielnego zdania opisującego nowy szczegół.
+Nie odgadujemy decyzji z uzasadnienia i nie dopisujemy referencji. Nieprawidłowe
+decyzje nadal mają jedną próbę poprawy; nie są publikowane.
+
+Pełna ekstrakcja, która przeszła kontrolę wszystkich paczek i napraw pokrycia,
+może zostać zachowana w prywatnym `topic_runs.raw_output.extraction_checkpoint`,
+jeżeli późniejszy etap zawiedzie. Nie jest to publikacja częściowej syntezy
+ani oznaczenie artykułów jako przetworzonych. Ponowne ai-only przy identycznym
+wejściu i modelu może zacząć od audytu, bez ponownego przesyłania artykułów.
+Sprawdzany jest skrót pełnego wejścia i instrukcji ekstrakcji, tożsamość,
+treść i typ starych faktów, nowe identyfikatory i cytowania. Zmiana danych,
+instrukcji ekstrakcji lub uszkodzony checkpoint uruchamia pełną analizę.
+Zmiana wyłącznie protokołu audytu nie unieważnia poprawnej ekstrakcji.
+Starsze nieudane przebiegi nie zawierają takiego checkpointu; ich odzyskanie
+wstecz nie jest możliwe. Nie wymaga migracji ani publicznego eksportu tych danych.
 
 ## Cofnięcie
 

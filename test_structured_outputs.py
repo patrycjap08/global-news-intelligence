@@ -28,7 +28,8 @@ class StructuredOutputTests(unittest.TestCase):
                               for i in range(p.NOVELTY_BATCH_FACTS)]
                 for schema in (p.extraction_schema(known, [f'a{i}' for i in range(8)]),
                                p.article_coverage_schema(known, ['a1', 'a2']),
-                               p.novelty_schema(known, candidates), p.writing_schema(known)):
+                               p.novelty_schema(known, candidates), p.novelty_decision_schema(known, candidates),
+                               p.writing_schema(known)):
                     check_response_schema(schema)
                 novelty = p.novelty_schema(known, candidates)
                 for value in novelty['properties']['decisions']['properties'].values():
@@ -131,7 +132,11 @@ class StructuredOutputTests(unittest.TestCase):
                 first, second, third = data['candidate_facts'][:3]
                 decisions[first['fact_id']] = verdict('', [known[1]['fact_id']] * 2, 'Parafraza znanego.')
                 decisions[third['fact_id']] = verdict('', [second['fact_id']], 'Powtórzenie wcześniejszego kandydata.')
-                answer = {'decisions': decisions}
+                answer = {'decisions': {cid: {
+                    'decision': 'NEW' if not d['covered_fact_ids'] else 'DETAIL' if d['new_text_pl'] else 'DUPLICATE',
+                    'new_detail_pl': d['new_text_pl'] if d['covered_fact_ids'] else '',
+                    'covered_fact_ids': d['covered_fact_ids'], 'reason_pl': d['reason_pl'],
+                } for cid, d in decisions.items()}}
             jsonschema.validate(answer, schema)
             return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(answer, ensure_ascii=False))
 

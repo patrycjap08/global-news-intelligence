@@ -78,3 +78,13 @@ i `ukraine_threshold` pozostają dla zgodności raportów; klasyfikacja Ukrainy
 nie zmienia progu. Historyczne raporty zachowują poprzednie wartości
 (0,82 ogólnie i 0,78 dla dwóch wątków dotyczących Ukrainy).
 Zapytania SQL korzystają z progu zapisanego przy danej parze.
+
+Od 20.10.2026 wszystkie produkcyjne przebiegi ograniczają porównania do par
+nowy–nowy i nowy–stary, również w końcowej kontroli i trybie naprawczym.
+Stary–stary nie jest liczony ani wybierany do scalenia. Zakres podąża za
+zachowanym identyfikatorem po dołączeniu nowych materiałów. AI-only uwzględnia
+też niedokończone materiały bieżącego harvestu. Bez takiego zakresu embeddingi
+są pomijane, a kolejka nieudanych syntez nadal może pracować.
+Diagnostyka zapisuje `comparison_scope=NEW_TOPICS`, `focus_topic_ids` i
+`compared_pairs`; próbki i liczniki dotyczą tylko porównanych par. Osobny
+raport eksperymentalny wszystkich wybranych par zachowuje swój zakres.

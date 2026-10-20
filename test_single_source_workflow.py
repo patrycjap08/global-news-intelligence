@@ -56,7 +56,7 @@ class SingleSourcePipelineTests(unittest.TestCase):
                 self.assertEqual(analyze.call_args.kwargs, {
                     "max_articles": 0, "batch_size": 25,
                     "merge_existing_summaries_mode": False, "merge_existing_max_topics": 0,
-                    **({"new_topics_only": True} if source is not None else {}),
+                    "new_topics_only": True,
                 })
             return status, harvest.call_args.args[0]
 

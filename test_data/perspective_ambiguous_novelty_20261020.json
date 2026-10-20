@@ -1,0 +1,81 @@
+{
+  "run_id": 39403835206,
+  "job_id": 118564830478,
+  "note": "Actual failed audit response. Original candidate texts were not logged; tests reconstruct explicit synthetic candidates for protocol checks.",
+  "response": {
+    "decisions": {
+      "fact_7099f06d24dbc1d44b532761": {
+        "new_text_pl": "",
+        "covered_fact_ids": [
+          "fact_2b29ec45896ce29c76f0fe8a"
+        ],
+        "reason_pl": "Parafraza wcześniejszego stwierdzenia: Zelenski powinien zostać zastąpiony jako negocjator; treść nie wnosi nowej informacji."
+      },
+      "fact_bfbc5460c48e40de1c3adcd1": {
+        "new_text_pl": "Kreml zaproponował trójstronny szczyt z udziałem Trumpa i Xi Jinpinga w połowie listopada, aby wynegocjować zakończenie wojny na sprzyjających Moskwie warunkach.",
+        "covered_fact_ids": [],
+        "reason_pl": "Całkowicie nowa informacja, nie występuje w dotychczasowych faktach."
+      },
+      "fact_a684a1747e2279ec98ce091b": {
+        "new_text_pl": "",
+        "covered_fact_ids": [],
+        "reason_pl": "Całkowicie nowa informacja."
+      },
+      "fact_676c16f3ba8cfd0d1a6f16e0": {
+        "new_text_pl": "Zełenski powiedział, że dostawy pocisków Patriot do ukraińskiego systemu obrony powietrznej są ograniczane i opóźniane.",
+        "covered_fact_ids": [
+          "fact_ccb7e88ab57b659da9b36aba",
+          "fact_9cd47b231c339d7ebc0abb79"
+        ],
+        "reason_pl": "Zawiera nowy szczegół dotyczący ograniczeń i opóźnień dostaw Patriot; podstawowy fragment o podziale na zatwierdzone/niezatwierdzone powtarza się w poprzednich faktach."
+      },
+      "fact_dbd3370ab01d6e2950c9fe2b": {
+        "new_text_pl": "Trump zgodził się na propozycję Putina dotyczącą spotkania z Xi Jinpingiem i Putinem oraz powiedział, że chciałby rozmawiać o broni jądrowej i denuklearyzacji.",
+        "covered_fact_ids": [],
+        "reason_pl": "Całkowicie nowa informacja, nie występuje w dotychczasowych faktach."
+      },
+      "fact_2e1b6dff26d7ae0e6f37456d": {
+        "new_text_pl": "",
+        "covered_fact_ids": [
+          "fact_2b29ec45896ce29c76f0fe8a",
+          "fact_2b29ec45896ce29c76f0fe8a"
+        ],
+        "reason_pl": "Powtórzenie istniejącego stwierdzenia z wcześniejszego faktu."
+      },
+      "fact_b05e1a4110422376ea450166": {
+        "new_text_pl": "Trump powiedział, że jest gotów omówić rozwiązanie konfliktu z Rosją i Chinami.",
+        "covered_fact_ids": [],
+        "reason_pl": "Całkowicie nowe stwierdzenie; nie ma wśród dotychczasowych faktów identycznego sformułowania."
+      },
+      "fact_ade654fa5736cf6a806925de": {
+        "new_text_pl": "",
+        "covered_fact_ids": [
+          "fact_6bb71930151cce18f577fef2",
+          "fact_5f02eed937ff151b7a6103b3"
+        ],
+        "reason_pl": "Powtórzenie."
+      },
+      "fact_8baee7619c0fc87a915a97dd": {
+        "new_text_pl": "Kijów kontynuuje ataki na rosyjską infrastrukturę naftową pomimo wielokrotnych apeli Trumpa o powstrzymanie ataków.",
+        "covered_fact_ids": [],
+        "reason_pl": "Całkowicie nowa informacja."
+      },
+      "fact_489ddfc6f0982874e700220e": {
+        "new_text_pl": "",
+        "covered_fact_ids": [
+          "fact_3f791fdb5a8b2e304ef9d91e",
+          "fact_9fd4f6430dfa9cb9ca6c6536",
+          "fact_8baee7619c0fc87a915a97dd"
+        ],
+        "reason_pl": "Powtórzenie."
+      },
+      "fact_517b8bc208956dac9042d350": {
+        "new_text_pl": "",
+        "covered_fact_ids": [
+          "fact_5cab0cb9af2f97e81ab37d0c"
+        ],
+        "reason_pl": "Powtórzenie."
+      }
+    }
+  }
+}
