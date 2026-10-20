@@ -34,6 +34,37 @@ Korekta nie usuwa automatycznie duplikatów już zapisanych w bazie ani historii
 Takie opracowanie wymaga osobnego ponownego przeliczenia lub kontrolowanego
 oczyszczenia. Wdrożenie nie wykonuje produkcyjnych wywołań AI ani zmian w bazie.
 
+### Stabilny format zapytań i diagnostyka (v70)
+
+Przebieg `39397539367` przeszedł ekstrakcję wszystkich 49 artykułów i naprawy
+pokrycia, ale API odrzuciło schemat `perspective_novelty_audit` przed udzieleniem
+odpowiedzi (HTTP 400). Dawny log ucinał właściwe uzasadnienie po 220 znakach;
+nie zachował też treści 22 kandydatów. Nie da się na jego podstawie wskazać
+dokładnego ograniczenia kompilatora API, które zostało naruszone.
+
+Od v70 decyzja audytu ma stały obiekt z `new_text_pl`, `covered_fact_ids`
+i `reason_pl`. Schemat nie kopiuje pełnych zdań do `enum` ani nie łączy
+trzech nakładających się wariantów obiektu przez `anyOf`. Treści kandydatów
+są przekazywane w danych. Lista dozwolonych odwołań nadal ogranicza się do
+znanych faktów i wcześniejszych kandydatów. Kod wciąż wymaga uzasadnienia,
+referencji przy odrzuceniu/wydzieleniu szczegółu i zachowania treści w pełni
+nowego faktu. Nie przyjmuje odwołań do siebie, późniejszych ani obcych ID.
+Powtórzone poprawne referencje są normalizowane, bez dopisywania cytowań.
+
+Każdy schemat zapytania przechodzi lokalną kontrolę podstawowych reguł
+Structured Outputs i udokumentowanych limitów przed wysłaniem. Odpowiedź jest
+też sprawdzana lokalnie względem schematu, przed kontrolami znaczenia.
+Ta kontrola nie zastępuje kompilatora OpenAI i nie gwarantuje jego akceptacji.
+Błąd schematu HTTP 400 jest odróżniany od błędu odpowiedzi modelu; dokładny
+komunikat API, etap, identyfikator zapytania i parametry rozmiaru schematu są
+zapisywane w diagnostyce. Nie powtarzamy identycznego błędnego zapytania 400.
+
+Test całego dużego wątku obejmuje 49 pełnych artykułów, 17 zapisanych ustaleń,
+22 kandydatów, naprawę pominiętego źródła, utrzymanie typu znanego faktu,
+odrzucenie parafraz, normalizację referencji i zapis aktualizacji. Korzysta
+z adaptera SDK ze sztucznymi odpowiedziami; nie dowodzi jakości ocen modelu.
+Publikacja bazowej syntezy i kontekstu pozostaje niezmienna. Bez migracji SQL.
+
 ## Reguły
 
 - Od v66 ogólny kontekst wyjaśnia wcześniejsze wydarzenia, genezę, szersze

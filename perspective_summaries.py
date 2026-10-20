@@ -718,30 +718,29 @@ w neutralny fakt i odwrotnie. Odrzucenie wszystkich kandydatów jest poprawne.
 
 
 def novelty_schema(prior, batch):
-    """Match API constraints to validation: no self, future or cyclic references.
+    """A fixed decision shape; cross-field judgments are checked in Python.
 
-    Keep the prior-ID enum shared. Per-candidate reference lists contain only
-    earlier candidates, and bounded batches keep the schema's enum count small.
-    A wholly new claim is copied exactly; only a supported detail may be edited.
+    Do not put entire candidate sentences in enums or encode new/duplicate/
+    detail as overlapping object unions. Those data-dependent API grammars
+    can fail compilation after all full-text extraction has already finished.
+    Evidence IDs remain constrained to prior facts and earlier candidates.
     """
-    definitions = {'prior_fact_id': {'type': 'string', 'enum': [f['fact_id'] for f in prior]}}
+    definitions = {}
+    if prior:
+        definitions['prior_fact_id'] = {'type': 'string', 'enum': list(dict.fromkeys(f['fact_id'] for f in prior))}
     decisions = {}
     for index, candidate in enumerate(batch):
-        references = [{'$ref': '#/$defs/prior_fact_id'}]
+        references = [{'$ref': '#/$defs/prior_fact_id'}] if prior else []
         if index:
             references.append({'type': 'string', 'enum': [f['fact_id'] for f in batch[:index]]})
         name = f'covered_{index}'
-        definitions[name] = {'type': 'array', 'minItems': 1,
-                             'items': references[0] if len(references) == 1 else {'anyOf': references}}
-        fields = {'covered_fact_ids': {'$ref': f'#/$defs/{name}'},
-                  'reason_pl': copy.deepcopy(NONBLANK_STRING)}
-        decisions[candidate['fact_id']] = {'anyOf': [
-            obj({'new_text_pl': {'type': 'string', 'enum': [candidate['text_pl']]},
-                 'covered_fact_ids': {'type': 'array', 'items': STRING, 'maxItems': 0},
-                 'reason_pl': copy.deepcopy(NONBLANK_STRING)}),
-            obj({'new_text_pl': {'type': 'string', 'enum': ['']}, **fields}),
-            obj({'new_text_pl': copy.deepcopy(NONBLANK_STRING), **copy.deepcopy(fields)}),
-        ]}
+        definitions[name] = ({'type': 'array', 'items': references[0] if len(references) == 1 else {'anyOf': references}}
+                             if references else {'type': 'array', 'items': STRING, 'maxItems': 0})
+        decisions[candidate['fact_id']] = obj({
+            'new_text_pl': copy.deepcopy(STRING),
+            'covered_fact_ids': {'$ref': f'#/$defs/{name}'},
+            'reason_pl': copy.deepcopy(NONBLANK_STRING),
+        })
     schema = obj({'decisions': obj(decisions)})
     schema['$defs'] = definitions
     return schema

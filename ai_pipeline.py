@@ -16,6 +16,7 @@ import heapq
 import hashlib
 from itertools import combinations
 import json
+import jsonschema
 import os
 from pathlib import Path
 import random
@@ -29,9 +30,10 @@ import perspective_summaries as perspectives
 
 from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
+from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v69-explicit-article-coverage"
+PROMPT_VERSION = "ai-prompts-v70-stable-novelty-schema"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2723,6 +2725,13 @@ class AIResponseParseError(ValueError):
         self.response_details: dict[str, Any] = {}
 
 
+class AIRequestSchemaError(RuntimeError):
+    """A rejected request schema, not an invalid model response."""
+    def __init__(self, name: str, message: str, **details):
+        super().__init__(f"Schemat {name}: {message}")
+        self.response_details = {"schema": name, "api_error": message, **details}
+
+
 class ParsedAIResponse(dict[str, Any]):
     def __init__(self, value: dict[str, Any], raw_output: str):
         super().__init__(value)
@@ -3003,6 +3012,8 @@ def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
+    if isinstance(exc, AIRequestSchemaError):
+        return {"request_schema_error": str(exc), "response_details": exc.response_details}
     if not isinstance(exc, AIResponseParseError):
         return None
     return {
@@ -3014,6 +3025,10 @@ def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
 
 def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
     """Show returned text, with bounded output and escaped line breaks."""
+    if isinstance(exc, AIRequestSchemaError):
+        log("AI", f"{stage}: błąd schematu zapytania: "
+            + json.dumps(exc.response_details, ensure_ascii=False), level="ERROR")
+        return
     if not isinstance(exc, AIResponseParseError):
         return
     details = exc.response_details
@@ -3040,6 +3055,9 @@ def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
 
 
 def log_parse_failure(stage: str, exc: Exception) -> None:
+    if isinstance(exc, AIRequestSchemaError):
+        log_ai_response_diagnostic(stage, exc)
+        return
     if not isinstance(exc, AIResponseParseError):
         return
     log(
@@ -3119,6 +3137,12 @@ def call_openai(
 ) -> dict[str, Any]:
     from openai import OpenAI
 
+    schema_stats = None
+    if response_schema is not None:
+        try:
+            schema_stats = check_response_schema(response_schema)
+        except (ValueError, jsonschema.SchemaError) as exc:
+            raise AIRequestSchemaError(response_schema_name, str(exc), source="local_preflight") from exc
     effective_retry_limit = max(1, retry_limit or OPENAI_MAX_RETRIES)
     client = OpenAI(
         api_key=openai_api_key(),
@@ -3163,6 +3187,18 @@ def call_openai(
                 request["reasoning"] = {"effort": reasoning_effort}
             response = client.responses.create(**request)
         except Exception as exc:
+            body = getattr(exc, "body", None)
+            api_error = body.get("error", body) if isinstance(body, dict) else {}
+            if not isinstance(api_error, dict):
+                api_error = {}
+            message = str(api_error.get("message") or str(exc))
+            if (getattr(exc, "status_code", None) == 400 and response_schema is not None
+                    and "schema" in message.lower()):
+                # Do not crop the reason to the topic progress line's 220
+                # characters, or pretend another extraction could fix it.
+                raise AIRequestSchemaError(response_schema_name, message,
+                    source="openai", status=400, request_id=getattr(exc, "request_id", None),
+                    schema_stats=schema_stats) from exc
             if not is_retryable_openai_error(exc):
                 raise
             last_error = exc
@@ -3195,7 +3231,16 @@ def call_openai(
                     f"OpenAI zwróciło niekompletną odpowiedź (reason={reason}).",
                     response.output_text,
                 )
-            return ParsedAIResponse(extract_json(response.output_text), response.output_text)
+            parsed = extract_json(response.output_text)
+            if response_schema is not None:
+                try:
+                    jsonschema.Draft202012Validator(response_schema).validate(parsed)
+                except jsonschema.ValidationError as exc:
+                    path = ".".join(map(str, exc.absolute_path)) or "$"
+                    raise AIResponseParseError(
+                        f"Odpowiedź {response_schema_name} nie spełnia schematu w {path}: {exc.message}",
+                        response.output_text) from exc
+            return ParsedAIResponse(parsed, response.output_text)
         except ValueError as exc:
             last_error = exc
             if isinstance(exc, AIResponseParseError):
@@ -3226,7 +3271,7 @@ def call_openai(
                 raise
             log(
                 "AI",
-                f"Niepoprawny JSON z OpenAI; ponawiam próbę "
+                f"Niepoprawna odpowiedź JSON z OpenAI; ponawiam próbę "
                 f"({parse_failures}/2): {short_text(exc, 220)}.",
                 level="WARN",
             )

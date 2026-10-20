@@ -1,0 +1,11 @@
+{
+  "run_id": 39397539367,
+  "job_id": 118543893020,
+  "commit": "e6cb0a8e2fbda9c42eda98189244696abe4933ee",
+  "note": "Actual log excerpts only. The detailed OpenAI rejection and the 22 candidate texts were not logged; integration fixtures use explicit synthetic judgments.",
+  "log_lines": [
+    "2026-10-20T09:05:11.6849958Z [AI] Synteza 1/1: [Świat] Trump wstrzymuje nowe sankcje przeciwko Rosji (nowych: 26, łącznie: 49; dane: pełne treści, 258.6 KiB; zadań w toku po starcie: 1/1).",
+    "2026-10-20T09:28:04.8633977Z [AI] Kontrola nowości perspektyw: kandydatów: 22, znanych ustaleń: 17; porównuję treści ustaleń, bez ponownego przesyłania artykułów.",
+    "2026-10-20T09:28:05.1380450Z [AI][ERROR] Synteza 1/1 nieudana: [Świat] Trump wstrzymuje nowe sankcje przeciwko Rosji: Error code: 400 - {'error': {'message': 'Invalid schema for response_format \\'perspective_novelty_audit\\': In context=(\\'properties\\', \\'decisions\\', \\'properties\\', \\'fact_94e1c87be35f257a444bdec9\\', \\'anyOf\\', \\'0\\',…; ukończono: 1/1; pozostało: 0."
+  ]
+}

@@ -295,8 +295,16 @@ class PerspectiveNoveltyTests(unittest.TestCase):
         batch = [{'fact_id': 'new', 'text_pl': 'Minister przyjedzie w poniedziałek.'}]
         schema = p.novelty_schema(prior, batch)
         jsonschema.validate({'decisions': {'new': verdict(batch[0]['text_pl'])}}, schema)
-        with self.assertRaises(jsonschema.ValidationError):
-            jsonschema.validate({'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.')}}, schema)
+        # The API grammar describes structure and admissible IDs. The
+        # existing semantic validator enforces cross-field copy/detail rules.
+        changed = {'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.')}}
+        jsonschema.validate(changed, schema)
+        row = {'article_id': 'a', 'source_profile': 'CENTER'}
+        ledger = [{**f, 'kind': 'FACT', 'lane': 'COMMON', 'article_ids': ['a']}
+                  for f in [*prior, *batch]]
+        with self.assertRaisesRegex(ValueError, 'wymaga wskazania'):
+            p.audit_new_facts(ledger, ledger[:1], [row], lambda *args: copy.deepcopy(changed),
+                              ai.normalize_generated_text, 300000, None)
         jsonschema.validate({'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.', ['known'])}}, schema)
 
     def test_actual_duplicate_reference_failure_is_normalized_without_retrying_decisions(self):
