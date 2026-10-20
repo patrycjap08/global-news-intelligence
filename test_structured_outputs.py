@@ -27,7 +27,7 @@ class StructuredOutputTests(unittest.TestCase):
                 candidates = [{'fact_id': f'new_{i}', 'text_pl': 'Pełne ustalenie. ' * 1000}
                               for i in range(p.NOVELTY_BATCH_FACTS)]
                 for schema in (p.extraction_schema(known, [f'a{i}' for i in range(8)]),
-                               p.article_coverage_schema(known, ['a1', 'a2']),
+                               p.article_coverage_schema(known, [f'a{i}' for i in range(8)]),
                                p.novelty_schema(known, candidates), p.novelty_decision_schema(known, candidates),
                                p.writing_schema(known)):
                     check_response_schema(schema)
@@ -83,7 +83,7 @@ class StructuredOutputTests(unittest.TestCase):
             self.assertEqual(result, {'x': 'ok'})
             self.assertEqual(sdk.return_value.responses.create.call_count, 2)
 
-    def test_entire_49_article_update_through_sdk_schema_repair_audit_and_storage(self):
+    def test_entire_49_article_update_with_complete_first_extraction_audit_and_storage(self):
         # Explicit synthetic judgments, not a simulation of model accuracy.
         # Exercise the actual API adapter rather than mocking call_openai.
         rows = [{**article(f'a{i}', ('LEFT', 'CENTER', 'RIGHT')[i % 3]),
@@ -110,19 +110,16 @@ class StructuredOutputTests(unittest.TestCase):
                 current = data['all_articles']
                 self.assertLessEqual(len(current), 8)
                 bodies.extend(a['body_original'] for a in current)
-                ids = [a['article_id'] for a in current if a['article_id'] != 'a7']
+                ids = [a['article_id'] for a in current]
                 returned = [fact('', ids, f['fact_id'], reason='', kind=f['kind']) for f in known]
                 if len(calls) == 1:
                     # A new-branch exact match cannot change the old type.
                     returned.append(fact(known[0]['text_pl'], ['a0'], kind='FACT'))
                     returned.extend(fact(f'Nowy szczegół {i}.', ['a0'], kind='FACT') for i in range(22))
-                answer = extraction(returned, current)
-                if any(a['article_id'] == 'a7' for a in current):
-                    answer['article_coverage']['a7']['no_relevant_facts_reason_pl'] = ''
+                answer = coverage_reply(extraction(returned, current))
             elif name == 'perspective_article_coverage':
                 repairs.extend(a['article_id'] for a in data['all_articles'])
-                answer = coverage_reply(extraction([
-                    fact('', ['a7'], known[0]['fact_id'], reason='', kind='STATEMENT')], data['all_articles']))
+                self.fail('Complete first extraction must not reread articles for coverage.')
             else:
                 self.assertEqual(name, 'perspective_novelty_audit')
                 self.assertNotIn('all_articles', data)
@@ -144,12 +141,12 @@ class StructuredOutputTests(unittest.TestCase):
             sdk.return_value.responses.create.side_effect = response
             result = ai.generate_summary_response(payload, 'gpt-5-nano')
         self.assertEqual(calls.count('perspective_facts'), 7)
-        self.assertEqual(calls.count('perspective_article_coverage'), 1)
+        self.assertEqual(calls.count('perspective_article_coverage'), 0)
         self.assertEqual(calls.count('perspective_novelty_audit'), 1)
         self.assertNotIn('perspective_summary', calls)
         self.assertFalse(any(c.kwargs.get('level') == 'WARN' for c in logger.call_args_list))
         self.assertEqual(bodies, [a['body_original'] for a in rows])
-        self.assertEqual(repairs, ['a7'])
+        self.assertEqual(repairs, [])
         self.assertEqual(payload, before)
         self.assertEqual(result['summary_pl'], base['summary_pl'])
         self.assertEqual(result['background_context'], base['background_context'])
@@ -168,6 +165,38 @@ class StructuredOutputTests(unittest.TestCase):
         self.assertEqual(saved['base_summary'], base)
         self.assertEqual(len(saved['updates']), 1)
         self.assertTrue(set(payload['new_article_ids']) <= set(saved['processed_article_ids']))
+
+    def test_eight_sources_confirm_known_fact_in_one_call_without_update_or_repairs(self):
+        rows = [article(f'a{i}', ('CENTER', 'LEFT', 'RIGHT')[i % 3]) for i in range(8)]
+        known = p.route_facts({'facts': [fact('Minister ogłosił decyzję.', ['a0'], kind='STATEMENT')]},
+                              rows, [], ai.normalize_generated_text)[1]
+        base = {'perspective_version': 1, 'summary_pl': 'Zachowana publikacja.',
+                'perspective_facts': known}
+        payload = {'topic': {'working_title_pl': 'Decyzja ministra'}, 'all_articles': rows,
+                   'new_article_ids': [a['article_id'] for a in rows[1:]],
+                   'previous_aggregation': {'base_summary': base}}
+
+        def response(**request):
+            fmt = request['text']['format']
+            self.assertEqual(fmt['name'], 'perspective_facts')
+            self.assertIn('article_results', fmt['schema']['required'])
+            self.assertIn('Brak NOWYCH faktów jest poprawny', request['instructions'])
+            data = json.JSONDecoder().raw_decode(request['input'])[0]
+            answer = coverage_reply(extraction([
+                fact('', [a['article_id'] for a in data['all_articles']], known[0]['fact_id'],
+                     reason='', kind='STATEMENT')], data['all_articles']))
+            jsonschema.validate(answer, fmt['schema'])
+            return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(answer))
+
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-only'}), patch('openai.OpenAI') as sdk, patch.object(ai, 'log') as logger:
+            sdk.return_value.responses.create.side_effect = response
+            result = ai.generate_summary_response(payload, 'gpt-5-nano')
+        self.assertEqual(sdk.return_value.responses.create.call_count, 1)
+        self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
+        self.assertEqual(len(result['perspective_facts']), 1)
+        self.assertEqual(set(result['perspective_facts'][0]['article_ids']), {a['article_id'] for a in rows})
+        self.assertEqual(result['summary_pl'], base['summary_pl'])
+        self.assertFalse(any(c.kwargs.get('level') == 'WARN' for c in logger.call_args_list))
 
 
 if __name__ == '__main__':

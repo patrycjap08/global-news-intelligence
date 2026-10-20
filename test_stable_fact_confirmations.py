@@ -8,7 +8,7 @@ import jsonschema
 
 import ai_pipeline as ai
 import perspective_summaries as p
-from test_perspective_summaries import article, extraction, fact
+from test_perspective_summaries import article, extraction, fact, coverage_reply
 from test_perspective_validation_recovery import written
 
 
@@ -84,7 +84,7 @@ class StableFactConfirmationTests(unittest.TestCase):
 
         def request(instructions, data, model, **settings):
             self.assertEqual(settings['response_schema_name'], 'perspective_facts')
-            result = extraction([fact(text, ['old', 'new'], kind='FACT')], data['all_articles'])
+            result = coverage_reply(extraction([fact(text, ['old', 'new'], kind='FACT')], data['all_articles']))
             jsonschema.validate(result, settings['response_schema'])
             return result
 

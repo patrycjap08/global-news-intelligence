@@ -169,6 +169,42 @@ Zmiana wyłącznie protokołu audytu nie unieważnia poprawnej ekstrakcji.
 Starsze nieudane przebiegi nie zawierają takiego checkpointu; ich odzyskanie
 wstecz nie jest możliwe. Nie wymaga migracji ani publicznego eksportu tych danych.
 
+### Kompletne przypisania w pierwszej odpowiedzi (v72)
+
+Od v72 produkcyjne `perspective_facts` od razu wymaga `article_results`
+z osobnym wynikiem każdego artykułu: ustaleniami albo konkretnym powodem braku
+informacji o wydarzeniu. Dawna globalna lista ustaleń i osobna lista kluczy
+pokrycia pozwalały zwrócić np. 17 ustaleń wyłącznie pod jednym z 8 artykułów,
+a pozostałe oznaczyć pustym powodem. To uruchamiało dodatkowe zapytania
+`perspective_article_coverage` w paczkach po dwa pełne artykuły, jeszcze przed
+końcowym scalaniem. Nowy schemat nie dopuszcza takiego pustego wyniku.
+
+Brak nowych faktów jest poprawny. Gdy artykuł powtarza zapisane ustalenia,
+model zwraca pod jego kluczem odpowiednie `known_fact_id`, typ oraz puste
+teksty i uzasadnienia nowości. Kod zachowuje stare zdania, dopisuje wyłącznie
+jawnie wskazane potwierdzenia i nie tworzy aktualizacji. Dla nowego faktu
+przypisanie wynika z klucza artykułu wybranego przez model, bez osobnej listy
+cytowań. Nie dopisujemy źródeł automatycznie z samego wspólnego tematu.
+Pełne teksty, limit ośmiu artykułów w paczce i kontrola nowości pozostają.
+Nieprawidłowa odpowiedź nadal może wymagać jednej korekty; schemat nie
+gwarantuje poprawności semantycznej. Starszy płaski adapter zachowuje
+dotychczasowy mechanizm napraw dla zgodności wewnętrznej.
+
+Końcowe scalanie może dołączyć nowe artykuły i wymagać kolejnej aktualizacji
+wcześniej poprawnie opracowanego wątku. Jednak analiza, która już zawiodła
+w głównej kolejce, nie jest powtarzana po scaleniu w tym samym przebiegu.
+Blokada podąża za zachowanym identyfikatorem także przy wchłonięciu wątku.
+Błąd pozostaje w wyniku przebiegu, a nieprzetworzone artykuły czekają na
+kolejne ai-only. Nie zapisujemy niepełnej analizy jako poprawnej.
+
+Zmiana dotyczy protokołu pierwszej odpowiedzi, bez zmiany reguł ustaleń
+lub formatu zapisanego rejestru. Poprawne, kompletne checkpointy v71 nadal
+mogą być wykorzystane przy identycznych danych i przejściu dotychczasowych
+kontroli. Testy adaptera SDK obejmują osiem źródeł potwierdzających znany fakt
+w jednym zapytaniu bez napraw i aktualizacji oraz 49 pełnych artykułów
+w siedmiu paczkach bez dodatkowego odczytu pokrycia. Odpowiedzi w testach
+są sztuczne; rzeczywistych oszczędności tokenów nie mierzymy płatnym API.
+
 ## Cofnięcie
 
 Całość jest publikowana jako jeden commit pod tytułem:

@@ -11,7 +11,7 @@ from test_topic_titles import FakeMergeClient
 
 class SummaryQueueTests(unittest.TestCase):
     def run_queue(self, topics, articles, links, summaries=(), assignments=(), forced=None, clock=None,
-                  only=None, client=None):
+                  only=None, client=None, failed=None, skip=None, error=None):
         client = client or FakeMergeClient(topics, links, list(summaries))
         client.rows['article_topic_assignments'] = list(assignments)
         with TemporaryDirectory() as folder:
@@ -22,11 +22,36 @@ class SummaryQueueTests(unittest.TestCase):
             conn.commit()
             conn.close()
             with patch.object(ai, 'build_bounded_summary_input', return_value=({}, 0, 'test')), patch.object(
-                ai, 'generate_summary_response', return_value={'update': {'status': 'NEW_INFORMATION'}},
+                ai, 'generate_summary_response', return_value={'update': {'status': 'NEW_INFORMATION'}}, side_effect=error,
             ) as generate, patch.object(ai, 'persist_summary') as persist, patch.object(ai, 'log') as logger, patch.object(ai, 'now', **({'side_effect': clock} if clock else {'return_value': '2026-10-07T12:00:00Z'})):
                 stats = ai.retry_incomplete_summaries(db, 'saved_run', client,
-                    forced_new_article_ids_by_topic=forced, only_topic_ids=only)
+                    forced_new_article_ids_by_topic=forced, only_topic_ids=only,
+                    failed_topic_ids=failed, skip_topic_ids=skip)
         return stats, generate, persist, logger
+
+    def test_failed_analysis_is_recorded_and_not_repeated_in_same_run_final_queue(self):
+        topics = [{'topic_id': key, 'headline_pl': 'Wątek ' + key,
+                   'last_seen_at': '2026-10-07T12:00:00Z'} for key in ('failed', 'other')]
+        links = [{'topic_id': t['topic_id'], 'article_id': t['topic_id'] + str(i)}
+                 for t in topics for i in range(2)]
+        articles = [(link['article_id'], 'source-' + link['article_id'][-1], 'CENTER') for link in links]
+        forced = {t['topic_id']: [t['topic_id'] + '1'] for t in topics}
+        failed = set()
+        client = FakeMergeClient(topics[:1], links[:2], [])
+        stats, generate, persist, _ = self.run_queue(topics[:1], articles[:2], links[:2],
+            forced=forced, client=client, failed=failed, error=ValueError('Niepoprawna odpowiedź.'))
+        self.assertEqual(stats, {'summaries': 0, 'failed_summaries': 1})
+        self.assertEqual(failed, {'failed'})
+        generate.assert_called_once()
+        persist.assert_not_called()
+        saved = next(items[0] for table, items, _ in client.upserts if table == 'topic_runs')
+        self.assertEqual(saved['status'], 'FAILED')
+        stats, generate, persist, log = self.run_queue(topics, articles, links,
+            forced=forced, failed=failed, skip=set(failed))
+        self.assertEqual(stats, {'summaries': 1, 'failed_summaries': 0})
+        generate.assert_called_once()
+        self.assertEqual(persist.call_args.kwargs['topic_id'], 'other')
+        self.assertTrue(any('ponowienie dopiero w kolejnym AI-only' in str(c) for c in log.call_args_list))
 
     def test_repair_fetches_retained_topic_directly_instead_of_unordered_full_scan(self):
         topic = {'topic_id': 'retained', 'headline_pl': 'Zachowany wątek',
@@ -167,6 +192,31 @@ class SummaryQueueTests(unittest.TestCase):
         self.assertEqual(result['summaries'], 2)  # Main queue plus post-publication merge queue.
         self.assertEqual(retry.call_args_list[0].kwargs['only_generation'], 'perspectives')
         self.assertEqual(retry.call_args_list[1].kwargs['only_topic_ids'], {'retained'})
+
+    def test_pipeline_defers_main_failure_after_final_merge_and_keeps_failure_count(self):
+        merge_stats = {key: 0 for key in ('merge_candidates', 'topics_merged', 'merge_failed',
+            'local_candidate_groups', 'local_candidate_topics', 'largest_candidate_group', 'merge_requests')}
+        def merge(*args, **kwargs):
+            if kwargs.get('existing_summaries_only'):
+                self.assertEqual(kwargs['deferred_summary_topic_ids'], {'failed'})
+                kwargs['deferred_summary_topic_ids'].clear()
+                kwargs['deferred_summary_topic_ids'].add('retained')
+                kwargs['merged_article_ids_by_topic']['retained'] = ['moved']
+            return dict(merge_stats)
+        def queue(*args, **kwargs):
+            if 'skip_topic_ids' not in kwargs:
+                kwargs['failed_topic_ids'].add('failed')
+                return {'summaries': 0, 'failed_summaries': 1}
+            self.assertEqual(kwargs['skip_topic_ids'], {'retained'})
+            self.assertEqual(kwargs['only_topic_ids'], {'retained'})
+            return {'summaries': 0, 'failed_summaries': 0}
+        with TemporaryDirectory() as folder, patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
+            ai, 'pending_articles', return_value=[]), patch.object(ai, 'merge_active_topics', side_effect=merge), patch.object(
+            ai, 'normalize_topic_titles', return_value=0), patch.object(ai, 'classify_topic_categories', return_value=0), patch.object(
+            ai, 'retry_incomplete_summaries', side_effect=queue), patch.object(ai, 'log'):
+            result = ai.analyze_run(Path(folder) / 'db', 'run', FakeMergeClient([], [], []))
+        self.assertEqual(result['failed_summaries'], 1)
+        self.assertEqual(result['summaries'], 0)
 
 
 if __name__ == '__main__':

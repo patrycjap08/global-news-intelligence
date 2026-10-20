@@ -33,7 +33,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v71-explicit-novelty-decisions"
+PROMPT_VERSION = "ai-prompts-v72-complete-first-extraction"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2559,8 +2559,16 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             extraction_checkpoint = checkpoint
         def call(instructions, data, schema, name):
             nonlocal last_response, last_schema
+            topic_label = short_text((payload.get('topic') or {}).get('working_title_pl') or
+                                     (payload.get('topic') or {}).get('topic_id') or 'temat', 100)
             if name == "perspective_facts":
-                log("AI", f"Fakty perspektyw: paczka {len(data['all_articles'])} artykułów z pełnymi treściami, bez skracania tekstów.")
+                log("AI", f"Fakty perspektyw [{topic_label}]: paczka {len(data['all_articles'])} pełnych artykułów; "
+                    "obowiązkowy osobny wynik dla każdego artykułu już w pierwszej odpowiedzi.")
+                instructions = perspectives.ARTICLE_EXTRACTION_INSTRUCTIONS
+                if 'validation_feedback' in data:
+                    instructions += "\nPopraw błąd z validation_feedback, zachowując prawidłowe ustalenia i opisany format article_results."
+                schema = perspectives.article_coverage_schema(data['previous_facts'],
+                                                              [a['article_id'] for a in data['all_articles']])
             elif name == "perspective_article_coverage":
                 log("AI", f"Naprawa pokrycia: {len(data['all_articles'])} artykułów z pełnymi treściami; "
                     "każdy artykuł musi mieć osobny wynik z ustaleniami albo konkretnym powodem ich braku.")
@@ -2587,6 +2595,14 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                         f"bez nowej treści: {rejected}.")
                 response = perspectives.decode_novelty_decisions(response, data['candidate_facts'])
             if name == "perspective_facts":
+                results = response.get('article_results')
+                if isinstance(results, dict):
+                    counts = [len((results.get(str(a['article_id'])) or {}).get('facts') or [])
+                              for a in data['all_articles']]
+                    log("AI", f"Fakty perspektyw [{topic_label}] — odpowiedź: osobnych wyników: "
+                        f"{len(results)}/{len(data['all_articles'])}, przypisań ustaleń: {sum(counts)}, "
+                        f"ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
+                    return response
                 coverage = response.get('article_coverage') or []
                 counts = [sum(str(article['article_id']) in fact.get('article_ids', [])
                               for fact in response.get('facts') or []) for article in data['all_articles']]
@@ -3601,6 +3617,7 @@ def merge_active_topics(
     prefer_embeddings: bool = False,
     only_generation: str | None = None,
     focus_topic_ids: set[str] | None = None,
+    deferred_summary_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Merge duplicate active topics before any final summary is generated.
 
@@ -4165,6 +4182,11 @@ def merge_active_topics(
                 # a newly created candidate was merged into an older topic.
                 focus_topic_ids.difference_update(group_ids)
                 focus_topic_ids.add(canonical_id)
+            if deferred_summary_topic_ids is not None and deferred_summary_topic_ids.intersection(group_ids):
+                # A failed analysis must not start over after its topic was
+                # absorbed into a different retained identity in this run.
+                deferred_summary_topic_ids.difference_update(group_ids)
+                deferred_summary_topic_ids.add(canonical_id)
             if automatic_merge:
                 client.upsert("topic_runs", [{
                     "topic_run_id": "topicrun_" + digest({"run": run_id, "stage": "EMBEDDING_MERGE",
@@ -4201,6 +4223,7 @@ def merge_existing_summaries(
     model: str = DEFAULT_MODEL,
     max_topics: int = 0,
     focus_topic_ids: set[str] | None = None,
+    failed_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Repair duplicate active synthesized topics and update retained summaries.
 
@@ -4222,6 +4245,7 @@ def merge_existing_summaries(
         max_topics=max_topics,
         merged_article_ids_by_topic=merged_article_ids_by_topic,
         **({"focus_topic_ids": focus_topic_ids} if focus_topic_ids is not None else {}),
+        **({"deferred_summary_topic_ids": failed_topic_ids} if failed_topic_ids is not None else {}),
     )
     log("AI-REPAIR", "Przekazuję do kolejki aktualizacji: "
         f"wątków: {len(merged_article_ids_by_topic)}, przeniesionych artykułów: "
@@ -4233,6 +4257,8 @@ def merge_existing_summaries(
         model=model,
         forced_new_article_ids_by_topic=merged_article_ids_by_topic,
         only_topic_ids=set(merged_article_ids_by_topic),
+        **({"failed_topic_ids": failed_topic_ids, "skip_topic_ids": set(failed_topic_ids)}
+           if failed_topic_ids is not None else {}),
     )
     merge_stats["summaries"] = summary_stats["summaries"]
     merge_stats["failed_summaries"] = summary_stats["failed_summaries"]
@@ -4798,6 +4824,8 @@ def retry_incomplete_summaries(
     forced_new_article_ids_by_topic: dict[str, list[str]] | None = None,
     only_topic_ids: set[str] | None = None,
     only_generation: str | None = None,
+    failed_topic_ids: set[str] | None = None,
+    skip_topic_ids: set[str] | None = None,
 ) -> dict[str, int]:
     """Finalize one summary/update per topic after all batches and merges."""
     model = summary_model_for_run(model)
@@ -4851,6 +4879,7 @@ def retry_incomplete_summaries(
         forced_new_article_ids_by_topic = forced_new_article_ids_by_topic or {}
         summary_jobs: list[dict[str, Any]] = []
         skip_counts: dict[str, int] = defaultdict(int)
+        skip_topic_ids = skip_topic_ids or set()
 
         def skipped(topic: dict[str, Any], reason: str) -> None:
             skip_counts[reason] += 1
@@ -4864,6 +4893,9 @@ def retry_incomplete_summaries(
         queued_topic_ids: set[str] = set()
         for topic in topics:
             topic_id = str(topic.get("topic_id") or "")
+            if topic_id in skip_topic_ids:
+                skipped(topic, "nieudana analiza już wykonana w tym przebiegu; ponowienie dopiero w kolejnym AI-only")
+                continue
             if topic_id in queued_topic_ids:
                 continue
             queued_topic_ids.add(topic_id)
@@ -4965,6 +4997,8 @@ def retry_incomplete_summaries(
 
         def record_failure(index: int, job: dict[str, Any], summary_hash: str, exc: Exception) -> None:
             stats["failed_summaries"] += 1
+            if failed_topic_ids is not None:
+                failed_topic_ids.add(job['topic_id'])
             log_parse_failure("SUMMARY", exc)
             log("AI", f"Synteza {index}/{total_jobs} nieudana: {short_text(job['title'])}: "
                 f"{short_text(exc, 220)}; ukończono: {completed_jobs}/{total_jobs}; "
@@ -5773,9 +5807,11 @@ def analyze_run(
         "AI",
         "Etap 3/3 — syntezy: generuję jedną końcową syntezę lub aktualizację na temat.",
     )
+    failed_topic_ids: set[str] = set()
     recovery_stats = retry_incomplete_summaries(
         db_path, run_id, client, model=model,
         forced_new_article_ids_by_topic=merged_article_ids_by_topic, only_generation="perspectives",
+        failed_topic_ids=failed_topic_ids,
     )
     stats["summaries"] += recovery_stats["summaries"]
     stats["failed_summaries"] += recovery_stats["failed_summaries"]
@@ -5790,6 +5826,7 @@ def analyze_run(
     final_stats = merge_existing_summaries(
         db_path, run_id, client, model=model,
         focus_topic_ids=focus_topic_ids,
+        failed_topic_ids=failed_topic_ids,
     )
     for key in ("summaries", "failed_summaries", "topics_merged", "merge_candidates", "merge_failed", "merge_requests", "merge_split_retries"):
         stats[key] += final_stats.get(key, 0)

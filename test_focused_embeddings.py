@@ -45,6 +45,7 @@ class FocusedEmbeddingTests(unittest.TestCase):
         links = [{'topic_id': key, 'article_id': key} for key in 'abcd']
         client = FakeMergeClient(topics, links, [{'topic_id': 'b', 'summary': {'summary_pl': 'Zachowana synteza'}}])
         focus = {'a'}
+        deferred = {'a', 'unrelated_failure'}
         with TemporaryDirectory() as folder:
             db = Path(folder) / 'db'
             with sqlite3.connect(db) as conn:
@@ -53,9 +54,11 @@ class FocusedEmbeddingTests(unittest.TestCase):
             with patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
                 ai, 'build_topic_embedding_candidate_edges', return_value={('a', 'b'): .9, ('c', 'd'): .99},
             ), patch.object(ai, 'log'):
-                stats = ai.merge_active_topics(db, 'run', client, prefer_embeddings=True, focus_topic_ids=focus)
+                stats = ai.merge_active_topics(db, 'run', client, prefer_embeddings=True,
+                    focus_topic_ids=focus, deferred_summary_topic_ids=deferred)
         self.assertEqual(stats['topics_merged'], 2)
         self.assertEqual(focus, {'b'})
+        self.assertEqual(deferred, {'b', 'unrelated_failure'})
         self.assertEqual({t['topic_id'] for t in topics if t['status'] == 'MERGED'}, {'a'})
         self.assertEqual(client.rows['topic_summaries'][0]['summary']['summary_pl'], 'Zachowana synteza')
 

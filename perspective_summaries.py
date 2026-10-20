@@ -169,7 +169,7 @@ def flatten_article_coverage(response, batch):
     results = response.get('article_results')
     expected = {str(a['article_id']) for a in batch}
     if not isinstance(results, dict) or set(results) != expected:
-        raise ValueError('Naprawa pokrycia wymaga osobnego wyniku dla każdego artykułu bieżącej paczki.')
+        raise ValueError('Ekstrakcja wymaga osobnego wyniku dla każdego artykułu bieżącej paczki.')
     facts, coverage = [], {}
     for aid, result in results.items():
         if not isinstance(result, dict) or not isinstance(result.get('facts'), list):
@@ -182,7 +182,7 @@ def flatten_article_coverage(response, batch):
             raise ValueError(f'Artykuł {aid} jednocześnie ma ustalenia i powód ich braku.')
         for raw in result['facts']:
             if not isinstance(raw, dict) or 'article_ids' in raw:
-                raise ValueError('W naprawie pokrycia źródło ustalenia określa jego klucz artykułu, bez article_ids.')
+                raise ValueError('Źródło ustalenia określa jego klucz artykułu, bez article_ids.')
             facts.append({**raw, 'article_ids': [aid]})
         coverage[aid] = {'no_relevant_facts_reason_pl': reason}
     return {'headline_pl': response.get('headline_pl', ''), 'categories': response.get('categories') or [],
@@ -297,6 +297,80 @@ zawiera istotnego nowego ANI znanego ustalenia o wydarzeniu. Nie usuwaj ani nie 
 wcześniejszych ustaleń. Kategorie: POLSKA, POLITYKA, SWIAT, GOSPODARKA,
 SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE, KULTURA_SPORT.
 '''.strip()
+
+ARTICLE_EXTRACTION_INSTRUCTIONS = '''
+Przeczytaj pełne teksty KAŻDEGO materiału z all_articles. Zbuduj kompletny,
+atomowy rejestr istotnych ustaleń o wydarzeniu z topic. To ekstrakcja faktów,
+nie streszczenie. Pisz po polsku, bez angielskich wtrąceń i cyrylicy; nazwy
+transkrybuj. headline_pl ma być krótkim tytułem [Kraj] wydarzenie. Kategorie:
+POLSKA, POLITYKA, SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE,
+KULTURA_SPORT.
+
+Zwróć article_results: obiekt z osobnym obowiązkowym kluczem article_id
+dla KAŻDEGO materiału. Pod kluczem wpisz facts podane W TYM artykule oraz
+no_relevant_facts_reason_pl. Nie ma globalnych facts ani article_coverage.
+Nie ma article_ids przy ustaleniu: jego umieszczenie pod kluczem artykułu
+jest jawnym przypisaniem źródła. Nie zgaduj cytowań i nie kopiuj faktów
+jednego artykułu do drugiego bez sprawdzenia jego pełnej treści.
+
+Dla każdego artykułu wybierz:
+- niepuste facts i no_relevant_facts_reason_pl="";
+- facts=[] i konkretny powód, wyłącznie jeśli tekst rzeczywiście nie zawiera
+  istotnych informacji o wydarzeniu. „Brak nowych informacji”, parafraza lub
+  powtórzenie znanego faktu nie są powodem pominięcia źródła: wtedy zwróć
+  potwierdzenia known_fact_id. Nie wymyślaj sztucznego faktu ani powodu.
+Brak NOWYCH faktów jest poprawny: potwierdź znane przez same identyfikatory,
+z pustymi text_pl i why_new_pl. To nie wymaga nowej aktualizacji.
+
+Każde ustalenie ma kind:
+- FACT: neutralne zdarzenie, decyzja, działanie lub konkretne dane.
+- STATEMENT: przypisana osobie/instytucji wypowiedź, zapowiedź, prognoza,
+  zarzut lub niepotwierdzona teza. Zachowaj autora, niepewność i tryb
+  przypuszczający. Fakt wypowiedzenia tezy nie dowodzi jej prawdziwości.
+- EDITORIAL: własna ocena autora/redakcji, wartościowanie lub interpretacja
+  niewynikająca wprost z ustaleń. Opisz ją jako ocenę tego źródła. Cytat
+  polityka lub cudza ocena przytoczona w tekście to STATEMENT. Dodanie
+  „autor twierdzi” nie zamienia własnej opinii redakcji w STATEMENT.
+Rozdziel neutralny rdzeń i ocenę: „rząd zatwierdził skandaliczną podwyżkę”
+to osobne FACT o decyzji oraz EDITORIAL o określeniu jej przez autora.
+source_group LEFT/RIGHT/CENTER/STATE nie decyduje o typie ani prawdziwości.
+Nie dopisuj ocen z doboru tematu, profilu albo pominięcia informacji.
+Brak EDITORIAL jest poprawny. Oceny przypisz tylko materiałom wyrażającym je.
+
+Przejrzyj także dalsze akapity: działania, decyzje, uczestników, datę/miejsce,
+skalę/liczby, okoliczności, podane przyczyny, skutki, reakcje i zapowiedzi.
+Pomijaj reklamy, nawigację, obce historie z relacji na żywo i objaśnienia
+encyklopedyczne należące do kontekstu. Nie pomijaj szczegółu z jednej redakcji.
+Jeden fakt to jedno samodzielnie sprawdzalne twierdzenie. Rozdziel działania
+różnych osób, informację główną i dodatkowe szczegóły o innych potwierdzeniach.
+Nie rozdrabniaj twierdzenia na urwane frazy, parafrazy i oczywiste wnioski.
+Nie ma narzuconej minimalnej ani maksymalnej liczby ustaleń.
+
+previous_facts zawiera zapisane ustalenia i wyniki wcześniejszych paczek.
+Potwierdzenie: skopiuj dokładny known_fact_id z previous_facts, zachowaj kind,
+ustaw text_pl="" i why_new_pl="". Kod zachowa oryginalne zdanie i stare źródła.
+Jeśli brak wcześniejszego kind, sklasyfikuj treść. Zmiana klasyfikacji nie
+jest nowością. Przy previous_facts=[] wszystkie known_fact_id muszą być puste.
+Nowe ustalenie: known_fact_id="", niepuste text_pl i — jeśli są wcześniejsze
+fakty — konkretne why_new_pl wyjaśniające nową informację względem nich.
+Rozpoznawaj parafrazy i tłumaczenia jako potwierdzenia, nie nowe fakty.
+Nowe fakty nadal mogą dodawać szczegóły; wcześniejszy rejestr nie zamyka listy.
+Nie sklejaj kilku znanych ustaleń w nowy fakt. Wyodrębnij tylko nowy szczegół,
+a stary rdzeń potwierdź przez known_fact_id. W obrębie bieżącej paczki używaj
+IDENTYCZNEGO text_pl dla tego samego nowego ustalenia pod różnymi artykułami;
+kod połączy je i zbierze wskazane źródła. Inne języki nie oznaczają innych faktów.
+Każdy wpis musi być rzeczywiście podany w artykule, pod którym go umieszczasz.
+Sam wspólny temat nie potwierdza szczegółu. Nie zgaduj i nie poprawiaj ID.
+
+Nie dopisuj liczb, przyczyn, motywów ani chronologii. Rozbieżne dane opisz
+osobno z przypisaniem i czasem/zakresem, jeśli tekst go podaje. Np. osiem
+zatrzymań przy jednym ataku nie musi przeczyć dziesięciu łącznie po kilku.
+Gdy nie da się rozstrzygnąć, zaznacz rozbieżność. Zachowaj autora i niepewność
+zarzutów. Doniesienia STATE przypisuj wprost, np. „Według agencji TASS…”.
+Nie twórz metazdań „inne źródła milczą” ani „śledztwo nadal trwa” bez nowości.
+Przed odpowiedzią sprawdź KAŻDY artykuł, jego ustalenia i potwierdzenia.
+'''.strip()
+
 
 WRITING_INSTRUCTIONS = '''
 Napisz po polsku pełną, spójną syntezę w formie ARTYKUŁU INFORMACYJNEGO,
@@ -991,7 +1065,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         base = {'topic': payload['topic'], 'previous_facts': [
             {k: v for k, v in fact.items() if k != 'editorial_sources'} for fact in facts]}
         def validate_extracted(response):
-            response = flatten_article_coverage(response, batch) if repair else response
+            response = flatten_article_coverage(response, batch) if repair or 'article_results' in response else response
             if any(raw.get('kind') not in FACT_KINDS for raw in response.get('facts') or []):
                 raise ValueError('Każde ustalenie musi mieć typ FACT, STATEMENT lub EDITORIAL.')
             validate_batch_citations(response, batch, facts, normalize)
@@ -1002,14 +1076,14 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                     raise ValueError('Kontrola pokrycia nadal pomija artykuły: ' + ', '.join(unresolved)
                                      + '. Zwróć ich rzeczywiste potwierdzenia (także znanych faktów) '
                                      'albo konkretny powód braku informacji o wydarzeniu.')
-            return route_facts(response, articles, facts, normalize)
-        extracted, routed = validated_call(
+            return response, route_facts(response, articles, facts, normalize)
+        _, (extracted, routed) = validated_call(
             call, EXTRACTION_INSTRUCTIONS + ('\n\n' + COVERAGE_REPAIR_INSTRUCTIONS if repair else ''),
             {**base, 'all_articles': batch},
             (article_coverage_schema if repair else extraction_schema)(facts, [a['article_id'] for a in batch]),
             'perspective_article_coverage' if repair else 'perspective_facts',
             validate_extracted, on_validation_retry)
-        return (flatten_article_coverage(extracted, batch) if repair else extracted), routed
+        return extracted, routed
 
     while offset < len(prepared):
         base = {'topic': payload['topic'], 'previous_facts': facts}
