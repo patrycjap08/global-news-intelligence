@@ -169,12 +169,15 @@ class ExplicitNoveltyAndResumeTests(unittest.TestCase):
             self.assertEqual(calls, ['perspective_facts'])
             self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
 
-    def test_incomplete_extraction_never_creates_a_checkpoint(self):
+    def test_unusable_extraction_keeps_old_facts_without_a_retry_or_update(self):
         payload = self.payload()
         bad = extraction([fact('Nieprawidłowe cytowanie.', ['alien'], kind='FACT')], payload['all_articles'])
-        with patch.object(ai, 'call_openai', return_value=bad), self.assertRaises(ai.AIResponseParseError) as caught:
-            ai.generate_summary_response(payload, 'gpt-5-nano')
-        self.assertNotIn('extraction_checkpoint', ai.parse_failure_for_storage(caught.exception))
+        with patch.object(ai, 'call_openai', return_value=bad) as request, patch.object(ai, 'log'):
+            result = ai.generate_summary_response(payload, 'gpt-5-nano')
+        request.assert_called_once()
+        self.assertEqual(result['perspective_facts'], payload['previous_aggregation']['base_summary']['perspective_facts'])
+        self.assertEqual(result['summary_pl'], 'Pierwotny tekst.')
+        self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
 
     def test_history_checkpoint_requires_exact_topic_input_model_and_failed_status(self):
         payload, checkpoint = self.failed_extraction_checkpoint()

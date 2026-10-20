@@ -187,7 +187,7 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
         self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage', 'perspective_summary'])
         self.assertEqual(result['perspective_facts'][0]['article_ids'], ['l'])
 
-    def test_pipeline_reports_successful_repair_without_leaving_the_omission_unhandled(self):
+    def test_production_pipeline_skips_omitted_article_without_a_repair_request(self):
         rows = [article('l', 'LEFT'), article('r', 'RIGHT')]
         calls = []
 
@@ -204,10 +204,10 @@ class PerspectiveCoverageRepairTests(unittest.TestCase):
 
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log') as log:
             result = ai.generate_summary_response({'topic': {}, 'all_articles': rows}, 'gpt-5-nano')
-        self.assertEqual(result['perspective_facts'][0]['article_ids'], ['l', 'r'])
-        self.assertTrue(any('Kontrola pokrycia: uzupełniam 1' in str(c) for c in log.call_args_list))
-        self.assertFalse(any(c.kwargs.get('level') == 'WARN' for c in log.call_args_list))
-        self.assertEqual(calls, ['perspective_facts', 'perspective_article_coverage', 'perspective_summary'])
+        self.assertEqual(result['perspective_facts'][0]['article_ids'], ['l'])
+        self.assertTrue(any('Pominięcia ekstrakcji' in str(c) for c in log.call_args_list))
+        self.assertFalse(any('Kontrola pokrycia: uzupełniam' in str(c) for c in log.call_args_list))
+        self.assertEqual(calls, ['perspective_facts', 'perspective_summary'])
 
 
 if __name__ == '__main__':

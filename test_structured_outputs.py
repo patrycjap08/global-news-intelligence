@@ -28,6 +28,7 @@ class StructuredOutputTests(unittest.TestCase):
                               for i in range(p.NOVELTY_BATCH_FACTS)]
                 for schema in (p.extraction_schema(known, [f'a{i}' for i in range(8)]),
                                p.article_coverage_schema(known, [f'a{i}' for i in range(8)]),
+                               p.article_coverage_schema(known, [f'a{i}' for i in range(8)], allow_omissions=True),
                                p.novelty_schema(known, candidates), p.novelty_decision_schema(known, candidates),
                                p.writing_schema(known)):
                     check_response_schema(schema)

@@ -142,7 +142,7 @@ def writing_schema(main):
     return schema
 
 
-def article_coverage_schema(known, article_ids):
+def article_coverage_schema(known, article_ids, *, allow_omissions=False):
     """Require an explicit fact list or substantive exclusion for each article.
 
     Evidence ownership comes from the article key the model chose. There is
@@ -158,10 +158,69 @@ def article_coverage_schema(known, article_ids):
         obj({'facts': {'type': 'array', 'items': {'$ref': '#/$defs/article_fact'}, 'maxItems': 0},
              'no_relevant_facts_reason_pl': copy.deepcopy(NONBLANK_STRING)}),
     ]}
+    if allow_omissions:
+        result = obj({'facts': {'type': 'array', 'items': {'$ref': '#/$defs/article_fact'}},
+                      'no_relevant_facts_reason_pl': STRING})
     schema = obj({'headline_pl': STRING, 'categories': STRINGS,
                   'article_results': obj({str(aid): copy.deepcopy(result) for aid in article_ids})})
     schema['$defs'] = {'article_fact': items}
     return schema
+
+
+def usable_extraction(response, batch, articles, known, normalize, topic):
+    """Keep independently valid facts without rereading omitted source bodies.
+
+    Article ownership is explicit, never inferred from another source or an
+    approximate ID. Invalid facts are dropped as whole items. Existing ledger
+    facts remain intact even when a new article supplies no usable evidence.
+    """
+    expected = {str(a['article_id']) for a in batch}
+    response = response if isinstance(response, dict) else {}
+    candidates, reasons, discarded, ignored = [], {}, [], []
+    if 'article_results' in response:
+        results = response['article_results']
+        results = results if isinstance(results, dict) else {}
+        ignored = sorted(str(aid) for aid in results if aid not in expected)
+        for aid in sorted(expected):
+            result = results.get(aid)
+            if not isinstance(result, dict):
+                continue
+            reason = result.get('no_relevant_facts_reason_pl')
+            reasons[aid] = reason if isinstance(reason, str) else ''
+            for raw in result.get('facts', []) if isinstance(result.get('facts'), list) else []:
+                if not isinstance(raw, dict) or 'article_ids' in raw:
+                    discarded.append('Niepoprawny fakt lub osobna lista cytowań pod kluczem ' + aid)
+                    continue
+                candidates.append({**raw, 'article_ids': [aid]})
+    else:
+        candidates = response.get('facts') if isinstance(response.get('facts'), list) else []
+    accepted = []
+    for raw in candidates:
+        try:
+            if (not isinstance(raw, dict) or raw.get('kind') not in FACT_KINDS
+                    or any(not isinstance(raw.get(k), str) for k in ('known_fact_id', 'text_pl', 'why_new_pl'))
+                    or not isinstance(raw.get('article_ids'), list) or not raw['article_ids']
+                    or any(not isinstance(aid, str) for aid in raw['article_ids'])):
+                raise ValueError('Niepoprawny typ, treść lub cytowania ustalenia.')
+            validate_batch_citations({'facts': [raw]}, batch, known, normalize)
+            route_facts({'facts': [raw]}, articles, known, normalize)
+        except (ValueError, TypeError, KeyError) as exc:
+            discarded.append(str(exc))
+            continue
+        accepted.append(copy.deepcopy(raw))
+    cited = {aid for f in accepted for aid in f['article_ids']}
+    omitted = sorted(expected - cited)
+    title = response.get('headline_pl')
+    title = title if isinstance(title, str) and title.strip() else (
+        topic.get('working_title_pl') or topic.get('headline_pl') or '[Świat] Aktualne wydarzenie')
+    categories = response.get('categories')
+    result = {'headline_pl': title, 'categories': [c for c in categories if isinstance(c, str)]
+              if isinstance(categories, list) else [], 'facts': accepted,
+              'article_coverage': {aid: {'no_relevant_facts_reason_pl': reasons.get(aid, '')}
+                                   for aid in sorted(expected)}}
+    validate_article_coverage(result, batch)
+    return result, {'omitted_article_ids': omitted, 'discarded_fact_count': len(discarded),
+                    'discard_reasons': list(dict.fromkeys(discarded)), 'ignored_article_ids': ignored}
 
 
 def flatten_article_coverage(response, batch):
@@ -313,12 +372,12 @@ Nie ma article_ids przy ustaleniu: jego umieszczenie pod kluczem artykułu
 jest jawnym przypisaniem źródła. Nie zgaduj cytowań i nie kopiuj faktów
 jednego artykułu do drugiego bez sprawdzenia jego pełnej treści.
 
-Dla każdego artykułu wybierz:
-- niepuste facts i no_relevant_facts_reason_pl="";
-- facts=[] i konkretny powód, wyłącznie jeśli tekst rzeczywiście nie zawiera
-  istotnych informacji o wydarzeniu. „Brak nowych informacji”, parafraza lub
-  powtórzenie znanego faktu nie są powodem pominięcia źródła: wtedy zwróć
-  potwierdzenia known_fact_id. Nie wymyślaj sztucznego faktu ani powodu.
+Dla każdego artykułu zwróć ustalenia, które potrafisz poprawnie przypisać.
+Gdy potwierdza znane fakty, użyj known_fact_id. Gdy nie ma użytecznych
+ustaleń lub nie potrafisz ich pewnie przypisać, facts=[] jest dozwolone,
+także z pustym no_relevant_facts_reason_pl. Krótki powód podaj, jeśli jest
+znany. Kompletność ustępuje pewności: nie wymyślaj faktu, cytowania ani powodu,
+żeby zapełnić wynik. Puste wyniki zostaną pominięte bez dodatkowych zapytań.
 Brak NOWYCH faktów jest poprawny: potwierdź znane przez same identyfikatory,
 z pustymi text_pl i why_new_pl. To nie wymaga nowej aktualizacji.
 
@@ -1001,9 +1060,11 @@ def extraction_checkpoint_key(payload, max_payload_chars):
     return hashlib.sha256(json.dumps(data, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
-def restore_extraction_checkpoint(checkpoint, key, articles, known, normalize):
-    """Only reuse a complete, validated extraction for identical input/rules."""
+def restore_extraction_checkpoint(checkpoint, key, articles, known, normalize, *, allow_omissions=False):
+    """Reuse a validated ledger for identical input and compatible omission policy."""
     if not isinstance(checkpoint, dict) or checkpoint.get('version') != 1 or checkpoint.get('key') != key:
+        return None
+    if checkpoint.get('omissions') and not allow_omissions:
         return None
     checksum = hashlib.sha256(json.dumps({k: v for k, v in checkpoint.items() if k != 'checksum'},
                                         ensure_ascii=False, sort_keys=True).encode()).hexdigest()
@@ -1042,7 +1103,8 @@ def restore_extraction_checkpoint(checkpoint, key, articles, known, normalize):
 
 
 def generate(payload, call, normalize, *, max_payload_chars=300000, on_validation_retry=None,
-             on_coverage_repair=None, on_extraction_complete=None, on_extraction_resume=None):
+             on_coverage_repair=None, on_extraction_complete=None, on_extraction_resume=None,
+             allow_omissions=False, on_extraction_omission=None):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
     previous_base = (previous or {}).get('base_summary') or {}
@@ -1052,18 +1114,30 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         raise ValueError('Brak materiałów do opracowania perspektyw.')
     prepared = [{**a, 'source_group': article_group(a)} for a in articles]
     facts, offset, extracted, headline, categories = known, 0, None, None, []
+    omissions = []
     checkpoint_key = extraction_checkpoint_key(payload, max_payload_chars)
     restored = restore_extraction_checkpoint(payload.get('resume_extraction'), checkpoint_key,
-                                              articles, known, normalize)
+                                              articles, known, normalize, allow_omissions=allow_omissions)
     if restored is not None:
         mode, facts, headline, categories = restored
         offset = len(prepared)
+        omissions = copy.deepcopy(payload['resume_extraction'].get('omissions') or [])
         if on_extraction_resume:
             on_extraction_resume(len(prepared))
 
     def extract(batch, *, repair=False):
         base = {'topic': payload['topic'], 'previous_facts': [
             {k: v for k, v in fact.items() if k != 'editorial_sources'} for fact in facts]}
+        if allow_omissions:
+            raw = call(ARTICLE_EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch},
+                       article_coverage_schema(facts, [a['article_id'] for a in batch], allow_omissions=True),
+                       'perspective_facts')
+            extracted, report = usable_extraction(raw, batch, articles, facts, normalize, payload['topic'])
+            if report['omitted_article_ids'] or report['discarded_fact_count'] or report['ignored_article_ids']:
+                omissions.append(report)
+                if on_extraction_omission:
+                    on_extraction_omission(report)
+            return extracted, route_facts(extracted, articles, facts, normalize)
         def validate_extracted(response):
             response = flatten_article_coverage(response, batch) if repair or 'article_results' in response else response
             if any(raw.get('kind') not in FACT_KINDS for raw in response.get('facts') or []):
@@ -1093,7 +1167,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         headline = headline or extracted['headline_pl']
         categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
         missing = {r['article_id'] for r in extracted['article_coverage'] if r['needs_review']}
-        if missing:
+        if missing and not allow_omissions:
             if on_coverage_repair:
                 on_coverage_repair(sorted(missing))
             repairs, repair_offset = [a for a in batch if str(a['article_id']) in missing], 0
@@ -1107,6 +1181,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
     if on_extraction_complete:
         checkpoint = {'version': 1, 'key': checkpoint_key, 'facts': copy.deepcopy(facts),
                       'headline': headline, 'categories': list(categories)}
+        if omissions:
+            checkpoint['omissions'] = omissions
         checkpoint['checksum'] = hashlib.sha256(json.dumps(checkpoint, ensure_ascii=False,
                                                           sort_keys=True).encode()).hexdigest()
         on_extraction_complete(checkpoint)
@@ -1123,9 +1199,9 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         result = dict(previous_base)
         result.pop('perspective_state', None)
         result.setdefault('synthesis_coverage_mode', previous_base.get('coverage_mode', mode))
-    elif mode == 'STATE_ONLY':
-        # Preserve separately attributed state reports, without commissioning
-        # a main synthesis or context from an empty independent fact set.
+    elif mode == 'STATE_ONLY' or (allow_omissions and not facts):
+        # Preserve state reports, or leave a wholly unusable extraction empty,
+        # without paying for narrative/context unsupported by any facts.
         headline = normalize(headline)
         if re.search(r'[\u0400-\u052f\u2de0-\u2dff\ua640-\ua69f]', headline):
             raise ValueError('Tytuł perspektyw zawiera cyrylicę.')

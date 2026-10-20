@@ -35,17 +35,16 @@ class SummaryRequestSettingsTests(unittest.TestCase):
             self.assertEqual(settings['reasoning_effort'],'low')
             self.assertEqual(settings['timeout_seconds'],ai.SUMMARY_REQUEST_TIMEOUT_SECONDS)
 
-    def test_perspective_validation_failure_preserves_response_for_diagnostics(self):
+    def test_bad_fact_is_logged_and_skipped_without_a_paid_correction(self):
         bad=extraction([fact('Decyzja.',['a1'],known='invented')],[{'article_id':'a1'}])
         with patch.object(ai,'call_openai',return_value=bad) as request,patch.object(ai,'log') as logger:
-            with self.assertRaises(ai.AIResponseParseError) as caught:
-                ai.generate_summary_response({'topic':{},'all_articles':[{'article_id':'a1','source_profile':'CENTER'}]},'gpt-5-nano')
-        details=ai.parse_failure_for_storage(caught.exception)
-        self.assertIn('invented',details['raw_response'])
-        self.assertEqual(details['response_details']['schema'],'perspective_facts')
-        self.assertEqual(request.call_count,2)
-        self.assertIn('validation_feedback',request.call_args.args[1])
-        self.assertTrue(any('jedną próbę poprawy' in str(call) for call in logger.call_args_list))
+            result=ai.generate_summary_response({'topic':{},'all_articles':[{'article_id':'a1','source_profile':'CENTER'}]},'gpt-5-nano')
+        self.assertEqual(result['perspective_facts'],[])
+        self.assertEqual(result['summary_pl'],'')
+        request.assert_called_once()
+        self.assertEqual(request.call_args.kwargs['retry_limit'],1)
+        self.assertNotIn('validation_feedback',request.call_args.args[1])
+        self.assertTrue(any('odrzuconych błędnych ustaleń: 1' in str(call) for call in logger.call_args_list))
 
     def test_context_validation_still_rejects_exclusive_sources_and_keeps_diagnostics(self):
         payload={'topic':{},'all_articles':[{'article_id':'l','source_profile':'LEFT'},

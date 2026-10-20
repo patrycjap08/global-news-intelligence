@@ -33,7 +33,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v72-complete-first-extraction"
+PROMPT_VERSION = "ai-prompts-v73-skip-unusable-extraction"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2563,12 +2563,12 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                                      (payload.get('topic') or {}).get('topic_id') or 'temat', 100)
             if name == "perspective_facts":
                 log("AI", f"Fakty perspektyw [{topic_label}]: paczka {len(data['all_articles'])} pełnych artykułów; "
-                    "obowiązkowy osobny wynik dla każdego artykułu już w pierwszej odpowiedzi.")
+                    "osobne wyniki; braki pomijam bez dodatkowych odczytów i korekt ekstrakcji.")
                 instructions = perspectives.ARTICLE_EXTRACTION_INSTRUCTIONS
                 if 'validation_feedback' in data:
                     instructions += "\nPopraw błąd z validation_feedback, zachowując prawidłowe ustalenia i opisany format article_results."
                 schema = perspectives.article_coverage_schema(data['previous_facts'],
-                                                              [a['article_id'] for a in data['all_articles']])
+                    [a['article_id'] for a in data['all_articles']], allow_omissions=True)
             elif name == "perspective_article_coverage":
                 log("AI", f"Naprawa pokrycia: {len(data['all_articles'])} artykułów z pełnymi treściami; "
                     "każdy artykuł musi mieć osobny wynik z ustaleniami albo konkretnym powodem ich braku.")
@@ -2577,10 +2577,28 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                     f"znanych ustaleń: {len(data['previous_facts'])}; porównuję treści ustaleń, bez ponownego przesyłania artykułów.")
                 instructions = perspectives.EXPLICIT_NOVELTY_INSTRUCTIONS
                 schema = perspectives.novelty_decision_schema(data['previous_facts'], data['candidate_facts'])
-            response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
-                timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
-                reasoning_effort=summary_reasoning_effort(model),
-                response_schema=schema, response_schema_name=name)
+            try:
+                response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
+                    timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
+                    reasoning_effort=summary_reasoning_effort(model),
+                    response_schema=schema, response_schema_name=name,
+                    **({'retry_limit': 1} if name == 'perspective_facts' else {}))
+            except AIResponseParseError as exc:
+                if name != 'perspective_facts':
+                    raise
+                # A completed JSON object may contain independently valid
+                # items despite failing the schema. Filter each item locally;
+                # never salvage a truncated answer or request a second read.
+                response = {}
+                if exc.response_details.get('status') == 'completed':
+                    try:
+                        parsed = json.loads(exc.raw_output)
+                        if isinstance(parsed, dict):
+                            response = parsed
+                    except (ValueError, TypeError):
+                        pass
+                log('AI', f'Ekstrakcja [{topic_label}]: niepoprawna odpowiedź; '
+                    'sprawdzam dostępne ustalenia lokalnie, braki pomijam bez ponawiania zapytania.', level='WARN')
             last_response, last_schema = dict(response), name
             if name == "perspective_article_coverage":
                 results = response.get('article_results')
@@ -2597,28 +2615,29 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             if name == "perspective_facts":
                 results = response.get('article_results')
                 if isinstance(results, dict):
-                    counts = [len((results.get(str(a['article_id'])) or {}).get('facts') or [])
-                              for a in data['all_articles']]
+                    counts = []
+                    for article in data['all_articles']:
+                        item = results.get(str(article['article_id']))
+                        items = item.get('facts') if isinstance(item, dict) else None
+                        counts.append(len(items) if isinstance(items, list) else 0)
                     log("AI", f"Fakty perspektyw [{topic_label}] — odpowiedź: osobnych wyników: "
                         f"{len(results)}/{len(data['all_articles'])}, przypisań ustaleń: {sum(counts)}, "
                         f"ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
                     return response
-                coverage = response.get('article_coverage') or []
-                counts = [sum(str(article['article_id']) in fact.get('article_ids', [])
-                              for fact in response.get('facts') or []) for article in data['all_articles']]
-                log("AI", f"Fakty perspektyw — odpowiedź: ustaleń: {len(response.get('facts') or [])}, "
-                    f"artykułów w kontroli pokrycia: {len(coverage)}/{len(data['all_articles'])}, "
-                    f"potwierdzeń faktów: {sum(counts)}, ustaleń na artykuł: {min(counts, default=0)}–{max(counts, default=0)}.")
-                kinds = {kind: sum(f.get('kind') == kind for f in response.get('facts') or [])
-                         for kind in perspectives.FACT_KINDS}
-                log("AI", f"Typy ustaleń: neutralne: {kinds['FACT']}, wypowiedzi/zarzuty: {kinds['STATEMENT']}, oceny redakcyjne: {kinds['EDITORIAL']}.")
+                log('AI', f'Fakty perspektyw [{topic_label}]: sprawdzam dostępne ustalenia lokalnie, bez korekt AI.')
             return response
         try:
             raw = perspectives.generate(payload, call, normalize_generated_text,
                 max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS,
+                allow_omissions=True,
+                on_extraction_omission=lambda report: log('AI',
+                    f"Pominięcia ekstrakcji: artykułów bez użytecznych przypisań: {len(report['omitted_article_ids'])}, "
+                    f"odrzuconych błędnych ustaleń: {report['discarded_fact_count']}; "
+                    "zachowuję poprawne fakty, bez dodatkowych zapytań. "
+                    + json.dumps(report, ensure_ascii=False), level='WARN'),
                 on_extraction_complete=remember_extraction,
                 on_extraction_resume=lambda count: log("AI", f"Wznawiam po ekstrakcji: {count} pełnych artykułów "
-                    "już przeanalizowano i sprawdzono; ponawiam audyt bez ponownego wysyłania artykułów."),
+                    "objęto wcześniejszą próbą; ponawiam audyt na zachowanych ustaleniach, bez ponownego wysyłania artykułów."),
                 on_coverage_repair=lambda ids: log("AI",
                     f"Kontrola pokrycia: uzupełniam {len(ids)} pominiętych artykułów "
                     f"w paczkach do {perspectives.COVERAGE_REPAIR_BATCH_ARTICLES}; "
@@ -3299,7 +3318,7 @@ def call_openai(
                 raise
             parse_failures += 1
             last_parse_error = str(exc)
-            if parse_failures >= 2:
+            if parse_failures >= 2 or attempt + 1 >= effective_retry_limit:
                 raise
             log(
                 "AI",

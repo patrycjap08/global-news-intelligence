@@ -112,7 +112,9 @@ Publikacja bazowej syntezy i kontekstu pozostaje niezmienna. Bez migracji SQL.
 
 ## Generowanie i zgodność
 
-Nowa synteza: co najmniej dwa zapytania w obecnej puli równoległych zadań.
+Nowa synteza z użytecznymi ustaleniami: co najmniej dwa zapytania w obecnej
+puli równoległych zadań. Od v73 całkowicie pusta ekstrakcja kończy się
+bez zamawiania narracji i kontekstu.
 Pierwszy etap wyciąga atomowe fakty i cytowania z pełnych artykułów; przy dużym
 zestawie wykonuje kolejne paczki, a każda widzi ustalenia z poprzednich.
 Kod wyznacza ich części. Drugie dostaje wyłącznie
@@ -171,6 +173,9 @@ wstecz nie jest możliwe. Nie wymaga migracji ani publicznego eksportu tych dany
 
 ### Kompletne przypisania w pierwszej odpowiedzi (v72)
 
+Poniżej opis v72; od v73 braki są dopuszczane zgodnie z preferencją kosztową
+użytkowniczki i nie uruchamiają korekt opisanych w tej sekcji.
+
 Od v72 produkcyjne `perspective_facts` od razu wymaga `article_results`
 z osobnym wynikiem każdego artykułu: ustaleniami albo konkretnym powodem braku
 informacji o wydarzeniu. Dawna globalna lista ustaleń i osobna lista kluczy
@@ -204,6 +209,46 @@ kontroli. Testy adaptera SDK obejmują osiem źródeł potwierdzających znany f
 w jednym zapytaniu bez napraw i aktualizacji oraz 49 pełnych artykułów
 w siedmiu paczkach bez dodatkowego odczytu pokrycia. Odpowiedzi w testach
 są sztuczne; rzeczywistych oszczędności tokenów nie mierzymy płatnym API.
+
+### Pomijanie zamiast dodatkowych odczytów (v73)
+
+Użytkowniczka woli brak informacji z artykułu od kolejnych zapytań o jego
+pokrycie. Produkcyjne full, ai-only i przebieg jednego źródła używają teraz
+ekstrakcji dopuszczającej pominięcia. Każda paczka pełnych artykułów ma jedną
+próbę `perspective_facts` (`retry_limit=1`, także bez ponawiania JSON).
+Pusty wynik artykułu jest dozwolony również bez uzasadnienia. Nie wykonujemy
+`perspective_article_coverage` ani semantycznej korekty ekstrakcji.
+
+Kod sprawdza każde dostępne ustalenie osobno. Zachowuje poprawne cytowania
+i potwierdzenia, a odrzuca błędne ID, obce źródła, nieznane typy, zmienione
+znane fakty i nowe ustalenia bez uzasadnienia nowości. Nie poprawia ID przez
+podobieństwo ani nie dopisuje potwierdzeń na podstawie innych materiałów.
+Gdy zakończona odpowiedź zawiera pełny obiekt JSON niezgodny ze schematem,
+lokalna kontrola może zachować jego poprawne pozycje. Nieczytelna lub ucięta
+odpowiedź daje brak faktów z tej paczki; nie jest ponownie wysyłana do AI.
+Błędy transportu/API nadal mogą zatrzymać analizę; nie są udawanym sukcesem.
+
+Pominięcia i liczba odrzuconych ustaleń trafiają do logów. Nie dowodzą,
+że artykuł był nieistotny ani że nie zawierał nowości. Artykuł pozostaje
+w bazie i w materiałach wątku, ale nie otrzymuje brakujących potwierdzeń.
+Po poprawnym zakończeniu tematu objęte próbą nowe artykuły są oznaczane jako
+przetworzone także przy pominięciach, aby zwykłe ponowienie ai-only nie
+wracało do nich tylko z tego powodu. Następna rzeczywista aktualizacja z
+nowymi materiałami nadal może analizować pełen wątek zgodnie z dotychczasową
+regułą; końcowe scalanie nie jest wyłączone.
+
+Poprzednia publikacja, kontekst i stare fakty pozostają zachowane. W nowym
+temacie bez żadnych użytecznych ustaleń nie zamawiamy narracji ani kontekstu.
+Audyt rzeczywiście nowych kandydatów i kontrola pisania nadal obowiązują;
+to osobne etapy, a nie dodatkowe odczyty brakujących artykułów.
+Checkpoint po późniejszym błędzie zapisuje listę pominięć i może być wznowiony
+w tym samym trybie, bez ponownego wysyłania tekstów. Taki checkpoint nie jest
+akceptowany przez dawny wewnętrzny tryb wymagający pełnego pokrycia.
+
+Testy bez płatnego API obejmują m.in. siedem pominięć przy jednym zapytaniu,
+40 artykułów w pięciu odczytach mimo braków, zachowanie poprawnej pozycji
+obok błędnej odpowiedzi, brak dopisywania cytowań, ucięty/pusty JSON,
+zapis przetworzonych artykułów i brak zapytań narracyjnych przy pustej ekstrakcji.
 
 ## Cofnięcie
 
