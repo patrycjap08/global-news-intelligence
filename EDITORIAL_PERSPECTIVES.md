@@ -380,3 +380,30 @@ aktualizacje używają „Nowe ustalenia” oraz etykiet ocen, aby neutralnego
 dopełnienia nie nazywać wspólnie potwierdzonym. Ukrywanie powtórzeń dotyczy
 tej samej grupy perspektyw, więc wcześniejsza aktualizacja lewicowa nie
 ukrywa późniejszego potwierdzenia danej oceny przez redakcję prawicową.
+
+## Pokrycie artykułów i kontrola nowości — v67
+
+Ekstrakcja czyta pełne artykuły w paczkach do ośmiu, dodatkowo z dotychczasowym
+miękkim limitem znaków. Żaden artykuł nie jest obcinany ani pomijany z powodu
+wielkości. Jeden długi materiał jest wysyłany w całości. Poprzednie ustalenia
+przechodzą do kolejnych paczek, więc powtórzenie może poszerzyć potwierdzenia
+bez tworzenia nowego faktu.
+
+Brak potwierdzeń i konkretnego powodu braku informacji uruchamia ponowne
+sprawdzenie tylko pominiętych artykułów, w paczkach do dwóch, z zachowaniem
+poprawnych ustaleń. „Brak nowych informacji” nie usprawiedliwia braku pokrycia:
+powtórzenie trzeba przypisać do znanego faktu. Dopiero kompletne pokrycie
+pozwala zakończyć analizę. Trwały brak po korekcie pozostaje błędem do ponowienia;
+kod nie zgaduje cytowań, nie publikuje częściowego wyniku i nie oznacza go jako
+przeanalizowany.
+
+Schemat kontroli nowości dopuszcza w każdej decyzji tylko ID ze starego rejestru
+lub wcześniejszych kandydatów. Samoodwołania, odwołania w przyszłość i pętle
+nie są już poprawną odpowiedzią API. Całkowicie nowa treść jest kopiowana
+dokładnie; odrzucenie lub wydzielenie nowego szczegółu wymaga rzeczywistych
+wcześniejszych ustaleń. Wspólna lista starych ID i paczki do 24 kandydatów
+ograniczają rozmiar schematu. Kontrola nadal nie przesyła treści artykułów.
+
+Model, równoległość, próg embeddingów 0,78, niezmienność opublikowanej syntezy
+i kontekstu oraz rozdział formatów pozostają bez zmian. Do ponowienia błędnych
+tematów wystarcza zwykłe `ai-only`; nie wymaga to SQL ani ponownego pobierania.

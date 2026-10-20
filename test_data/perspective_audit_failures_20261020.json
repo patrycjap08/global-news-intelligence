@@ -1,0 +1,274 @@
+[
+  {
+    "case": "job_118438625207_1",
+    "response": {
+      "decisions": {
+        "fact_4f881837f2a21e8976fbe360": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_284507ce20a1a4d62b4d8e5d"
+          ],
+          "reason_pl": "Powtórzenie; parafraza/identyczna informacja dotycząca liczby sklepów zniszczonych (~3.000)."
+        },
+        "fact_88a3a10555b2ec19557e5eab": {
+          "new_text_pl": "France Assureurs nie podała wstępnego oszacowania strat.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowy detal; nie występowała wcześniej informacja o tym, że France Assureurs nie podała wstępnego oszacowania."
+        },
+        "fact_d46ab5de6f2a154e6f53b325": {
+          "new_text_pl": "Alexandre Bompard oszacował straty na kilka setek milionów euro.",
+          "covered_fact_ids": [
+            "fact_e0e989b425250bae3f59c91c"
+          ],
+          "reason_pl": "Dodanie przypisania do konkretnej osoby; dotychczasowy zakres strat ('setki milionów euro') istnieje w previous_facts."
+        },
+        "fact_1833f4392f3ace06ca1ff1d9": {
+          "new_text_pl": "Rentowność 10-letnich obligacji Francji wzrosła do około 4,94% i spread do niemieckich wyniósł około 148 pb.",
+          "covered_fact_ids": [
+            "fact_c00f4455587c6954310d3069",
+            "fact_9ff6251af5e6b59040969d53"
+          ],
+          "reason_pl": "Nowa, precyzyjna wartość: doprecyzowanie wcześniejszych danych (około 5% i największy spread od 2012)."
+        },
+        "fact_f9d21dd8150adba885e7f137": {
+          "new_text_pl": "Carrefour spadł o 2,2%, a LVMH o 1,8% po publikacji danych o stratach wywołanych zamieszkami.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowa informacja o zmianach cen akcji w wyniku strat; nie była opisana wcześniej."
+        },
+        "fact_1591008e7468b8628f3d9533": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_bad5565a17d7c47244057edf"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_ea30352c2b3f948593cd5243": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_ea30352c2b3f948593cd5243"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_bad5565a17d7c47244057edf": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_bad5565a17d7c47244057edf"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_e1a3cf9418860b96feb6d40c": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_e1a3cf9418860b96feb6d40c"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_1ebae68b2f96c78ed5378bc8": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_1ebae68b2f96c78ed5378bc8"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_8a19492d65ead5d02c5a2a70": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_8a19492d65ead5d02c5a2a70"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_113989d6248c645208b5b06f": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_113989d6248c645208b5b06f"
+          ],
+          "reason_pl": "Powtórzenie; identyczny zapis."
+        },
+        "fact_5b2a097305e22ca909383645": {
+          "new_text_pl": "Weekendowe protesty we Francji spowodowały największe zamieszki od lat.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowa informacja; nie ma wcześniejszego identycznego sformułowania."
+        },
+        "fact_0f5330edbb4bfc2289c61890": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_0f5330edbb4bfc2289c61890"
+          ],
+          "reason_pl": "Powtórzenie; parapraza istniejącego stwierdzenia o wysokim spreadzie."
+        },
+        "fact_284507ce20a1a4d62b4d8e5d": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_284507ce20a1a4d62b4d8e5d"
+          ],
+          "reason_pl": "Powtórzenie; potwierdzona liczba zniszczonych sklepów według Euronews."
+        }
+      }
+    }
+  },
+  {
+    "case": "job_118438625207_2",
+    "response": {
+      "decisions": {
+        "fact_c0f2ce6186526c375014ea82": {
+          "new_text_pl": "Do listy przedmiotów objętych kontrolą eksportu dodano niektóre komponenty dronów, w tym silniki bezszczotkowe, regulatory elektroniczne (ESC) oraz płyty z włókna węglowego.",
+          "covered_fact_ids": [],
+          "reason_pl": "To całkowicie nowy detal, nie opisany w dotychczasowych faktach."
+        },
+        "fact_6c66f3435f2d468204eb1492": {
+          "new_text_pl": "Podniesiono próg pojemności dla rozpylaczy montowanych na dronach, co ułatwia licencjonowanie dla niektórych modeli rolniczych.",
+          "covered_fact_ids": [],
+          "reason_pl": "To nowy detal dotyczący pojemności rozpylaczy, dotychczas nie opisano tego w poprzednich faktach."
+        },
+        "fact_eb456349f17633ddbf976e6e": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_5f0f0175e2899d31a875a821"
+          ],
+          "reason_pl": "To parafraza/duplikat wcześniejszego opisu różnic w procedurach licencyjnych dla dronów konsumenckich i przemysłowych; nie wnosi nowej informacji."
+        },
+        "fact_c996df48cf52a372ead89064": {
+          "new_text_pl": "Maszyny plateau-type mokrego natrysku do państw i regionów spornych wymagają licencji; eksport do innych destynacji wymaga rejestracji.",
+          "covered_fact_ids": [
+            "fact_f5e2620acb50039093544131"
+          ],
+          "reason_pl": "Nowy detal dotyczący plateau-type mokrego natrysku; stare TBMs licencjonowanie było wcześniej opisane, lecz plateau-type to nowy element w zestawieniu licencji."
+        },
+        "fact_1fd593e8cb910957923ed17b": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_166c2675b271c24fbfdd5f95"
+          ],
+          "reason_pl": "To parafraza/duplikat treści dotyczących licencji i deklarowania kodów HS dla eksportu towarów podwójnego zastosowania; nie wnosi nowej informacji."
+        },
+        "fact_166c2675b271c24fbfdd5f95": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_1fd593e8cb910957923ed17b"
+          ],
+          "reason_pl": "Parafraza/duplikat treści dotyczących licencji i deklarowania kodów HS dla eksportu towarów podwójnego zastosowania; nie wnosi nowej informacji."
+        },
+        "fact_883995feb5e51db158737cef": {
+          "new_text_pl": "Środki zostały zatwierdzone przez Radę Państwa i mają na celu ochronę bezpieczeństwa narodowego oraz interesów państwa, a także zgodność z międzynarodowymi zobowiązaniami, w tym z non-proliferation.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowy detal; nie występował w dotychczasowych faktach."
+        },
+        "fact_d004c4703a0a88b7adfea315": {
+          "new_text_pl": "Chiny powiadomiły odpowiednie państwa i regiony, z którymi prowadzą mechanizmy dialogu w zakresie eksportu oraz zobowiązały się do współpracy w zakresie polityk eksportowych.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowy detal; nie występował w dotychczasowych faktach."
+        },
+        "fact_0e1eddb1bcf95280fc4407e4": {
+          "new_text_pl": "Przy deklarowaniu eksportowych przesyłek mogą być wymagane dodatkowe kontrole; firmy muszą precyzyjnie identyfikować i deklarować kontrolowane towary, a w razie wątpliwości służby celne mogą żądać potwierdzeń.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowy detal; nie występował w dotychczasowych faktach."
+        }
+      }
+    }
+  },
+  {
+    "case": "job_118438625207_3",
+    "response": {
+      "decisions": {
+        "fact_7f645a968e79820ce1e3fde2": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_602a21a6aa39e704f5d6d747",
+            "fact_ad34908cc42d95a400413bb1"
+          ],
+          "reason_pl": "Powtórzenie treści z wcześniejszego faktu: Trump podpisał rozporządzenie zawieszające sankcje i cła przeciwko Rosji i jej partnerom przewidziane przez ustawę Lindseya Grahama; nie wprowadza nowej informacji."
+        },
+        "fact_c0627f1158a6b713dd20ba1f": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_b520223a063389cf63a8be4c"
+          ],
+          "reason_pl": "Parafraza/duplikat wcześniejszej informacji o tym, że Zełenski ocenia działania mogą prowadzić do kapitulacji, bez twierdzenia o zamiarze zakończenia wojny kosztem Ukrainy."
+        },
+        "fact_f36f339261fed1a7ff412550": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_03437b5303cdd7189e1e53b8",
+            "fact_f1e294f0b5c52b2a90d50598"
+          ],
+          "reason_pl": "Kandydat łączy dwie wcześniej znane informacje (opóźnienia dostaw Patriot i liczba 12 pocisków miesięcznie) w jedną wypowiedź; nie wnosi nowości."
+        },
+        "fact_eef7a4dd867a40a45a2dee95": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_e3fccb5cfdaaf834147d9e2e"
+          ],
+          "reason_pl": "Powtórzenie istniejącej informacji o propozycji Zełenskiego dotyczącej rafinerii i pocisków Patriot (parafraza)."
+        },
+        "fact_5bc7ec029a72fdf811da435f": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_5bc7ec029a72fdf811da435f"
+          ],
+          "reason_pl": "Powtórzenie istniejącej informacji o Trumpie i trilateralnym spotkaniu; nie wnosi nowej treści."
+        },
+        "fact_5d17d560b3db67ab89cf7ffe": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_5d17d560b3db67ab89cf7ffe"
+          ],
+          "reason_pl": "Powtórzenie istniejącego faktu dotyczącego trilateralnego szczytu zaproponowanego przez Putina (WSJ)."
+        },
+        "fact_8664c2b38e914c410dbd84ba": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_8664c2b38e914c410dbd84ba"
+          ],
+          "reason_pl": "Powtórzenie komentarza redakcyjnego; duplikat."
+        }
+      }
+    }
+  },
+  {
+    "case": "job_118296740716_1",
+    "response": {
+      "decisions": {
+        "fact_433ba9109b627e51f8302798": {
+          "new_text_pl": "Prefektura policji w Marsylii zakazała zgromadzeń i demonstracji od południa do godziny 20:00 w poniedziałek.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowy detal dotyczący zakazu zgromadzeń w Marsylii; nie występował wcześniej w zestawie poprzednich faktów."
+        },
+        "fact_2bd2150f0e4d354d0e0d6861": {
+          "new_text_pl": "W poniedziałek do Marsylii ma przybyć szef MSW Laurent Nunez.",
+          "covered_fact_ids": [],
+          "reason_pl": "Dodaje nowy planowany przyjazd ministra spraw wewnętrznych do Marsylii; nie był wcześniej opisany."
+        },
+        "fact_361410c5153b3bd45bd6bf78": {
+          "new_text_pl": "Mer Paryża Emmanuel Gregoire powiedział, że państwo francuskie zawiodło podczas demonstracji.",
+          "covered_fact_ids": [],
+          "reason_pl": "Nowy cytat/ocena ze strony mera Paryża; nie występował wcześniej."
+        },
+        "fact_55110d26854abc3b7d9fa959": {
+          "new_text_pl": "Payan poinformował, że również w nocy z niedzieli na poniedziałek doszło do grabieży w Marsylii.",
+          "covered_fact_ids": [],
+          "reason_pl": "Dodaje nowy czasowy szczegół dotyczący grabieży w Marsylii; nie był wcześniej opisany."
+        },
+        "fact_db497fbb12370db13cf37f02": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_db497fbb12370db13cf37f02"
+          ],
+          "reason_pl": "Powtórzenie wcześniej potwierdzonego faktu o liczbie demonstrantów w Marsylii."
+        },
+        "fact_205135e38b42adfe8452b6f0": {
+          "new_text_pl": "",
+          "covered_fact_ids": [
+            "fact_205135e38b42adfe8452b6f0",
+            "fact_7f117232c31a738d45994db6"
+          ],
+          "reason_pl": "Parafraza/ten sam motyw dotyczący starć z policją w Paryżu i Marsylii; nie wnosi nowej informacji."
+        },
+        "fact_f9f5c7d4e85d5f2fdb01ce96": {
+          "new_text_pl": "W Denain ogłoszono nocną godzinę policyjną od 21:00 do 6:00, obowiązującą do niedzieli 25 października.",
+          "covered_fact_ids": [],
+          "reason_pl": "Dodaje nowy detal dotyczący nocnej godziny policyjnej w Denain."
+        }
+      }
+    }
+  }
+]

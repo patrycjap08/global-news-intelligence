@@ -14,6 +14,9 @@ LANES = ('COMMON', 'LEFT', 'RIGHT', 'CENTER', 'STATE')
 FORMAT_VERSION = 1
 FACT_KINDS = ('FACT', 'STATEMENT', 'EDITORIAL')
 FACT_CLASSIFICATION_VERSION = 1
+EXTRACTION_BATCH_ARTICLES = 8
+COVERAGE_REPAIR_BATCH_ARTICLES = 2
+NOVELTY_BATCH_FACTS = 24
 STATE_FIELDS = ('perspective_version', 'fact_classification_version', 'coverage_mode', 'shared_available', 'perspective_sections', 'perspective_facts', 'facts')
 
 
@@ -63,6 +66,11 @@ FACT_SCHEMA = obj({'known_fact_id': STRING, 'text_pl': STRING, 'article_ids': ST
 COVERAGE_SCHEMA = obj({
     'no_relevant_facts_reason_pl': STRING,
 })
+# Repetition still provides evidence. It cannot explain an uncited article.
+NO_NEW_COVERAGE_REASON = re.compile(
+    r'\b(?:(?:brak|bez|nie ma)\s+now(?:ych|ej)\b|'
+    r'nie\s+(?:wnosi|zawiera)\s+(?:żadnych\s+)?now(?:ych|ej)\b|'
+    r'(?:powtarza|potwierdza)\s+(?:jedynie\s+|tylko\s+)?(?:znan|wcześniej|poprzedni))', re.IGNORECASE)
 EXTRACTION_SCHEMA = obj({
     'headline_pl': STRING, 'categories': STRINGS,
     'facts': {'type': 'array', 'items': FACT_SCHEMA},
@@ -190,6 +198,9 @@ W jednym przebiegu wykonaj kolejno:
    indeksów/pozycji faktów — kod wyliczy pokrycie z facts[].article_ids.
    Jeśli brak ustaleń na temat wydarzenia, podaj konkretny powód w
    no_relevant_facts_reason_pl; w pozostałych przypadkach powód="".
+   „Brak nowych informacji” NIE jest powodem pominięcia artykułu: jeśli
+   powtarza znane ustalenia, zwróć ich known_fact_id z tym article_id.
+   Łącz powtarzające się twierdzenia, ale nie pomijaj ich potwierdzeń.
    Przed odpowiedzią sprawdź, czy nie pominąłeś istotnych ustaleń ani źródeł.
    Nie ograniczaj liczby faktów do 1–2 ani innego odgórnego limitu. Nie ma
    minimalnej liczby: powtarzające się artykuły nie uzasadniają sztucznych faktów.
@@ -465,7 +476,7 @@ def make_update(facts, previous_facts, is_update, new_ids, articles=None):
 
 
 
-def take_full_article_batch(articles, start, base_payload, field, max_chars):
+def take_full_article_batch(articles, start, base_payload, field, max_chars, *, max_items=None):
     """Pack whole articles, never fragments. The target is not a content cap.
 
     If one article/context exceeds the target, send that article intact. A
@@ -473,7 +484,7 @@ def take_full_article_batch(articles, start, base_payload, field, max_chars):
     """
     batch = []
     offset = start
-    while offset < len(articles):
+    while offset < len(articles) and (max_items is None or len(batch) < max_items):
         candidate = [*batch, articles[offset]]
         size = len(json.dumps({**base_payload, field: candidate}, ensure_ascii=False, separators=(',', ':')))
         if batch and size > max_chars:
@@ -527,10 +538,22 @@ def validate_article_coverage(response, batch):
         reason = str(row.get('no_relevant_facts_reason_pl') or '').strip()
         normalized.append({'article_id': aid, 'fact_indexes': cited,
                            'no_relevant_facts_reason_pl': '' if cited else reason,
-                           'needs_review': not cited and not reason})
+                           'needs_review': not cited and (not reason or bool(NO_NEW_COVERAGE_REASON.search(reason)))})
     if seen != expected:
         raise ValueError('Ekstrakcja faktów pominęła artykuły bieżącej paczki.')
     response['article_coverage'] = normalized
+
+
+COVERAGE_REPAIR_INSTRUCTIONS = '''
+Uzupełnij kontrolę TYLKO artykułów z all_articles. Poprzednia ekstrakcja nie
+przypisała im ani ustaleń, ani konkretnego powodu braku informacji o wydarzeniu.
+previous_facts zawiera zachowane poprawne ustalenia, w tym z pierwszej ekstrakcji.
+Przeczytaj pełny tekst każdego materiału. Zwróć znane ustalenia z known_fact_id
+i tym article_id także wtedy, gdy artykuł wyłącznie powtarza wcześniejsze fakty.
+Dodaj pominięte nowe szczegóły, jeśli są w tekście. Nie twórz sztucznej nowości.
+Tylko materiał rzeczywiście bez istotnych informacji o wydarzeniu może otrzymać
+konkretny no_relevant_facts_reason_pl zamiast potwierdzeń. Nie zgaduj cytowań.
+'''.strip()
 
 
 CORRECTION_INSTRUCTIONS = '''
@@ -599,6 +622,11 @@ Zwróć decisions z dokładnie jednym wpisem dla każdego ID kandydata:
 covered_fact_ids wskazuje wcześniejsze ustalenia obejmujące starą treść:
 ID z previous_facts lub wcześniejszych kandydatów. Przy parafrazie/połączeniu
 wskaż wszystkie potrzebne ID; przy całkowicie nowym ustaleniu lista jest pusta.
+Nie wskazuj ID ocenianego kandydata ani późniejszego kandydata. To nie są
+wcześniejsze potwierdzenia; odwołania do siebie i cykle są niedozwolone.
+Gdy całość jest nowa, skopiuj text_pl kandydata DOKŁADNIE do new_text_pl,
+bez redagowania i skracania. Zmianę treści stosuj wyłącznie przy wydzielaniu
+nowego szczegółu ze starej informacji; wtedy wskaż ID obejmujące starą część.
 reason_pl konkretnie uzasadnia decyzję. Sama deklaracja ekstraktora, że coś
 jest nowe, nie jest dowodem nowości. Sprawdź także informacje zapisane wcześniej
 w innej sekcji/profilu. Profil i liczba źródeł nie zmieniają nowości treści.
@@ -616,6 +644,36 @@ chronologii ani nie usuwaj rozbieżności. Inny zarzut/wypowiedź konkretnej oso
 lub inna własna ocena redakcji to odrębna treść. Nie zamieniaj opinii redakcji
 w neutralny fakt i odwrotnie. Odrzucenie wszystkich kandydatów jest poprawne.
 '''.strip()
+
+
+def novelty_schema(prior, batch):
+    """Match API constraints to validation: no self, future or cyclic references.
+
+    Keep the prior-ID enum shared. Per-candidate reference lists contain only
+    earlier candidates, and bounded batches keep the schema's enum count small.
+    A wholly new claim is copied exactly; only a supported detail may be edited.
+    """
+    definitions = {'prior_fact_id': {'type': 'string', 'enum': [f['fact_id'] for f in prior]}}
+    decisions = {}
+    for index, candidate in enumerate(batch):
+        references = [{'$ref': '#/$defs/prior_fact_id'}]
+        if index:
+            references.append({'type': 'string', 'enum': [f['fact_id'] for f in batch[:index]]})
+        name = f'covered_{index}'
+        definitions[name] = {'type': 'array', 'minItems': 1,
+                             'items': references[0] if len(references) == 1 else {'anyOf': references}}
+        fields = {'covered_fact_ids': {'$ref': f'#/$defs/{name}'},
+                  'reason_pl': copy.deepcopy(NONBLANK_STRING)}
+        decisions[candidate['fact_id']] = {'anyOf': [
+            obj({'new_text_pl': {'type': 'string', 'enum': [candidate['text_pl']]},
+                 'covered_fact_ids': {'type': 'array', 'items': STRING, 'maxItems': 0},
+                 'reason_pl': copy.deepcopy(NONBLANK_STRING)}),
+            obj({'new_text_pl': {'type': 'string', 'enum': ['']}, **fields}),
+            obj({'new_text_pl': copy.deepcopy(NONBLANK_STRING), **copy.deepcopy(fields)}),
+        ]}
+    schema = obj({'decisions': obj(decisions)})
+    schema['$defs'] = definitions
+    return schema
 
 
 def audit_new_facts(facts, known, articles, call, normalize, max_chars, on_retry):
@@ -642,15 +700,10 @@ def audit_new_facts(facts, known, articles, call, normalize, max_chars, on_retry
         prior = [*retained, *accepted]
         data = {'previous_facts': [slim(f) for f in prior]}
         batch, offset = take_full_article_batch(compact_candidates, offset,
-                                               data, 'candidate_facts', max_chars)
+                                               data, 'candidate_facts', max_chars,
+                                               max_items=NOVELTY_BATCH_FACTS)
         batch_ids = [f['fact_id'] for f in batch]
-        # Define the ID enum once; repeating it for every verdict bloats the
-        # schema and can exceed the API's total enum limit on large ledgers.
-        schema = obj({'decisions': obj({candidate_id: obj({
-                'new_text_pl': STRING, 'covered_fact_ids': {'$ref': '#/$defs/covered_fact_ids'},
-                'reason_pl': copy.deepcopy(NONBLANK_STRING),
-            }) for candidate_id in batch_ids})})
-        schema['$defs'] = {'covered_fact_ids': allowed_strings([f['fact_id'] for f in prior] + batch_ids)}
+        schema = novelty_schema(prior, batch)
 
         def validate_audit(response):
             decisions = response.get('decisions')
@@ -666,11 +719,15 @@ def audit_new_facts(facts, known, articles, call, normalize, max_chars, on_retry
                     raise ValueError('Niepoprawna decyzja kontroli nowości perspektyw.')
                 text = normalize(verdict['new_text_pl']).strip()
                 covered = verdict.get('covered_fact_ids')
-                if (not isinstance(covered, list) or any(not isinstance(fid, str) or fid not in available for fid in covered)
-                        or len(set(covered)) != len(covered) or not str(verdict.get('reason_pl') or '').strip()):
-                    raise ValueError('Kontrola nowości odwołuje się do obcych ustaleń lub nie ma uzasadnienia.')
+                if not isinstance(covered, list) or any(not isinstance(fid, str) or fid not in available for fid in covered):
+                    raise ValueError(f'Kontrola nowości {cid}: covered_fact_ids może wskazywać tylko previous_facts '
+                                     'lub wcześniejszych kandydatów; nie siebie ani późniejszego kandydata. '
+                                     f'Otrzymano: {covered!r}.')
+                if len(set(covered)) != len(covered) or not str(verdict.get('reason_pl') or '').strip():
+                    raise ValueError(f'Kontrola nowości {cid}: wymagane niepuste uzasadnienie i brak powtórzonych ID.')
                 if _text_key(text) != _text_key(candidate['text_pl']) and not covered:
-                    raise ValueError('Odrzucenie lub wydzielenie szczegółu wymaga wskazania znanych ustaleń.')
+                    raise ValueError(f'Odrzucenie lub wydzielenie szczegółu {cid} wymaga wskazania znanych ustaleń. '
+                                     'Jeśli całość jest nowa, skopiuj dokładnie text_pl kandydata bez redagowania.')
                 if text and _text_key(text) in prior_texts:
                     raise ValueError('Kontrola nowości zaakceptowała identyczne znane ustalenie.')
                 checked.append({**verdict, 'new_text_pl': text})
@@ -698,7 +755,8 @@ def audit_new_facts(facts, known, articles, call, normalize, max_chars, on_retry
     return audited, audits
 
 
-def generate(payload, call, normalize, *, max_payload_chars=300000, on_validation_retry=None):
+def generate(payload, call, normalize, *, max_payload_chars=300000, on_validation_retry=None,
+             on_coverage_repair=None):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
     previous_base = (previous or {}).get('base_summary') or {}
@@ -708,22 +766,47 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         raise ValueError('Brak materiałów do opracowania perspektyw.')
     prepared = [{**a, 'source_group': article_group(a)} for a in articles]
     facts, offset, extracted, headline, categories = known, 0, None, None, []
-    while offset < len(prepared):
+
+    def extract(batch, *, repair=False):
         base = {'topic': payload['topic'], 'previous_facts': [
             {k: v for k, v in fact.items() if k != 'editorial_sources'} for fact in facts]}
-        batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars)
         def validate_extracted(response):
             if any(raw.get('kind') not in FACT_KINDS for raw in response.get('facts') or []):
                 raise ValueError('Każde ustalenie musi mieć typ FACT, STATEMENT lub EDITORIAL.')
             validate_batch_citations(response, batch, facts, normalize)
             validate_article_coverage(response, batch)
+            if repair:
+                unresolved = [r['article_id'] for r in response['article_coverage'] if r['needs_review']]
+                if unresolved:
+                    raise ValueError('Kontrola pokrycia nadal pomija artykuły: ' + ', '.join(unresolved)
+                                     + '. Zwróć ich rzeczywiste potwierdzenia (także znanych faktów) '
+                                     'albo konkretny powód braku informacji o wydarzeniu.')
             return route_facts(response, articles, facts, normalize)
-        extracted, (mode, facts) = validated_call(
-            call, EXTRACTION_INSTRUCTIONS, {**base, 'all_articles': batch},
+        return validated_call(
+            call, EXTRACTION_INSTRUCTIONS + ('\n\n' + COVERAGE_REPAIR_INSTRUCTIONS if repair else ''),
+            {**base, 'all_articles': batch},
             extraction_schema(facts, [a['article_id'] for a in batch]), 'perspective_facts',
             validate_extracted, on_validation_retry)
+
+    while offset < len(prepared):
+        base = {'topic': payload['topic'], 'previous_facts': facts}
+        batch, offset = take_full_article_batch(prepared, offset, base, 'all_articles', max_payload_chars,
+                                               max_items=EXTRACTION_BATCH_ARTICLES)
+        extracted, (mode, facts) = extract(batch)
         headline = headline or extracted['headline_pl']
         categories = list(dict.fromkeys([*categories, *(extracted.get('categories') or [])]))
+        missing = {r['article_id'] for r in extracted['article_coverage'] if r['needs_review']}
+        if missing:
+            if on_coverage_repair:
+                on_coverage_repair(sorted(missing))
+            repairs, repair_offset = [a for a in batch if str(a['article_id']) in missing], 0
+            while repair_offset < len(repairs):
+                repair_base = {'topic': payload['topic'], 'previous_facts': facts}
+                repair_batch, repair_offset = take_full_article_batch(
+                    repairs, repair_offset, repair_base, 'all_articles', max_payload_chars,
+                    max_items=COVERAGE_REPAIR_BATCH_ARTICLES)
+                repaired, (mode, facts) = extract(repair_batch, repair=True)
+                categories = list(dict.fromkeys([*categories, *(repaired.get('categories') or [])]))
     novelty_audits = []
     if previous is not None:
         facts, novelty_audits = audit_new_facts(facts, known, articles, call, normalize,

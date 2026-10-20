@@ -31,7 +31,7 @@ from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 
 
-PROMPT_VERSION = "ai-prompts-v66-explanatory-context"
+PROMPT_VERSION = "ai-prompts-v67-complete-coverage-scoped-novelty"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2581,18 +2581,14 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                 kinds = {kind: sum(f.get('kind') == kind for f in response.get('facts') or [])
                          for kind in perspectives.FACT_KINDS}
                 log("AI", f"Typy ustaleń: neutralne: {kinds['FACT']}, wypowiedzi/zarzuty: {kinds['STATEMENT']}, oceny redakcyjne: {kinds['EDITORIAL']}.")
-                reasons = coverage if isinstance(coverage, dict) else {
-                    str(row.get('article_id')): row for row in coverage if isinstance(row, dict)}
-                unaccounted = [str(article['article_id']) for article, count in zip(data['all_articles'], counts)
-                               if not count and not str((reasons.get(str(article['article_id'])) or {}).get('no_relevant_facts_reason_pl') or '').strip()]
-                if unaccounted:
-                    log("AI", "Fakty perspektyw: artykuły bez zwróconych potwierdzeń i uzasadnienia: "
-                        + json.dumps(unaccounted, ensure_ascii=False)
-                        + "; zachowuję poprawne fakty, nie dopisuję tym artykułom potwierdzeń automatycznie.", level="WARN")
             return response
         try:
             raw = perspectives.generate(payload, call, normalize_generated_text,
                 max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS,
+                on_coverage_repair=lambda ids: log("AI",
+                    f"Kontrola pokrycia: uzupełniam {len(ids)} pominiętych artykułów "
+                    f"w paczkach do {perspectives.COVERAGE_REPAIR_BATCH_ARTICLES}; "
+                    "zachowuję poprawne ustalenia, ponownie wysyłam tylko pełne treści pominiętych materiałów."),
                 on_validation_retry=lambda name, error: log("AI",
                     f"{name}: odpowiedź nie przeszła kontroli ({error}); "
                     "wykonuję jedną próbę poprawy tego etapu z tymi samymi danymi.", level="WARN"))

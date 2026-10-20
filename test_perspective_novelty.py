@@ -57,7 +57,10 @@ class PerspectiveNoveltyTests(unittest.TestCase):
             jsonschema.validate(result, schema)
             return result
 
-        result = p.generate(payload, call, ai.normalize_generated_text)
+        # Replay one historical fixed response as its original request. The
+        # bounded production batching is exercised separately with live mocks.
+        with patch.object(p, 'EXTRACTION_BATCH_ARTICLES', len(payload['all_articles'])):
+            result = p.generate(payload, call, ai.normalize_generated_text)
         self.assertEqual(calls, ['perspective_facts', 'perspective_novelty_audit'])
         self.assertEqual(result['summary_pl'], base['summary_pl'])
         self.assertEqual(payload, original)
@@ -243,16 +246,58 @@ class PerspectiveNoveltyTests(unittest.TestCase):
         rows = [article('l', 'LEFT')]
         known = self.route(rows, [fact(f'Znane ustalenie {i}.', ['l'], kind='FACT') for i in range(100)])
         facts = self.route(rows, [fact(f'Nowe ustalenie {i}.', ['l'], kind='FACT') for i in range(30)], known)
+        requests = []
         def call(instructions, data, schema, name):
+            requests.append(data)
             jsonschema.Draft202012Validator.check_schema(schema)
-            ids = schema['$defs']['covered_fact_ids']['items']['enum']
-            self.assertEqual(len(ids), 130)
-            self.assertEqual(json.dumps(schema).count('"enum"'), 1)
+            ids = schema['$defs']['prior_fact_id']['enum']
+            self.assertEqual(set(ids), {f['fact_id'] for f in data['previous_facts']})
+            self.assertLessEqual(len(data['candidate_facts']), p.NOVELTY_BATCH_FACTS)
+            def enum_count(node):
+                if isinstance(node, dict):
+                    return len(node.get('enum', [])) + sum(enum_count(v) for k, v in node.items() if k != 'enum')
+                return sum(enum_count(v) for v in node) if isinstance(node, list) else 0
+            self.assertLess(enum_count(schema), 1000)
             response = {'decisions': {f['fact_id']: verdict(f['text_pl']) for f in data['candidate_facts']}}
             jsonschema.validate(response, schema)
             return response
         audited, _ = p.audit_new_facts(facts, known, rows, call, ai.normalize_generated_text, 300000, None)
         self.assertEqual(len(audited), 130)
+        self.assertEqual(len(requests), 2)
+
+    def test_schema_excludes_self_future_cycles_and_reasonless_rewrites_from_real_runs(self):
+        fixtures = json.loads((Path(__file__).parent / 'test_data/perspective_audit_failures_20261020.json').read_text())
+        for fixture in fixtures:
+            with self.subTest(case=fixture['case']):
+                observed = fixture['response']['decisions']
+                order = list(observed)
+                prior_ids = {fid for d in observed.values() for fid in d['covered_fact_ids']} - set(order)
+                # Synthetic ledger content: only structural ID validity is
+                # tested here; these assertions do not simulate AI judgment.
+                prior = [{'fact_id': fid, 'text_pl': 'Wcześniejsze ustalenie.'} for fid in sorted(prior_ids)]
+                batch = [{'fact_id': fid, 'text_pl': d['new_text_pl'] or f'Kandydat {i}.'}
+                         for i, (fid, d) in enumerate(observed.items())]
+                schema = p.novelty_schema(prior, batch)
+                good = {'decisions': {f['fact_id']: verdict(f['text_pl']) for f in batch}}
+                jsonschema.validate(good, schema)
+                failures = 0
+                for index, cid in enumerate(order):
+                    if any(fid in order[index:] for fid in observed[cid]['covered_fact_ids']):
+                        bad = copy.deepcopy(good)
+                        bad['decisions'][cid] = observed[cid]
+                        with self.assertRaises(jsonschema.ValidationError):
+                            jsonschema.validate(bad, schema)
+                        failures += 1
+                self.assertGreater(failures, 0)
+
+    def test_wholly_new_text_is_copied_and_only_a_supported_detail_may_be_rewritten(self):
+        prior = [{'fact_id': 'known', 'text_pl': 'Minister przyjedzie.'}]
+        batch = [{'fact_id': 'new', 'text_pl': 'Minister przyjedzie w poniedziałek.'}]
+        schema = p.novelty_schema(prior, batch)
+        jsonschema.validate({'decisions': {'new': verdict(batch[0]['text_pl'])}}, schema)
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate({'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.')}}, schema)
+        jsonschema.validate({'decisions': {'new': verdict('Przyjazd ministra zaplanowano na poniedziałek.', ['known'])}}, schema)
 
 
 if __name__ == '__main__':
