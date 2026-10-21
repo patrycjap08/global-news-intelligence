@@ -91,6 +91,9 @@ przeczytanych i hasło są zapamiętywane lokalnie na tym urządzeniu.
 Wyszukiwanie obejmuje tytuł, krótki opis i nazwy źródeł.
 Krótki opis jest widoczny pod tytułem na karcie i w otwartym wątku,
 również po pobraniu pełnej syntezy. Korzysta z już zapisanego tekstu.
+Komunikat o profilu źródeł pierwotnej syntezy pojawia się tylko wtedy,
+gdy wątek ma opublikowaną aktualizację, a ostatnia analiza nie ma wyniku
+`NO_NEW_INFORMATION`. Same nowe potwierdzenia i dawne aktualizacje go nie włączają.
 
 Syntezy bez podziału na akapity są dzielone na granicy zdania, gdy taki podział
 jest możliwy, bez dopisywania treści. Oznaczony „Podsumowując” ostatni akapit

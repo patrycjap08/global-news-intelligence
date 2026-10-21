@@ -1150,11 +1150,13 @@ function articleProfileBar(model) {
   return `<div class="article-profile-share" aria-label="Udział artykułów według profilu redakcyjnego"><div class="profile-share-legend">${legend}</div><div class="profile-share-bar" aria-hidden="true">${bar}</div></div>`;
 }
 
-function coverageNotice(summary) {
+function coverageNotice(summary, updates = [], latestAnalysisStatus = null) {
   if (summary.coverage_mode === 'STATE_ONLY') return '<p class="coverage-notice">Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.</p>';
   if (summary.perspective_version !== 1) return '';
   const original = { SINGLE_LEFT: 'źródeł lewicowych', SINGLE_RIGHT: 'źródeł prawicowych', SINGLE_CENTER: 'źródeł centrowych' };
-  if (summary.synthesis_coverage_mode && summary.synthesis_coverage_mode !== summary.coverage_mode && original[summary.synthesis_coverage_mode]) return `<p class="coverage-notice">Pierwotna synteza powstała wyłącznie na podstawie ${original[summary.synthesis_coverage_mode]}.</p>`;
+  const hasPublishedUpdate = latestAnalysisStatus !== 'NO_NEW_INFORMATION'
+    && updates.some(update => update.status !== 'BASE_SUMMARY' && updateText(update));
+  if (hasPublishedUpdate && summary.synthesis_coverage_mode && summary.synthesis_coverage_mode !== summary.coverage_mode && original[summary.synthesis_coverage_mode]) return `<p class="coverage-notice">Pierwotna synteza powstała wyłącznie na podstawie ${original[summary.synthesis_coverage_mode]}.</p>`;
   const messages = { SINGLE_LEFT: 'Opracowanie wyłącznie na podstawie źródeł lewicowych.', SINGLE_RIGHT: 'Opracowanie wyłącznie na podstawie źródeł prawicowych.', SINGLE_CENTER: 'Opracowanie wyłącznie na podstawie źródeł centrowych.', STATE_ONLY: 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' };
   return messages[summary.coverage_mode] ? `<p class="coverage-notice">${messages[summary.coverage_mode]}</p>` : '';
 }
@@ -1211,7 +1213,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     ? section('Fakty', summary.facts, 'insight-facts', summary.fact_classification_version === 1 ? 'Neutralne ustalenia oraz wypowiedzi i zarzuty z przypisaniem do źródeł.' : 'Szczegółowe ustalenia z przypisaniem do źródeł.')
     : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
   return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
-    ${coverageNotice(summary)}
+    ${coverageNotice(summary, model.updates || [], model.latestAnalysisStatus)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     ${articleProfileBar(model)}
