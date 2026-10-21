@@ -136,7 +136,13 @@ def writing_schema(main, *, inline_context=False):
                 'basis': {'type': 'string', 'enum': ['GENERAL_KNOWLEDGE', 'SUPPLIED_MATERIAL']}})}})
         if main:
             paragraph['properties']['fact_ids']['minItems'] = 1
-        return obj({'paragraphs': {'type': 'array', 'maxItems': 4 if main else 0, 'items': paragraph}})
+        entity = obj({
+            'mentions': {'type': 'array', 'minItems': 1, 'maxItems': 5,
+                         'items': {'type': 'string', 'minLength': 3, 'maxLength': 80}},
+            'description_pl': {'type': 'string', 'minLength': 3, 'maxLength': 180},
+            'basis': {'type': 'string', 'enum': ['GENERAL_KNOWLEDGE', 'SUPPLIED_MATERIAL']}})
+        return obj({'entity_context': {'type': 'array', 'maxItems': 6 if main else 0, 'items': entity},
+                    'paragraphs': {'type': 'array', 'maxItems': 4 if main else 0, 'items': paragraph}})
     schema = copy.deepcopy(WRITING_SCHEMA)
     article_ids = {i for f in main for i in f['article_ids']}
     schema['properties']['paragraphs']['items']['properties']['fact_ids'] = allowed_strings(f['fact_id'] for f in main)
@@ -162,6 +168,8 @@ def context_source_passages(articles, main):
     signals = re.compile(r'\b(?:known as|also called|founded|established|registered|filings|'
                          r'nonprofit|non-profit|advocacy|organization|provides|previously|since|'
                          r'legislation|legislature|law|laws|regulation|postal service|'
+                         r'senator|envoy|negotiator|prime minister|secretary|teacher|'
+                         r'senator\w*|wysłannik\w*|negocjator\w*|premier\w*|minister\w*|nauczyciel\w*|obywatel\w*|'
                          r'założon\w*|powstał\w*|zarejestrowan\w*|działa od|'
                          r'zajmuj\w*|organizacj\w*|wcześniej|ustaw\w*|przepis\w*|'
                          r'organisation|association|fondé\w*|créé\w*|depuis|auparavant|'
@@ -171,6 +179,10 @@ def context_source_passages(articles, main):
                          r'організаці\w*|заснован\w*|зареєстрован\w*|закон\w*|раніше|'
                          r'организаци\w*|основан\w*|зарегистрирован\w*|ранее)\b', re.I)
     sources, remaining, seen = [], 3600, set()
+    # Roles beside a name matter more to this story than generic legal or
+    # organizational boilerplate elsewhere in the same fetched article.
+    names = {word.casefold()[:6] for fact in main
+             for word in re.findall(r'\b[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{3,}\b', fact['text_pl'])}
     ordered = sorted(articles, key=lambda a: str(a['article_id']) not in supporting)
     for article in ordered:
         if len(sources) >= 3 or remaining <= 0:
@@ -183,7 +195,10 @@ def context_source_passages(articles, main):
             continue
         body = str(article.get('body_original') or '')
         parts = [s.strip() for s in re.split(r'\n+|(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])(?=[A-Z])', body) if s.strip()]
-        ranked = sorted(enumerate(parts), key=lambda row: (-len(signals.findall(row[1])), row[0]))
+        def relevance(part):
+            named = any(word.casefold()[:6] in names for word in re.findall(r'\w+', part))
+            return len(signals.findall(part)) + (4 if named and signals.search(part) else 0)
+        ranked = sorted(enumerate(parts), key=lambda row: (-relevance(row[1]), row[0]))
         selected, budget = [], min(1200, remaining)
         for index, part in ranked:
             key = integrity.text_key(part)
@@ -694,7 +709,7 @@ w artykułach, jeżeli czytelnik potrzebuje jej do zrozumienia historii:
 krótkie tło poprzedzających wydarzeń, wyjaśnienie mechanizmu lub instytucji.
 Nie dodawaj ciekawostek ani pobocznych historii. Jeśli kontekst nie jest
 potrzebny, nie dodawaj go na siłę. Nie zgaduj, gdy nie masz pewności.
-Przy pierwszym użyciu mniej znanej osoby dodaj w nawiasie kilka słów, kim
+Przy pierwszym użyciu mniej znanej osoby czytelnik musi dostać kilka słów, kim
 jest, np. „Sébastien Lecornu (premier Francji)”. Prezydentów państw nie trzeba
 objaśniać. Nie tłumacz, czym są państwa, ani powszechnie znanych nazw geograficznych.
 Przy organizacji lub nieoczywistym skrócie krótko rozwiń nazwę i powiedz,
@@ -710,7 +725,22 @@ Wiedza ogólna nie służy do dopisywania nowych bieżących doniesień, śwież
 zmian stanowisk, zarzutów, spornych powiązań ani domysłów o motywach sprawców.
 Funkcję osoby podawaj zgodnie z czasem wydarzenia; nie zgaduj aktualnego stanowiska.
 
-Zwróć JSON zawierający tylko paragraphs. W każdym akapicie context_spans to
+Najpierw zwróć entity_context: krótkie objaśnienia osób, organizacji i skrótów,
+których używasz. Każdy wpis ma mentions (dokładne formy nazwy z main_facts,
+także odmienione nazwisko, jeśli go używasz), description_pl (kilka słów,
+bez nawiasów), basis (SUPPLIED_MATERIAL lub GENERAL_KNOWLEDGE). Np.
+{mentions: ["USPS"], description_pl: "United States Postal Service, amerykański operator pocztowy",
+basis: "GENERAL_KNOWLEDGE"}. Program wstawi objaśnienie w nawiasie przy
+pierwszym użyciu nazwy. W text_pl nie powtarzaj tych definicji. Opis ma
+wyjaśniać funkcję lub działalność, nie dopisywać bieżącego doniesienia.
+Nie podawaj prezydentów, państw ani osób już przedstawionych przez funkcję.
+Gdy nie możesz pewnie objaśnić podmiotu, pomiń go. Jeśli nikt nie wymaga
+objaśnienia, entity_context=[].
+
+Potem zwróć paragraphs: tekst wydarzenia wraz z potrzebnym tłem. Nie pisz
+trzech wariantów tej samej reakcji. Jeśli opisujesz reakcję na czyjeś słowa,
+zwięźle wyjaśnij, kiedy i w związku z czym padły, korzystając z main_facts.
+W każdym akapicie context_spans to
 lista DOKŁADNYCH, krótkich fragmentów text_pl dodanych jako objaśnienie lub
 kontekst: {text_pl, basis: GENERAL_KNOWLEDGE lub SUPPLIED_MATERIAL}.
 Zaznacz sam nawias z objaśnieniem albo całe zdanie dodanego tła, najwyżej
@@ -1356,15 +1386,22 @@ def safe_inline_written(written, main):
     ledger or article evidence. No additional verification call is made.
     """
     by_id = {f['fact_id']: f for f in main}
-    paragraphs, additions = [], []
-    for paragraph in (written.get('paragraphs') or [])[:4]:
+    paragraphs, additions, rejected = [], [], {}
+    supplied = written.get('paragraphs') or []
+    if not isinstance(supplied, list):
+        supplied = []
+    def reject(reason):
+        rejected[reason] = rejected.get(reason, 0) + 1
+    for paragraph in supplied[:4]:
         if not isinstance(paragraph, dict):
+            reject('invalid_paragraph')
             continue
         ids = paragraph.get('fact_ids')
         text = paragraph.get('text_pl')
         spans = paragraph.get('context_spans', [])
         if (not isinstance(ids, list) or not ids or any(not isinstance(fid, str) or fid not in by_id for fid in ids)
                 or not isinstance(text, str) or not isinstance(spans, list) or len(spans) > 3):
+            reject('invalid_fields_or_fact_ids')
             continue
         event_text, checked = text, []
         for span in spans:
@@ -1377,16 +1414,73 @@ def safe_inline_written(written, main):
             event_text = event_text.replace(fragment, '', 1)
             checked.append({'text_pl': fragment, 'basis': basis})
         if len(checked) != len(spans):
+            reject('invalid_context_span')
             continue
         evidence = ' '.join(by_id[fid]['text_pl'] for fid in ids)
         if (not integrity.usable_claim(text) or not integrity.usable_claim(event_text.strip())
                 or not integrity.related_claims(event_text, evidence)
                 or not set(re.findall(r'\d+', event_text)) <= set(re.findall(r'\d+', evidence))):
+            reject('event_not_supported_by_cited_facts')
             continue
         additions.extend({**span, 'paragraph_index': len(paragraphs)} for span in checked)
         paragraphs.append({'text_pl': text.strip(), 'fact_ids': ids})
     return {'paragraphs': paragraphs, 'general_context': None, 'background_context': [],
-            'narrative_context': additions}
+            'narrative_context': additions, 'entity_context': written.get('entity_context') or [],
+            'writing_validation': {'supplied_paragraphs': len(supplied),
+                                   'accepted_paragraphs': len(paragraphs), 'rejections': rejected}}
+
+
+def insert_entity_context(written, main):
+    """Insert bounded roles once, including into admitted-fact fallback prose.
+
+    A malformed event paragraph cannot erase an independently usable role.
+    Definitions remain narrative context, never evidence or new ledger facts.
+    Names must occur in admitted facts and in the published paragraph. This is
+    a structural guard, not independent verification of the model's knowledge.
+    """
+    entries = written.get('entity_context') or []
+    if not isinstance(entries, list):
+        return
+    evidence = ' '.join(f['text_pl'] for f in main)
+    seen = set()
+    for entry in entries[:6]:
+        if not isinstance(entry, dict):
+            continue
+        mentions, description, basis = entry.get('mentions'), entry.get('description_pl'), entry.get('basis')
+        if (not isinstance(mentions, list) or not 1 <= len(mentions) <= 5
+                or not isinstance(description, str) or not 3 <= len(description.strip()) <= 180
+                or len(description.split()) < 2 or re.search(r'[\n\r()]', description)
+                or basis not in {'SUPPLIED_MATERIAL', 'GENERAL_KNOWLEDGE'}):
+            continue
+        patterns = []
+        for mention in mentions:
+            if (not isinstance(mention, str) or not 3 <= len(mention.strip()) <= 80
+                    or re.search(r'[\n\r()]', mention)):
+                continue
+            pattern = re.compile(r'(?<!\w)' + re.escape(mention.strip()) + r'(?!\w)', re.I)
+            if pattern.search(evidence):
+                patterns.append(pattern)
+        if not patterns:
+            continue
+        for index, paragraph in enumerate(written['paragraphs']):
+            text = paragraph['text_pl']
+            matches = [match for pattern in patterns for match in pattern.finditer(text)]
+            if not matches:
+                continue
+            match = min(matches, key=lambda m: (m.start(), -len(m.group())))
+            key = integrity.text_key(match.group())
+            # Don't define the same name twice or stack a second parenthesis
+            # onto an explanation the writer already supplied inline.
+            if key in seen or text[match.end():].lstrip().startswith('('):
+                break
+            fragment = ' (' + description.strip() + ')'
+            paragraph['text_pl'] = text[:match.end()] + fragment + text[match.end():]
+            written.setdefault('narrative_context', []).append({
+                'text_pl': fragment, 'basis': basis, 'paragraph_index': index,
+                'entity': match.group()})
+            seen.update(integrity.text_key(mention) for mention in mentions if isinstance(mention, str))
+            seen.add(key)
+            break
 
 
 
@@ -1613,8 +1707,10 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         allow_omissions and previous is not None and previous_current.get('publication_version') == 2
         and integrity.narrative_missing_core(
             working_title, previous_current.get('summary_pl', ''), main)) or (
-            allow_omissions and previous is not None and integrity.needs_inline_context(previous_current)))
+            allow_omissions and previous is not None and integrity.needs_inline_context(previous_current, main)))
     core_fallback = False
+    narrative_fallback = False
+    writing_validation = {}
     if previous is not None and (not allow_omissions or (not changed and not refresh)):
         # Confirmations alone do not buy another writing request.
         previous_base = (previous or {}).get('current_summary') or previous_base
@@ -1648,10 +1744,12 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                 writing_input['context_sources'] = context_sources
             written = safe_inline_written(call(WRITING_INSTRUCTIONS, writing_input,
                                         writing_schema(main, inline_context=True), 'perspective_summary'), main)
+            writing_validation = written['writing_validation']
             if not written['paragraphs']:
                 # A failed writing response does not erase verified extraction
                 # or trigger another request. Use a few attributed claims.
                 written['paragraphs'] = []
+                narrative_fallback = True
                 fallback = ([primary] + [f for f in main if f['fact_id'] != primary['fact_id']]) if primary else main
                 for fact in fallback[:3]:
                     names = list(dict.fromkeys(str(by_id[aid].get('source_name') or by_id[aid].get('source_id') or '')
@@ -1670,6 +1768,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                 for item in written.get('narrative_context') or []:
                     item['paragraph_index'] += 1
                 core_fallback = True
+            insert_entity_context(written, main)
         else:
             written, _ = validated_call(call, LEGACY_WRITING_INSTRUCTIONS, writing_input,
                 writing_schema(main), 'perspective_summary', lambda response: validate_written(response, main),
@@ -1686,7 +1785,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                   'background_context': written.get('background_context') or [],
                   'synthesis_coverage_mode': mode}
         if allow_omissions:
-            result['inline_context_version'] = 1
+            result['inline_context_version'] = integrity.INLINE_CONTEXT_VERSION
             result['narrative_context'] = written.get('narrative_context') or []
     result['publication_version'] = 2 if allow_omissions else result.get('publication_version', 1)
     if allow_omissions and (prepared or cached_articles):
@@ -1694,6 +1793,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
     result['quality_report'] = {'omissions': omissions, 'novelty_omissions': omitted_novelty,
                                 'cached_articles': cached_articles, 'read_articles': len(prepared),
                                 'narrative_core_fallback': core_fallback,
+                                'narrative_fallback': narrative_fallback,
+                                'writing_validation': writing_validation,
                                 'context_source_count': len(context_sources),
                                 'context_passage_chars': sum(len(p) for s in context_sources for p in s['passages']),
                                 'context_additions_accepted': len(result.get('narrative_context') or [])}

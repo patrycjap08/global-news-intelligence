@@ -11,6 +11,7 @@ import unicodedata
 
 EXTRACTOR_VERSION = 'article-facts-v2'
 FACT_EXTRACTION_VERSION = 2
+INLINE_CONTEXT_VERSION = 2
 
 
 def text_key(text):
@@ -87,10 +88,23 @@ def narrative_missing_core(headline, narrative, facts):
     return len(anchors) >= 2 and len(missing) >= 2 and len(missing) / len(anchors) >= .5
 
 
-def needs_inline_context(current):
-    """A bounded, one-time context attempt for unexplained opaque acronyms."""
-    if current.get('publication_version') != 2 or (current.get('inline_context_version') or 0) >= 1:
+def needs_inline_context(current, facts=()):
+    """One writing attempt for opaque acronyms or a contextless fact fallback.
+
+    The v1 writer marked even its bare-fact fallback as context-complete. Only
+    its recognizable output is eligible again, not every older publication.
+    """
+    if (current.get('publication_version') != 2
+            or (current.get('inline_context_version') or 0) >= INLINE_CONTEXT_VERSION):
         return False
+    if (current.get('inline_context_version') or 0) >= 1:
+        if current.get('narrative_context') or not facts:
+            return False
+        paragraphs = [p.strip() for p in current.get('summary_pl', '').split('\n\n') if p.strip()]
+        claims = {text_key(f.get('text_pl')) for f in facts}
+        return (len(paragraphs) >= 2 and any(p.startswith('Według ') for p in paragraphs)
+                and all(text_key(re.sub(r'^Według [^:\n]{1,100}:\s*', '', p)) in claims
+                        for p in paragraphs))
     common = {'USA', 'US', 'UE', 'EU', 'UK', 'RP', 'ONZ', 'NATO', 'MSZ', 'MSW',
               'BBC', 'CBS', 'CNN', 'NBC', 'ABC', 'PAP', 'AFP', 'EFE', 'FAZ', 'WSJ', 'TVN', 'RT'}
     acronyms = set(re.findall(r'\b[A-Z][A-Z0-9]{2,}\b', current.get('summary_pl', ''))) - common

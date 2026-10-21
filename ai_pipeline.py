@@ -36,7 +36,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v77-facts-without-quotes"
+PROMPT_VERSION = "ai-prompts-v78-context-through-fallback"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2634,7 +2634,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                 details = getattr(exc, 'response_details', {}) or {}
                 for key in token_usage:
                     token_usage[key] += int(details.get(key + '_tokens') or 0)
-                if name != 'perspective_facts':
+                if name not in ('perspective_facts', 'perspective_summary'):
                     log('AI', f'Etap {name} [{topic_label}]: odpowiedź niepoprawna; '
                         'pomijam niepewną treść bez ponownego zapytania.', level='WARN')
                     return {}
@@ -2649,8 +2649,9 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                             response = parsed
                     except (ValueError, TypeError):
                         pass
-                log('AI', f'Ekstrakcja [{topic_label}]: niepoprawna odpowiedź; '
-                    'sprawdzam dostępne ustalenia lokalnie, braki pomijam bez ponawiania zapytania.', level='WARN')
+                stage = 'Ekstrakcja' if name == 'perspective_facts' else 'Pisanie syntezy'
+                log('AI', f'{stage} [{topic_label}]: niepoprawna odpowiedź; '
+                    'sprawdzam dostępne elementy lokalnie, braki pomijam bez ponawiania zapytania.', level='WARN')
             for key, value in getattr(response, 'token_usage', {}).items():
                 token_usage[key] += value
             last_response, last_schema = dict(response), name
@@ -2717,6 +2718,13 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
         raw.setdefault('quality_report', {'read_articles': 0, 'cached_articles': 0})
         raw['quality_report'].update({'api_calls': call_count, 'tokens': token_usage,
                                      'read_articles': len(read_article_ids), 'budget_skipped_stages': skipped_stages})
+        writing = raw['quality_report'].get('writing_validation') or {}
+        if writing:
+            log('AI', f"Pisanie syntezy [{(payload.get('topic') or {}).get('topic_id', '')}]: "
+                f"zaakceptowane akapity {writing.get('accepted_paragraphs', 0)}/{writing.get('supplied_paragraphs', 0)}, "
+                f"objaśnienia {raw['quality_report'].get('context_additions_accepted', 0)}, "
+                f"tekst awaryjny {bool(raw['quality_report'].get('narrative_fallback'))}; "
+                f"powody odrzucenia: {json.dumps(writing.get('rejections') or {}, ensure_ascii=False)}.")
         raw['article_content_hashes'] = {a['article_id']: a['content_hash'] for a in payload.get('all_articles', []) if a.get('content_hash')}
         log('AI', f"Koszt tematu {(payload.get('topic') or {}).get('topic_id', '')}: zapytań {call_count}, "
             f"tokenów wejścia {token_usage['input']}, wyjścia {token_usage['output']} (rozumowanie {token_usage['reasoning']}); "
@@ -5068,7 +5076,7 @@ def retry_incomplete_summaries(
                 ledger = stored.get('perspective_state') or {}
                 refresh = refresh or integrity.narrative_missing_core(
                     topic.get('headline_pl', ''), current.get('summary_pl', ''), ledger.get('facts') or [])
-                refresh = refresh or integrity.needs_inline_context(current)
+                refresh = refresh or integrity.needs_inline_context(current, ledger.get('facts') or [])
             processed = set(stored.get("processed_article_ids") or [])
             if fact_rebuild:
                 forced_new_ids = list(dict.fromkeys([*forced_new_ids, *all_ids]))

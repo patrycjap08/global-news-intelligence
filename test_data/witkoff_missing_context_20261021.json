@@ -1,0 +1,237 @@
+{
+  "exported_at": "2026-10-21T16:25:34.124258+00:00",
+  "generation": "30e5c870e1c5b4b1033b",
+  "run_id": "harvest_20261021T153326Z",
+  "topic": {
+    "topic_id": "topic_perspectives_912ce85ac69a6a99128ed97b",
+    "headline_pl": "[USA] Krytyka słów Witkoffa o Putinie",
+    "status": "ACTIVE",
+    "first_seen_at": "2026-10-21T16:06:30.253604+00:00",
+    "last_seen_at": "2026-10-21T16:17:57.65415+00:00",
+    "article_count": 3,
+    "source_count": 2,
+    "coverage_status": "MULTI_SOURCE",
+    "needs_review": false,
+    "merged_into_topic_id": null,
+    "merged_at": null,
+    "updated_at": "2026-10-21T16:17:57.65415+00:00",
+    "categories": [
+      "SWIAT"
+    ],
+    "is_current": true
+  },
+  "current_summary": {
+    "topic": {
+      "categories": [
+        "SWIAT"
+      ],
+      "headline_pl": "[USA] Krytyka słów Witkoffa o Putinie",
+      "what_happened_one_sentence_pl": "Thom Tillis skrytykował Witkoffa, nazywając jego określenie Putina „humanitarystą” kompromitującym."
+    },
+    "quality": {
+      "source_count": 0,
+      "article_count": 0,
+      "limitations_pl": "",
+      "overall_confidence": "MEDIUM",
+      "has_multiple_perspectives": false
+    },
+    "sources": [],
+    "agreement": [],
+    "summary_pl": "Thom Tillis skrytykował Witkoffa, nazywając jego określenie Putina „humanitarystą” kompromitującym.\n\nWedług WP: Tillis napisał na X: „WTF, Steve? Sprawdź definicję słowa 'humanitarysta'”\n\nWedług WP: Tillis podkreślił, że Hubbard został zwolniony i że ocenia słowa Witkoffa jako żenujące i oburzające.",
+    "differences": [],
+    "coverage_mode": "SINGLE_LEFT",
+    "contradictions": [],
+    "quality_report": {
+      "tokens": {
+        "input": 11402,
+        "output": 9852,
+        "reasoning": 7680
+      },
+      "api_calls": 3,
+      "omissions": [],
+      "read_articles": 3,
+      "cached_articles": 0,
+      "novelty_omissions": [],
+      "context_source_count": 3,
+      "budget_skipped_stages": [],
+      "context_passage_chars": 586,
+      "narrative_core_fallback": false,
+      "context_additions_accepted": 0
+    },
+    "reader_context": [],
+    "shared_available": true,
+    "narrative_context": [],
+    "background_context": [],
+    "perspective_version": 1,
+    "publication_version": 2,
+    "article_content_hashes": {
+      "afabbfe5dc0e6557efca0a31": "770f358a7b60233b2d602a1bd5717b01f005291913401d6c68b9a0dc7497b462",
+      "b44714e1f970f972dacb5634": "599407859dc8810db3ffc1cd53b4628fd30715a3bdf303acbc118d8895994939",
+      "d9b0bb1ee9b817eeb28ba931": "02f4b45fff80fb418d64e7f2da5796c1dcba0269e244d81331006d29a5ef78b0"
+    },
+    "inline_context_version": 1,
+    "fact_extraction_version": 2,
+    "synthesis_coverage_mode": "SINGLE_LEFT",
+    "fact_classification_version": 1,
+    "potential_manipulation_signals": []
+  },
+  "facts": [
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_c05527645fc534e2207ceaff",
+      "text_pl": "Thom Tillis skrytykował Witkoffa, nazywając jego określenie Putina „humanitarystą” kompromitującym.",
+      "evidence": {},
+      "article_ids": [
+        "afabbfe5dc0e6557efca0a31",
+        "d9b0bb1ee9b817eeb28ba931"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_4cdcf6a6f11425ab88390e3b",
+      "text_pl": "Tillis napisał na X: „WTF, Steve? Sprawdź definicję słowa 'humanitarysta'”",
+      "article_ids": [
+        "afabbfe5dc0e6557efca0a31"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_d589a12f4dcdb3e4d0d99d4a",
+      "text_pl": "Tillis podkreślił, że Hubbard został zwolniony i że ocenia słowa Witkoffa jako żenujące i oburzające.",
+      "article_ids": [
+        "afabbfe5dc0e6557efca0a31"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_29bcfd333a2ac72d2294cd6f",
+      "text_pl": "Tillis wskazał na kontrowersje wokół polityki administracji Trumpa wobec Rosji.",
+      "article_ids": [
+        "afabbfe5dc0e6557efca0a31"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_701b2e5102b8e22990b7d34e",
+      "text_pl": "Steve Witkoff spotkał się z Władimirem Putinem w Petersburgu.",
+      "article_ids": [
+        "b44714e1f970f972dacb5634"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_ca3155047192a017a3a9506a",
+      "text_pl": "Witkoff stwierdził, że Putin jest „humanitarystą”/„humanitarnym człowiekiem” podczas spotkania.",
+      "article_ids": [
+        "b44714e1f970f972dacb5634"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_796658136ce923811fd9f167",
+      "text_pl": "Wizyta Witkoffa miała być elementem amerykańskich działań dyplomatycznych zmierzających do zakończenia wojny w Ukrainie i możliwość zawieszenia broni.",
+      "article_ids": [
+        "b44714e1f970f972dacb5634"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_325d5d9d07dce91eb137dbfb",
+      "text_pl": "W Petersburgu Witkoff przekazał propozycje przygotowane przez Kijów i wskazał na przesłanki do ogłoszenia zawieszenia broni.",
+      "article_ids": [
+        "b44714e1f970f972dacb5634"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_884aa6830227befbcbfb2287",
+      "text_pl": "Rosyjskie władze wypuściły na wolność Stephena Hubbarda (74 lata), amerykańskiego obywatela przetrzymywanego od 2022 r.",
+      "article_ids": [
+        "b44714e1f970f972dacb5634"
+      ],
+      "attribution": "WP"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_0063029061ceb9e4a67a36ec",
+      "text_pl": "Witkoff podziękował Putinowi za zwolnienie Stephena Hubbarda, 74-letniego Amerykanina mieszkającego w Iziumie w Ukrainie.",
+      "article_ids": [
+        "d9b0bb1ee9b817eeb28ba931"
+      ],
+      "attribution": "Onet"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_8a70a2addc05ddd14942ac81",
+      "text_pl": "W listach i wypowiedziach mowa o ewentualnym „drugiej Jałcie” i wyjściu USA z Europy.",
+      "article_ids": [
+        "d9b0bb1ee9b817eeb28ba931"
+      ],
+      "attribution": "Onet"
+    }
+  ],
+  "articles": [
+    {
+      "article_id": "afabbfe5dc0e6557efca0a31",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Senator USA o słowach Witkoffa: \"Żenujące i oburzające\"",
+      "original_url": "https://wiadomosci.wp.pl/senator-usa-o-slowach-witkoffa-zenujace-i-oburzajace-7342473977104416a",
+      "published_at": "2026-10-21T15:42:06.000Z",
+      "fetched_at": "2026-10-21T15:45:48.855628+00:00",
+      "word_count": 301,
+      "title_original": "Senator USA o słowach Witkoffa: \"Żenujące i oburzające\"",
+      "body_original": "Senator republikanów Thom Tillis wyraził w środę niedowierzanie i oburzenie nazwaniem Władimira Putina \"humanitarystą\" przez amerykańskiego wysłannika Steve'a Witkoffa. Polityk ocenił słowa dyplomaty za kompromitujące.\n\n\"WTF, Steve? Sprawdź definicję słowa 'humanitarysta' \" – napisał Tillis we wpisie na platformie X, używając wulgarnego skrótu wyrażającego zdziwienie.\n\nTo komentarz do wypowiedzi Witkoffa, który w środę w Petersburgu dziękował Putinowi za zwolnienie z więzienia Stephena Hubbarda, 74-letniego Amerykanina mieszkającego w Iziumie w Ukrainie, który został przez Rosję pojmany i skazany za rzekomą walkę po stronie ukraińskiego wojska.\n\nTillis, który wkrótce odejdzie z Senatu, jest jednym z szeregu polityków krytykujących ostatni zwrot administracji Trumpa na korzyść Rosji, w tym odejście od nałożenia sankcji przewidzianych w ustawie im. Lindseya Grahama.\n\nWcześniej w środę prezydent USA stwierdził, że wielu krytyków tego posunięcia zadzwoniło do niego z przeprosinami. Ocenił, że bez odejścia od sankcji uwolnienie Hubbarda nie byłoby możliwe. Jednocześnie prezydent twierdził, że Stany Zjednoczone nic nie musiały dawać Rosji w zamian."
+    },
+    {
+      "article_id": "b44714e1f970f972dacb5634",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Szokujące słowa Witkoffa o Putinie. Wychwalał go na spotkaniu",
+      "original_url": "https://wiadomosci.wp.pl/szokujace-slowa-witkoffa-o-putinie-wychwalal-go-na-spotkaniu-7342440298907744a",
+      "published_at": "2026-10-21T13:36:57.000Z",
+      "fetched_at": "2026-10-21T15:45:48.855628+00:00",
+      "word_count": 225,
+      "title_original": "Szokujące słowa Witkoffa o Putinie. Wychwalał go na spotkaniu",
+      "body_original": "Steve Witkoff, specjalny wysłannik prezydenta USA Donalda Trumpa, spotkał się w Petersburgu z Władimirem Putinem. Rosyjski dyktator usłyszał od niego, że jest \"humanitarnym człowiekiem\".\n\nSteve Witkoff przybył do Rosji po negocjacjach w Norwegii, gdzie rozmawiał m.in. z prezydentem Ukrainy Wołodymyrem Zełenskim. – Dobrze cię znów widzieć. Dziękuję za przyjęcie nas tutaj – mówił Witkoff do Władimira Putina.\n\nWizyta stanowi kolejny krok w amerykańskich wysiłkach dyplomatycznych zmierzających do zakończenia wojny w Ukrainie. Witkoff przekazał propozycje przygotowane przez Kijów i ocenił, że istnieją przesłanki pozwalające myśleć o ogłoszeniu zawieszenia broni. Waszyngton liczy teraz, że Kreml zgodzi się na powrót do trójstronnych negocjacji z udziałem Rosji, Stanów Zjednoczonych i Ukrainy.\n\nRozmowy w Petersburgu zaowocowały także konkretnym krokiem ze strony Moskwy. Rosyjskie władze wypuściły na wolność Stephena Hubbarda – 74-letniego obywatela USA i emerytowanego nauczyciela, który pozostawał w niewoli od 2022 r."
+    },
+    {
+      "article_id": "d9b0bb1ee9b817eeb28ba931",
+      "source_id": "onet",
+      "source_name": "Onet",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Witkoff chwalił Putina, amerykański senator oburzony. \"Żenujące\"",
+      "original_url": "https://wiadomosci.onet.pl/swiat/witkoff-chwalil-putina-amerykanski-senator-oburzony-zenujace/3d7s07r",
+      "published_at": "2026-10-21T16:59:58+0200",
+      "fetched_at": "2026-10-21T15:45:33.899295+00:00",
+      "word_count": 210,
+      "title_original": "Witkoff chwalił Putina, amerykański senator oburzony. \"Żenujące\"",
+      "body_original": "\"Powinieneś wrócić na Ukrainę i zapytać rodziny dzieci, które Putin porwał i zamordował, czy zgadzają się, że twój przyjaciel Putin jest »humanitarystą«\" — napisał senator republikański Thom Tillis, zwracając się do Steve'a Witkoffa. Dodał, że słowa amerykańskiego negocjatora skierowane do Putina były \"żenujące i oburzające\"."
+    }
+  ],
+  "source_passages_note": "Public source passages fetched on 2026-10-21; not a copy of historical extractor input. Raw writing response unavailable in public export."
+}
