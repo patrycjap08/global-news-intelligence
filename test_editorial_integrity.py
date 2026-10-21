@@ -32,8 +32,8 @@ def extraction(data, specs):
 
 
 def writer(data):
-    return {'paragraphs': [{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']]} for f in data['main_facts'][:3]],
-            'general_context': {'text_pl': '', 'article_ids': [], 'needs_verification': False}, 'background_context': []}
+    return {'paragraphs': [{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']], 'context_spans': []}
+                           for f in data['main_facts'][:3]]}
 
 
 class EditorialIntegrityTests(unittest.TestCase):

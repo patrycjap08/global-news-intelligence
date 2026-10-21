@@ -14,7 +14,9 @@ let model=topicModel(topic),html=dialogHtml(model);
 assert(html.includes('Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.'));
 assert(!html.includes('data-dialog-tab=') && !html.includes('Brak zapisanej syntezy'));
 assert(html.includes('Ustalenie lewicowe.') && html.includes('Ustalenie prawicowe.') && html.includes('Media kontrolowane przez państwo'));
-assert(html.includes('Ogólne tło.') && html.includes('Materiały źródłowe'));
+assert(!html.includes('Ogólne tło.') && !html.includes('insight-context'));
+assert(html.includes('Materiały źródłowe'));
+assert.strictEqual(model.summary.background_context[0].text_pl, 'Ogólne tło.', 'Keep historical data without rendering a context card');
 assert(!html.includes('REMOVE_'));
 // In single-profile mode the main tabs return; empty perspective tabs disappear.
 base.coverage_mode='SINGLE_LEFT';base.shared_available=true;base.summary_pl='Synteza.';base.facts=[fact('Wszystkie ustalenia lewicowe.')];

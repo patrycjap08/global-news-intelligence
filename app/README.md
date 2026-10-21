@@ -92,13 +92,13 @@ Wyszukiwanie obejmuje tytuł, krótki opis i nazwy źródeł.
 
 Syntezy bez podziału na akapity są dzielone na granicy zdania, gdy taki podział
 jest możliwy, bez dopisywania treści. Oznaczony „Podsumowując” ostatni akapit
-nie jest wyświetlany. Nowe prompty wymagają co najmniej dwóch akapitów,
-polszczyzny i tła historycznego w Kontekście. Aktualizacje są redagowane
+nie jest wyświetlany. Bieżący prompt wymaga zwięzłej polszczyzny i potrzebnego
+tła w samej syntezie, zgodnie z opisem v76 poniżej. Aktualizacje są redagowane
 w już istniejącym niezależnym audycie nowości: lista zdań wskazuje zaakceptowane
 indeksy faktów; program odrzuca pominięte, obce i odrzucone indeksy.
 Nie dodano kolejnego zapytania do modelu.
 
-Nowe syntezy wymagają osobnego `general_context` w odpowiedzi AI. Przed
+Dawny format syntez zawierał osobne `general_context` w odpowiedzi AI. Przed
 zapisem pole jest włączane na początek istniejącej listy Kontekst pod etykietą
 „Ogólny kontekst”, a objaśnienia osób i organizacji są zachowane. Nie wymaga
 to migracji bazy ani dodatkowego zapytania do AI. Starsze syntezy pozostają
@@ -125,10 +125,9 @@ zakładki Synteza/Fakty. Pasek pokazuje udział artykułów (bez państwowych).
 Zasady aktualizacji, izolacji wersji i cofnięcia jednego commita opisuje
 [EDITORIAL_PERSPECTIVES.md](../EDITORIAL_PERSPECTIVES.md).
 
-Po publikacji synteza i jej kontekst nie są ponownie generowane. Aktualizacje
-oraz bieżące fakty/perspektywy są zapisywane osobno; eksport i widok zachowują
-pierwotny tekst. Jeżeli początkowo nie było tekstu syntezy, późniejsze wspólne
-ustalenia są dostępne w Faktach i aktualizacji, bez tworzenia nowej narracji.
+Pierwsza synteza pozostaje archiwum. Od v74 nowe ustalenia mogą odświeżać
+bieżącą narrację i kontekst; zasady kosztu i kwalifikacji opisuje dokument
+EDITORIAL_PERSPECTIVES.md.
 
 Od v74 aplikacja pokazuje current_summary z bieżącym rejestrem faktów.
 Historia aktualizacji nie jest wyświetlana w dialogu; zapisane aktualizacje
@@ -145,3 +144,17 @@ Jeżeli walidacja zachowa tylko poboczne akapity, brakujący rdzeń zostanie
 uzupełniony przyjętym ustaleniem bez dodatkowego wywołania AI. Ewidentne braki
 w istniejącym bieżącym tekście mogą kwalifikować się do jednego pisania
 podczas następnego AI-only, na zapisanych faktach, bez odczytywania artykułów.
+
+Od v76 nie ma osobnego kafelka Kontekst, również przy dawnych opracowaniach.
+Potrzebne tło i krótkie objaśnienia osób, organizacji i skrótów mają być
+wplecione w samą syntezę. Prezydentów i państw nie trzeba przedstawiać.
+Model może korzystać z dobrze ugruntowanej wiedzy ogólnej, jeśli potrzebne
+objaśnienie nie występuje w artykułach. Nie dopisuje w ten sposób nowych
+bieżących doniesień ani niepewnych funkcji lub powiązań.
+
+To samo zapytanie piszące może dostać do 3600 znaków wybranych fragmentów
+z najwyżej trzech już pobranych źródeł. Dodane objaśnienia są zachowane
+w audycie narracji; nie stają się faktami potwierdzonymi przez artykuły.
+Nie ma zapytań naprawczych. Istniejące syntezy z kilkoma nieznanymi skrótami
+mogą dostać jedną próbę takiego pisania przy najbliższym AI-only; pusty wynik
+również zapisuje zakończenie tej próby, aby nie powtarzać kosztu.

@@ -86,6 +86,19 @@ def narrative_missing_core(headline, narrative, facts):
     return len(anchors) >= 2 and len(missing) >= 2 and len(missing) / len(anchors) >= .5
 
 
+def needs_inline_context(current):
+    """A bounded, one-time context attempt for unexplained opaque acronyms."""
+    if current.get('publication_version') != 2 or (current.get('inline_context_version') or 0) >= 1:
+        return False
+    common = {'USA', 'US', 'UE', 'EU', 'UK', 'RP', 'ONZ', 'NATO', 'MSZ', 'MSW',
+              'BBC', 'CBS', 'CNN', 'NBC', 'ABC', 'PAP', 'AFP', 'EFE', 'FAZ', 'WSJ', 'TVN', 'RT'}
+    acronyms = set(re.findall(r'\b[A-Z][A-Z0-9]{2,}\b', current.get('summary_pl', ''))) - common
+    text = current.get('summary_pl', '')
+    acronyms = {name for name in acronyms if not re.search(
+        rf'\b{re.escape(name)}\s*(?:\(|[—–:])|\([^()]*\b{re.escape(name)}\b[^()]*\)', text)}
+    return len(acronyms) >= 2
+
+
 def cache_key(article, model, topic_id=''):
     body = {k: article.get(k) for k in ('article_id', 'title_original', 'body_original', 'source_id', 'source_profile', 'source_type')}
     # Selection is event-specific: an omission for one topic must not suppress

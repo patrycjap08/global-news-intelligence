@@ -1,0 +1,147 @@
+{
+  "exported_at": "2026-10-21T09:42:23.103279+00:00",
+  "topic": {
+    "topic_id": "topic_perspectives_e84ae96c37928ee8c95d7cb6",
+    "headline_pl": "[USA] Tajemnice dotyczące nadawanych materiałów o transgenderowych uczniach w Teksasie",
+    "status": "ACTIVE",
+    "first_seen_at": "2026-10-21T04:00:56.798921+00:00",
+    "last_seen_at": "2026-10-21T09:39:16.502632+00:00",
+    "article_count": 2,
+    "source_count": 2,
+    "coverage_status": "MULTI_SOURCE",
+    "needs_review": false,
+    "merged_into_topic_id": null,
+    "merged_at": null,
+    "updated_at": "2026-10-21T09:39:16.502632+00:00",
+    "categories": [
+      "POLITYKA"
+    ],
+    "is_current": true
+  },
+  "current_summary": {
+    "topic": {
+      "categories": [
+        "SWIAT"
+      ],
+      "headline_pl": "[USA] Tajemnice dotyczące nadawanych materiałów o transgenderowych uczniach w Teksasie",
+      "what_happened_one_sentence_pl": "Oświadczenie TENT: organizacja nie miała udziału w wysyłce ulotki, nie była jej autorem, zatwierdzającym ani dystrybutorem."
+    },
+    "quality": {
+      "source_count": 0,
+      "article_count": 0,
+      "limitations_pl": "",
+      "overall_confidence": "MEDIUM",
+      "has_multiple_perspectives": false
+    },
+    "sources": [],
+    "agreement": [],
+    "summary_pl": "Oświadczenie TENT: organizacja nie miała udziału w wysyłce ulotki, nie była jej autorem, zatwierdzającym ani dystrybutorem.\n\nUSPS został poproszony o komentarz w sprawie ulotki, ale dotąd nie uzyskał odpowiedzi.\n\nSMS-y i listy wysłane do rodzin w Teksasie miały na celu przedstawienie zasobów trans; adres zwrotny wskazuje Meadows Place w Teksasie, a Texas Transgender Student Union została zgłoszona jako dawca.",
+    "differences": [],
+    "coverage_mode": "MIXED",
+    "contradictions": [],
+    "quality_report": {
+      "tokens": {
+        "input": 7538,
+        "output": 7036,
+        "reasoning": 4800
+      },
+      "api_calls": 3,
+      "omissions": [
+        {
+          "discard_reasons": [
+            "Brak dosłownego fragmentu potwierdzającego ustalenie w tym artykule."
+          ],
+          "ignored_article_ids": [],
+          "omitted_article_ids": [],
+          "discarded_fact_count": 9
+        }
+      ],
+      "read_articles": 2,
+      "cached_articles": 0,
+      "novelty_omissions": [],
+      "budget_skipped_stages": []
+    },
+    "reader_context": [],
+    "shared_available": true,
+    "background_context": [],
+    "perspective_version": 1,
+    "publication_version": 2,
+    "article_content_hashes": {
+      "bf446aa87077bbac1ad351fb": "64c02caa4272ceb5eff82570abb28060e79632ef7c824c58b3af38e49380c994",
+      "fa1524a4425e440813cc4b8d": "9063dfb6c0e50ee38540c9b344c832cd487d50cfd256c9767e38396f84e83675"
+    },
+    "synthesis_coverage_mode": "MIXED",
+    "fact_classification_version": 1,
+    "potential_manipulation_signals": []
+  },
+  "facts": [
+    {
+      "fact_id": "fact_fe09c3395473e3716fa3085c",
+      "text_pl": "Organizacja Transgender Education Network of Texas (TENT) nie miała żadnego udziału w wysyłce i wydała oświadczenie, że ulotka nie była autorstwa, zatwierdzona ani dystrybuowana przez tę organizację.",
+      "kind": "FACT",
+      "lane": "COMMON",
+      "article_ids": [
+        "bf446aa87077bbac1ad351fb"
+      ],
+      "attribution": "TENT"
+    },
+    {
+      "fact_id": "fact_6029fdee1716fec23d763afc",
+      "text_pl": "USPS zostało poproszone o komentarz w sprawie ulotki, ale nie uzyskało dotąd odpowiedzi.",
+      "kind": "FACT",
+      "lane": "COMMON",
+      "article_ids": [
+        "bf446aa87077bbac1ad351fb"
+      ],
+      "attribution": "CBS News Texas"
+    },
+    {
+      "fact_id": "fact_d069d42aa777a23a87f90d5b",
+      "text_pl": "Fale SMS-ów i listy wysłane do rodzin w Teksasie miały na celu przedstawienie zasobów trans, a adres zwrotny wskazuje Meadows Place, Texas, a organizacja Texas Transgender Student Union została zgłoszona jako Dawca.",
+      "kind": "FACT",
+      "lane": "COMMON",
+      "article_ids": [
+        "fa1524a4425e440813cc4b8d"
+      ],
+      "attribution": "HuffPost"
+    }
+  ],
+  "articles": [
+    {
+      "article_id": "bf446aa87077bbac1ad351fb",
+      "source_id": "cbs_news",
+      "source_name": "CBS News",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Who is behind the transgender mailers flooding Texas mailboxes?",
+      "original_url": "https://www.cbsnews.com/texas/news/transgender-mailers-flood-texas-2026-midterms/",
+      "published_at": "2026-10-20T22:36:32-0500",
+      "fetched_at": "2026-10-21T03:42:57.601549+00:00",
+      "word_count": 570,
+      "title_original": "Who is behind the transgender mailers flooding Texas mailboxes?"
+    },
+    {
+      "article_id": "fa1524a4425e440813cc4b8d",
+      "source_id": "huffpost",
+      "source_name": "HuffPost",
+      "source_profile": "LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Trans Resource Letters Sent To Families Spark Confusion In Texas",
+      "original_url": "https://www.huffpost.com/entry/fishy-trans-resources-letters-sent-to-families-spark-confusion-in-texas_n_6ad7dad9e4b04f71533d7a0a",
+      "published_at": "2026-10-20T22:55:04Z",
+      "fetched_at": "2026-10-21T03:43:36.396774+00:00",
+      "word_count": 446,
+      "title_original": "Trans Resource Letters Sent To Families Spark Confusion In Texas"
+    }
+  ],
+  "context_quotes": {
+    "bf446aa87077bbac1ad351fb": [
+      "According to state business filings, the Texas Transgender Student Union LLC was formed Sept. 2, 2026.",
+      "The company's listed address leads to an office building in Sheridan, Wyoming, that serves as the address for a registered-agent service used by hundreds of thousands of businesses.",
+      "CBS News Texas reached out to the United States Postal Service on Tuesday about the flyer and has not heard back."
+    ],
+    "fa1524a4425e440813cc4b8d": [
+      "Inside the letter’s envelope is a brochure telling young people curious about gender-affirming care to contact the Transgender Education Network of Texas, aka TENT, an established organization founded in 2010."
+    ]
+  }
+}

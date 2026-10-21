@@ -1,6 +1,6 @@
-# AI-only i publikacja perspektyw — v75
+# AI-only i publikacja perspektyw — v76
 
-Obowiązująca wersja: `ai-prompts-v75-narrative-core`.
+Obowiązująca wersja: `ai-prompts-v76-inline-context`.
 Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
@@ -152,7 +152,7 @@ pisania. Stare formaty nie są automatycznie regenerowane przez ten warunek.
 
 ## Widok i kontekst
 
-Najpierw bieżąca synteza, potem oceny i kontekst; pełny rejestr jest w zakładce
+Najpierw bieżąca synteza z potrzebnym tłem, potem oceny; pełny rejestr jest w zakładce
 Fakty. Historia aktualizacji nie jest wyświetlana; pozostaje w danych do
 audytu i oznaczeń przeczytania. Wcześniejsze syntezy pozostają zwijanym
 archiwum. Karty nie mają powtarzanych nagłówków typu informacji ani „Autor:”.
@@ -160,12 +160,47 @@ Przypisanie wypowiedzi w treści i źródła pozostają. Rozwijane cytaty są do
 Obecność informacji w archiwum nie usuwa jej z bieżącego stanu.
 Wielokrotne identyczne karty ocen są łączone z sumą ich źródeł.
 
-Kontekst jest opcjonalny. Ma wyjaśniać wcześniejsze wydarzenia, uwarunkowania,
-instytucje i mechanizmy. Nie ma być streszczeniem ani opisem „o czym jest artykuł”.
-Krótkie odniesienie do znanego faktu jest dozwolone, jeśli prowadzi do dodatkowego
-objaśnienia. Organizacja wymaga opisu działalności/roli, nie samej nazwy.
-Treść musi mieć podstawę w dostępnych ustaleniach; biogramów nie dopisujemy
-z pamięci. Puste lub oznaczone `needs_verification` tło nie jest pokazywane.
+Od v76 osobny kafelek Kontekst jest ukryty we wszystkich opracowaniach,
+również historycznych. Zapisane dawne objaśnienia pozostają w danych;
+frontend nie dokleja ich automatycznie do tekstu.
+
+Nowe pisanie wplata potrzebny kontekst bezpośrednio w krótką syntezę.
+Przy pierwszym użyciu mniej znanej osoby model ma dodać kilka słów o jej
+funkcji, zwykle w nawiasie. Prezydenci państw nie wymagają objaśnienia,
+państwa i znane nazwy geograficzne również nie. Organizacja lub nieoczywisty
+skrót wymagają krótkiego rozwinięcia i wyjaśnienia działalności. Objaśnienia
+nie powtarza się, jeśli rola została już podana w zdaniu.
+
+Model może dodać dobrze ugruntowaną wiedzę ogólną spoza artykułów, gdy jest
+niezbędna do zrozumienia historii. Nie służy to dopisywaniu nowych bieżących
+zdarzeń, domniemanych motywów, zarzutów ani niepewnych funkcji osób.
+Niepewne dodatki mają zostać pominięte. Jakość wiedzy modelu i zgodność
+funkcji z datą wydarzenia nie są niezależnie weryfikowane dodatkowym API.
+
+To samo zapytanie piszące dostaje również opcjonalne `context_sources`:
+wybrane lokalnie, dosłowne fragmenty już pobranych artykułów. Limit wynosi
+trzy źródła, 1200 znaków na źródło i 3600 znaków łącznie. Wybór preferuje
+zdania opisujące organizacje, wcześniejsze zdarzenia, przepisy i mechanizmy;
+jest heurystyką i nie gwarantuje znalezienia całego przydatnego tła.
+Źródła państwowe i bez rozpoznanego profilu nie dostarczają tych fragmentów.
+
+Nowy schemat pisania wymaga tylko `paragraphs`. Każdy akapit wskazuje
+`fact_ids` dla zdarzenia i krótkie `context_spans` dla dodanych objaśnień/tła.
+Walidacja sprawdza odwołania do faktów, dosłowne występowanie oznaczonych
+fragmentów w akapicie i dopasowanie pozostałej treści oraz liczb do ustaleń.
+Cały akapit nie może składać się wyłącznie z dodatku kontekstowego.
+To heurystyka, a nie dowód prawdziwości lub zgodności znaczenia.
+Dodatki są zachowane osobno jako `narrative_context` do audytu; nie trafiają
+do rejestru Faktów, potwierdzeń źródeł ani nowych ustaleń w aktualizacji.
+Nie ma dodatkowej ekstrakcji, weryfikacji API ani płatnych prób naprawy.
+
+Bieżący zapis v2 zawierający co najmniej dwa skróty spoza listy powszechnych
+nazw może dostać jedną próbę pisania z objaśnieniami. Reguła jest celowo wąska;
+nie przebudowuje wszystkich syntez. `inline_context_version=1` zapisuje się
+również przy pustych dodatkach, aby ten sam warunek nie kupował kolejnego
+pisania przy każdym AI-only. Nowe dane mogą odświeżyć syntezę według zwykłych
+zasad. `quality_report` zawiera liczbę przekazanych źródeł, znaków fragmentów
+i zaakceptowanych dodatków kontekstowych.
 
 Indeks listy zawiera podgląd syntezy i metadane aktualizacji. Nie zawiera
 rejestru faktów, cytatów ani audytu nowości aktualizacji. Pełny szczegół jest
@@ -177,11 +212,12 @@ zgodność oznaczenia przeczytania między podglądem i pełnym widokiem.
 Nie jest potrzebna nowa migracja SQL. Kod nie uruchamia sam regeneracji całej
 bazy ani automatycznego dzielenia błędnie scalonych dawnych wątków.
 Frontend od razu scala identyczne oceny w jednym widoku, ukrywa historię aktualizacji i
-ukrywa placeholdery oraz niezweryfikowany kontekst. Stare parafrazy, błędne
+ukrywa placeholdery oraz osobny kafelek kontekstu. Stare parafrazy, błędne
 cytowania i nietrafne scalenia zapisane przed v74 mogą nadal wymagać osobnej
 korekty. Nowa synteza powstaje przy następnym kwalifikującym się przetwarzaniu;
 bez nowych danych nie kupujemy jej tylko dlatego, że zmienił się kod.
-Wyjątkiem jest opisana wyżej kontrola ewidentnie brakującego rdzenia w v75.
+Wyjątkami są opisana wyżej kontrola ewidentnie brakującego rdzenia w v75
+oraz pojedyncza próba objaśnienia nieznanych skrótów w v76.
 
 Testy obejmują przykłady Francji, sankcji i Ukrainy z publicznego snapshotu
 `ded1b21dd927e527f0d4`, błąd transportu w połowie ekstrakcji i ponowienie z cache,

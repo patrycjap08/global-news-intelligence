@@ -1221,7 +1221,6 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     <div class="dialog-tab-panel ${factsOnly ? 'is-active' : ''}" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" ${factsOnly ? '' : 'hidden'}>${factsPanel}</div>
     `}
     ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
-    ${stateOnly ? '' : section('Kontekst', summary.background_context, 'insight-context')}
     ${!stateOnly && model.originalSummary?.summary_pl && model.originalSummary.summary_pl !== summary.summary_pl ? `<details class="publication-history"><summary>Pierwsza opublikowana synteza</summary><div class="summary-copy">${richTextHtml(synthesisParagraphs(model.originalSummary.summary_pl))}</div></details>` : ''}
     ${!stateOnly && (model.mergedPublications || []).length ? `<details class="publication-history"><summary>Opracowania dołączone przy scalaniu (${model.mergedPublications.length})</summary>${model.mergedPublications.map(p => `<h3>${escapeHtml(p.base_summary?.topic?.headline_pl || '')}</h3><div class="summary-copy">${richTextHtml(p.base_summary?.summary_pl || '')}</div>`).join('')}</details>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
