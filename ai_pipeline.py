@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 import heapq
 import hashlib
@@ -27,13 +27,16 @@ from typing import Any
 import unicodedata
 
 import perspective_summaries as perspectives
+import editorial_integrity as integrity
+import copy
+from queue import SimpleQueue
 
 from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v73-skip-unusable-extraction"
+PROMPT_VERSION = "ai-prompts-v74-current-evidence-ledger"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -646,21 +649,13 @@ def build_embedding_candidate_edges(
 
 
 def _topic_embedding_text(topic: dict[str, Any]) -> str:
-    summary = str(topic.get("summary_pl") or "").strip()
-    recent_titles = [
-        str(title).strip()
-        for title in (topic.get("recent_article_titles") or [])[:3]
-        if str(title or "").strip()
-    ]
-    parts = [
-        f"Tytuł wątku: {str(topic.get('headline_pl') or '').strip()}",
-        f"Opis: {str(topic.get('what_happened_one_sentence_pl') or '').strip()}",
-    ]
-    if summary:
-        parts.append(f"Synteza wątku: {summary[:1200]}")
-    if recent_titles:
-        parts.append("Ostatnie nagłówki: " + " | ".join(recent_titles))
-    return "\n".join(parts)[:1800]
+    title = str(topic.get('headline_pl') or '').strip()
+    description = str(topic.get('what_happened_one_sentence_pl') or '').strip()
+    if not description:
+        description = next((str(t).strip() for t in topic.get('recent_article_titles', []) if str(t).strip()), '')
+    # Same representation before every merge. Long prose and incidental
+    # mentions would make two unrelated stories about one country look alike.
+    return f"Tytuł wątku: {title[:300]}\nOpis: {description[:650]}"
 
 
 def build_topic_embedding_candidate_edges(
@@ -756,16 +751,39 @@ def build_topic_embedding_candidate_edges(
     return edges
 
 
+def same_event_anchor(left, right):
+    """Embedding similarity is a candidate signal, not event identity.
+
+    Check only the title and short description, never incidental mentions in
+    a long synthesis. A shared country or politician alone is insufficient.
+    Conservative misses remain separate topics, without an extra AI request.
+    """
+    if _headline_key(left.get('headline_pl')) == _headline_key(right.get('headline_pl')):
+        return bool(_headline_key(left.get('headline_pl')))
+    def core(t):
+        return _topic_merge_features({
+            'headline_pl': re.sub(r'^\[[^]]+\]\s*', '', str(t.get('headline_pl') or '')),
+            'what_happened_one_sentence_pl': t.get('what_happened_one_sentence_pl', ''),
+        })
+    a, b = core(left), core(right)
+    shared = a['stems'] & b['stems']
+    broad = {'trump', 'putin', 'ukrain', 'rosji', 'rosja', 'wojna', 'wojny', 'macron', 'francji', 'francja'}
+    meaningful = shared - broad
+    return len(shared) >= 2 and bool(meaningful) and (
+        bool(a['phrases'] & b['phrases']) or len(shared) / max(1, min(len(a['stems']), len(b['stems']))) >= .45)
+
+
 def build_anchored_embedding_groups(
     topic_ids: list[str],
     semantic_edges: dict[tuple[str, str], float],
     *,
     threshold: float = TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
     ukraine_ids: set[str] | None = None,
+    focus_topic_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Seed each group with its strongest available pair; keep both anchors fixed.
 
-    Every added topic must have a qualifying edge to at least one anchor.
+    Every added topic must have a qualifying edge to both anchors.
     A connection to a later member alone cannot extend the chain. Unclaimed
     topics can seed their own group; qualifying singletons remain untouched.
     Ties use topic IDs, making the partition independent of input order.
@@ -785,9 +803,19 @@ def build_anchored_embedding_groups(
     for (a, b), score in sorted(edges.items(), key=lambda item: (-item[1], item[0])):
         if a not in available or b not in available:
             continue
-        members = ({a, b} | set(neighbors[a]) | set(neighbors[b])) & available
+        members = {a, b}
+        # A new bridge must not silently collapse two previously established
+        # topics whose mutual comparison was explicitly excluded.
+        for member in sorted((set(neighbors[a]) | set(neighbors[b])) & available - members,
+                             key=lambda tid: (-max(neighbors[a].get(tid, -1), neighbors[b].get(tid, -1)), tid)):
+            if focus_topic_ids is not None and member not in focus_topic_ids and members - focus_topic_ids:
+                continue
+            # Require support to BOTH anchors when that comparison is allowed.
+            if all((focus_topic_ids is not None and member not in focus_topic_ids and anchor not in focus_topic_ids)
+                   or tuple(sorted((member, anchor))) in edges for anchor in (a, b)):
+                members.add(member)
         anchor_scores = [score] + [
-            max(neighbors[a].get(member, -1.0), neighbors[b].get(member, -1.0))
+            min(neighbors[anchor][member] for anchor in (a, b) if member in neighbors[anchor])
             for member in members - {a, b}
         ]
         groups.append({
@@ -2548,19 +2576,35 @@ def summary_reasoning_effort(model: str) -> str | None:
     return value
 
 
-def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIResponse:
+def generate_summary_response(payload: dict[str, Any], model: str, *, on_article_cache=None) -> ParsedAIResponse:
     previous = payload.get("previous_aggregation")
     # Existing legacy publications keep their established update flow. New
     # publications and subsequent updates use the explicitly versioned format.
     if previous is None or (previous.get("base_summary") or {}).get("perspective_version") == 1:
         last_response, last_schema, extraction_checkpoint = None, None, None
+        call_count = 0
+        read_article_ids = set()
+        skipped_stages = []
+        started = time.monotonic()
+        token_usage = {"input": 0, "output": 0, "reasoning": 0}
         def remember_extraction(checkpoint):
             nonlocal extraction_checkpoint
             extraction_checkpoint = checkpoint
         def call(instructions, data, schema, name):
-            nonlocal last_response, last_schema
+            nonlocal last_response, last_schema, call_count
             topic_label = short_text((payload.get('topic') or {}).get('working_title_pl') or
                                      (payload.get('topic') or {}).get('topic_id') or 'temat', 100)
+            limit = max(3, int(os.environ.get('AI_TOPIC_MAX_CALLS', '16')))
+            # Reserve a short audit and the final writing request. Spending
+            # everything on extraction would leave no publishable additions.
+            reserve = 2 if name == 'perspective_facts' else 1 if name == 'perspective_novelty_audit' else 0
+            if call_count >= limit - reserve:
+                skipped_stages.append(name)
+                log('AI', f'Budżet [{topic_label}]: pomijam {name}; osiągnięto limit zapytań na temat.', level='WARN')
+                return {}
+            call_count += 1
+            if name == 'perspective_facts':
+                read_article_ids.update(a['article_id'] for a in data['all_articles'])
             if name == "perspective_facts":
                 log("AI", f"Fakty perspektyw [{topic_label}]: paczka {len(data['all_articles'])} pełnych artykułów; "
                     "osobne wyniki; braki pomijam bez dodatkowych odczytów i korekt ekstrakcji.")
@@ -2580,12 +2624,20 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             try:
                 response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                     timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
-                    reasoning_effort=summary_reasoning_effort(model),
+                    reasoning_effort=(os.environ.get('OPENAI_EXTRACTION_REASONING_EFFORT', 'low')
+                                      if name in ('perspective_facts', 'perspective_novelty_audit') and model.startswith('gpt-5')
+                                      else summary_reasoning_effort(model)),
                     response_schema=schema, response_schema_name=name,
-                    **({'retry_limit': 1} if name == 'perspective_facts' else {}))
+                    retry_limit=1,
+                    max_output_tokens=int(os.environ.get("AI_STAGE_MAX_OUTPUT_TOKENS", "16000")))
             except AIResponseParseError as exc:
+                details = getattr(exc, 'response_details', {}) or {}
+                for key in token_usage:
+                    token_usage[key] += int(details.get(key + '_tokens') or 0)
                 if name != 'perspective_facts':
-                    raise
+                    log('AI', f'Etap {name} [{topic_label}]: odpowiedź niepoprawna; '
+                        'pomijam niepewną treść bez ponownego zapytania.', level='WARN')
+                    return {}
                 # A completed JSON object may contain independently valid
                 # items despite failing the schema. Filter each item locally;
                 # never salvage a truncated answer or request a second read.
@@ -2599,6 +2651,8 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
                         pass
                 log('AI', f'Ekstrakcja [{topic_label}]: niepoprawna odpowiedź; '
                     'sprawdzam dostępne ustalenia lokalnie, braki pomijam bez ponawiania zapytania.', level='WARN')
+            for key, value in getattr(response, 'token_usage', {}).items():
+                token_usage[key] += value
             last_response, last_schema = dict(response), name
             if name == "perspective_article_coverage":
                 results = response.get('article_results')
@@ -2630,6 +2684,7 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
             raw = perspectives.generate(payload, call, normalize_generated_text,
                 max_payload_chars=SUMMARY_MAX_PAYLOAD_CHARS,
                 allow_omissions=True,
+                on_article_cache=on_article_cache,
                 on_extraction_omission=lambda report: log('AI',
                     f"Pominięcia ekstrakcji: artykułów bez użytecznych przypisań: {len(report['omitted_article_ids'])}, "
                     f"odrzuconych błędnych ustaleń: {report['discarded_fact_count']}; "
@@ -2659,8 +2714,16 @@ def generate_summary_response(payload: dict[str, Any], model: str) -> ParsedAIRe
         except Exception as exc:
             exc.extraction_checkpoint = extraction_checkpoint
             raise
+        raw.setdefault('quality_report', {'read_articles': 0, 'cached_articles': 0})
+        raw['quality_report'].update({'api_calls': call_count, 'tokens': token_usage,
+                                     'read_articles': len(read_article_ids), 'budget_skipped_stages': skipped_stages})
+        raw['article_content_hashes'] = {a['article_id']: a['content_hash'] for a in payload.get('all_articles', []) if a.get('content_hash')}
+        log('AI', f"Koszt tematu {(payload.get('topic') or {}).get('topic_id', '')}: zapytań {call_count}, "
+            f"tokenów wejścia {token_usage['input']}, wyjścia {token_usage['output']} (rozumowanie {token_usage['reasoning']}); "
+            f"czas {seconds(time.monotonic() - started)}; odczytane artykuły {raw['quality_report']['read_articles']}, "
+            f"z cache {raw['quality_report']['cached_articles']}.")
         normalized = normalize_summary_response(raw)
-        for field in ("perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("article_content_hashes", "publication_version", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = raw.get(field)
         return normalized
     return generate_full_article_legacy_update(payload, model)
@@ -2910,6 +2973,9 @@ def _normalize_summary_item(field: str, item: Any) -> dict[str, Any] | None:
         return None
     normalized = {"text_pl": text, "article_ids": article_ids}
     if field == "facts":
+        for key in ("evidence", "attribution"):
+            if item.get(key):
+                normalized[key] = item[key]
         if item.get("fact_id"):
             normalized["fact_id"] = item["fact_id"]
         if item.get("kind") in perspectives.FACT_KINDS:
@@ -2980,7 +3046,7 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         if not is_non_contradiction_statement(item.get("text_pl"))
     ]
     if response.get("perspective_version") == 1:
-        for field in ("perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("article_content_hashes", "publication_version", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = response.get(field)
     quality = response.get("quality")
     normalized["quality"] = quality if isinstance(quality, dict) else {
@@ -3039,6 +3105,11 @@ def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
             if update.get("status") != "NO_NEW_INFORMATION"
         ],
     }
+    if context['base_summary'].get('perspective_version') == 1:
+        context.update({"current_summary": value.get("current_summary") or stored_base_summary(value),
+                        "processed_article_ids": value.get("processed_article_ids", []),
+                        "article_content_hashes": value.get("article_content_hashes", {}),
+                        "needs_narrative_refresh": value.get("needs_narrative_refresh", False)})
     if isinstance(value.get("perspective_state"), dict):
         context["perspective_state"] = value["perspective_state"]
     return context
@@ -3291,7 +3362,11 @@ def call_openai(
                     raise AIResponseParseError(
                         f"Odpowiedź {response_schema_name} nie spełnia schematu w {path}: {exc.message}",
                         response.output_text) from exc
-            return ParsedAIResponse(parsed, response.output_text)
+            result = ParsedAIResponse(parsed, response.output_text)
+            result.token_usage = {'input': int(getattr(usage, 'input_tokens', 0) or 0),
+                                  'output': int(getattr(usage, 'output_tokens', 0) or 0),
+                                  'reasoning': int(getattr(getattr(usage, 'output_tokens_details', None), 'reasoning_tokens', 0) or 0)}
+            return result
         except ValueError as exc:
             last_error = exc
             if isinstance(exc, AIResponseParseError):
@@ -3387,6 +3462,7 @@ def article_for_ai(
         "source_type": row.get("source_type") or "UNCLASSIFIED",
         "language": row["original_language"],
         "published_at": row.get("published_at") or "",
+        "content_hash": row.get("content_hash") or "",
         "canonical_url": row["canonical_url"],
     }
     if excerpt_words_limit is None:
@@ -3541,9 +3617,10 @@ def choose_merge_canonical_topic_id(
         has_summary = 0 if topic_id in summary_by_topic else 1
         summary_row = summary_metadata_by_topic.get(topic_id, {})
         synthesis_created_at = str(
-            summary_row.get("generated_at")
+            (summary_row.get("summary") or {}).get("first_published_at")
+            or topic.get("first_seen_at")
             or summary_row.get("created_at")
-            or summary_row.get("updated_at")
+            or summary_row.get("generated_at")
             or ""
         )
         first_seen = str(topic.get("first_seen_at") or "")
@@ -3687,7 +3764,7 @@ def merge_active_topics(
             for row in summaries
         }
         summary_by_topic = {
-            str(row["topic_id"]): stored_base_summary(row.get("summary"))
+            str(row["topic_id"]): (row.get("summary") or {}).get("current_summary") or stored_base_summary(row.get("summary"))
             for row in summaries
         }
         if only_generation is not None:
@@ -3775,6 +3852,14 @@ def merge_active_topics(
             if focus_topic_ids is not None:
                 semantic_edges = {pair: score for pair, score in semantic_edges.items()
                                   if pair[0] in focus_topic_ids or pair[1] in focus_topic_ids}
+            event_topics = {str(t["topic_id"]): t for t in payload_topics}
+            rejected_pairs = [pair for pair in semantic_edges if prefer_embeddings and not same_event_anchor(
+                event_topics[pair[0]], event_topics[pair[1]])]
+            semantic_edges = {pair: score for pair, score in semantic_edges.items() if pair not in rejected_pairs}
+            if rejected_pairs:
+                log("EMBEDDING", f"Odrzucono {len(rejected_pairs)} podobnych par bez wspólnego konkretnego zdarzenia.")
+            if embedding_diagnostics is not None:
+                embedding_diagnostics["event_guard_rejected_pairs"] = rejected_pairs
             stats["semantic_candidate_edges"] = len(semantic_edges)
         except Exception as exc:
             log(
@@ -3788,7 +3873,7 @@ def merge_active_topics(
         merge_log_component = "EMBEDDING" if prefer_embeddings else "AI"
         anchored_groups = build_anchored_embedding_groups(
             [str(topic["topic_id"]) for topic in payload_topics], semantic_edges,
-            ukraine_ids=ukraine_topic_ids(payload_topics),
+            ukraine_ids=ukraine_topic_ids(payload_topics), focus_topic_ids=focus_topic_ids,
         ) if automatic_merge else []
         anchored_group_by_topic = {
             topic_id: index for index, group in enumerate(anchored_groups)
@@ -3833,7 +3918,7 @@ def merge_active_topics(
             log(
                 merge_log_component,
                 "Selekcja kandydatów: " + (
-                    "tylko embeddingi; filtr słów nie dodaje par."
+                    "embeddingi oraz kontrola konkretnego zdarzenia; filtr nie dodaje par."
                     if not include_lexical_candidates
                     else "awaryjny filtr słów i fraz — embeddingi niedostępne."
                 ),
@@ -3876,7 +3961,7 @@ def merge_active_topics(
         if automatic_merge:
             log("EMBEDDING", "Scalanie automatyczne: grupa zaczyna się od najsilniejszej pary; "
                 f"każdy kolejny element musi mieć score co najmniej {TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY:.2f} "
-                "z jednym z dwóch stałych punktów odniesienia; bez zapytań do AI o zgodę.")
+                "z oboma stałymi punktami odniesienia; bez zapytań do AI o zgodę.")
             for anchor_group in anchored_groups:
                 group_ids = anchor_group["topic_ids"]
                 canonical_id = choose_merge_canonical_topic_id(
@@ -4154,15 +4239,31 @@ def merge_active_topics(
                 on_conflict="topic_id,article_id",
             )
 
+            canonical_row = summary_metadata_by_topic.get(canonical_id)
+            absorbed = [(tid, summary_metadata_by_topic[tid].get("summary") or {})
+                        for tid in group_ids if tid != canonical_id and tid in summary_metadata_by_topic]
+            if canonical_row and absorbed and generations[canonical_id] == "perspectives":
+                envelope = integrity.merge_publications(canonical_row.get("summary") or {}, absorbed)
+                # Reroute the union immediately so even a later request failure
+                # cannot leave a half-visible ledger on the retained topic.
+                _, merged_facts = perspectives.route_facts({"facts": []},
+                    article_rows,
+                    envelope['perspective_state']['perspective_facts'], normalize_generated_text)
+                envelope['perspective_state'].update({
+                    'perspective_facts': merged_facts,
+                    'facts': [f for f in merged_facts if f['lane'] == 'COMMON'],
+                    'perspective_sections': {k: v for k, v in perspectives.fact_sections(merged_facts).items() if k != 'COMMON'},
+                })
+                client.upsert("topic_summaries", [{**canonical_row, "summary": envelope}], on_conflict="topic_id")
+                summary_metadata_by_topic[canonical_id] = {**canonical_row, "summary": envelope}
+
             for old_topic_id in group_ids:
                 if old_topic_id == canonical_id:
                     continue
                 client.update(
                     "article_topic_assignments",
-                    # Reassignment makes these articles new material for the
-                    # retained topic, so its existing synthesis receives an
-                    # update even when the merged-in topic had its own history.
-                    {"topic_id": canonical_id, "created_at": merge_timestamp},
+                    # Retain original assignment time; merging is not new news.
+                    {"topic_id": canonical_id},
                     filters=[("topic_id", f"eq.{old_topic_id}")],
                 )
                 client.delete(
@@ -4218,7 +4319,7 @@ def merge_active_topics(
                                    "threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
                                    "ukraine_threshold": TOPIC_MERGE_EMBEDDING_MIN_SIMILARITY,
                                    "ukraine_topic_ids": sorted(group_set & ukraine_topic_ids(payload_topics)),
-                                   "grouping": "strongest_pair_anchors", "article_count": len(article_ids),
+                                   "grouping": "strongest_pair_anchors", "anchor_rule": "BOTH", "article_count": len(article_ids),
                                    "anchor_topic_ids": raw_group["anchor_topic_ids"],
                                    "anchor_similarity": raw_group["anchor_similarity"],
                                    "minimum_anchor_similarity": raw_group["minimum_anchor_similarity"]},
@@ -4759,6 +4860,13 @@ def persist_summary(
 
     stored_summary = {
         "base_summary": base_summary,
+        "first_published_at": (previous_stored or {}).get("first_published_at") or
+            (previous_row or {}).get("first_published_at") or (previous_row or {}).get("generated_at") or timestamp,
+        "merged_publications": (previous_stored or {}).get("merged_publications", []),
+        "article_content_hashes": summary.get("article_content_hashes") or (previous_stored or {}).get("article_content_hashes", {}),
+        "current_summary": {k: v for k, v in summary.items() if k not in
+                            ("perspective_state", "perspective_facts", "perspective_sections", "facts", "update", "extraction_checkpoint")},
+        "needs_narrative_refresh": False,
         "updates": updates,
         "latest_update": latest_update,
         "last_analysis": analysis,
@@ -4766,6 +4874,10 @@ def persist_summary(
             *(previous_stored or {}).get("processed_article_ids", []), *article_ids,
         ])),
     }
+    if summary.get('perspective_version') != 1:
+        # Legacy publications keep their existing base + updates contract.
+        # Their facts are not backed by a separate perspective_state ledger.
+        stored_summary.pop('current_summary')
     if summary.get("perspective_version") == 1:
         stored_summary["perspective_state"] = summary.get("perspective_state") or {
             key: summary.get(key) for key in perspectives.STATE_FIELDS
@@ -4776,7 +4888,7 @@ def persist_summary(
         "input_hash": summary_hash,
         "model": model,
         "summary": stored_summary,
-        "generated_at": timestamp,
+        "generated_at": stored_summary["first_published_at"],
         "updated_at": timestamp,
     }], on_conflict="topic_id")
     if not previous_stored:
@@ -4935,6 +5047,9 @@ def retry_incomplete_summaries(
                 skipped(topic, "mniej niż dwa podpięte artykuły")
                 continue
             previous_row = summary_by_topic.get(topic_id)
+            if previous_row:
+                previous_row = {**previous_row, 'first_published_at': (previous_row.get('summary') or {}).get('first_published_at')
+                                or topic.get('first_seen_at') or previous_row.get('generated_at')}
             if only_generation is not None and topic_generation(topic_id, stored_base_summary((previous_row or {}).get("summary"))) != only_generation:
                 skipped(topic, "inna wersja mechanizmu opracowań")
                 continue
@@ -4945,20 +5060,30 @@ def retry_incomplete_summaries(
             ))
             previous_updated_at = str((previous_row or {}).get("updated_at") or "")
             latest_assignment = latest_assignment_by_topic.get(topic_id, "")
-            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids:
+            stored = (previous_row or {}).get("summary") or {}
+            refresh = bool(stored.get("needs_narrative_refresh"))
+            processed = set(stored.get("processed_article_ids") or [])
+            perspective_topic = topic_generation(topic_id, stored_base_summary(stored)) == "perspectives"
+            hashes = stored.get("article_content_hashes") or {}
+            if hashes:
+                placeholders = ','.join('?' for _ in all_ids)
+                current_hashes = dict(conn.execute(f'SELECT article_id,content_hash FROM articles WHERE article_id IN ({placeholders})', all_ids))
+                changed_ids = [aid for aid in all_ids if aid in hashes and current_hashes.get(aid) and current_hashes[aid] != hashes[aid]]
+                forced_new_ids = list(dict.fromkeys([*forced_new_ids, *changed_ids]))
+                processed.difference_update(changed_ids)
+            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids and not refresh and (
+                    not perspective_topic or "processed_article_ids" not in stored or set(all_ids) <= processed):
                 skipped(topic, "brak przypisań nowszych od ostatniej analizy")
                 continue
-            new_ids = list(dict.fromkeys(forced_new_ids + [
-                article_id for article_id in all_ids
-                if not previous_row
-                or assignment_time_by_article.get((topic_id, article_id), "") > previous_updated_at
-            ]))
-            if not new_ids:
+            new_ids = [aid for aid in all_ids if (not perspective_topic or aid not in processed) and (
+                not previous_row or (perspective_topic and "processed_article_ids" in stored) or aid in forced_new_ids
+                or assignment_time_by_article.get((topic_id, aid), "") > previous_updated_at)]
+            if not new_ids and not refresh:
                 skipped(topic, "brak nowych artykułów do analizy")
                 continue
             new_rows = local_articles(conn, new_ids)
             all_rows = local_articles(conn, all_ids)
-            if len(new_rows) == 0 or len(all_rows) < 2:
+            if (not new_rows and not refresh) or len(all_rows) < 2:
                 skipped(topic, f"brak treści w lokalnej bazie (nowych: {len(new_rows)}, wszystkich: {len(all_rows)})")
                 continue
             if len(distinct_source_keys(all_rows)) < 2:
@@ -5038,6 +5163,27 @@ def retry_incomplete_summaries(
         # Only AI generation runs in worker threads. SQLite reads, Supabase
         # writes and counters stay on the coordinator thread. Submit at most
         # workers jobs; refill free slots after persisting finished results.
+        cache_writes = SimpleQueue()
+        def persist_article_batch(entries):
+            acknowledgement = Future()
+            cache_writes.put((entries, acknowledgement))
+            # The coordinator owns DB writes. Do not buy the next response
+            # until the last batch is durable; storage failure stops this job.
+            acknowledgement.result()
+        def flush_cache():
+            while not cache_writes.empty():
+                entries, acknowledgement = cache_writes.get()
+                try:
+                    client.upsert("topic_runs", [{
+                        "topic_run_id": "articlecache_" + entry['key'][:24], "run_id": run_id,
+                        "stage": "ARTICLE_EXTRACTION_CACHE", "prompt_version": integrity.EXTRACTOR_VERSION,
+                        "model": model, "input_hash": entry['key'], "status": "COMPLETED",
+                        "raw_output": entry, "error": None,
+                    } for entry in entries], on_conflict="topic_run_id")
+                except Exception as exc:
+                    acknowledgement.set_exception(exc)
+                else:
+                    acknowledgement.set_result(None)
         pending: dict[Any, tuple[int, dict[str, Any], str]] = {}
         remaining = iter(enumerate(summary_jobs, start=1))
         exhausted = False
@@ -5069,14 +5215,26 @@ def retry_incomplete_summaries(
                             f"(nowych: {len(job['new_rows'])}, łącznie: {len(job['all_rows'])}; "
                             f"dane: {payload_mode}, {payload_chars / 1024:.1f} KiB; "
                             f"zadań w toku po starcie: {len(pending) + 1}/{workers}).")
-                        future = executor.submit(generate_summary_response, summary_input, model)
+                        cache_keys = [integrity.cache_key(a, model, job['topic_id']) for a in summary_input.get('all_articles', [])
+                                      if a['article_id'] in job['new_ids'] or job['previous_row'] is None]
+                        cache_rows = []
+                        for offset in range(0, len(cache_keys), 50):
+                            cache_rows.extend(client.select_all("topic_runs", columns="raw_output,input_hash",
+                                filters=[("stage", "eq.ARTICLE_EXTRACTION_CACHE"),
+                                         ("topic_run_id", "in.(" + ",".join('articlecache_' + key[:24] for key in cache_keys[offset:offset + 50]) + ")")]))
+                        summary_input['article_cache'] = {row['input_hash']: row['raw_output'] for row in cache_rows
+                                                         if row.get('input_hash') in cache_keys}
+                        summary_input['extraction_model'] = model
+                        extra = {'on_article_cache': persist_article_batch} if summary_input.get('all_articles') else {}
+                        future = executor.submit(generate_summary_response, summary_input, model, **extra)
                         pending[future] = (index, job, summary_hash)
                     except Exception as exc:
                         completed_jobs += 1
                         record_failure(index, job, summary_hash, exc)
                 if not pending:
                     continue
-                done, _ = wait(pending, return_when=FIRST_COMPLETED)
+                done, _ = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
+                flush_cache()
                 for future in sorted(done, key=lambda item: pending[item][0]):
                     index, job, summary_hash = pending.pop(future)
                     completed_jobs += 1
@@ -5839,18 +5997,10 @@ def analyze_run(
         f"Etap 3/3 zakończony: gotowe syntezy {stats['summaries']}, "
         f"nieudane {stats['failed_summaries']}.",
     )
-    log("EMBEDDING",
-        "Końcowa kontrola: tylko pary z udziałem nowych wątków lub ich zachowanych po scaleniu odpowiedników; pozostałe wątki bez wzajemnego porównywania."
-    )
-    final_stats = merge_existing_summaries(
-        db_path, run_id, client, model=model,
-        focus_topic_ids=focus_topic_ids,
-        failed_topic_ids=failed_topic_ids,
-    )
-    for key in ("summaries", "failed_summaries", "topics_merged", "merge_candidates", "merge_failed", "merge_requests", "merge_split_retries"):
-        stats[key] += final_stats.get(key, 0)
-    stats["final_topics_merged"] = final_stats.get("topics_merged", 0)
-    stats["final_semantic_candidate_edges"] = final_stats.get("semantic_candidate_edges", 0)
+    # Publication is terminal: never merge and pay for the same topic again.
+    stats["final_topics_merged"] = 0
+    stats["final_semantic_candidate_edges"] = 0
+    log("AI", "Zakończono jedyną kolejkę syntez; scalenia wykonano przed analizą artykułów.")
     log("AI", "Po syntezach: uzupełniam tylko brakujące kategorie.")
     stats["categories_classified"] = classify_topic_categories(client, model=model)
     return stats

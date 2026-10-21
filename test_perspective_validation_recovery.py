@@ -160,29 +160,22 @@ class PerspectiveValidationRecoveryTests(unittest.TestCase):
         self.assertEqual(result['summary_pl'], '')
         self.assertEqual(result['facts'], [])
         self.assertIsNone(result['general_context'])
-        self.assertEqual(len(result['perspective_sections']['LEFT']), 1)
-        self.assertEqual(len(result['perspective_sections']['RIGHT']), 1)
+        self.assertEqual(len(result['perspective_sections']['EDITORIAL']), 2)
 
     def test_empty_context_with_common_facts_retries_only_writer(self):
         rows = [article('a', 'CENTER')]
         calls = []
-
         def call(instructions, data, schema, name):
             calls.append(name)
             if name == 'perspective_facts':
-                return extraction([fact('Decyzja.', ['a'])], rows)
+                return extraction([fact('Minister ogłosił decyzję.', ['a'])], rows)
             response = written(data)
-            if len(calls) == 2:
-                response['general_context']['text_pl'] = ''
-                with self.assertRaises(jsonschema.ValidationError):
-                    jsonschema.validate(response, schema)
-            else:
-                self.assertIn('Brak ogólnego kontekstu', data['validation_feedback']['validation_error_pl'])
+            response['general_context']['text_pl'] = ''
+            jsonschema.validate(response, schema)
             return response
-
         result = p.generate({'topic': {}, 'all_articles': rows}, call, ai.normalize_generated_text)
-        self.assertEqual(calls, ['perspective_facts', 'perspective_summary', 'perspective_summary'])
-        self.assertEqual(result['general_context']['text_pl'], 'Ogólne tło tematu.')
+        self.assertEqual(calls, ['perspective_facts', 'perspective_summary'])
+        self.assertIsNone(result['general_context'])
 
     def test_still_invalid_evidence_fails_after_one_correction_without_partial_result(self):
         fixture = self.fixtures['article_id_typo']

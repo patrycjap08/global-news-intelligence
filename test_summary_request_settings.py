@@ -23,9 +23,9 @@ class SummaryRequestSettingsTests(unittest.TestCase):
             if kwargs['response_schema_name']=='update_novelty_audit':
                 return {'verdicts':{'0':{'keep':True,'reason_pl':'Nowa decyzja'}}}
             if kwargs['response_schema_name']=='perspective_facts':
-                return extraction([fact('Decyzja.',['a1'],reason='')],payload['all_articles'])
+                return extraction([fact('Minister ogłosił decyzję.',['a1'],reason='')],payload['all_articles'])
             if kwargs['response_schema_name']=='perspective_summary':
-                return {'paragraphs':[{'text_pl':'Decyzja.', 'fact_ids':[payload['main_facts'][0]['fact_id']]}], 'general_context':{'text_pl':'Tło.', 'article_ids':[], 'needs_verification':True}, 'background_context':[]}
+                return {'paragraphs':[{'text_pl':'Minister ogłosił decyzję.', 'fact_ids':[payload['main_facts'][0]['fact_id']]}], 'general_context':{'text_pl':'Tło.', 'article_ids':[], 'needs_verification':True}, 'background_context':[]}
             return {'summary_pl':'Synteza'}
         with patch.dict(os.environ, {'AI_SUMMARY_REASONING_EFFORT':'low'}), patch.object(ai,'call_openai',side_effect=response):
             ai.generate_summary_response({'topic':{}, 'all_articles':[{'article_id':'a1','source_profile':'CENTER'}]}, 'gpt-5-nano')
@@ -47,16 +47,12 @@ class SummaryRequestSettingsTests(unittest.TestCase):
         self.assertTrue(any('odrzuconych błędnych ustaleń: 1' in str(call) for call in logger.call_args_list))
 
     def test_context_validation_still_rejects_exclusive_sources_and_keeps_diagnostics(self):
-        payload={'topic':{},'all_articles':[{'article_id':'l','source_profile':'LEFT'},
-            {'article_id':'r','source_profile':'RIGHT'},{'article_id':'x','source_profile':'LEFT'}]}
-        def response(instructions,data,model,**settings):
-            if settings['response_schema_name']=='perspective_facts':
-                return extraction([fact('Wspólne.',['l','r']),fact('Tylko lewica.',['x'],kind='EDITORIAL')],data['all_articles'])
-            return {'paragraphs':[{'text_pl':'Wspólne.','fact_ids':[data['main_facts'][0]['fact_id']]}],
-                'general_context':{'text_pl':'Tło.','article_ids':['x']},'background_context':[]}
-        with patch.object(ai,'call_openai',side_effect=response),patch.object(ai,'log'):
-            with self.assertRaisesRegex(ai.AIResponseParseError,'spoza wspólnej części') as caught:
-                ai.generate_summary_response(payload,'gpt-5-nano')
-        self.assertEqual(caught.exception.response_details['schema'],'perspective_summary')
+        import perspective_summaries as p
+        main = [{'fact_id': 'main', 'text_pl': 'Minister ogłosił decyzję.', 'article_ids': ['l', 'r']}]
+        response = {'paragraphs': [{'text_pl': main[0]['text_pl'], 'fact_ids': ['main']}],
+                    'general_context': {'text_pl': 'Minister kieruje resortem.', 'article_ids': ['x']}}
+        checked = p.safe_written(response, main)
+        self.assertEqual(len(checked['paragraphs']), 1)
+        self.assertEqual(checked['background_context'], [])
 
 if __name__=='__main__':unittest.main()

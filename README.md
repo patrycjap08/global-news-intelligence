@@ -17,20 +17,20 @@ artykułów przez RSS/sitemapy/sekcje oraz stronę główną jako fallback, zapi
 grupowanie AI 1 i opracowania AI 2. Klucze nie są wpisane do kodu.
 
 Integracja z X została usunięta. Analiza korzysta z artykułów prasowych.
-Główny przebieg automatycznie wybiera pary embeddingów o podobieństwie
-co najmniej 0.78 dla wszystkich tematów, bez limitu sąsiadów i bez zatwierdzania przez AI. AI następnie
-opracowuje tytuł i syntezę/aktualizację. Grupa zaczyna się od najsilniejszej dostępnej pary. Każdy
-dołączany element musi osiągnąć próg z co najmniej jednym z tych dwóch
-stałych punktów odniesienia; samo połączenie z późniejszym członkiem grupy
-nie wystarcza. Pozostałe elementy mogą utworzyć osobne grupy. Szczegóły konfiguracji są w `DEPLOYMENT.md`.
+Główny przebieg scala kandydatów przed jedną kolejką opracowań. Embedding
+porównuje tytuł i krótki opis, z progiem 0,78 oraz lokalną kontrolą wspólnego
+zdarzenia. Pary obejmują nowe–nowe i nowe–stare, bez starych–starych. Nie ma
+końcowego scalania i drugiej rundy syntez.
 
-Aktualizacje powstają tylko wtedy, gdy nowe artykuły dodają fakty do syntezy
-i całej wcześniejszej historii. Wynik `NO_NEW_INFORMATION` zachowuje artykuły
-w źródłach bez nowego tekstu i oznaczenia aktualizacji. Widoczne aktualizacje
-mają datę i godzinę czasu polskiego. Starsze teksty można przebudować według
-[instrukcji jednorazowej naprawy](REBUILD_TOPIC_UPDATES.md).
-Aktualizacje są składane z pojedynczych faktów po osobnej kontroli nowości,
-bez ponownego generowania całej narracji. Logi naprawy pokazują tytuły wątków.
+Od v74 aktualizacje czytają tylko nowe lub zmienione artykuły. Wyniki paczek są
+zapisywane przed następnym zapytaniem, więc ponowienie wykorzystuje cache.
+Brakujące i niepoprawne ustalenia są pomijane bez pętli napraw. Nowe fakty
+odświeżają bieżącą syntezę; kolejne potwierdzenie nie tworzy aktualizacji.
+Pierwotny tekst i aktualizacje pozostają w zwijanej historii. Ta sama ocena
+przytaczana przez różne profile źródeł jest jedną kartą.
+
+Szczegóły algorytmu, limitów kosztu, walidacji i ograniczeń historycznych danych:
+[EDITORIAL_PERSPECTIVES.md](EDITORIAL_PERSPECTIVES.md).
 
 ## Uruchomienie
 

@@ -17,7 +17,7 @@ const current={perspective_version:1,fact_classification_version:1,coverage_mode
 state.summaries.set(topic.topic_id,{summary:{base_summary:frozen,perspective_state:current,updates:[]}});
 let model=topicModel(topic),html=dialogHtml(model);
 assert(html.includes('Numer lotu to OS82.') && html.includes('Minister twierdzi'));
-assert(html.includes('Perspektywy źródeł') && html.includes('data-perspective-tab="CENTER"'));
+assert(html.includes('Oceny i interpretacje') && html.includes(centerAssessment.text_pl));
 const sections=perspectiveSectionsHtml(model.summary,'ready',[]);
 assert(!sections.includes(detail.text_pl) && !sections.includes(statement.text_pl));
 assert(sections.includes(assessment.text_pl) && sections.includes(centerAssessment.text_pl));
@@ -25,7 +25,7 @@ assert.strictEqual(model.summary.summary_pl,frozen.summary_pl);
 const update={fact_classification_version:1,status:'NEW_INFORMATION',generated_at:'2026-10-19T12:00:00Z',
   new_information_pl:'Nowy numer lotu.',perspective_sections:{COMMON:[detail],LEFT:[assessment],CENTER:[centerAssessment]},promoted_facts:[]};
 assert(perspectiveUpdateLabel(update).includes('Nowe ustalenia'));
-assert(perspectiveUpdateHtml(update).includes('Nowe oceny w źródłach centrowych'));
+assert(perspectiveUpdateHtml(update).includes('Nowe oceny i interpretacje'));
 assert(!perspectiveUpdateHtml(update).includes('Nowe informacje wspólne'));
 const oldUpdate={...update};delete oldUpdate.fact_classification_version;
 assert(perspectiveUpdateLabel(oldUpdate).includes('Nowe informacje wspólne'));
@@ -39,7 +39,7 @@ const both={...current,perspective_sections:{LEFT:[assessment],RIGHT:[{...assess
 const leftHistory=[{perspective_sections:{LEFT:[assessment]}}];
 html=perspectiveSectionsHtml(both,'ready',leftHistory);
 assert(!html.includes('data-perspective-tab="LEFT"'));
-assert(html.includes('data-perspective-tab="RIGHT"') && html.includes(assessment.text_pl));
+assert.strictEqual(html.split(assessment.text_pl).length - 1, 1);
 // New opinion-only topics get the neutral-content message, while historical
 // unclassified publications keep their established wording.
 const opinionOnly={...model,summary:{...current,summary_pl:'',shared_available:false,facts:[]}};
@@ -47,7 +47,7 @@ html=dialogHtml(opinionOnly);
 assert(html.includes('nie ma neutralnych ustaleń do syntezy'));
 assert(!html.includes('data-dialog-tab='));
 delete opinionOnly.summary.fact_classification_version;
-assert(dialogHtml(opinionOnly).includes('Źródła o różnych profilach nie podają wspólnych informacji.'));
+assert(dialogHtml(opinionOnly).includes('Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.'));
 const preview=summaryPreview({perspective_version:1,current_fact_classification_version:1,shared_available:true});
 assert.strictEqual(preview.summary.base_summary.fact_classification_version,1);
 console.log('Fact kinds UI: neutral details and statements, editorial/center tabs, versioned updates, per-profile evidence and unchanged read marks — OK.');

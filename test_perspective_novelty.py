@@ -71,7 +71,7 @@ class PerspectiveNoveltyTests(unittest.TestCase):
         self.assertEqual(len(result['perspective_facts']), 14)
         self.assertEqual(result['update']['status'], 'NEW_INFORMATION')
         self.assertEqual(len(result['update']['perspective_sections']['COMMON']), 4)
-        self.assertEqual(len(result['update']['perspective_sections']['RIGHT']), 1)
+        self.assertEqual(len(result['update']['perspective_sections']['EDITORIAL']), 1)
         for fid in rejected:
             self.assertNotIn(fid, json.dumps(result['update']['perspective_sections']))
         trimmed = next(f for f in result['facts'] if f['text_pl'] == minimal)
@@ -130,7 +130,7 @@ class PerspectiveNoveltyTests(unittest.TestCase):
         self.assertEqual([f['text_pl'] for f in audited], [*map(lambda f: f['text_pl'], known), *[f['text_pl'] for f in candidates]])
         update = p.make_update(audited, known, True, ['r', 's'])
         self.assertEqual(len(update['perspective_sections']['COMMON']), 1)
-        self.assertEqual(len(update['perspective_sections']['RIGHT']), 1)
+        self.assertEqual(len(update['perspective_sections']['EDITORIAL']), 1)
         self.assertEqual(len(update['perspective_sections']['STATE']), 1)
 
     def test_no_audit_for_first_publication_confirmations_or_reclassification(self):
@@ -220,27 +220,25 @@ class PerspectiveNoveltyTests(unittest.TestCase):
 
     def test_pipeline_uses_summary_settings_and_keeps_audit_diagnostics(self):
         rows = [article('l', 'LEFT')]
-        known = self.route(rows, [fact('Znane.', ['l'], kind='FACT')])
+        known = self.route(rows, [fact('Rada przyjęła budżet miasta.', ['l'], kind='FACT')])
         payload = {'topic': {}, 'all_articles': rows, 'previous_aggregation': {'base_summary': {
             'perspective_version': 1, 'summary_pl': 'Zachowany artykuł.', 'perspective_facts': known}}}
         calls = []
         def request(instructions, data, model, **settings):
             calls.append(settings)
-            self.assertEqual(model, 'gpt-5-nano')
-            self.assertEqual(settings['reasoning_effort'], 'medium')
+            self.assertEqual(settings['reasoning_effort'], 'low')
             self.assertEqual(settings['timeout_seconds'], ai.SUMMARY_REQUEST_TIMEOUT_SECONDS)
+            self.assertEqual(settings['retry_limit'], 1)
             if settings['response_schema_name'] == 'perspective_facts':
-                return extraction([fact('Dodatkowe.', ['l'], kind='FACT')], rows)
+                return extraction([fact('Rada miasta sfinansuje remont szpitala.', ['l'], kind='FACT')], rows)
             self.assertNotIn('all_articles', data)
-            # Missing decisions must fail rather than publish unchecked facts.
             return {'decisions': {}}
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log'):
-            with self.assertRaises(ai.AIResponseParseError) as caught:
-                ai.generate_summary_response(payload, 'gpt-5-nano')
-        self.assertEqual([c['response_schema_name'] for c in calls],
-                         ['perspective_facts', 'perspective_novelty_audit', 'perspective_novelty_audit'])
-        self.assertEqual(caught.exception.response_details['schema'], 'perspective_novelty_audit')
-        self.assertIn('decisions', caught.exception.raw_output)
+            result = ai.generate_summary_response(payload, 'gpt-5-nano')
+        self.assertEqual([c['response_schema_name'] for c in calls], ['perspective_facts', 'perspective_novelty_audit'])
+        self.assertEqual(result['perspective_facts'], known)
+        self.assertEqual(len(result['quality_report']['novelty_omissions']), 1)
+        self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
 
     def test_large_ledger_id_enum_is_shared_instead_of_repeated_per_candidate(self):
         rows = [article('l', 'LEFT')]

@@ -1,0 +1,3616 @@
+{
+  "source": "Public site snapshot, selected evidence only; article bodies excluded.",
+  "generation": "ded1b21dd927e527f0d4",
+  "exported_at": "2026-10-21T04:55:02.310562+00:00",
+  "topics": [
+    {
+      "topic": {
+        "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+        "headline_pl": "[Francja] Godzina policyjna w odpowiedzi na zamieszki",
+        "status": "ACTIVE",
+        "first_seen_at": "2026-10-19T09:36:21.933604+00:00",
+        "last_seen_at": "2026-10-21T04:30:12.518353+00:00",
+        "article_count": 75,
+        "source_count": 33,
+        "coverage_status": "MULTI_SOURCE",
+        "needs_review": false,
+        "merged_into_topic_id": null,
+        "merged_at": null,
+        "updated_at": "2026-10-21T04:31:48.643889+00:00",
+        "categories": [
+          "POLITYKA",
+          "SWIAT"
+        ],
+        "is_current": true
+      },
+      "summary": {
+        "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+        "version": 2,
+        "summary": {
+          "updates": [
+            {
+              "run_id": "harvest_20261021T033312Z",
+              "status": "NEW_INFORMATION",
+              "version": 2,
+              "is_update": true,
+              "update_id": "update_4f928d0da5d92912fc45f07c",
+              "generated_at": "2026-10-21T04:52:51.865709+00:00",
+              "promoted_facts": [
+                {
+                  "kind": "STATEMENT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_bcb6d681e78f699a57eb3f10",
+                  "text_pl": "Laurent Nunez oświadczył, że wojska z operacji Sentinelle zostaną rozmieszczone, by wspierać policję podczas protestów.",
+                  "article_ids": [
+                    "b323a1c098d7200a3deeac9d",
+                    "63ec3d2d4c70065700c774f5"
+                  ]
+                },
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_22303c38da0861cc6d4bac31",
+                  "text_pl": "Plan obejmuje mobilizację elit policji RAID, GIGN i BRI, wraz z helikopterami, pojazdami opancerzonymi Centaure i armatami wodnymi.",
+                  "article_ids": [
+                    "b323a1c098d7200a3deeac9d",
+                    "392f5a2714898bd5db37a277",
+                    "724db1fbdd9f78b9005fcaa6"
+                  ]
+                }
+              ],
+              "new_article_ids": [
+                "bdc61ee7a3d9bb3150b9fd6f",
+                "392f5a2714898bd5db37a277",
+                "4d5560591192af7f08306f67",
+                "15b48d219102a930b8ac0f95",
+                "79137a0fcad8127a06b74f7a",
+                "55e3915d17d3e87683d89d33",
+                "7fa7a3e9f81ff74c923949e3",
+                "4fe1c3ed1abb2da16178b45b",
+                "4486ee104fa4e4e3b2f1017d",
+                "592241d350ef30c4a0fb9e36",
+                "b9d561b07098d5c9156227ec",
+                "4ec5e35bbbc9014a3d59063e",
+                "7a686c359da243b4ce899913",
+                "7a3a6ae1711f5d025451a271",
+                "8cad53fd913a7141d94578da",
+                "724db1fbdd9f78b9005fcaa6",
+                "63ec3d2d4c70065700c774f5",
+                "c3fa5714008727c0ec19bc18",
+                "2b71536a43a7ccf89b1d1193",
+                "2f68eb569c6872f9e44d6cac",
+                "2d74728ae3d7b11b43a92b9d",
+                "e88dc356347d1fd891464abb",
+                "7e6b56fe95bc4f1365370afb",
+                "f40f0b63fd85bc583461b14e",
+                "6c2ea64592648d07a2e92038",
+                "2ced82323c7947fc112aa1f0",
+                "ab723a67eaf423ed82349d40",
+                "ba20fbc1ea3b13be9a33dd08",
+                "c4bc4ccf6b81695794a9b170",
+                "c2ef010930f2904d9ee937ab",
+                "a93dae5e3ab67599f63885ef",
+                "dfe44f608a5e4062b670f674",
+                "7dcb73a8263d4dfc82550e25",
+                "1618939f187486573dd69255",
+                "fe3bfea568989500e86e44dc",
+                "938a7226d692e1770b9625ce",
+                "f585c257bcdfd967b849adb9",
+                "52a0df0542cec54ddcbbc8e2",
+                "afaf2bdba735b4968133abc9",
+                "58ed002038d3e531245bc60d",
+                "93d63ebe26441b12f5911b27",
+                "83911a59d3802e8adaaea4e7",
+                "713dfb3dc9f84271d28412b4",
+                "ea5d7682546655a076aa1ccd",
+                "22b1d3689d0eb8e6c4a300e0",
+                "08dbb11866f1439f77ef2593",
+                "31be0b3c7007e2d099cca86b",
+                "182aa7739d9d31ff3c3b84c0",
+                "88c8b8dc81f982ee175437cf",
+                "6c9ded31f0c0b43baf7f8087",
+                "c1cf00eec164b576f6d18374",
+                "683be65cf4eaf15f5118a8eb",
+                "0d468cf941fd509f9c09bb86",
+                "ae949fc90aaa29920fc33c7c",
+                "1eff1a8efe759b859481a815",
+                "e4027d033beffb1ed7ce7425",
+                "7458cf7c809c97895e55aa8e",
+                "1afa2e6a6f305c91342acdc0",
+                "374c8ecef9d24e75929014f3",
+                "3d3613dfb407fd02d46a8935",
+                "d42ce668c3e6333a6279ec65",
+                "246f3e18bd78271e583a8f3a",
+                "eb06e24d1ab9fe80a052e055",
+                "b733eea6e715982ad9124892",
+                "91909e0c0ead6945131b0f9c",
+                "81d43751af814b9f4cba3403",
+                "17af97e846a319e7d363dc09",
+                "790ba3c0012b9e5735421e42",
+                "23cf9553a3093df0fd23c8a9",
+                "9d228c3f4ad3b73def4b62f5",
+                "3abda2a97274d3620447d46b",
+                "4840ceb043b80d7c25726d10",
+                "b11f866069776de2c57595f2"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "Analiza opublikowana przez Le Monde sugeruje, że zamieszki są wynikiem przekształceń systemu politycznego w ostatnich latach i rosnącej konfrontacyjności nowo powstających partii. Analiza opublikowana przez Le Monde sugeruje, że zamieszki są wynikiem przekształceń systemu politycznego w ostatnich latach i rosnącej konfrontacyjności nowo powstających partii. Francja doświadcza najgorszych zamieszek od lat po ogólnokrajowych protestach dotyczących kosztów życia i edukacji, które przerodziły się w szeroki kryzys społeczny. W sobotę doszło do licznych incydentów przemocy, w tym starć z policją, podpaleń i ataków na budynki publiczne i sklepy w różnych miastach, w tym w Paryżu.",
+              "perspective_sections": {
+                "LEFT": [
+                  {
+                    "kind": "EDITORIAL",
+                    "lane": "EDITORIAL",
+                    "fact_id": "fact_9553ed5ba934bfe889927d35",
+                    "text_pl": "Analiza opublikowana przez Le Monde sugeruje, że zamieszki są wynikiem przekształceń systemu politycznego w ostatnich latach i rosnącej konfrontacyjności nowo powstających partii.",
+                    "article_ids": [
+                      "0d468cf941fd509f9c09bb86"
+                    ]
+                  }
+                ],
+                "RIGHT": [
+                  {
+                    "kind": "EDITORIAL",
+                    "lane": "EDITORIAL",
+                    "fact_id": "fact_9553ed5ba934bfe889927d35",
+                    "text_pl": "Analiza opublikowana przez Le Monde sugeruje, że zamieszki są wynikiem przekształceń systemu politycznego w ostatnich latach i rosnącej konfrontacyjności nowo powstających partii.",
+                    "article_ids": [
+                      "683be65cf4eaf15f5118a8eb",
+                      "c4bc4ccf6b81695794a9b170"
+                    ]
+                  }
+                ],
+                "STATE": [],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_124b9608a4ad606ccd645c3f",
+                    "text_pl": "Francja doświadcza najgorszych zamieszek od lat po ogólnokrajowych protestach dotyczących kosztów życia i edukacji, które przerodziły się w szeroki kryzys społeczny.",
+                    "article_ids": [
+                      "08dbb11866f1439f77ef2593"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_220255ee05fc8744b07af8d7",
+                    "text_pl": "W sobotę doszło do licznych incydentów przemocy, w tym starć z policją, podpaleń i ataków na budynki publiczne i sklepy w różnych miastach, w tym w Paryżu.",
+                    "article_ids": [
+                      "08dbb11866f1439f77ef2593"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            }
+          ],
+          "base_summary": {
+            "topic": {
+              "categories": [
+                "SWIAT",
+                "POLITYKA"
+              ],
+              "headline_pl": "[Francja] Zamieszki i zabezpieczenia",
+              "what_happened_one_sentence_pl": "Sébastien Lecornu powiedział podczas sesji Zgromadzenia Narodowego, że władze zorganizują 'masową' obecność służb bezpieczeństwa w nadchodzący weekend po zapowiedziach organizatorów planowanych protestów."
+            },
+            "quality": {
+              "source_count": 0,
+              "article_count": 0,
+              "limitations_pl": "",
+              "overall_confidence": "MEDIUM",
+              "has_multiple_perspectives": false
+            },
+            "sources": [],
+            "agreement": [],
+            "summary_pl": "W nadchodzący weekend władze Francji zapowiedziały masową obecność służb bezpieczeństwa w odpowiedzi na zapowiedzi organizatorów planowanych protestów dotyczących kosztów życia i finansowania edukacji. Podczas sesji Zgromadzenia Narodowego Sébastien Lecornu poinformował, że siły porządkowe będą rozmieszczone w nadchodzącym weekendzie. Lecornu dodał, że sobotnia obecność policji będzie 'masywna' i że celem jest natychmiastowy powrót do porządku.\n\nLecornu oskarżył ultralewicowe grupy o podsycanie insurekcji prowadzącej do sobotnich zamieszek podczas ogólnonarodowych protestów przeciwko kosztom życia i finansowaniu edukacji. Mówił także o istnieniu 'insurrectionary plan' prowadzonym przez skrajnie lewicowe i ultralewicowe grupy.\n\nLaurent Nunez poinformował, że wojska z operacji Sentinelle będą rozmieszczone, by wspierać policję podczas demonstracji. Nunez zapowiedział również mobilizację elit policji RAID, GIGN i BRI, a także użycie helikopterów, opancerzonych pojazdów Centaure i armat wodnych.\n\nWładze rozważają zakaz demonstracji uznawanych za zagrażające porządkowi publicznemu.",
+            "differences": [],
+            "coverage_mode": "SINGLE_CENTER",
+            "contradictions": [],
+            "reader_context": [],
+            "shared_available": true,
+            "background_context": [
+              {
+                "text_pl": "**Ogólny kontekst**\n\nKontekst obejmuje planowane protesty społeczne we Francji oraz przygotowania służb porządkowych w reakcji na rosnące napięcia społeczne.",
+                "article_ids": [],
+                "entity_type": "BACKGROUND",
+                "needs_verification": true
+              },
+              {
+                "text_pl": "Osoba — Sébastien Lecornu – minister obrony Francji, uczestniczył w debacie w Zgromadzeniu Narodowym.",
+                "article_ids": [],
+                "entity_type": "PERSON",
+                "needs_verification": true
+              },
+              {
+                "text_pl": "Osoba — Laurent Nuñez – prefekt policji, odpowiada za operacje bezpieczeństwa w kraju.",
+                "article_ids": [],
+                "entity_type": "PERSON",
+                "needs_verification": true
+              },
+              {
+                "text_pl": "Operacja Sentinelle to francuska operacja wojskowa wspierająca policję w sytuacjach zagrożeń porządku publicznego.",
+                "article_ids": [],
+                "entity_type": "BACKGROUND",
+                "needs_verification": true
+              }
+            ],
+            "perspective_version": 1,
+            "synthesis_coverage_mode": "SINGLE_CENTER",
+            "fact_classification_version": 1,
+            "potential_manipulation_signals": []
+          },
+          "last_analysis": {
+            "status": "NEW_INFORMATION"
+          },
+          "perspective_state": {
+            "facts": [
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_054d96b9f295ebda6c22d13e",
+                "text_pl": "Sébastien Lecornu powiedział podczas sesji Zgromadzenia Narodowego, że władze zorganizują 'masową' obecność służb bezpieczeństwa w nadchodzący weekend po zapowiedziach organizatorów planowanych protestów.",
+                "article_ids": [
+                  "8a0cbeef3818546c116b7eb1",
+                  "392f5a2714898bd5db37a277"
+                ]
+              },
+              {
+                "kind": "STATEMENT",
+                "lane": "COMMON",
+                "fact_id": "fact_47fa5d79a9573f784db48401",
+                "text_pl": "Lecornu oskarżył ultralewicowe grupy o podsycanie 'insurekcji' prowadzącej do sobotnich zamieszek podczas ogólnonarodowych protestów przeciwko kosztom życia i finansowaniu edukacji.",
+                "article_ids": [
+                  "8a0cbeef3818546c116b7eb1"
+                ]
+              },
+              {
+                "kind": "STATEMENT",
+                "lane": "COMMON",
+                "fact_id": "fact_45c7bc7ed4ce0c9252d16f82",
+                "text_pl": "Lecornu powiedział o istnieniu 'insurrectionary plan' prowadzonym przez skrajnie lewicowe i ultralewicowe grupy.",
+                "article_ids": [
+                  "8a0cbeef3818546c116b7eb1"
+                ]
+              }
+            ],
+            "coverage_mode": "MIXED",
+            "shared_available": true,
+            "perspective_version": 1,
+            "perspective_sections": {
+              "LEFT": [
+                {
+                  "kind": "EDITORIAL",
+                  "lane": "EDITORIAL",
+                  "fact_id": "fact_9553ed5ba934bfe889927d35",
+                  "text_pl": "Analiza opublikowana przez Le Monde sugeruje, że zamieszki są wynikiem przekształceń systemu politycznego w ostatnich latach i rosnącej konfrontacyjności nowo powstających partii.",
+                  "article_ids": [
+                    "0d468cf941fd509f9c09bb86"
+                  ]
+                }
+              ],
+              "RIGHT": [
+                {
+                  "kind": "EDITORIAL",
+                  "lane": "EDITORIAL",
+                  "fact_id": "fact_9553ed5ba934bfe889927d35",
+                  "text_pl": "Analiza opublikowana przez Le Monde sugeruje, że zamieszki są wynikiem przekształceń systemu politycznego w ostatnich latach i rosnącej konfrontacyjności nowo powstających partii.",
+                  "article_ids": [
+                    "683be65cf4eaf15f5118a8eb",
+                    "c4bc4ccf6b81695794a9b170"
+                  ]
+                }
+              ],
+              "STATE": [
+                {
+                  "kind": "FACT",
+                  "lane": "STATE",
+                  "fact_id": "fact_428da98f2b3249034fc33dcd",
+                  "text_pl": "Według Le Monde, 1 000 żołnierzy Sentinelle będzie dostępnych w Paryżu 24 października, w tym 500 na patrol.",
+                  "article_ids": [
+                    "b323a1c098d7200a3deeac9d"
+                  ]
+                }
+              ],
+              "CENTER": []
+            },
+            "fact_classification_version": 1
+          }
+        },
+        "generated_at": "2026-10-21T04:52:51.865709+00:00",
+        "updated_at": "2026-10-21T04:52:51.865709+00:00"
+      },
+      "links": [
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "08dbb11866f1439f77ef2593"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "0d468cf941fd509f9c09bb86"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "15b48d219102a930b8ac0f95"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "1618939f187486573dd69255"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "17af97e846a319e7d363dc09"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "182aa7739d9d31ff3c3b84c0"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "1afa2e6a6f305c91342acdc0"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "1eff1a8efe759b859481a815"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "22b1d3689d0eb8e6c4a300e0"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "23cf9553a3093df0fd23c8a9"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "246f3e18bd78271e583a8f3a"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "2b71536a43a7ccf89b1d1193"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "2ced82323c7947fc112aa1f0"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "2d74728ae3d7b11b43a92b9d"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "2f68eb569c6872f9e44d6cac"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "31be0b3c7007e2d099cca86b"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "374c8ecef9d24e75929014f3"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "392f5a2714898bd5db37a277"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "3abda2a97274d3620447d46b"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "3d3613dfb407fd02d46a8935"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "4486ee104fa4e4e3b2f1017d"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "4840ceb043b80d7c25726d10"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "4d5560591192af7f08306f67"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "4ec5e35bbbc9014a3d59063e"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "4fe1c3ed1abb2da16178b45b"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "52a0df0542cec54ddcbbc8e2"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "55e3915d17d3e87683d89d33"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "58ed002038d3e531245bc60d"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "592241d350ef30c4a0fb9e36"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "63ec3d2d4c70065700c774f5"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "683be65cf4eaf15f5118a8eb"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "6c2ea64592648d07a2e92038"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "6c9ded31f0c0b43baf7f8087"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "713dfb3dc9f84271d28412b4"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "724db1fbdd9f78b9005fcaa6"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "7458cf7c809c97895e55aa8e"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "790ba3c0012b9e5735421e42"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "79137a0fcad8127a06b74f7a"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "7a3a6ae1711f5d025451a271"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "7a686c359da243b4ce899913"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "7dcb73a8263d4dfc82550e25"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "7e6b56fe95bc4f1365370afb"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "7fa7a3e9f81ff74c923949e3"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "81d43751af814b9f4cba3403"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "83911a59d3802e8adaaea4e7"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "88c8b8dc81f982ee175437cf"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "8a0cbeef3818546c116b7eb1"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "8cad53fd913a7141d94578da"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "91909e0c0ead6945131b0f9c"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "938a7226d692e1770b9625ce"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "93d63ebe26441b12f5911b27"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "9d228c3f4ad3b73def4b62f5"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "a93dae5e3ab67599f63885ef"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "ab723a67eaf423ed82349d40"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "ae949fc90aaa29920fc33c7c"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "afaf2bdba735b4968133abc9"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "b11f866069776de2c57595f2"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "b323a1c098d7200a3deeac9d"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "b733eea6e715982ad9124892"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "b9d561b07098d5c9156227ec"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "ba20fbc1ea3b13be9a33dd08"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "bdc61ee7a3d9bb3150b9fd6f"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "c1cf00eec164b576f6d18374"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "c2ef010930f2904d9ee937ab"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "c3fa5714008727c0ec19bc18"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "c4bc4ccf6b81695794a9b170"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "d42ce668c3e6333a6279ec65"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "dfe44f608a5e4062b670f674"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "e4027d033beffb1ed7ce7425"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "e88dc356347d1fd891464abb"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "ea5d7682546655a076aa1ccd"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "eb06e24d1ab9fe80a052e055"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "f40f0b63fd85bc583461b14e"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "f585c257bcdfd967b849adb9"
+        },
+        {
+          "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+          "article_id": "fe3bfea568989500e86e44dc"
+        }
+      ],
+      "articles": [
+        {
+          "article_id": "08dbb11866f1439f77ef2593",
+          "source_id": "cnn",
+          "source_name": "CNN",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "0d468cf941fd509f9c09bb86",
+          "source_id": "le_monde",
+          "source_name": "Le Monde",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "15b48d219102a930b8ac0f95",
+          "source_id": "la_repubblica",
+          "source_name": "La Repubblica",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "1618939f187486573dd69255",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "17af97e846a319e7d363dc09",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "182aa7739d9d31ff3c3b84c0",
+          "source_id": "efe",
+          "source_name": "EFE",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "1afa2e6a6f305c91342acdc0",
+          "source_id": "le_monde",
+          "source_name": "Le Monde",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "1eff1a8efe759b859481a815",
+          "source_id": "le_monde",
+          "source_name": "Le Monde",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "22b1d3689d0eb8e6c4a300e0",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "23cf9553a3093df0fd23c8a9",
+          "source_id": "bbc",
+          "source_name": "BBC",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "246f3e18bd78271e583a8f3a",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2b71536a43a7ccf89b1d1193",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2ced82323c7947fc112aa1f0",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2d74728ae3d7b11b43a92b9d",
+          "source_id": "politico_europe",
+          "source_name": "Politico Europe",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2f68eb569c6872f9e44d6cac",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "31be0b3c7007e2d099cca86b",
+          "source_id": "deutsche_welle",
+          "source_name": "Deutsche Welle",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "374c8ecef9d24e75929014f3",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "392f5a2714898bd5db37a277",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3abda2a97274d3620447d46b",
+          "source_id": "politico_europe",
+          "source_name": "Politico Europe",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3d3613dfb407fd02d46a8935",
+          "source_id": "kommersant",
+          "source_name": "Kommersant",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4486ee104fa4e4e3b2f1017d",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4840ceb043b80d7c25726d10",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4d5560591192af7f08306f67",
+          "source_id": "cnn",
+          "source_name": "CNN",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4ec5e35bbbc9014a3d59063e",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4fe1c3ed1abb2da16178b45b",
+          "source_id": "vox",
+          "source_name": "Vox",
+          "source_profile": "LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "52a0df0542cec54ddcbbc8e2",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "55e3915d17d3e87683d89d33",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "58ed002038d3e531245bc60d",
+          "source_id": "euronews",
+          "source_name": "Euronews",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "592241d350ef30c4a0fb9e36",
+          "source_id": "fox_news",
+          "source_name": "Fox News",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "63ec3d2d4c70065700c774f5",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "683be65cf4eaf15f5118a8eb",
+          "source_id": "el_mundo",
+          "source_name": "El Mundo",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "6c2ea64592648d07a2e92038",
+          "source_id": "niezalezna",
+          "source_name": "Niezależna",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "6c9ded31f0c0b43baf7f8087",
+          "source_id": "le_monde",
+          "source_name": "Le Monde",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "713dfb3dc9f84271d28412b4",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "724db1fbdd9f78b9005fcaa6",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7458cf7c809c97895e55aa8e",
+          "source_id": "deutsche_welle",
+          "source_name": "Deutsche Welle",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "790ba3c0012b9e5735421e42",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "79137a0fcad8127a06b74f7a",
+          "source_id": "corriere",
+          "source_name": "Corriere della Sera",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7a3a6ae1711f5d025451a271",
+          "source_id": "le_monde",
+          "source_name": "Le Monde",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7a686c359da243b4ce899913",
+          "source_id": "bild",
+          "source_name": "Bild",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7dcb73a8263d4dfc82550e25",
+          "source_id": "guardian",
+          "source_name": "Guardian",
+          "source_profile": "LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7e6b56fe95bc4f1365370afb",
+          "source_id": "euronews",
+          "source_name": "Euronews",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7fa7a3e9f81ff74c923949e3",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "81d43751af814b9f4cba3403",
+          "source_id": "xinhua",
+          "source_name": "Xinhua",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "83911a59d3802e8adaaea4e7",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "88c8b8dc81f982ee175437cf",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "8a0cbeef3818546c116b7eb1",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "8cad53fd913a7141d94578da",
+          "source_id": "le_figaro",
+          "source_name": "Le Figaro",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "91909e0c0ead6945131b0f9c",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "938a7226d692e1770b9625ce",
+          "source_id": "el_pais",
+          "source_name": "El País",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "93d63ebe26441b12f5911b27",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "9d228c3f4ad3b73def4b62f5",
+          "source_id": "npr",
+          "source_name": "NPR",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "a93dae5e3ab67599f63885ef",
+          "source_id": "tvn24",
+          "source_name": "TVN24",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ab723a67eaf423ed82349d40",
+          "source_id": "washington_examiner",
+          "source_name": "Washington Examiner",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ae949fc90aaa29920fc33c7c",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "afaf2bdba735b4968133abc9",
+          "source_id": "el_mundo",
+          "source_name": "El Mundo",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b11f866069776de2c57595f2",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b323a1c098d7200a3deeac9d",
+          "source_id": "rt",
+          "source_name": "RT",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b733eea6e715982ad9124892",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b9d561b07098d5c9156227ec",
+          "source_id": "new_york_post",
+          "source_name": "New York Post",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ba20fbc1ea3b13be9a33dd08",
+          "source_id": "bbc",
+          "source_name": "BBC",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "bdc61ee7a3d9bb3150b9fd6f",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c1cf00eec164b576f6d18374",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c2ef010930f2904d9ee937ab",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c3fa5714008727c0ec19bc18",
+          "source_id": "tvn24",
+          "source_name": "TVN24",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c4bc4ccf6b81695794a9b170",
+          "source_id": "niezalezna",
+          "source_name": "Niezależna",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d42ce668c3e6333a6279ec65",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "dfe44f608a5e4062b670f674",
+          "source_id": "niezalezna",
+          "source_name": "Niezależna",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "e4027d033beffb1ed7ce7425",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "e88dc356347d1fd891464abb",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ea5d7682546655a076aa1ccd",
+          "source_id": "fox_news",
+          "source_name": "Fox News",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "eb06e24d1ab9fe80a052e055",
+          "source_id": "efe",
+          "source_name": "EFE",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "f40f0b63fd85bc583461b14e",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "f585c257bcdfd967b849adb9",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "fe3bfea568989500e86e44dc",
+          "source_id": "der_spiegel",
+          "source_name": "Der Spiegel",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        }
+      ]
+    },
+    {
+      "topic": {
+        "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+        "headline_pl": "[Świat] Wstrzymanie sankcji wobec Rosji przez USA",
+        "status": "ACTIVE",
+        "first_seen_at": "2026-10-19T09:36:21.933604+00:00",
+        "last_seen_at": "2026-10-21T04:29:30.947099+00:00",
+        "article_count": 87,
+        "source_count": 34,
+        "coverage_status": "MULTI_SOURCE",
+        "needs_review": false,
+        "merged_into_topic_id": null,
+        "merged_at": null,
+        "updated_at": "2026-10-21T04:31:53.730439+00:00",
+        "categories": [
+          "SWIAT"
+        ],
+        "is_current": true
+      },
+      "summary": {
+        "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+        "version": 3,
+        "summary": {
+          "updates": [
+            {
+              "run_id": "harvest_20261020T153349Z",
+              "status": "NEW_INFORMATION",
+              "version": 2,
+              "is_update": true,
+              "update_id": "update_1069df5c74048aed34372c0a",
+              "generated_at": "2026-10-20T16:43:53.611758+00:00",
+              "promoted_facts": [],
+              "new_article_ids": [
+                "179f2a63ca38f77eb1dc6bb1",
+                "19242951490c682f4490fe2b",
+                "f47f98e3e44590b5aada14ae",
+                "ecdd37b68fa73211155b4fea",
+                "df10351b6b6a0e5aa8a4a57d",
+                "747e97fe4ee3365269c71f0b",
+                "37ffc23df1a422af561c464a",
+                "b49519d3b58fa23aa8d59abc",
+                "639825646d549e13d1fc315b",
+                "ab1963b1ae03fb08da9463d4",
+                "48da640b19d7ba2db273d37a",
+                "a6b3988f76cc68c7363950b6",
+                "9611e16d2b0e207850d16d4d",
+                "7b15177b658c4c82d9199b39",
+                "abdcdd85a81973904dc9bacf",
+                "34facc1ae6fc583e55bb2ffd",
+                "af4c546e471e66b01d5a13dd",
+                "5bfb53e8e574ed9dcfb161b6",
+                "0e8a1e29a45de5791d56a392",
+                "85eae501d0504fa43303880c",
+                "a46ef69921a7929e3edc0956",
+                "9ae9b0bfd5cce1f85fd0bf26",
+                "0cba4b5a385a62b0ce3ffa90",
+                "25805a8ad67ad4f9c053b702",
+                "61e9a7da531046f804dad620",
+                "683ebcd9cb5d57ed031bc16c",
+                "18d62504c981f754b8a09dd9",
+                "dc511d603d8e7bf73995f187",
+                "1d8fc4455e9cf825f5880f51",
+                "90608f9ab615b328d85b20d0",
+                "333ddda812e34412c041895c",
+                "d58943108e2e6f26eac1440d",
+                "4d1a1facfea202e64f7daa41",
+                "4abe855a3bb52d4447191e26",
+                "5640351eb0af353645d2fd3d",
+                "d4271095c4fa7b8d68ffa5f3",
+                "d1f5229fa9b722c5230f5416",
+                "132070367cc7ca6bd8b63f31",
+                "c8b76cc25be5391191ec195b",
+                "bd63a74a51429ddb7c2e088b",
+                "1950ac17650a0d920ce679e9",
+                "ccb304e078a2c69f1277e937",
+                "cbfab0ad1a9ed1aae588e1bb",
+                "cd314e3f07ab68c4fa475648",
+                "2534227cc7b4b93053465c5b",
+                "240c2e6929975a8025027452",
+                "ee4071211da2996b4fed9dee",
+                "7ae33adfcc05a5eaa75894cc",
+                "b36533b54f1d753136578032",
+                "e0d935782f7599f6a50e280e",
+                "7b904b849fbf32305c688675",
+                "efe8721a2215facf0a8b3298",
+                "44165bb8eb65b56e9945dab3",
+                "c6d29e2e4edbca66b7d65c73",
+                "bee0f0a1b2320c6d9efd27ae",
+                "c179962838d4652f587e32d9",
+                "1468dff9450be8ab3cb9556c",
+                "ba8e2c29bf0d4564e63f23c2",
+                "23b12bcd52a8dc8b87548d7e",
+                "3be354484cc641e9b0e93807",
+                "72c7dc03a00483d122d50ef7",
+                "7f8f348a67f692f1525c2057",
+                "82dc5f1b14fac9a9bf792ce9",
+                "28c75b7ee036eedcfee365d6",
+                "4914c61eceba997f9b588305",
+                "3f3307f3f983348ac5085f87",
+                "6da0fe3740e644a36aaf72cc",
+                "23cc5762ad093fadbfc74419",
+                "6c0064fd92f5248bd80fed06",
+                "4a7f0ebea206783ca68343b6",
+                "d0d0b873f49ab792d5715a37",
+                "c3ab041c679dbccb495d12f8",
+                "34121db52b285697d8d782f1"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "Zelenskiy lobbinguje dwupartyjną grupę senatorów, aby wywarli presję na Trumpa w celu zniesienia rzekomych ograniczeń dotyczących amerykańskiej pomocy wojskowej i udostępniania wywiadu. Zelenskiy twierdzi, że Waszyngton celowo „spowalnia wsparcie”, by zmusić Kijów do zaakceptowania negocjowanego porozumienia z Moskwą. Putin zaproponował trzystronne spotkanie z Donaldem Trumpem i Xi Jinpingiem, bez udziału Zełenskiego, w celu omówienia zakończenia wojny na warunkach korzystnych dla Moskwy. Zelenskiy powiedział, że rozmawiał z przedstawicielami prezydenta USA Donalda Trumpa o kolejnych krokach w wysiłkach dyplomatycznych zmierzających do zakończenia kryzysu na Ukrainie.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [
+                  {
+                    "kind": "FACT",
+                    "lane": "STATE",
+                    "fact_id": "fact_55d1665a89b69596b56a130b",
+                    "text_pl": "Zelenskiy lobbinguje dwupartyjną grupę senatorów, aby wywarli presję na Trumpa w celu zniesienia rzekomych ograniczeń dotyczących amerykańskiej pomocy wojskowej i udostępniania wywiadu.",
+                    "article_ids": [
+                      "23cc5762ad093fadbfc74419"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "STATE",
+                    "fact_id": "fact_fb1ad76b65a3459e21fbeed1",
+                    "text_pl": "Zelenskiy twierdzi, że Waszyngton celowo „spowalnia wsparcie”, by zmusić Kijów do zaakceptowania negocjowanego porozumienia z Moskwą.",
+                    "article_ids": [
+                      "23cc5762ad093fadbfc74419"
+                    ]
+                  }
+                ],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_c5d2eea8588986eaadbd1668",
+                    "text_pl": "Putin zaproponował trzystronne spotkanie z Donaldem Trumpem i Xi Jinpingiem, bez udziału Zełenskiego, w celu omówienia zakończenia wojny na warunkach korzystnych dla Moskwy.",
+                    "article_ids": [
+                      "1d8fc4455e9cf825f5880f51",
+                      "4abe855a3bb52d4447191e26",
+                      "6c0064fd92f5248bd80fed06",
+                      "cabd01c8f2e2f7531ff8c8ce",
+                      "d0d0b873f49ab792d5715a37",
+                      "d58943108e2e6f26eac1440d",
+                      "ee4071211da2996b4fed9dee"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_3245adb68f5fd7644e2abb00",
+                    "text_pl": "Zelenskiy powiedział, że rozmawiał z przedstawicielami prezydenta USA Donalda Trumpa o kolejnych krokach w wysiłkach dyplomatycznych zmierzających do zakończenia kryzysu na Ukrainie.",
+                    "article_ids": [
+                      "23b12bcd52a8dc8b87548d7e",
+                      "747e97fe4ee3365269c71f0b",
+                      "df10351b6b6a0e5aa8a4a57d"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            },
+            {
+              "run_id": "harvest_20261021T033312Z",
+              "status": "NEW_INFORMATION",
+              "version": 3,
+              "is_update": true,
+              "update_id": "update_d8dd3047167189108c5c9b0f",
+              "generated_at": "2026-10-21T04:47:07.692701+00:00",
+              "promoted_facts": [
+                {
+                  "kind": "STATEMENT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_7b20fe6e4a30683db91daca1",
+                  "text_pl": "Zbigniew Rau, były minister spraw zagranicznych w rządzie PiS (2020–2023), skrytykował decyzje Donalda Trumpa i stwierdził, że „to nigdy nie zdało egzaminu”.",
+                  "article_ids": [
+                    "cabd01c8f2e2f7531ff8c8ce",
+                    "2534227cc7b4b93053465c5b"
+                  ]
+                },
+                {
+                  "kind": "STATEMENT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_2b0f90270e5a2c48c7c0744f",
+                  "text_pl": "Uważa, że Trump łagodzi kurs wobec Rosji, wstrzymuje nowe sankcje i prowadzi politykę, co według niego zbiegło się z zaostrzaniem retoryki wobec Wołodymyra Zełenskiego.",
+                  "article_ids": [
+                    "cabd01c8f2e2f7531ff8c8ce",
+                    "2534227cc7b4b93053465c5b",
+                    "3be354484cc641e9b0e93807",
+                    "c2c14eec28614d525c64cf94"
+                  ]
+                }
+              ],
+              "new_article_ids": [
+                "e588b8ea5ea3737bc78b276c",
+                "de5610e1cfd1a657de9f56b3",
+                "5c948d334104964dbe9abead",
+                "2b3c0429a8db56199a19c9c1",
+                "d596cdeb12988cd4c2a87d2b",
+                "7c04a871fd41e89eeba6be70",
+                "68fef89d4f6475014b801d27",
+                "85b7befe2b8ab6d34299d3b8",
+                "27c473ac8e5bd522403165a6",
+                "897d149265d3256ead1196f9",
+                "becbc44eb1bd6a1b35d747d7",
+                "7a9cfc5f5a83eed42588213e"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "Zelenskiy powtórzył propozycję spotkania USA-Chiny-Rosja z udziałem Ukrainy. W Oslo negocjacje obejmowały propozycję wzajemnego zawieszenia ataków na infrastrukturę energetyczną.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_c43987bba53ff2864e31b3e1",
+                    "text_pl": "Zelenskiy powtórzył propozycję spotkania USA-Chiny-Rosja z udziałem Ukrainy.",
+                    "article_ids": [
+                      "27c473ac8e5bd522403165a6",
+                      "34facc1ae6fc583e55bb2ffd"
+                    ]
+                  },
+                  {
+                    "kind": "STATEMENT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_39791ca581c2c89786fa7603",
+                    "text_pl": "W Oslo negocjacje obejmowały propozycję wzajemnego zawieszenia ataków na infrastrukturę energetyczną.",
+                    "article_ids": [
+                      "27c473ac8e5bd522403165a6",
+                      "34121db52b285697d8d782f1",
+                      "34facc1ae6fc583e55bb2ffd"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            }
+          ],
+          "base_summary": {
+            "topic": {
+              "categories": [
+                "SWIAT"
+              ],
+              "headline_pl": "[Świat] Krytyka decyzji Trumpa dotyczących Rosji",
+              "what_happened_one_sentence_pl": "Kaja Kallas stwierdziła, że amerykańscy negocjatorzy od półtora roku próbują zmusić Ukrainę do kapitulacji, lecz Ukraina nie poddała się na warunkach Putina dzięki wsparciu Europy."
+            },
+            "quality": {
+              "source_count": 0,
+              "article_count": 0,
+              "limitations_pl": "",
+              "overall_confidence": "MEDIUM",
+              "has_multiple_perspectives": false
+            },
+            "sources": [],
+            "agreement": [],
+            "summary_pl": "Sedno wydarzenia to reakcje na decyzje Donalda Trumpa dotyczące Rosji, wyrażone w opinii liderów i analityków. Kaja Kallas stwierdziła, że amerykańscy negocjatorzy od półtora roku próbują zmusić Ukrainę do kapitulacji, lecz Ukraina nie poddała się na warunkach Putina dzięki wsparciu Europy. Podkreśliła, że Unia Europejska musi mieć własną strategię pokojową i stawiać maksymalne oczekiwania wobec Rosji, by zrównoważyć negocjacje i wysłać Rosji jasny sygnał. W lutowym planie zażądała całkowitego wycofania wojsk rosyjskich z Donbasu i Krymu, a także finansowania odbudowy Ukrainy przez Rosję oraz zrezygnowania z narzucania temu państwu neutralności względem NATO i UE. Kallas oświadczyła, że Rosja powinna zostać zmuszona do zapłaty za odbudowę Ukrainy oraz że UE musi utrzymać swoje warunki, aby uniknąć powtórzenia podobnej sytuacji. Sankcje działają, a Rosja dąży do ich zniesienia. Ukraina zgodziła się na zawieszenie broni w sektorze energetycznym oraz na porozumienie dotyczące Morza Czarnego; Rosja nie wyraziła zgody na te zawieszenia. Kallas zaznaczyła, że zniesienie sankcji nie może być zastosowane bez adekwatnych warunków i że Rosja pragnie ich zniesienia. Nie wolno uznawać logiki, iż broń jądrowa może być środkiem wymuszenia; prowadzi to do większego niebezpieczeństwa na świecie.\n\nZ kolei Zbigniew Rau skrytykował decyzje Donalda Trumpa i stwierdził, że 'to nigdy nie zdało egzaminu'. Uważa, że Trump łagodzi kurs wobec Rosji, wstrzymuje nowe sankcje i prowadzi politykę, co według niego zbiegło się z zaostrzaniem retoryki wobec Wołodymyra Zełenskiego. Rau twierdzi, że Rosja ma własną logikę i że w relacjach z Rosją wystarczy znać krótki katalog rosyjskich zachowań, a nie matrycę dyplomacji Zachodu. Nie należy mówić o strategicznym i nieodwracalnym zwrocie w polityce USA wobec Ukrainy i Rosji na tym etapie. W Polsce mamy własny pogląd, że lepiej znamy sprawy rosyjskie niż Zachód. Wspomina, że Putin szykuje 'drugą Jałtę' i że Polska powinna mieć na to odpowiednią odpowiedź. Rau zapowiada, że przedstawi w tekście pięć wniosków dla Polski wynikających z obserwacji Putina. Były minister był ostatnim członkiem rządu, który odwiedził Moskwę; spotkał się tam z Ławrowem i pełnił funkcję przewodniczącego OBWE tydzień przed atakiem na Ukrainę w 2022 roku. W kontekście oceny amerykańskiej polityki Rau przytacza Churchillowską maksymę: Amerykanie znajdą właściwe rozwiązanie, najpierw wypróbują wszystkie inne.",
+            "differences": [],
+            "coverage_mode": "MIXED",
+            "contradictions": [],
+            "reader_context": [],
+            "shared_available": true,
+            "background_context": [
+              {
+                "text_pl": "**Ogólny kontekst**\n\nAnaliza kontekstu politycznego wokół relacji USA–Rosja–Ukraina, z uwzględnieniem opinii polskich i europejskich komentatorów. Materiały źródłowe pochodzą z Bankiera i Onetu, z publikacjami z 20 października 2026 roku.",
+                "article_ids": [
+                  "c2c14eec28614d525c64cf94",
+                  "cabd01c8f2e2f7531ff8c8ce"
+                ],
+                "entity_type": "BACKGROUND",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Osoba — Kaja Kallas – premier Estonii.",
+                "article_ids": [
+                  "c2c14eec28614d525c64cf94"
+                ],
+                "entity_type": "PERSON",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Osoba — Zbigniew Rau – były minister spraw zagranicznych w rządzie PiS (2020–2023).",
+                "article_ids": [
+                  "cabd01c8f2e2f7531ff8c8ce"
+                ],
+                "entity_type": "PERSON",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Organizacja — Unia Europejska – organizacja państw członkowskich dążąca do wspólnej polityki pokojowej i relacji z Rosją.",
+                "article_ids": [
+                  "c2c14eec28614d525c64cf94"
+                ],
+                "entity_type": "ORGANIZATION",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Organizacja — OBWE – Organizacja do spraw bezpieczeństwa i współpracy w Europie.",
+                "article_ids": [
+                  "cabd01c8f2e2f7531ff8c8ce"
+                ],
+                "entity_type": "ORGANIZATION",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Rosja – państwo prowadzące działania wojenne wobec Ukrainy; kontekst sankcji i negocjacji.",
+                "article_ids": [],
+                "entity_type": "BACKGROUND",
+                "needs_verification": true
+              },
+              {
+                "text_pl": "Osoba — Putin – prezydent Rosji.",
+                "article_ids": [
+                  "cabd01c8f2e2f7531ff8c8ce"
+                ],
+                "entity_type": "PERSON",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Osoba — Siergiej Ławrow – minister spraw zagranicznych Rosji.",
+                "article_ids": [
+                  "cabd01c8f2e2f7531ff8c8ce"
+                ],
+                "entity_type": "PERSON",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Organizacja — NATO – sojusz militarny; kontekst dyskusji o neutralności wobec NATO i UE.",
+                "article_ids": [],
+                "entity_type": "ORGANIZATION",
+                "needs_verification": true
+              },
+              {
+                "text_pl": "Osoba — Winston Churchill – polityk brytyjski; autor maksyma o sposobie działania Amerykanów w polityce międzynarodowej.",
+                "article_ids": [],
+                "entity_type": "PERSON",
+                "needs_verification": true
+              }
+            ],
+            "perspective_version": 1,
+            "synthesis_coverage_mode": "MIXED",
+            "fact_classification_version": 1,
+            "potential_manipulation_signals": []
+          },
+          "last_analysis": {
+            "status": "NEW_INFORMATION"
+          },
+          "perspective_state": {
+            "facts": [
+              {
+                "kind": "STATEMENT",
+                "lane": "COMMON",
+                "fact_id": "fact_63c47394d2e2f7b0c483ccff",
+                "text_pl": "Kaja Kallas stwierdziła, że amerykańscy negocjatorzy od półtora roku próbują zmusić Ukrainę do kapitulacji, lecz Ukraina nie poddała się na warunkach Putina dzięki wsparciu Europy.",
+                "article_ids": [
+                  "c2c14eec28614d525c64cf94",
+                  "0cba4b5a385a62b0ce3ffa90",
+                  "3f3307f3f983348ac5085f87"
+                ]
+              },
+              {
+                "kind": "STATEMENT",
+                "lane": "COMMON",
+                "fact_id": "fact_8454c7c01d0bc9e8e4e272a8",
+                "text_pl": "Podkreśliła, że Unia Europejska musi mieć własną strategię pokojową i stawiać maksymalne oczekiwania wobec Rosji, by zrównoważyć negocjacje i wysłać Rosji jasny sygnał.",
+                "article_ids": [
+                  "c2c14eec28614d525c64cf94",
+                  "0cba4b5a385a62b0ce3ffa90"
+                ]
+              },
+              {
+                "kind": "STATEMENT",
+                "lane": "COMMON",
+                "fact_id": "fact_6304e9fe8d72e3e296ee6e03",
+                "text_pl": "W lutowym planie zażądała całkowitego wycofania wojsk rosyjskich z Donbasu i Krymu, a także finansowania odbudowy Ukrainy przez Rosję oraz zrezygnowania z narzucania temu państwu neutralności względem NATO i UE.",
+                "article_ids": [
+                  "c2c14eec28614d525c64cf94",
+                  "0cba4b5a385a62b0ce3ffa90"
+                ]
+              }
+            ],
+            "coverage_mode": "MIXED",
+            "shared_available": true,
+            "perspective_version": 1,
+            "perspective_sections": {
+              "LEFT": [],
+              "RIGHT": [],
+              "STATE": [
+                {
+                  "kind": "FACT",
+                  "lane": "STATE",
+                  "fact_id": "fact_55d1665a89b69596b56a130b",
+                  "text_pl": "Zelenskiy lobbinguje dwupartyjną grupę senatorów, aby wywarli presję na Trumpa w celu zniesienia rzekomych ograniczeń dotyczących amerykańskiej pomocy wojskowej i udostępniania wywiadu.",
+                  "article_ids": [
+                    "23cc5762ad093fadbfc74419"
+                  ]
+                }
+              ],
+              "CENTER": []
+            },
+            "fact_classification_version": 1
+          }
+        },
+        "generated_at": "2026-10-21T04:47:07.692701+00:00",
+        "updated_at": "2026-10-21T04:47:07.692701+00:00"
+      },
+      "links": [
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "0cba4b5a385a62b0ce3ffa90"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "0e8a1e29a45de5791d56a392"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "132070367cc7ca6bd8b63f31"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "1468dff9450be8ab3cb9556c"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "179f2a63ca38f77eb1dc6bb1"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "18d62504c981f754b8a09dd9"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "19242951490c682f4490fe2b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "1950ac17650a0d920ce679e9"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "1d8fc4455e9cf825f5880f51"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "23b12bcd52a8dc8b87548d7e"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "23cc5762ad093fadbfc74419"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "240c2e6929975a8025027452"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "2534227cc7b4b93053465c5b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "25805a8ad67ad4f9c053b702"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "27c473ac8e5bd522403165a6"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "28c75b7ee036eedcfee365d6"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "2b3c0429a8db56199a19c9c1"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "333ddda812e34412c041895c"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "34121db52b285697d8d782f1"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "34facc1ae6fc583e55bb2ffd"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "37ffc23df1a422af561c464a"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "3be354484cc641e9b0e93807"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "3f3307f3f983348ac5085f87"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "44165bb8eb65b56e9945dab3"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "48da640b19d7ba2db273d37a"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "4914c61eceba997f9b588305"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "4a7f0ebea206783ca68343b6"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "4abe855a3bb52d4447191e26"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "4d1a1facfea202e64f7daa41"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "5640351eb0af353645d2fd3d"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "5bfb53e8e574ed9dcfb161b6"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "5c948d334104964dbe9abead"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "61e9a7da531046f804dad620"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "639825646d549e13d1fc315b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "683ebcd9cb5d57ed031bc16c"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "68fef89d4f6475014b801d27"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "6c0064fd92f5248bd80fed06"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "6da0fe3740e644a36aaf72cc"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "72c7dc03a00483d122d50ef7"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "747e97fe4ee3365269c71f0b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "7a9cfc5f5a83eed42588213e"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "7ae33adfcc05a5eaa75894cc"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "7b15177b658c4c82d9199b39"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "7b904b849fbf32305c688675"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "7c04a871fd41e89eeba6be70"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "7f8f348a67f692f1525c2057"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "82dc5f1b14fac9a9bf792ce9"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "85b7befe2b8ab6d34299d3b8"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "85eae501d0504fa43303880c"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "897d149265d3256ead1196f9"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "90608f9ab615b328d85b20d0"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "9611e16d2b0e207850d16d4d"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "9ae9b0bfd5cce1f85fd0bf26"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "a46ef69921a7929e3edc0956"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "a6b3988f76cc68c7363950b6"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "ab1963b1ae03fb08da9463d4"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "abdcdd85a81973904dc9bacf"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "af4c546e471e66b01d5a13dd"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "b36533b54f1d753136578032"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "b49519d3b58fa23aa8d59abc"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "ba8e2c29bf0d4564e63f23c2"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "bd63a74a51429ddb7c2e088b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "becbc44eb1bd6a1b35d747d7"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "bee0f0a1b2320c6d9efd27ae"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "c179962838d4652f587e32d9"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "c2c14eec28614d525c64cf94"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "c3ab041c679dbccb495d12f8"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "c6d29e2e4edbca66b7d65c73"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "c8b76cc25be5391191ec195b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "cabd01c8f2e2f7531ff8c8ce"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "cbfab0ad1a9ed1aae588e1bb"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "ccb304e078a2c69f1277e937"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "cd314e3f07ab68c4fa475648"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "d0d0b873f49ab792d5715a37"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "d1f5229fa9b722c5230f5416"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "d4271095c4fa7b8d68ffa5f3"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "d58943108e2e6f26eac1440d"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "d596cdeb12988cd4c2a87d2b"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "dc511d603d8e7bf73995f187"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "de5610e1cfd1a657de9f56b3"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "df10351b6b6a0e5aa8a4a57d"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "e0d935782f7599f6a50e280e"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "e588b8ea5ea3737bc78b276c"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "ecdd37b68fa73211155b4fea"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "ee4071211da2996b4fed9dee"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "efe8721a2215facf0a8b3298"
+        },
+        {
+          "topic_id": "topic_perspectives_ac4faf43ce3f8d64e05205d4",
+          "article_id": "f47f98e3e44590b5aada14ae"
+        }
+      ],
+      "articles": [
+        {
+          "article_id": "0cba4b5a385a62b0ce3ffa90",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "0e8a1e29a45de5791d56a392",
+          "source_id": "new_york_post",
+          "source_name": "New York Post",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "132070367cc7ca6bd8b63f31",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "1468dff9450be8ab3cb9556c",
+          "source_id": "huffpost",
+          "source_name": "HuffPost",
+          "source_profile": "LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "179f2a63ca38f77eb1dc6bb1",
+          "source_id": "france_24",
+          "source_name": "France 24",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "18d62504c981f754b8a09dd9",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "19242951490c682f4490fe2b",
+          "source_id": "south_china_morning_post",
+          "source_name": "South China Morning Post",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "1950ac17650a0d920ce679e9",
+          "source_id": "politico_europe",
+          "source_name": "Politico Europe",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "1d8fc4455e9cf825f5880f51",
+          "source_id": "meduza",
+          "source_name": "Meduza",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "23b12bcd52a8dc8b87548d7e",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "23cc5762ad093fadbfc74419",
+          "source_id": "rt",
+          "source_name": "RT",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "240c2e6929975a8025027452",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2534227cc7b4b93053465c5b",
+          "source_id": "niezalezna",
+          "source_name": "Niezależna",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "25805a8ad67ad4f9c053b702",
+          "source_id": "kommersant",
+          "source_name": "Kommersant",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "27c473ac8e5bd522403165a6",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "28c75b7ee036eedcfee365d6",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2b3c0429a8db56199a19c9c1",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "333ddda812e34412c041895c",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "34121db52b285697d8d782f1",
+          "source_id": "bbc",
+          "source_name": "BBC",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "34facc1ae6fc583e55bb2ffd",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "37ffc23df1a422af561c464a",
+          "source_id": "business_insider_pl",
+          "source_name": "Business Insider Polska",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3be354484cc641e9b0e93807",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3f3307f3f983348ac5085f87",
+          "source_id": "der_spiegel",
+          "source_name": "Der Spiegel",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "44165bb8eb65b56e9945dab3",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "48da640b19d7ba2db273d37a",
+          "source_id": "tvn24",
+          "source_name": "TVN24",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4914c61eceba997f9b588305",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4a7f0ebea206783ca68343b6",
+          "source_id": "mother_jones",
+          "source_name": "Mother Jones",
+          "source_profile": "LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4abe855a3bb52d4447191e26",
+          "source_id": "moscow_times",
+          "source_name": "Moscow Times",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4d1a1facfea202e64f7daa41",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "5640351eb0af353645d2fd3d",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "5bfb53e8e574ed9dcfb161b6",
+          "source_id": "politico_europe",
+          "source_name": "Politico Europe",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "5c948d334104964dbe9abead",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "61e9a7da531046f804dad620",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "639825646d549e13d1fc315b",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "683ebcd9cb5d57ed031bc16c",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "68fef89d4f6475014b801d27",
+          "source_id": "moscow_times",
+          "source_name": "Moscow Times",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "6c0064fd92f5248bd80fed06",
+          "source_id": "el_mundo",
+          "source_name": "El Mundo",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "6da0fe3740e644a36aaf72cc",
+          "source_id": "washington_examiner",
+          "source_name": "Washington Examiner",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "72c7dc03a00483d122d50ef7",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "747e97fe4ee3365269c71f0b",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7a9cfc5f5a83eed42588213e",
+          "source_id": "bbc",
+          "source_name": "BBC",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7ae33adfcc05a5eaa75894cc",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7b15177b658c4c82d9199b39",
+          "source_id": "ria",
+          "source_name": "RIA Novosti",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7b904b849fbf32305c688675",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7c04a871fd41e89eeba6be70",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "7f8f348a67f692f1525c2057",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "82dc5f1b14fac9a9bf792ce9",
+          "source_id": "axios",
+          "source_name": "Axios",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "85b7befe2b8ab6d34299d3b8",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "85eae501d0504fa43303880c",
+          "source_id": "rt",
+          "source_name": "RT",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "897d149265d3256ead1196f9",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "90608f9ab615b328d85b20d0",
+          "source_id": "der_spiegel",
+          "source_name": "Der Spiegel",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "9611e16d2b0e207850d16d4d",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "9ae9b0bfd5cce1f85fd0bf26",
+          "source_id": "business_insider_pl",
+          "source_name": "Business Insider Polska",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "a46ef69921a7929e3edc0956",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "a6b3988f76cc68c7363950b6",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ab1963b1ae03fb08da9463d4",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "abdcdd85a81973904dc9bacf",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "af4c546e471e66b01d5a13dd",
+          "source_id": "cnn",
+          "source_name": "CNN",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b36533b54f1d753136578032",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b49519d3b58fa23aa8d59abc",
+          "source_id": "tvn24",
+          "source_name": "TVN24",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ba8e2c29bf0d4564e63f23c2",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "bd63a74a51429ddb7c2e088b",
+          "source_id": "axios",
+          "source_name": "Axios",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "becbc44eb1bd6a1b35d747d7",
+          "source_id": "le_monde",
+          "source_name": "Le Monde",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "bee0f0a1b2320c6d9efd27ae",
+          "source_id": "interfax_ukraine",
+          "source_name": "Interfax-Ukraine",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c179962838d4652f587e32d9",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c2c14eec28614d525c64cf94",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c3ab041c679dbccb495d12f8",
+          "source_id": "axios",
+          "source_name": "Axios",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c6d29e2e4edbca66b7d65c73",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c8b76cc25be5391191ec195b",
+          "source_id": "politico_europe",
+          "source_name": "Politico Europe",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "cabd01c8f2e2f7531ff8c8ce",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "cbfab0ad1a9ed1aae588e1bb",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ccb304e078a2c69f1277e937",
+          "source_id": "dg_p",
+          "source_name": "Dziennik Gazeta Prawna",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "cd314e3f07ab68c4fa475648",
+          "source_id": "washington_examiner",
+          "source_name": "Washington Examiner",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d0d0b873f49ab792d5715a37",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d1f5229fa9b722c5230f5416",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d4271095c4fa7b8d68ffa5f3",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d58943108e2e6f26eac1440d",
+          "source_id": "business_insider_pl",
+          "source_name": "Business Insider Polska",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d596cdeb12988cd4c2a87d2b",
+          "source_id": "axios",
+          "source_name": "Axios",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "dc511d603d8e7bf73995f187",
+          "source_id": "der_spiegel",
+          "source_name": "Der Spiegel",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "de5610e1cfd1a657de9f56b3",
+          "source_id": "efe",
+          "source_name": "EFE",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "df10351b6b6a0e5aa8a4a57d",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "e0d935782f7599f6a50e280e",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "e588b8ea5ea3737bc78b276c",
+          "source_id": "global_times",
+          "source_name": "Global Times",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ecdd37b68fa73211155b4fea",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "ee4071211da2996b4fed9dee",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "efe8721a2215facf0a8b3298",
+          "source_id": "rt",
+          "source_name": "RT",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "f47f98e3e44590b5aada14ae",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        }
+      ]
+    },
+    {
+      "topic": {
+        "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+        "headline_pl": "[Ukraina] Ostrzeżenie przed rosyjskim atakiem balistycznym",
+        "status": "ACTIVE",
+        "first_seen_at": "2026-10-19T09:36:21.933604+00:00",
+        "last_seen_at": "2026-10-21T04:03:44.970309+00:00",
+        "article_count": 47,
+        "source_count": 14,
+        "coverage_status": "MULTI_SOURCE",
+        "needs_review": false,
+        "merged_into_topic_id": null,
+        "merged_at": null,
+        "updated_at": "2026-10-21T04:08:06.152909+00:00",
+        "categories": [
+          "SWIAT"
+        ],
+        "is_current": true
+      },
+      "summary": {
+        "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+        "version": 6,
+        "summary": {
+          "updates": [
+            {
+              "run_id": "harvest_20261020T103246Z",
+              "status": "NEW_INFORMATION",
+              "version": 2,
+              "is_update": true,
+              "update_id": "update_fd091b6409dce014b5f9523d",
+              "generated_at": "2026-10-20T12:49:56.676247+00:00",
+              "promoted_facts": [],
+              "new_article_ids": [
+                "0e2f755d25d653c1a7dd9f41",
+                "3ac275e9fae25b9d4aff6955",
+                "4d6818bd9b2c05be9f4c60ea",
+                "523a89effae90cbd0f3afd54",
+                "70948f6cfb041a4b2fedf7f3",
+                "91df259368f9e985ec2344cb",
+                "d112b6a5f4fca44e5a906533"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "Trzy osoby, w tym niemowlę, zginęły w rosyjskim ataku dronowym w regionie charkowskim. W obwodzie Dnipropietrowskim zginęły dwie osoby. W obwodzie Dnipropietrowskim dziesięć osób zostało rannych.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [
+                  {
+                    "kind": "FACT",
+                    "lane": "STATE",
+                    "fact_id": "fact_bb5ea23357e564d0e58d22d2",
+                    "text_pl": "Trzy osoby, w tym niemowlę, zginęły w rosyjskim ataku dronowym w regionie charkowskim.",
+                    "article_ids": [
+                      "f758f43043e71a0effc29119"
+                    ]
+                  }
+                ],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_a54ee022ddbebddb2e63c8c2",
+                    "text_pl": "W obwodzie Dnipropietrowskim zginęły dwie osoby.",
+                    "article_ids": [
+                      "3ac275e9fae25b9d4aff6955",
+                      "4d6818bd9b2c05be9f4c60ea"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_4df1973c25d445b15bd19dfe",
+                    "text_pl": "W obwodzie Dnipropietrowskim dziesięć osób zostało rannych.",
+                    "article_ids": [
+                      "3ac275e9fae25b9d4aff6955"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            },
+            {
+              "run_id": "harvest_20261020T135513Z",
+              "status": "NEW_INFORMATION",
+              "version": 3,
+              "is_update": true,
+              "update_id": "update_ce58f6d8fc675b0b420ef65a",
+              "generated_at": "2026-10-20T14:41:57.676093+00:00",
+              "promoted_facts": [],
+              "new_article_ids": [
+                "2ae04282f3797257ded5e3e4"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "W Krywym Rihu 8 osób zostało rannych.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_b596095a692a001fd815ca14",
+                    "text_pl": "W Krywym Rihu 8 osób zostało rannych.",
+                    "article_ids": [
+                      "91df259368f9e985ec2344cb"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            },
+            {
+              "run_id": "harvest_20261020T135513Z",
+              "status": "NEW_INFORMATION",
+              "version": 4,
+              "is_update": true,
+              "update_id": "update_55d6d75ac80758146ab63cd5",
+              "generated_at": "2026-10-20T15:18:14.549008+00:00",
+              "promoted_facts": [
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_f555632f06b207e3d35981bd",
+                  "text_pl": "84-letnia kobieta była wśród poszkodowanych w obwodzie Dnipropietrowskim.",
+                  "article_ids": [
+                    "0e2f755d25d653c1a7dd9f41",
+                    "3ac275e9fae25b9d4aff6955"
+                  ]
+                },
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_bb5ea23357e564d0e58d22d2",
+                  "text_pl": "Trzy osoby, w tym niemowlę, zginęły w rosyjskim ataku dronowym w regionie charkowskim.",
+                  "article_ids": [
+                    "f758f43043e71a0effc29119",
+                    "3ac275e9fae25b9d4aff6955"
+                  ]
+                }
+              ],
+              "new_article_ids": [
+                "b74a5bfb6a3b2de8d76a34e5",
+                "fc1f82d8295d1b2e0ca9182a",
+                "44f9da2e97b9b78f257e209f",
+                "e7ce6a5229cdbfb70293fc18",
+                "b51b79502f89b92641bd0554",
+                "25ba2980824de357312d8148",
+                "3f21d04a564d0b11eae43953",
+                "0f12cda49063424abbf0c593",
+                "5b5d295f1a53fa1974d74d6a",
+                "3f0e141a8212746d02a613c2",
+                "0f2793c9e66b88333c952f22",
+                "57003b45dd74660725244299",
+                "3900b1c3d605c0fb10101c0c",
+                "aee14b6117364ad890974e49",
+                "42eec7f602a5efa1e0d40274",
+                "53b5638dec84860b6d2996f8",
+                "8aae7e7d0e0cb84c36b34de1",
+                "6bbc3a3f477373786c728bdf",
+                "4408bda23fd8e442ea255dec",
+                "468a4cd864e352c86a02bfed",
+                "092806bf03b3b012161aae40",
+                "f7e6bf671627ec8a44a6f19d",
+                "bd6872eeb4fd48a4d9ea8a65",
+                "8e2e7337c67ca845a7397d73",
+                "2b41c4fc7814ab5230ee9fdc",
+                "02e9fba0e654945780caa29a",
+                "a330c031df1d0439f89e235e",
+                "8f5c23a75896caf461ef7f4b",
+                "b009471a53e8995355dc9729",
+                "367bcadc5a82b8774431b098"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "Drony Shahed były używane w ataku na różne regiony Ukrainy, w tym Charków, Dniepropietrowsk, Wołyń i Odessę. Rządowe Centrum Bezpieczeństwa wysłało alert do mieszkańców województw lubelskiego i podkarpackiego. Na niebie operują polskie myśliwce.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [
+                  {
+                    "kind": "FACT",
+                    "lane": "STATE",
+                    "fact_id": "fact_523a9855f8d9f79b1c28ebfc",
+                    "text_pl": "Drony Shahed były używane w ataku na różne regiony Ukrainy, w tym Charków, Dniepropietrowsk, Wołyń i Odessę.",
+                    "article_ids": [
+                      "25ba2980824de357312d8148"
+                    ]
+                  }
+                ],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_bd3a6dc330a08ae8607e544f",
+                    "text_pl": "Rządowe Centrum Bezpieczeństwa wysłało alert do mieszkańców województw lubelskiego i podkarpackiego.",
+                    "article_ids": [
+                      "02e9fba0e654945780caa29a",
+                      "367bcadc5a82b8774431b098",
+                      "4408bda23fd8e442ea255dec",
+                      "468a4cd864e352c86a02bfed",
+                      "8aae7e7d0e0cb84c36b34de1",
+                      "8e2e7337c67ca845a7397d73",
+                      "8f5c23a75896caf461ef7f4b",
+                      "a330c031df1d0439f89e235e",
+                      "b009471a53e8995355dc9729",
+                      "bd6872eeb4fd48a4d9ea8a65",
+                      "f7e6bf671627ec8a44a6f19d"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_ff0a89522315abc25d839c1b",
+                    "text_pl": "Na niebie operują polskie myśliwce.",
+                    "article_ids": [
+                      "092806bf03b3b012161aae40",
+                      "468a4cd864e352c86a02bfed"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            },
+            {
+              "run_id": "harvest_20261020T153349Z",
+              "status": "NEW_INFORMATION",
+              "version": 5,
+              "is_update": true,
+              "update_id": "update_d3ccdf9060acad5c3035bcf5",
+              "generated_at": "2026-10-20T16:46:15.237754+00:00",
+              "promoted_facts": [
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_b596095a692a001fd815ca14",
+                  "text_pl": "W Krywym Rihu 8 osób zostało rannych.",
+                  "article_ids": [
+                    "91df259368f9e985ec2344cb",
+                    "4d6818bd9b2c05be9f4c60ea"
+                  ]
+                },
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_e0717f6f4521af7da5577f51",
+                  "text_pl": "W ostatnim dniu zginęły co najmniej 3 osoby, a 53 osoby zostały ranne na terenie Ukrainy.",
+                  "article_ids": [
+                    "0e2f755d25d653c1a7dd9f41",
+                    "3ac275e9fae25b9d4aff6955"
+                  ]
+                }
+              ],
+              "new_article_ids": [
+                "10c6e61f3a40efbda74897cb",
+                "3b062bc7ea59833c10fdf6f5",
+                "c2df0962f61d038ecb4d3b8e",
+                "c8f00a6d505423034f28f5b1"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "Mieszkańcom województwa podkarpackiego wysłano alert RCB z ostrzeżeniem o sytuacji i działaniach polskiego lotnictwa; alert został odwołany po około 20 minut. Kolejny komunikat po godzinie 15:00 potwierdził utrzymanie gotowości i kontynuowanie działań prewencyjnych mających zabezpieczyć polską przestrzeń powietrzną.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_09ff3c4033640615cf35e1c3",
+                    "text_pl": "Mieszkańcom województwa podkarpackiego wysłano alert RCB z ostrzeżeniem o sytuacji i działaniach polskiego lotnictwa; alert został odwołany po około 20 minut.",
+                    "article_ids": [
+                      "b009471a53e8995355dc9729",
+                      "fc1f82d8295d1b2e0ca9182a"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_3ed1da2081bf93f6939e8c56",
+                    "text_pl": "Kolejny komunikat po godzinie 15:00 potwierdził utrzymanie gotowości i kontynuowanie działań prewencyjnych mających zabezpieczyć polską przestrzeń powietrzną.",
+                    "article_ids": [
+                      "b009471a53e8995355dc9729",
+                      "fc1f82d8295d1b2e0ca9182a"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            },
+            {
+              "run_id": "harvest_20261021T033312Z",
+              "status": "NEW_INFORMATION",
+              "version": 6,
+              "is_update": true,
+              "update_id": "update_030f17b2b4c6cb933eb162cf",
+              "generated_at": "2026-10-21T04:26:00.554354+00:00",
+              "promoted_facts": [
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_8d02bfdc2f5186a0f2d856c8",
+                  "text_pl": "W wyniku nocnego ataku dronowego na ruch drogowy w rejonie Holosiwskyi w Kijowie zginęła co najmniej jedna osoba, a sześć osób zostało rannych.",
+                  "article_ids": [
+                    "70948f6cfb041a4b2fedf7f3",
+                    "53b5638dec84860b6d2996f8",
+                    "91df259368f9e985ec2344cb",
+                    "523a89effae90cbd0f3afd54"
+                  ]
+                },
+                {
+                  "kind": "FACT",
+                  "lane": "COMMON",
+                  "fact_id": "fact_bfe67a153d07162a20e3bfee",
+                  "text_pl": "Dron uderzył w rejonie stacji benzynowej w dzielnicy Holosiwskyi, powodując pożar i utrudnienia w ruchu.",
+                  "article_ids": [
+                    "70948f6cfb041a4b2fedf7f3",
+                    "523a89effae90cbd0f3afd54"
+                  ]
+                }
+              ],
+              "new_article_ids": [
+                "aeac9ec2f1319d0cac67dd56",
+                "c56f662b8ae31a9fc6079de2",
+                "e716534a2627623393cfa26b"
+              ],
+              "what_changed_pl": "",
+              "new_information_pl": "W obwodzie charkowskim zginęły dwie osoby. Według MSW Ukrainy w regionie charkowskim zginęły trzy osoby, w tym niemowlę. W wyniku ataków Rosji na infrastrukturę energetyczną w Ukrainie przerwy w dostawie energii objęły co najmniej 550 000 gospodarstw domowych. Zakończył się atak powietrzny na Ukrainę; brak zagrożenia dla Polski.",
+              "perspective_sections": {
+                "LEFT": [],
+                "RIGHT": [],
+                "STATE": [
+                  {
+                    "kind": "FACT",
+                    "lane": "STATE",
+                    "fact_id": "fact_cc1eae8948593bff73c471b4",
+                    "text_pl": "W obwodzie charkowskim zginęły dwie osoby.",
+                    "article_ids": [
+                      "aeac9ec2f1319d0cac67dd56"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "STATE",
+                    "fact_id": "fact_5013a5d1f9a8408b59d8978b",
+                    "text_pl": "Według MSW Ukrainy w regionie charkowskim zginęły trzy osoby, w tym niemowlę.",
+                    "article_ids": [
+                      "f758f43043e71a0effc29119"
+                    ]
+                  }
+                ],
+                "CENTER": [],
+                "COMMON": [
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_de1f3728004796eff2deba58",
+                    "text_pl": "W wyniku ataków Rosji na infrastrukturę energetyczną w Ukrainie przerwy w dostawie energii objęły co najmniej 550 000 gospodarstw domowych.",
+                    "article_ids": [
+                      "0e2f755d25d653c1a7dd9f41",
+                      "468a4cd864e352c86a02bfed",
+                      "4d6818bd9b2c05be9f4c60ea"
+                    ]
+                  },
+                  {
+                    "kind": "FACT",
+                    "lane": "COMMON",
+                    "fact_id": "fact_35f5f6530d89c89da31cfda5",
+                    "text_pl": "Zakończył się atak powietrzny na Ukrainę; brak zagrożenia dla Polski.",
+                    "article_ids": [
+                      "2b41c4fc7814ab5230ee9fdc",
+                      "468a4cd864e352c86a02bfed",
+                      "6bbc3a3f477373786c728bdf"
+                    ]
+                  }
+                ]
+              },
+              "fact_classification_version": 1
+            }
+          ],
+          "base_summary": {
+            "topic": {
+              "categories": [
+                "SWIAT"
+              ],
+              "headline_pl": "[Świat] Atak dronów w Petersburgu z ofiarami",
+              "what_happened_one_sentence_pl": "W wyniku ukraińskiego ataku dronowego na Petersburgu zginęła jedna osoba, podał to gubernator Aleksander Begłow."
+            },
+            "quality": {
+              "source_count": 0,
+              "article_count": 0,
+              "limitations_pl": "",
+              "overall_confidence": "MEDIUM",
+              "has_multiple_perspectives": false
+            },
+            "sources": [],
+            "agreement": [],
+            "summary_pl": "W Petersburgu doszło do ataku dronowego; według gubernatora Aleksandra Begłowa zginęła jedna osoba, a pięć zostało rannych. Płomienie objęły terminal ropy naftowej w Petersburgu oraz magazyny ropy oraz magazyny przemysłowe. Logistyczny hub firmy Ozon w Petersburgu był w płomieniach. Centrum danych VK w regionie leningrodzkim zostało zaatakowane dronami; usługi były dostępne dla użytkowników jak dotąd.\n\nRosyjskie systemy obrony powietrznej zestrzeliły 1 015 ukraińskich dronów nad rosyjskimi regionami w ciągu nocy.",
+            "differences": [],
+            "coverage_mode": "SINGLE_LEFT",
+            "contradictions": [],
+            "reader_context": [],
+            "shared_available": true,
+            "background_context": [
+              {
+                "text_pl": "**Ogólny kontekst**\n\nW Petersburgu doszło do ataku dronowego; wydarzenie dotknęło infrastrukturę energetyczną oraz centra danych, co ma znaczenie w kontekście napięć w regionie.",
+                "article_ids": [
+                  "c6eb158386f277eb425efd5f"
+                ],
+                "entity_type": "BACKGROUND",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Osoba — Aleksander Begłow – gubernator Petersburga, podał informację o ofierze śmiertelnej i obrażeniach.",
+                "article_ids": [
+                  "c6eb158386f277eb425efd5f"
+                ],
+                "entity_type": "PERSON",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Organizacja — Ozon – firma logistyczna; jej logistyczny hub w Petersburgu był w płomieniach.",
+                "article_ids": [
+                  "c6eb158386f277eb425efd5f"
+                ],
+                "entity_type": "ORGANIZATION",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Organizacja — VK – Centrum danych w regionie leningrodzkim, które zostało zaatakowane dronami; usługi były dotąd dostępne.",
+                "article_ids": [
+                  "c6eb158386f277eb425efd5f"
+                ],
+                "entity_type": "ORGANIZATION",
+                "needs_verification": false
+              },
+              {
+                "text_pl": "Organizacja — Rosyjskie systemy obrony powietrznej – zestrzeliły ukraińskie drony nad rosyjskimi regionami w ciągu nocy.",
+                "article_ids": [
+                  "c6eb158386f277eb425efd5f"
+                ],
+                "entity_type": "ORGANIZATION",
+                "needs_verification": false
+              }
+            ],
+            "perspective_version": 1,
+            "synthesis_coverage_mode": "SINGLE_LEFT",
+            "fact_classification_version": 1,
+            "potential_manipulation_signals": []
+          },
+          "last_analysis": {
+            "status": "NEW_INFORMATION"
+          },
+          "perspective_state": {
+            "facts": [
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_a54ee022ddbebddb2e63c8c2",
+                "text_pl": "W obwodzie Dnipropietrowskim zginęły dwie osoby.",
+                "article_ids": [
+                  "3ac275e9fae25b9d4aff6955",
+                  "4d6818bd9b2c05be9f4c60ea",
+                  "91df259368f9e985ec2344cb"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_4df1973c25d445b15bd19dfe",
+                "text_pl": "W obwodzie Dnipropietrowskim dziesięć osób zostało rannych.",
+                "article_ids": [
+                  "3ac275e9fae25b9d4aff6955",
+                  "4d6818bd9b2c05be9f4c60ea",
+                  "91df259368f9e985ec2344cb",
+                  "e7ce6a5229cdbfb70293fc18"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_20c59c2b5be2bbab32180d17",
+                "text_pl": "W Dnipro 55-letni mężczyzna trafił do szpitala; stan oceniany jest jako średniej ciężkości.",
+                "article_ids": [
+                  "3ac275e9fae25b9d4aff6955",
+                  "4d6818bd9b2c05be9f4c60ea",
+                  "91df259368f9e985ec2344cb",
+                  "e7ce6a5229cdbfb70293fc18"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_503d5f56397c11a77d6be5c2",
+                "text_pl": "Alerty RCB były wysyłane w dniu 19 października; wcześniej alarmy pojawiły się w godzinach 5:30 i 6:?? – informacja dotyczy wcześniejszych komunikatów.",
+                "article_ids": [
+                  "2b41c4fc7814ab5230ee9fdc",
+                  "5b5d295f1a53fa1974d74d6a"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_060ca82ba9f5f67448e0457a",
+                "text_pl": "i były ukierunkowane na zabezpieczenie polskiej przestrzeni powietrznej.",
+                "article_ids": [
+                  "b009471a53e8995355dc9729",
+                  "fc1f82d8295d1b2e0ca9182a",
+                  "4408bda23fd8e442ea255dec",
+                  "468a4cd864e352c86a02bfed"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_3fb868f05457a0407f55faa8",
+                "text_pl": "(Brak dodatkowych ustaleń)",
+                "article_ids": [
+                  "8e2e7337c67ca845a7397d73"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_b30a744e9f45d0f74d0f8a62",
+                "text_pl": "Lajty zniszczyły część torów kolejowych w rejonie Desnianskyi/Daniels? – opis RBC Ukraine;obserwacje mówią o uszkodzeniach torów i ruchu.",
+                "article_ids": [
+                  "2ae04282f3797257ded5e3e4"
+                ]
+              },
+              {
+                "kind": "FACT",
+                "lane": "COMMON",
+                "fact_id": "fact_87ce9ef4d285ac42c34b741c",
+                "text_pl": "Do lipca 202? 2 147 ataków na infrastrukturę energetyczną od lipca 2022; nie doszło do stałej dostawy Patriotów i innych systemów",
+                "article_ids": [
+                  "c2df0962f61d038ecb4d3b8e"
+                ]
+              }
+            ],
+            "coverage_mode": "MIXED",
+            "shared_available": true,
+            "perspective_version": 1,
+            "perspective_sections": {
+              "LEFT": [],
+              "RIGHT": [],
+              "STATE": [
+                {
+                  "kind": "FACT",
+                  "lane": "STATE",
+                  "fact_id": "fact_cc1eae8948593bff73c471b4",
+                  "text_pl": "W obwodzie charkowskim zginęły dwie osoby.",
+                  "article_ids": [
+                    "aeac9ec2f1319d0cac67dd56"
+                  ]
+                }
+              ],
+              "CENTER": []
+            },
+            "fact_classification_version": 1
+          }
+        },
+        "generated_at": "2026-10-21T04:26:00.554354+00:00",
+        "updated_at": "2026-10-21T04:26:00.554354+00:00"
+      },
+      "links": [
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "02e9fba0e654945780caa29a"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "092806bf03b3b012161aae40"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "0e2f755d25d653c1a7dd9f41"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "0f12cda49063424abbf0c593"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "0f2793c9e66b88333c952f22"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "10c6e61f3a40efbda74897cb"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "25ba2980824de357312d8148"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "2ae04282f3797257ded5e3e4"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "2b41c4fc7814ab5230ee9fdc"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "367bcadc5a82b8774431b098"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "3900b1c3d605c0fb10101c0c"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "3ac275e9fae25b9d4aff6955"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "3b062bc7ea59833c10fdf6f5"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "3f0e141a8212746d02a613c2"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "3f21d04a564d0b11eae43953"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "42eec7f602a5efa1e0d40274"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "4408bda23fd8e442ea255dec"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "44f9da2e97b9b78f257e209f"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "468a4cd864e352c86a02bfed"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "4d6818bd9b2c05be9f4c60ea"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "523a89effae90cbd0f3afd54"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "53b5638dec84860b6d2996f8"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "57003b45dd74660725244299"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "5b5d295f1a53fa1974d74d6a"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "6bbc3a3f477373786c728bdf"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "70948f6cfb041a4b2fedf7f3"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "8aae7e7d0e0cb84c36b34de1"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "8e2e7337c67ca845a7397d73"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "8f5c23a75896caf461ef7f4b"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "91df259368f9e985ec2344cb"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "a330c031df1d0439f89e235e"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "aeac9ec2f1319d0cac67dd56"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "aee14b6117364ad890974e49"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "b009471a53e8995355dc9729"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "b51b79502f89b92641bd0554"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "b74a5bfb6a3b2de8d76a34e5"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "bd6872eeb4fd48a4d9ea8a65"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "c2df0962f61d038ecb4d3b8e"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "c56f662b8ae31a9fc6079de2"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "c6eb158386f277eb425efd5f"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "c8f00a6d505423034f28f5b1"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "d112b6a5f4fca44e5a906533"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "e716534a2627623393cfa26b"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "e7ce6a5229cdbfb70293fc18"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "f758f43043e71a0effc29119"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "f7e6bf671627ec8a44a6f19d"
+        },
+        {
+          "topic_id": "topic_perspectives_c3e78857013391a04fd61caa",
+          "article_id": "fc1f82d8295d1b2e0ca9182a"
+        }
+      ],
+      "articles": [
+        {
+          "article_id": "02e9fba0e654945780caa29a",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "092806bf03b3b012161aae40",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "0e2f755d25d653c1a7dd9f41",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "0f12cda49063424abbf0c593",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "0f2793c9e66b88333c952f22",
+          "source_id": "efe",
+          "source_name": "EFE",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "10c6e61f3a40efbda74897cb",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "25ba2980824de357312d8148",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2ae04282f3797257ded5e3e4",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "2b41c4fc7814ab5230ee9fdc",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "367bcadc5a82b8774431b098",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3900b1c3d605c0fb10101c0c",
+          "source_id": "faz",
+          "source_name": "FAZ",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3ac275e9fae25b9d4aff6955",
+          "source_id": "interfax_ukraine",
+          "source_name": "Interfax-Ukraine",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3b062bc7ea59833c10fdf6f5",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3f0e141a8212746d02a613c2",
+          "source_id": "do_rzeczy",
+          "source_name": "Do Rzeczy",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "3f21d04a564d0b11eae43953",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "42eec7f602a5efa1e0d40274",
+          "source_id": "moscow_times",
+          "source_name": "Moscow Times",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4408bda23fd8e442ea255dec",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "44f9da2e97b9b78f257e209f",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "468a4cd864e352c86a02bfed",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "4d6818bd9b2c05be9f4c60ea",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "523a89effae90cbd0f3afd54",
+          "source_id": "interfax_ukraine",
+          "source_name": "Interfax-Ukraine",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "53b5638dec84860b6d2996f8",
+          "source_id": "moscow_times",
+          "source_name": "Moscow Times",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "57003b45dd74660725244299",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "5b5d295f1a53fa1974d74d6a",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "6bbc3a3f477373786c728bdf",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "70948f6cfb041a4b2fedf7f3",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "8aae7e7d0e0cb84c36b34de1",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "8e2e7337c67ca845a7397d73",
+          "source_id": "polsat_news",
+          "source_name": "Polsat News",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "8f5c23a75896caf461ef7f4b",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "91df259368f9e985ec2344cb",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "a330c031df1d0439f89e235e",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "aeac9ec2f1319d0cac67dd56",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "aee14b6117364ad890974e49",
+          "source_id": "new_york_post",
+          "source_name": "New York Post",
+          "source_profile": "RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b009471a53e8995355dc9729",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b51b79502f89b92641bd0554",
+          "source_id": "bankier",
+          "source_name": "Bankier",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "b74a5bfb6a3b2de8d76a34e5",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "bd6872eeb4fd48a4d9ea8a65",
+          "source_id": "pap",
+          "source_name": "PAP",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c2df0962f61d038ecb4d3b8e",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c56f662b8ae31a9fc6079de2",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c6eb158386f277eb425efd5f",
+          "source_id": "moscow_times",
+          "source_name": "Moscow Times",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "c8f00a6d505423034f28f5b1",
+          "source_id": "kyiv_independent",
+          "source_name": "Kyiv Independent",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "d112b6a5f4fca44e5a906533",
+          "source_id": "interfax_ukraine",
+          "source_name": "Interfax-Ukraine",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "e716534a2627623393cfa26b",
+          "source_id": "onet",
+          "source_name": "Onet",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "e7ce6a5229cdbfb70293fc18",
+          "source_id": "rzeczpospolita",
+          "source_name": "Rzeczpospolita",
+          "source_profile": "CENTER_RIGHT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "f758f43043e71a0effc29119",
+          "source_id": "cgtn",
+          "source_name": "CGTN",
+          "source_profile": "STATE_ALIGNED",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "f7e6bf671627ec8a44a6f19d",
+          "source_id": "wp",
+          "source_name": "WP",
+          "source_profile": "CENTER_LEFT",
+          "source_type": "UNCLASSIFIED"
+        },
+        {
+          "article_id": "fc1f82d8295d1b2e0ca9182a",
+          "source_id": "interfax_ukraine",
+          "source_name": "Interfax-Ukraine",
+          "source_profile": "CENTER",
+          "source_type": "UNCLASSIFIED"
+        }
+      ]
+    }
+  ]
+}

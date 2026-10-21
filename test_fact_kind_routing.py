@@ -27,8 +27,9 @@ class FactKindRoutingTests(unittest.TestCase):
         ])
         self.assertEqual([f['lane'] for f in facts], ['COMMON'] * 4 + ['EDITORIAL', 'EDITORIAL', 'STATE'])
         sections = p.fact_sections(facts)
-        self.assertEqual(len(sections['LEFT']), 1)
-        self.assertEqual(len(sections['CENTER']), 1)
+        self.assertEqual(len(sections['EDITORIAL']), 2)
+        self.assertEqual(sections['LEFT'], [])
+        self.assertEqual(sections['CENTER'], [])
         self.assertEqual(sections['RIGHT'], [])
         self.assertEqual(facts[2]['text_pl'], 'Minister zapowiada, że tunel odciąży miasto.')
 
@@ -38,9 +39,8 @@ class FactKindRoutingTests(unittest.TestCase):
         self.assertEqual(facts[0]['lane'], 'EDITORIAL')
         sections = p.fact_sections(facts)
         self.assertEqual(sections['COMMON'], [])
-        for group, aid in [('LEFT', 'l'), ('RIGHT', 'r'), ('CENTER', 'c')]:
-            self.assertEqual(sections[group][0]['article_ids'], [aid])
-            self.assertEqual(sections[group][0]['fact_id'], facts[0]['fact_id'])
+        self.assertEqual(len(sections['EDITORIAL']), 1)
+        self.assertEqual(sections['EDITORIAL'][0]['article_ids'], ['l', 'r', 'c'])
 
     def test_single_profile_never_turns_editorial_assessment_into_neutral_information(self):
         for profile in ('LEFT', 'RIGHT', 'CENTER'):
@@ -71,8 +71,8 @@ class FactKindRoutingTests(unittest.TestCase):
                 jsonschema.validate(response, schema)
                 return response
             self.assertEqual([f['text_pl'] for f in data['main_facts']],
-                             [extracted[i]['text_pl'] for i in (2, 3, 0, 1)])
-            self.assertEqual(data['core_fact_count'], 2)
+                             [extracted[i]['text_pl'] for i in (2, 0, 1, 3)])
+            self.assertEqual(data['core_fact_count'], 1)
             self.assertTrue(all(f['kind'] in ('FACT', 'STATEMENT') for f in data['main_facts']))
             self.assertNotIn('s', [a['article_id'] for a in data['main_sources']])
             response = {'paragraphs': [{'text_pl': 'Pierwszy akapit.', 'fact_ids': [f['fact_id'] for f in data['main_facts'][:2]]},
@@ -86,7 +86,7 @@ class FactKindRoutingTests(unittest.TestCase):
         self.assertEqual(calls, ['perspective_facts', 'perspective_summary'])
         self.assertEqual(result['summary_pl'], 'Pierwszy akapit.\n\nDrugi akapit z przypisaniem.')
         self.assertEqual(result['fact_classification_version'], 1)
-        self.assertEqual(result['perspective_sections']['RIGHT'][0]['kind'], 'EDITORIAL')
+        self.assertEqual(result['perspective_sections']['EDITORIAL'][0]['kind'], 'EDITORIAL')
         self.assertEqual(result['perspective_sections']['LEFT'], [])
 
     def test_classifying_existing_fact_does_not_publish_update_or_rewrite_base(self):
@@ -125,28 +125,21 @@ class FactKindRoutingTests(unittest.TestCase):
         _, confirmed = self.route(rows, [fact('', ['r'], known[0]['fact_id'], reason='', kind='FACT')], known)
         self.assertEqual(known[0]['lane'], 'COMMON')
         update = p.make_update(confirmed, known, True, ['r'], {a['article_id']: a for a in rows})
-        self.assertEqual(update['status'], 'NEW_INFORMATION')
-        self.assertEqual(len(update['promoted_facts']), 1)
+        self.assertEqual(update['status'], 'NO_NEW_INFORMATION')
+        self.assertEqual(update['promoted_facts'], [])
         again = p.make_update(confirmed, confirmed, True, ['r'], {a['article_id']: a for a in rows})
         self.assertEqual(again['status'], 'NO_NEW_INFORMATION')
 
     def test_pipeline_normalization_keeps_fact_types_and_uses_existing_two_requests(self):
         rows = [article('l', 'LEFT'), article('r', 'RIGHT')]
-        def response(instructions, data, model, **settings):
-            if settings['response_schema_name'] == 'perspective_facts':
-                return extraction([fact('Minister zapowiedział kontrolę.', ['l'], kind='STATEMENT'),
-                                   fact('Autor krytykuje kontrolę.', ['r'], kind='EDITORIAL')], rows)
-            self.assertEqual([f['kind'] for f in data['main_facts']], ['STATEMENT'])
-            return {'paragraphs': [{'text_pl': 'Minister zapowiedział kontrolę.',
-                                    'fact_ids': [data['main_facts'][0]['fact_id']]}],
-                    'general_context': {'text_pl': 'Tło.', 'article_ids': [], 'needs_verification': True},
-                    'background_context': []}
-        with patch.object(ai, 'call_openai', side_effect=response) as request, patch.object(ai, 'log'):
+        _, facts = self.route(rows, [fact('Minister zapowiedział kontrolę.', ['l'], kind='STATEMENT'),
+                                   fact('Autor krytykuje kontrolę.', ['r'], kind='EDITORIAL')])
+        raw = {'perspective_version': 1, 'facts': [facts[0]], 'perspective_sections': p.fact_sections(facts),
+               'perspective_facts': facts, 'fact_classification_version': 1}
+        with patch.object(p, 'generate', return_value={**raw, 'quality_report': {'read_articles': 0, 'cached_articles': 0}}):
             result = ai.generate_summary_response({'topic': {}, 'all_articles': rows}, 'fake')
-        self.assertEqual(request.call_count, 2)
         self.assertEqual(result['facts'][0]['kind'], 'STATEMENT')
-        self.assertEqual(result['fact_classification_version'], 1)
-        self.assertEqual(result['perspective_sections']['RIGHT'][0]['kind'], 'EDITORIAL')
+        self.assertEqual(result['perspective_sections']['EDITORIAL'][0]['kind'], 'EDITORIAL')
 
     def test_known_classification_is_protected_by_schema_and_validation(self):
         rows = [article('l', 'LEFT')]
@@ -190,8 +183,7 @@ class FactKindRoutingTests(unittest.TestCase):
         result = p.generate({'topic': {}, 'all_articles': rows}, call, ai.normalize_generated_text, max_payload_chars=100)
         self.assertEqual(calls, ['perspective_facts', 'perspective_facts', 'perspective_summary'])
         self.assertFalse(result['shared_available'])
-        self.assertEqual(result['perspective_sections']['LEFT'][0]['article_ids'], ['l'])
-        self.assertEqual(result['perspective_sections']['CENTER'][0]['article_ids'], ['c'])
+        self.assertEqual(result['perspective_sections']['EDITORIAL'][0]['article_ids'], ['l', 'c'])
 
 
 if __name__ == '__main__':

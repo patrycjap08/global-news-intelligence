@@ -319,3 +319,18 @@ button { color: inherit; }
 .perspective-tab:focus-visible { outline: 2px solid #a34432; outline-offset: 3px; }
 .update-section h4 { margin: 1rem 0 .4rem; font-size: .9rem; }
 @media (max-width: 600px) { .profile-share-legend { font-size: .65rem; gap: .25rem .5rem; } .perspective-tab { font-size: .78rem; } }
+
+/* Current publication first; history and exact evidence remain available on demand. */
+.publication-history { border-top: 1px solid var(--line, #c9bfb0); margin: 1.5rem 0; padding: 1rem 0; }
+.publication-history > summary, .claim-evidence > summary { cursor: pointer; font-weight: 600; }
+.publication-history[open] > summary { margin-bottom: 1rem; }
+.claim-kind, .claim-attribution, .editorial-carried { display: block; font-family: var(--font-sans, sans-serif); font-size: .8rem; }
+.claim-kind { font-weight: 600; margin-bottom: .5rem; }
+.claim-attribution { margin: .6rem 0; }
+.claim-evidence { font-size: .85rem; margin-top: .75rem; }
+.claim-evidence blockquote { margin: 1rem 0; padding-left: .8rem; border-left: 2px solid #aaa; }
+.claim-evidence cite { display: block; margin-top: .5rem; }
+.editorial-card { margin: 1.2rem 0; }
+.editorial-carried { margin-bottom: .5rem; }
+
+.editorial-carried > span { color: var(--profile-share-color); }

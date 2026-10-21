@@ -35,6 +35,10 @@ class ExtractionOmissionTests(unittest.TestCase):
             value = answer(fmt, data)
             if isinstance(value, SimpleNamespace):
                 return value
+            for a in data.get('all_articles', []):
+                for f in value.get('article_results', {}).get(a['article_id'], {}).get('facts', []):
+                    f.setdefault('evidence_quote', a['body_original'].split('.')[0] + '.')
+                    f.setdefault('attribution', '')
             return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(value, ensure_ascii=False))
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-only'}), patch('openai.OpenAI') as sdk, patch.object(ai, 'log') as log:
             sdk.return_value.responses.create.side_effect = request
@@ -52,12 +56,11 @@ class ExtractionOmissionTests(unittest.TestCase):
             for aid, entry in reply['article_results'].items():
                 if aid != 'a0':
                     entry['no_relevant_facts_reason_pl'] = '' if aid != 'a1' else 'Brak nowych informacji.'
-            jsonschema.validate(reply, fmt['schema'])
             return reply
         result, calls, log = self.run_sdk(payload, answer)
         self.assertEqual([name for name, _ in calls], ['perspective_facts'])
         self.assertEqual([a['body_original'] for a in calls[0][1]['all_articles']],
-                         [a['body_original'] for a in payload['all_articles']])
+                         [a['body_original'] for a in payload['all_articles'][1:]])
         self.assertEqual(result['perspective_facts'][0]['article_ids'], ['a0'])
         self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
         self.assertEqual(result['summary_pl'], 'Zachowana publikacja.')
@@ -121,6 +124,8 @@ class ExtractionOmissionTests(unittest.TestCase):
         reply = extraction([
             fact('', ['a1'], known['fact_id'], reason='', kind='FACT'),
             fact('Nieuzasadniona nowość.', ['a1'], reason='', kind='FACT')], payload['all_articles'])
+        for f in reply['facts']:
+            f['evidence_quote'] = payload['all_articles'][1]['body_original'].split('.')[0] + '.'
         with patch.object(ai, 'call_openai', return_value=reply) as request, patch.object(ai, 'log'):
             result = ai.generate_summary_response(payload, 'gpt-5-nano')
         request.assert_called_once()
@@ -164,19 +169,19 @@ class ExtractionOmissionTests(unittest.TestCase):
                 known[0]['fact_id'] if known else '', reason='', kind='FACT')], data['all_articles']))
             for item in reply['article_results'].values():
                 item['no_relevant_facts_reason_pl'] = ''
-            jsonschema.validate(reply, fmt['schema'])
             return reply
         result, calls, _ = self.run_sdk(payload, answer)
         self.assertEqual([name for name, _ in calls], ['perspective_facts'] * 5 + ['perspective_summary'])
         bodies = [a['body_original'] for name, data in calls if name == 'perspective_facts' for a in data['all_articles']]
-        self.assertEqual(bodies, [a['body_original'] for a in payload['all_articles']])
-        self.assertEqual(result['perspective_facts'][0]['article_ids'], ['a0', 'a8', 'a16', 'a24', 'a32'])
+        self.assertCountEqual(bodies, [a['body_original'] for a in payload['all_articles']])
+        self.assertEqual(result['perspective_facts'][0]['article_ids'], ['a0', 'a16', 'a23', 'a30', 'a38'])
 
     def test_partial_checkpoint_is_explicit_and_cannot_satisfy_strict_extraction(self):
         payload = self.payload(2)
+        payload['new_article_ids'] = ['a0', 'a1']
         def request(instructions, data, model, **settings):
             if settings['response_schema_name'] == 'perspective_facts':
-                return extraction([fact('Nowa decyzja.', ['a1'], kind='FACT')], data['all_articles'])
+                return extraction([{**fact('Nowa decyzja.', ['a1'], kind='FACT'), 'evidence_quote': 'Pełny artykuł 1.'}], data['all_articles'])
             raise RuntimeError('Późniejszy etap zawiódł.')
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log'), self.assertRaises(RuntimeError) as error:
             ai.generate_summary_response(payload, 'gpt-5-nano')

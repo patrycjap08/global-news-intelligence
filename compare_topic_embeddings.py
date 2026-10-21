@@ -27,7 +27,7 @@ DEFAULT_TOPIC_IDS = (
 )
 VARIANTS = ('current', 'title_description')
 SUMMARY_COLUMNS = (
-    'topic_id,version,updated_at,base_topic:summary->base_summary->topic,'
+    'topic_id,version,updated_at,current_topic:summary->current_summary->topic,current_text:summary->current_summary->summary_pl,base_topic:summary->base_summary->topic,'
     'base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,'
     'legacy_text:summary->summary_pl,base_format:summary->base_summary->perspective_version,'
     'legacy_format:summary->perspective_version'
@@ -76,7 +76,7 @@ def load_topics(client, ids):
         if tid not in topics:
             raise ValueError(f'Nie znaleziono wątku {tid}.')
         row, summary = topics[tid], summaries.get(tid, {})
-        base = summary.get('base_topic')
+        base = summary.get('current_topic') or summary.get('base_topic')
         if not isinstance(base, dict):
             base = summary.get('legacy_topic') or {}
         description = str(base.get('what_happened_one_sentence_pl') or '').strip()
@@ -87,7 +87,7 @@ def load_topics(client, ids):
             raise ValueError(f'Brakuje metadanych artykułów wątku {tid}; porównanie byłoby niepełne.')
         recent = sorted((articles[aid] for aid in linked), key=lambda a: (
             str(a.get('published_at') or a.get('fetched_at') or ''), str(a['article_id'])), reverse=True)
-        summary_text = summary.get('base_text')
+        summary_text = summary.get('current_text') or summary.get('base_text')
         if summary_text is None:
             summary_text = summary.get('legacy_text')
         prepared.append({

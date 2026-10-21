@@ -189,9 +189,9 @@ class SummaryQueueTests(unittest.TestCase):
         ), patch.object(ai, 'retry_incomplete_summaries', return_value={'summaries': 1, 'failed_summaries': 0}) as retry, patch.object(ai, 'log'):
             result = ai.analyze_run(Path(folder) / 'articles.sqlite3', 'run', FakeMergeClient([], [], []))
         self.assertEqual(retry.call_args.kwargs['forced_new_article_ids_by_topic'], {'retained': ['moved']})
-        self.assertEqual(result['summaries'], 2)  # Main queue plus post-publication merge queue.
+        self.assertEqual(result['summaries'], 1)  # Exactly one queue after merging.
         self.assertEqual(retry.call_args_list[0].kwargs['only_generation'], 'perspectives')
-        self.assertEqual(retry.call_args_list[1].kwargs['only_topic_ids'], {'retained'})
+        self.assertEqual(retry.call_count, 1)
 
     def test_pipeline_defers_main_failure_after_final_merge_and_keeps_failure_count(self):
         merge_stats = {key: 0 for key in ('merge_candidates', 'topics_merged', 'merge_failed',

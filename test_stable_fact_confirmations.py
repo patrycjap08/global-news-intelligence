@@ -84,7 +84,8 @@ class StableFactConfirmationTests(unittest.TestCase):
 
         def request(instructions, data, model, **settings):
             self.assertEqual(settings['response_schema_name'], 'perspective_facts')
-            result = coverage_reply(extraction([fact(text, ['old', 'new'], kind='FACT')], data['all_articles']))
+            result = coverage_reply(extraction([{**fact('', ['new'], known[0]['fact_id'], reason='', kind='EDITORIAL'),
+                'evidence_quote': text, 'attribution': 'Redakcja'}], data['all_articles']))
             jsonschema.validate(result, settings['response_schema'])
             return result
 

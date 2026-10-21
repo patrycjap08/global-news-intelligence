@@ -11,9 +11,9 @@ const base={perspective_version:1,coverage_mode:'MIXED',shared_available:false,s
   background_context:[fact('Ogólne tło.')],differences:[fact('REMOVE_DIFFERENCES')],contradictions:[fact('REMOVE_CONTRADICTIONS')],potential_manipulation_signals:[fact('REMOVE_SIGNALS')]};
 state.summaries.set(topic.topic_id,{summary:{base_summary:base,updates:[]}});
 let model=topicModel(topic),html=dialogHtml(model);
-assert(html.includes('Źródła o różnych profilach nie podają wspólnych informacji.'));
+assert(html.includes('Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.'));
 assert(!html.includes('data-dialog-tab=') && !html.includes('Brak zapisanej syntezy'));
-assert(html.includes('data-perspective-tab="LEFT"') && html.includes('data-perspective-tab="RIGHT"') && html.includes('data-perspective-tab="STATE"'));
+assert(html.includes('Ustalenie lewicowe.') && html.includes('Ustalenie prawicowe.') && html.includes('Media kontrolowane przez państwo'));
 assert(html.includes('Ogólne tło.') && html.includes('Materiały źródłowe'));
 assert(!html.includes('REMOVE_'));
 // In single-profile mode the main tabs return; empty perspective tabs disappear.
@@ -54,9 +54,9 @@ assert.strictEqual(editorialGroup({source_profile:'CENTER',source_type:'GOVERNME
 // Updates remain split and indicate promotion without repeating it as new news.
 const update={status:'NEW_INFORMATION',new_information_pl:'Ustalenie.',generated_at:'2026-10-19T12:00:00Z',perspective_sections:{COMMON:[],LEFT:[fact('Nowe lewicowe.')],RIGHT:[],STATE:[]},promoted_facts:[fact('Znany fakt ma szersze potwierdzenie.')]};
 assert(perspectiveUpdateLabel(update).includes('źródłach lewicowych'));
-assert(perspectiveUpdateLabel(update).includes('Szersze potwierdzenie'));
+assert(!perspectiveUpdateLabel(update).includes('Szersze potwierdzenie'));
 html=perspectiveUpdateHtml(update);
-assert(html.includes('Nowe lewicowe.') && html.includes('Szersze potwierdzenie'));
+assert(html.includes('Nowe lewicowe.') && !html.includes('Szersze potwierdzenie'));
 assert(!html.includes('Nowe informacje wspólne'));
 // Cosmetic shared prose refresh must not undo read marks on no-change analyses.
 state.summaries.set(topic.topic_id,{summary:{base_summary:base,updates:[update],latest_update:update}});

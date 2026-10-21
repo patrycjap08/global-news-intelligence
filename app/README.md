@@ -21,8 +21,8 @@ Widoki nie udostępniają aplikacji pełnego tekstu artykułów.
 
 Status przeczytania tematów jest zapisywany lokalnie w przeglądarce (`localStorage`).
 Każdy użytkownik ma własny status na swoim urządzeniu. Otworzenie tematu zapisuje
-odczytaną wersję; gdy pojawi się kolejna wersja opracowania, temat ponownie staje
-się nieprzeczytany.
+odczytaną treść; temat ponownie staje się nieprzeczytany po nowej zaakceptowanej
+aktualizacji. Samo dołączenie źródeł ani analiza bez nowych ustaleń nie resetuje odczytu.
 
 Następnie uruchom z katalogu repozytorium:
 
@@ -129,3 +129,8 @@ Po publikacji synteza i jej kontekst nie są ponownie generowane. Aktualizacje
 oraz bieżące fakty/perspektywy są zapisywane osobno; eksport i widok zachowują
 pierwotny tekst. Jeżeli początkowo nie było tekstu syntezy, późniejsze wspólne
 ustalenia są dostępne w Faktach i aktualizacji, bez tworzenia nowej narracji.
+
+Od v74 aplikacja pokazuje current_summary z bieżącym rejestrem faktów.
+Pierwsza synteza i aktualizacje są zwijanym archiwum. Identyczna ocena
+przytaczana przez kilka profili jest jedną kartą z autorem i źródłami.
+Nowe ustalenia mają opcjonalny podgląd dosłownych cytatów.

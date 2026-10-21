@@ -326,8 +326,8 @@ class TopicTitleTests(unittest.TestCase):
             "newer_synthesis": {"topic": {"what_happened_one_sentence_pl": "Nowsza synteza"}},
         }
         summary_rows = {
-            "older_synthesis": {"generated_at": "2026-09-20T08:00:00+00:00"},
-            "newer_synthesis": {"generated_at": "2026-09-28T08:00:00+00:00"},
+            "older_synthesis": {"generated_at": "2026-10-21T08:00:00+00:00", "summary": {"first_published_at": "2026-09-20T08:00:00+00:00"}},
+            "newer_synthesis": {"generated_at": "2026-09-28T08:00:00+00:00", "summary": {"first_published_at": "2026-09-28T08:00:00+00:00"}},
         }
 
         self.assertEqual(
@@ -470,7 +470,7 @@ class TopicTitleTests(unittest.TestCase):
             if table == "article_topic_assignments"
         )
         self.assertEqual(assignment_update["topic_id"], "old_topic")
-        self.assertIn("created_at", assignment_update)
+        self.assertNotIn("created_at", assignment_update)
         redirect_update = next(
             values for table, values, filters in client.updates
             if table == "topics" and any("new_topic" in value for _, value in filters)

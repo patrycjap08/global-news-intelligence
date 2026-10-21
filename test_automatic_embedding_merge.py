@@ -28,7 +28,7 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
             conn.executemany('INSERT INTO articles VALUES(?,?,?)', [('article_'+key, 'Nagłówek '+key, 'source_'+key) for key in 'abc'])
             conn.commit(); conn.close()
             with patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(ai, 'TOPIC_MERGE_EMBEDDINGS_ENABLED', True), patch.object(
-                ai, 'build_topic_embedding_candidate_edges', return_value={('a','b'):.9, ('b','c'):.78},
+                ai, 'build_topic_embedding_candidate_edges', return_value={('a','b'):.9, ('b','c'):.78, ('a','c'):.80},
             ), patch.object(ai, 'call_openai', side_effect=AssertionError('No AI merge verification')), patch.object(ai, 'log'):
                 stats = ai.merge_active_topics(db, 'run', client, prefer_embeddings=True, merged_article_ids_by_topic=moved)
         self.assertEqual(stats['topics_merged'], 3)
@@ -38,7 +38,7 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
         saved_links = [row for table, rows, _ in client.upserts if table == 'topic_articles' for row in rows]
         self.assertEqual({row['article_id'] for row in saved_links}, {'article_a','article_b','article_c'})
         self.assertEqual({row['topic_id'] for row in saved_links}, {'b'})
-        journal = [row for table, rows, _ in client.upserts if table == 'topic_runs' for row in rows]
+        journal = [row for table, rows, _ in client.upserts if table == 'topic_runs' for row in rows if row['stage'] == 'EMBEDDING_MERGE']
         self.assertEqual(journal[0]['stage'], 'EMBEDDING_MERGE')
         self.assertAlmostEqual(journal[0]['raw_output']['minimum_edge_similarity'], .78)
         self.assertEqual(journal[0]['raw_output']['threshold'], .78)
@@ -47,7 +47,7 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
         self.assertEqual({t['topic_id'] for t in client.rows['topics'] if t['status']=='MERGED'}, {'a','c'})
 
     def test_long_chain_is_split_by_anchor_rule_without_ai(self):
-        topics = [{'topic_id': str(i), 'headline_pl': str(i)} for i in range(100)]
+        topics = [{'topic_id': str(i), 'headline_pl': '[Polska] Protest lekarzy w Krakowie'} for i in range(100)]
         client = FakeMergeClient(topics, [], [])
         with TemporaryDirectory() as folder, patch.dict(os.environ, {'OPENAI_API_KEY': 'test'}), patch.object(
             ai, 'TOPIC_MERGE_EMBEDDINGS_ENABLED', True,
@@ -64,9 +64,9 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
                  ('d', 'e'): .91, ('e', 'f'): .87, ('b', 'g'): .77}
         groups = ai.build_anchored_embedding_groups(list('abcdefg'), edges)
         self.assertEqual(groups[0]['anchor_topic_ids'], ['b', 'c'])
-        self.assertEqual(groups[0]['topic_ids'], list('abcd'))
-        self.assertEqual(groups[1]['topic_ids'], ['e', 'f'])
-        self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .88)
+        self.assertEqual(groups[0]['topic_ids'], list('bc'))
+        self.assertEqual(groups[1]['topic_ids'], ['d', 'e'])
+        self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .97)
         self.assertEqual(groups, ai.build_anchored_embedding_groups(
             list('gfedcba'), dict(reversed(list(edges.items())))))
         self.assertNotIn('g', {t for group in groups for t in group['topic_ids']})
@@ -74,7 +74,7 @@ class AutomaticEmbeddingMergeTests(unittest.TestCase):
     def test_anchor_rule_does_not_limit_group_size(self):
         ids = [str(i) for i in range(120)]
         edges = {('0', '1'): .99}
-        edges.update({('0', str(i)): .86 for i in range(2, 120)})
+        edges.update({(anchor, str(i)): .86 for anchor in ('0', '1') for i in range(2, 120)})
         groups = ai.build_anchored_embedding_groups(ids, edges)
         self.assertEqual(len(groups), 1)
         self.assertEqual(len(groups[0]['topic_ids']), 120)

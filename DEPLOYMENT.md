@@ -109,13 +109,10 @@ embeddingów, eksportu danych ani ponownego wdrożenia Pages. Liczy się przyros
 zapisanych artykułów (`valid_article_count`), więc same blokady, krótkie materiały,
 istniejące artykuły i duplikaty również prowadzą do zakończenia bez AI.
 
-Tylko w tym workflow embeddingi porównują wątki utworzone przez bieżący etap
-nazywania między sobą i z resztą aktywnych wątków. Nie liczą podobieństwa par
-złożonych z dwóch pozostałych wątków. Po scaleniu zakres śledzi zachowany ID,
-także w końcowej kontroli wątków z syntezami. Nadal potrzeba wektorów reszty
-wątków, żeby porównać z nimi nowe; ograniczenie dotyczy par porównań.
-Wspólny próg 0.78, okno 36 godzin i rozdzielenie formatów obowiązują w każdym trybie.
-Zwykłe `full`, `ai-only` i `merge-existing-summaries` zachowują pełną kontrolę par.
+We wszystkich zwykłych trybach (full, ai-only, jedno źródło) porównania obejmują
+nowe–nowe i nowe–stare, bez starych–starych. Wszystkie scalenia poprzedzają jedną
+kolejkę opracowań. Próg 0,78 i okno 36 godzin pozostają wspólne. Szczegóły
+aktualnego algorytmu oraz budżetu są w [EDITORIAL_PERSPECTIVES.md](EDITORIAL_PERSPECTIVES.md).
 
 Nowy workflow wywołuje wspólny `harvest.yml`, więc używa tych samych modeli,
 progów, równoległości i retry. Wspólna kolejka `global-news-harvest` porządkuje
@@ -159,14 +156,14 @@ dodatkowego warunku ukrywania wątku.
 
 Główny przebieg porównuje nowe wątki między sobą oraz ze starszymi. Nie
 porównuje starszych między sobą. Dotyczy full, ai-only, jednego źródła i
-końcowej kontroli. Próg nadal wynosi 0,78; brak limitu sąsiadów i zapytań do
+ręcznego trybu scalania. Próg nadal wynosi 0,78; brak limitu sąsiadów i zapytań do
 AI o zatwierdzenie. Po scaleniu zakres podąża za zachowanym identyfikatorem.
 Ponowienie ai-only może dokończyć wątki z nieprzetworzonymi materiałami
 bieżącego harvestu, bez ponownego otwierania pozostałych starych par.
 Grupę rozpoczyna najsilniejsza dostępna para, której dwa elementy pozostają
 stałymi punktami odniesienia. Każdy dołączany element musi osiągnąć próg
-0.78 z przynajmniej jednym z nich. Samo podobieństwo do później dołączonego
-elementu nie wystarcza. Nie ma limitu wielkości grupy; pozostałe elementy
+0.78 z oboma punktami. Samo podobieństwo do później dołączonego
+elementu nie wystarcza. Grupa zawiera najwyżej jeden wątek spoza puli nowych; pozostałe elementy
 mogą utworzyć osobne grupy według tej samej zasady.
 AI opracowuje później tytuł zachowanego wątku oraz syntezę lub aktualizację.
 Zachowuje tożsamość wątku z istniejącą syntezą i przekazuje przeniesione
@@ -188,6 +185,9 @@ może nadrobić wcześniej pominięte aktualizacje z zapisanych przypisań
 artykułów, jeśli wątki nadal mieszczą się w oknie 36 godzin.
 
 ## Aktualizacje bez powtarzania faktów
+
+Poniższy opis dotyczy ręcznych narzędzi aktualizacji starego formatu. Zwykłe
+opracowania od v74 używają przepływu z EDITORIAL_PERSPECTIVES.md.
 
 Model porównuje nowe materiały z syntezą bazową i wszystkimi wcześniejszymi
 aktualizacjami. Prompt wymaga opisywania tylko nowych ustaleń, szczegółów lub

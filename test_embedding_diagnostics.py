@@ -70,7 +70,7 @@ class EmbeddingDiagnosticsTests(unittest.TestCase):
         self.assertEqual(report['samples'][0]['title_a'], 'Tytuł A')
 
     def test_main_merge_saves_zero_match_report(self):
-        client = FakeMergeClient([{'topic_id': key, 'headline_pl': key} for key in 'ab'], [], [])
+        client = FakeMergeClient([{'topic_id': key, 'headline_pl': '[Polska] Protest lekarzy w Krakowie'} for key in 'ab'], [], [])
         def embed(topics, *, diagnostics):
             diagnostics.update({'samples': [], 'threshold': .88, 'selected_pair_count': 0})
             return {}
@@ -85,7 +85,7 @@ class EmbeddingDiagnosticsTests(unittest.TestCase):
         model.assert_not_called()
 
     def test_failed_report_write_preserves_embedding_selection_and_merge(self):
-        client = FakeMergeClient([{'topic_id': key, 'headline_pl': key} for key in 'ab'], [], [])
+        client = FakeMergeClient([{'topic_id': key, 'headline_pl': '[Polska] Protest lekarzy w Krakowie'} for key in 'ab'], [], [])
         original_upsert = client.upsert
         def upsert(table, rows, **kwargs):
             if table == 'topic_runs' and rows[0]['stage'] == 'EMBEDDING_DIAGNOSTICS':

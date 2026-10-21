@@ -81,13 +81,13 @@ class EmbeddingComparisonTests(unittest.TestCase):
         topics = self.topics()
         records, texts = compare.prepare_inputs(topics)
         self.assertEqual(len(records), 16)
-        self.assertEqual(len(texts), 16)
+        self.assertEqual(len(texts), 8)  # Both variants now use title plus short description.
         for row in records:
             topic = next(t for t in topics if t['topic_id'] == row['topic_id'])
             self.assertEqual(texts[row['embedding_index']], row['text'])
             if row['variant'] == 'current':
                 self.assertEqual(row['text'], ai._topic_embedding_text(topic))
-                self.assertIn('Synteza wątku:', row['text'])
+                self.assertNotIn('Synteza wątku:', row['text'])
                 self.assertLessEqual(len(row['text']), 1800)
             else:
                 self.assertEqual(row['text'], f"Tytuł wątku: {topic['headline_pl']}\nOpis: {topic['what_happened_one_sentence_pl']}")
@@ -124,9 +124,9 @@ class EmbeddingComparisonTests(unittest.TestCase):
         self.assertEqual(len({(p['topic_id_a'], p['topic_id_b']) for p in report['pairs']}), 28)
         low = [p for p in report['pairs'] if p['title_description'] == 0]
         self.assertEqual(len(low), 7)
-        self.assertTrue(all(p['current'] == 1 and p['difference'] == -1 for p in low))
+        self.assertTrue(all(p['current'] == 0 and p['difference'] == 0 for p in low))
         simulation = report['simulations']['0.78']
-        self.assertEqual(simulation['current']['group_count'], 1)
+        self.assertEqual(simulation['current']['group_count'], 2)
         self.assertEqual(simulation['title_description']['group_count'], 2)
         for variants in report['simulations'].values():
             for result in variants.values():
@@ -176,7 +176,7 @@ class EmbeddingComparisonTests(unittest.TestCase):
         client = ReadClient()
         sdk = Mock()
         sdk.embeddings.create.return_value = SimpleNamespace(data=[SimpleNamespace(index=i,
-            embedding=[1.] * ai.TOPIC_MERGE_EMBEDDING_DIMENSIONS) for i in range(16)], usage=None)
+            embedding=[1.] * ai.TOPIC_MERGE_EMBEDDING_DIMENSIONS) for i in range(8)], usage=None)
         with TemporaryDirectory() as folder, patch('sys.argv', ['compare', '--output', folder]), \
              patch.object(compare, 'SupabaseRestClient', return_value=client), \
              patch.object(ai, 'openai_api_key', return_value='fake'), \

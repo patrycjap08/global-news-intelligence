@@ -88,7 +88,7 @@ class FocusedEmbeddingTests(unittest.TestCase):
                 ai, 'classify_topic_categories', return_value=0,
             ), patch.object(ai, 'retry_incomplete_summaries', return_value={'summaries': 0, 'failed_summaries': 0}), patch.object(ai, 'log'):
                 ai.analyze_run(Path(folder) / 'db', 'run', FakeMergeClient([], [], []), new_topics_only=scoped)
-            self.assertEqual(seen, [{'retained'}])
+            self.assertEqual(seen, [], 'No second merge/summary pass after publication')
 
     def test_retry_focus_contains_only_current_harvest_unfinished_material(self):
         client = FakeMergeClient([], [], [
@@ -112,9 +112,8 @@ class FocusedEmbeddingTests(unittest.TestCase):
             ai, 'build_topic_embedding_candidate_edges') as embed, patch.object(ai, 'log'):
             ai.analyze_run(Path(folder) / 'db', 'run', client)
         embed.assert_not_called()
-        self.assertEqual(retry.call_count, 2)
+        self.assertEqual(retry.call_count, 1)
         self.assertIsNone(retry.call_args_list[0].kwargs.get('only_topic_ids'))
-        self.assertEqual(retry.call_args_list[1].kwargs['only_topic_ids'], set())
 
 
 if __name__ == '__main__':

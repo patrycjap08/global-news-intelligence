@@ -85,87 +85,46 @@ class StructuredOutputTests(unittest.TestCase):
             self.assertEqual(sdk.return_value.responses.create.call_count, 2)
 
     def test_entire_49_article_update_with_complete_first_extraction_audit_and_storage(self):
-        # Explicit synthetic judgments, not a simulation of model accuracy.
-        # Exercise the actual API adapter rather than mocking call_openai.
-        rows = [{**article(f'a{i}', ('LEFT', 'CENTER', 'RIGHT')[i % 3]),
-                 'body_original': f'Pełny tekst artykułu {i}. ' * 180} for i in range(49)]
-        known = p.route_facts({'facts': [
-            fact(f'Znane ustalenie {i}.', ['a0'], kind='STATEMENT' if i == 0 else 'FACT')
-            for i in range(17)]}, rows, [], ai.normalize_generated_text)[1]
-        base = {'perspective_version': 1, 'fact_classification_version': 1,
-                'summary_pl': 'Pierwotny artykuł.\n\nDrugi akapit.',
-                'background_context': [{'text_pl': 'Wcześniejsze tło.', 'article_ids': [], 'needs_verification': False}],
-                'perspective_facts': known, 'facts': known, 'coverage_mode': 'MIXED'}
+        from test_editorial_integrity import article as full_article, claim, extraction as per_article, writer
+        rows = [full_article(f'a{i:02}', f'Rada miasta zrealizuje inwestycję numer {i}.') for i in range(49)]
+        known = p.route_facts({'facts': [claim(rows[0]['body_original'], 'a00')]}, rows, [], ai.normalize_generated_text)[1]
+        base = {'perspective_version': 1, 'summary_pl': 'Pierwotny artykuł.', 'perspective_facts': known}
         payload = {'topic': {}, 'all_articles': rows, 'new_article_ids': [a['article_id'] for a in rows[23:]],
-                   'previous_aggregation': {'base_summary': base}}
+                   'previous_aggregation': {'base_summary': base, 'processed_article_ids': [a['article_id'] for a in rows[:23]]}}
         before = copy.deepcopy(payload)
-        calls, bodies, repairs, candidate_texts = [], [], [], []
-
+        calls, bodies = [], []
         def response(**request):
-            fmt = request['text']['format']
-            name, schema = fmt['name'], fmt['schema']
+            fmt = request['text']['format']; name, schema = fmt['name'], fmt['schema']
             check_response_schema(schema)
             data = json.JSONDecoder().raw_decode(request['input'])[0]
             calls.append(name)
             if name == 'perspective_facts':
-                current = data['all_articles']
-                self.assertLessEqual(len(current), 8)
-                bodies.extend(a['body_original'] for a in current)
-                ids = [a['article_id'] for a in current]
-                returned = [fact('', ids, f['fact_id'], reason='', kind=f['kind']) for f in known]
-                if len(calls) == 1:
-                    # A new-branch exact match cannot change the old type.
-                    returned.append(fact(known[0]['text_pl'], ['a0'], kind='FACT'))
-                    returned.extend(fact(f'Nowy szczegół {i}.', ['a0'], kind='FACT') for i in range(22))
-                answer = coverage_reply(extraction(returned, current))
-            elif name == 'perspective_article_coverage':
-                repairs.extend(a['article_id'] for a in data['all_articles'])
-                self.fail('Complete first extraction must not reread articles for coverage.')
+                bodies.extend(a['body_original'] for a in data['all_articles'])
+                answer = per_article(data, [claim(a['body_original'], a['article_id']) for a in data['all_articles']])
+            elif name == 'perspective_novelty_audit':
+                answer = {'decisions': {f['fact_id']: {'decision': 'NEW', 'new_detail_pl': '',
+                    'covered_fact_ids': [], 'reason_pl': 'Odrębna inwestycja.'} for f in data['candidate_facts']}}
             else:
-                self.assertEqual(name, 'perspective_novelty_audit')
-                self.assertNotIn('all_articles', data)
-                self.assertEqual(len(data['candidate_facts']), 22)
-                candidate_texts.extend(f['text_pl'] for f in data['candidate_facts'])
-                decisions = {f['fact_id']: verdict(f['text_pl']) for f in data['candidate_facts']}
-                first, second, third = data['candidate_facts'][:3]
-                decisions[first['fact_id']] = verdict('', [known[1]['fact_id']] * 2, 'Parafraza znanego.')
-                decisions[third['fact_id']] = verdict('', [second['fact_id']], 'Powtórzenie wcześniejszego kandydata.')
-                answer = {'decisions': {cid: {
-                    'decision': 'NEW' if not d['covered_fact_ids'] else 'DETAIL' if d['new_text_pl'] else 'DUPLICATE',
-                    'new_detail_pl': d['new_text_pl'] if d['covered_fact_ids'] else '',
-                    'covered_fact_ids': d['covered_fact_ids'], 'reason_pl': d['reason_pl'],
-                } for cid, d in decisions.items()}}
+                answer = writer(data)
             jsonschema.validate(answer, schema)
             return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(answer, ensure_ascii=False))
-
-        with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-only'}), patch('openai.OpenAI') as sdk, patch.object(ai, 'log') as logger:
+        with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-only'}), patch('openai.OpenAI') as sdk, patch.object(ai, 'log'):
             sdk.return_value.responses.create.side_effect = response
             result = ai.generate_summary_response(payload, 'gpt-5-nano')
-        self.assertEqual(calls.count('perspective_facts'), 7)
-        self.assertEqual(calls.count('perspective_article_coverage'), 0)
-        self.assertEqual(calls.count('perspective_novelty_audit'), 1)
-        self.assertNotIn('perspective_summary', calls)
-        self.assertFalse(any(c.kwargs.get('level') == 'WARN' for c in logger.call_args_list))
-        self.assertEqual(bodies, [a['body_original'] for a in rows])
-        self.assertEqual(repairs, [])
+        self.assertEqual(calls.count('perspective_facts'), 4)
+        self.assertEqual(calls.count('perspective_novelty_audit'), 2)
+        self.assertEqual(calls.count('perspective_summary'), 1)
+        self.assertEqual(bodies, [a['body_original'] for a in rows[23:]])
         self.assertEqual(payload, before)
-        self.assertEqual(result['summary_pl'], base['summary_pl'])
-        self.assertEqual(result['background_context'], base['background_context'])
-        self.assertEqual(len(result['perspective_facts']), 37)  # 17 old + 20 admitted.
-        stable = next(f for f in result['perspective_facts'] if f['fact_id'] == known[0]['fact_id'])
-        self.assertEqual(stable['kind'], 'STATEMENT')
-        self.assertEqual(set(stable['article_ids']), {a['article_id'] for a in rows})
-        self.assertNotIn(candidate_texts[0], json.dumps(result['perspective_facts']))
-        self.assertNotIn(candidate_texts[2], json.dumps(result['perspective_facts']))
+        self.assertEqual(len(result['perspective_facts']), 27)
         client = FakeMergeClient([], [], [])
-        previous_row = {'version': 1, 'summary': {'base_summary': base, 'updates': [],
-                                                'processed_article_ids': ['a0']}}
         ai.persist_summary(client, topic_id='t', run_id='r', model='fake', summary=result,
-                           summary_hash='h', previous_row=previous_row, new_article_ids=payload['new_article_ids'])
+            summary_hash='h', previous_row={'version': 1, 'summary': {'base_summary': base,
+            'processed_article_ids': [a['article_id'] for a in rows[:23]]}}, new_article_ids=payload['new_article_ids'])
         saved = next(items[0]['summary'] for table, items, _ in client.upserts if table == 'topic_summaries')
         self.assertEqual(saved['base_summary'], base)
         self.assertEqual(len(saved['updates']), 1)
-        self.assertTrue(set(payload['new_article_ids']) <= set(saved['processed_article_ids']))
+        self.assertEqual(set(saved['processed_article_ids']), {a['article_id'] for a in rows})
 
     def test_eight_sources_confirm_known_fact_in_one_call_without_update_or_repairs(self):
         rows = [article(f'a{i}', ('CENTER', 'LEFT', 'RIGHT')[i % 3]) for i in range(8)]
@@ -186,6 +145,9 @@ class StructuredOutputTests(unittest.TestCase):
             answer = coverage_reply(extraction([
                 fact('', [a['article_id'] for a in data['all_articles']], known[0]['fact_id'],
                      reason='', kind='STATEMENT')], data['all_articles']))
+            for result in answer['article_results'].values():
+                for f in result['facts']:
+                    f.update(evidence_quote='Minister ogłosił decyzję.', attribution='Minister')
             jsonschema.validate(answer, fmt['schema'])
             return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(answer))
 

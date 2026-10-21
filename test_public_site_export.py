@@ -70,6 +70,27 @@ class PublicExportTests(unittest.TestCase):
             with self.assertRaises(ValueError): write_site(rows, path)
             self.assertEqual(old, (path/'index.json').read_bytes())
 
+    def test_preview_uses_current_text_and_omits_audits_quotes_and_repeated_ledgers(self):
+        rows = self.rows()
+        stored = rows[0]['summary']['summary']
+        stored['current_summary'] = {'topic': {'headline_pl': 'Aktualny tytuł'},
+                                     'summary_pl': 'Bieżący opis wydarzenia.', 'publication_version': 2}
+        update = {'status': 'NEW_INFORMATION', 'new_information_pl': 'Dokładna treść dla oznaczenia przeczytania.',
+                  'generated_at': '2026-10-21', 'perspective_sections': {'COMMON': [{'text_pl': 'DETAIL_ONLY'}]},
+                  'novelty_audit': {'private_decision': 'AUDIT_ONLY'}}
+        stored.update(latest_update=update, last_analysis=dict(update))
+        with tempfile.TemporaryDirectory() as folder:
+            index = write_site(rows, Path(folder))
+            preview = index['summaries'][0]['summary']
+            self.assertEqual(preview['base_summary']['summary_pl'], 'Bieżący opis wydarzenia.')
+            self.assertEqual(preview['latest_update']['new_information_pl'], update['new_information_pl'])
+            self.assertEqual(preview['latest_update']['section_counts'], {'COMMON': 1})
+            self.assertEqual(preview['last_analysis'], {'status': 'NEW_INFORMATION'})
+            self.assertNotIn('AUDIT_ONLY', json.dumps(index))
+            self.assertNotIn('DETAIL_ONLY', json.dumps(index))
+            detail = json.loads((Path(folder) / index['generation'] / 'topics/topic_1.json').read_text())
+            self.assertEqual(detail['summary']['summary']['latest_update'], update)
+
     def test_csv_export_with_quotes_newlines_and_polish(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'export.csv'

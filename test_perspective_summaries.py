@@ -105,8 +105,8 @@ class PerspectiveTests(unittest.TestCase):
         self.assertEqual(p.make_update(same,known,True,['r'])['status'],'NO_NEW_INFORMATION')
         _,promoted=self.route(rows,[fact('Znana decyzja.',['r'],fid,reason='')],known)
         update=p.make_update(promoted,known,True,['r'])
-        self.assertEqual(update['status'],'NEW_INFORMATION')
-        self.assertEqual(len(update['promoted_facts']),1)
+        self.assertEqual(update['status'],'NO_NEW_INFORMATION')
+        self.assertEqual(len(update['promoted_facts']),0)
         self.assertFalse(any(update['perspective_sections'].values()))
         _,again=self.route(rows,[fact('Znana decyzja.',['r'],fid,reason='')],promoted)
         self.assertEqual(p.make_update(again,promoted,True,['r'])['status'],'NO_NEW_INFORMATION')
@@ -270,7 +270,7 @@ class PerspectiveTests(unittest.TestCase):
             return {'paragraphs':[{'text_pl':'Wspólne.','fact_ids':[data['main_facts'][0]['fact_id']]}], 'general_context':{'text_pl':'Ogólne tło.','article_ids':[],'needs_verification':True},'background_context':[]}
         result=p.generate(payload,call,ai.normalize_generated_text)
         self.assertEqual(len(calls),2);self.assertEqual(len(result['facts']),1)
-        self.assertEqual(result['perspective_sections']['LEFT'][0]['text_pl'],'Wyłącznie lewica.')
+        self.assertEqual(result['perspective_sections']['EDITORIAL'][0]['text_pl'],'Wyłącznie lewica.')
         self.assertEqual(ai.normalize_summary_response(result)['perspective_facts'],result['perspective_facts'])
 
     def test_writer_cannot_cite_exclusive_fact_or_context_source(self):
@@ -292,12 +292,12 @@ class PerspectiveTests(unittest.TestCase):
         self.assertEqual(saved['summary']['base_summary'],old['summary']['base_summary'])
         self.assertEqual(saved['summary']['perspective_state']['facts'],promoted)
         self.assertEqual(ai.previous_aggregation_context(saved['summary'])['perspective_state']['perspective_facts'],promoted)
-        self.assertEqual(len(saved['summary']['updates']),1)
-        self.assertEqual(len(saved['summary']['updates'][0]['promoted_facts']),1)
+        self.assertEqual(saved['summary']['updates'],[])
+        self.assertEqual(saved['summary']['current_summary']['summary_pl'], 'Znana decyzja.')
         # Retry/confirming analysis records progress without another update.
         summary=copy.deepcopy(summary);summary['update']=p.make_update(promoted,promoted,True,['r'])
         ai.persist_summary(client,topic_id='t',run_id='r2',model='fake',summary=summary,summary_hash='h2',previous_row=saved,new_article_ids=['r'])
-        self.assertEqual(len([rows[0] for table,rows,_ in client.upserts if table=='topic_summaries'][-1]['summary']['updates']),1)
+        self.assertEqual(len([rows[0] for table,rows,_ in client.upserts if table=='topic_summaries'][-1]['summary']['updates']),0)
         self.assertEqual([rows[0] for table,rows,_ in client.upserts if table=='topic_summaries'][-1]['summary']['base_summary'],old['summary']['base_summary'])
 
     def test_updates_never_call_writer_and_preserve_synthesis_and_context(self):
@@ -341,7 +341,7 @@ class PerspectiveTests(unittest.TestCase):
         self.assertTrue(result['shared_available'])
         self.assertEqual(result['summary_pl'],'')
         self.assertEqual(len(result['facts']),1)
-        self.assertEqual(len(result['update']['promoted_facts']),1)
+        self.assertEqual(len(result['update']['promoted_facts']),0)
 
     def test_matching_pool_excludes_all_legacy_topics_including_candidates(self):
         new_id=ai.stable_topic_id(['a'],'Tytuł')

@@ -1,585 +1,174 @@
-# Perspektywy redakcyjne — format 1
-
-Zmiana obejmuje generowanie, aktualizacje, eksport Pages i interfejs. Nie zmienia
-klasyfikacji redakcji, modelu OpenAI, progów embeddingów ani historycznych syntez.
-Nie wymaga migracji SQL. Profil źródła nie oznacza oceny prawdziwości publikacji.
-
-## Kontrola nowości znaczeniowej (v65)
-
-Aktualizacje proponujące nowe identyfikatory faktów wykonują krótką niezależną
-kontrolę `perspective_novelty_audit`. Dostaje wyłącznie treści i typy znanych
-ustaleń oraz kandydatów, bez tekstów artykułów, syntezy i metadanych źródeł.
-Model, rozumowanie medium i limit równoległych syntez pozostają dotychczasowe.
-Zwykle to jedno dodatkowe zapytanie tylko przy proponowanych nowych faktach;
-duży rejestr jest pakowany w całe ustalenia, bez skracania ich treści.
-Pierwsza publikacja i analiza samych znanych potwierdzeń nie dodają tego kroku.
-
-Kontrola odrzuca parafrazy i połączenia kilku znanych faktów. Jeśli zdanie
-łączy stary rdzeń z nowym szczegółem, zachowuje tylko samodzielne zdanie o tym
-szczególe, z pierwotnym przypisaniem i niepewnością. Rzeczywiste zmiany liczb,
-rozbieżności, nowe wypowiedzi lub odmienne oceny nie są scalane tylko dlatego,
-że brzmią podobnie. Każdy kandydat wymaga decyzji i uzasadnienia; odrzucenie
-lub wydzielenie szczegółu także wskazania wcześniejszych identyfikatorów.
-Niekompletna/niepoprawna odpowiedź ma jedną próbę korekty i następnie zatrzymuje
-zapis całego tematu. Audyt pozostaje w technicznych danych analizy.
-
-Kontrola odbywa się przed dopisaniem zarówno bieżących faktów, jak i aktualizacji.
-Nie zgaduje dodatkowych cytowań dla znanych faktów; uzupełnianie ich dowodów nadal
-wykonuje ekstraktor czytający pełne artykuły. Odrzucenie wszystkich kandydatów
-zachowuje poprawne potwierdzenia, zapisuje przetworzone artykuły i nie tworzy
-aktualizacji. Pierwotny tekst/kontekst pozostaje bez zmian. Ocena równoważności
-nadal zależy od modelu, a nie od gwarantującego poprawność algorytmu formalnego.
-
-Korekta nie usuwa automatycznie duplikatów już zapisanych w bazie ani historii.
-Takie opracowanie wymaga osobnego ponownego przeliczenia lub kontrolowanego
-oczyszczenia. Wdrożenie nie wykonuje produkcyjnych wywołań AI ani zmian w bazie.
-
-### Stabilny format zapytań i diagnostyka (v70)
-
-Przebieg `39397539367` przeszedł ekstrakcję wszystkich 49 artykułów i naprawy
-pokrycia, ale API odrzuciło schemat `perspective_novelty_audit` przed udzieleniem
-odpowiedzi (HTTP 400). Dawny log ucinał właściwe uzasadnienie po 220 znakach;
-nie zachował też treści 22 kandydatów. Nie da się na jego podstawie wskazać
-dokładnego ograniczenia kompilatora API, które zostało naruszone.
-
-Od v70 decyzja audytu ma stały obiekt z `new_text_pl`, `covered_fact_ids`
-i `reason_pl`. Schemat nie kopiuje pełnych zdań do `enum` ani nie łączy
-trzech nakładających się wariantów obiektu przez `anyOf`. Treści kandydatów
-są przekazywane w danych. Lista dozwolonych odwołań nadal ogranicza się do
-znanych faktów i wcześniejszych kandydatów. Kod wciąż wymaga uzasadnienia,
-referencji przy odrzuceniu/wydzieleniu szczegółu i zachowania treści w pełni
-nowego faktu. Nie przyjmuje odwołań do siebie, późniejszych ani obcych ID.
-Powtórzone poprawne referencje są normalizowane, bez dopisywania cytowań.
-
-Każdy schemat zapytania przechodzi lokalną kontrolę podstawowych reguł
-Structured Outputs i udokumentowanych limitów przed wysłaniem. Odpowiedź jest
-też sprawdzana lokalnie względem schematu, przed kontrolami znaczenia.
-Ta kontrola nie zastępuje kompilatora OpenAI i nie gwarantuje jego akceptacji.
-Błąd schematu HTTP 400 jest odróżniany od błędu odpowiedzi modelu; dokładny
-komunikat API, etap, identyfikator zapytania i parametry rozmiaru schematu są
-zapisywane w diagnostyce. Nie powtarzamy identycznego błędnego zapytania 400.
-
-Test całego dużego wątku obejmuje 49 pełnych artykułów, 17 zapisanych ustaleń,
-22 kandydatów, naprawę pominiętego źródła, utrzymanie typu znanego faktu,
-odrzucenie parafraz, normalizację referencji i zapis aktualizacji. Korzysta
-z adaptera SDK ze sztucznymi odpowiedziami; nie dowodzi jakości ocen modelu.
-Publikacja bazowej syntezy i kontekstu pozostaje niezmienna. Bez migracji SQL.
-
-## Reguły
-
-- Od v66 ogólny kontekst wyjaśnia wcześniejsze wydarzenia, genezę, szersze
-  uwarunkowania i mechanizmy. Nie opisuje ponownie, o czym jest artykuł.
-  Krótkie nawiązanie do faktu z syntezy jest dozwolone, gdy prowadzi do
-  dodatkowego objaśnienia. Brak sztywnego zakazu powtórzenia nie oznacza
-  zgody na kolejne streszczenie. Niepotwierdzonych przyczyn i historii nie
-  dopowiadamy. Zmiana dotyczy kolejnych pierwszych publikacji, bez dodatkowego
-  zapytania AI i bez przepisywania już opublikowanego kontekstu.
-- Opis organizacji wyjaśnia jej rodzaj, cel/zakres i faktyczną działalność;
-  sama nazwa, skrót lub obecność w artykule nie wystarczają. Odrębne organizacje
-  i ruchy mają osobne wpisy. Sporne nazwy sieci/powiązania zachowują przypisanie
-  do autora; nie stają się automatycznie potwierdzonymi definicjami.
-- LEFT/CENTER_LEFT to lewica; RIGHT/CENTER_RIGHT to prawica; CENTER to centrum.
-- STATE_ALIGNED lub STATE_MEDIA to media kontrolowane przez państwo.
-  Sam source_type=GOVERNMENT_AGENCY nie oznacza kontroli; agencja publiczna
-  z przypisanym zwykłym profilem zachowuje ten profil.
-- Niesklasyfikowane źródło zatrzymuje wygenerowanie danego opracowania z błędem
-  opisującym źródło. Nie przyznajemy mu milcząco statusu centrum.
-- Od fact_classification_version=1 FACT (neutralna informacja) i STATEMENT
-  (przypisana wypowiedź, zapowiedź, zarzut) trafiają do części ogólnej, także
-  jako uzupełnienie z jednego profilu źródeł. EDITORIAL (własna ocena redakcji)
-  trafia do osobnych perspektyw, również gdy występuje w centrum lub kilku
-  grupach. Cytowany pogląd polityka nie jest stanowiskiem redakcji.
-- Dotychczasowe kryterium centrum albo lewica+prawica wyznacza kolejność
-  wspólnego rdzenia przed neutralnymi uzupełnieniami. Nie jest dowodem prawdy.
-  Sam materiał państwowy nie dopuszcza ustalenia do części ogólnej.
-- Gdy wszystkie niepaństwowe artykuły są jednej grupy, neutralne ustalenia
-  tej grupy mogą tworzyć syntezę, a oceny nadal pozostają osobno.
-  Nad tytułem pojawia się informacja o jednostronnej podstawie.
-  Ewentualne dodatkowe doniesienia państwowe zostają osobno.
-- Bez neutralnych ustaleń brak zakładek Synteza/Fakty; nowa wersja wskazuje
-  brak neutralnych ustaleń do syntezy. Starsze opracowania zachowują komunikat
-  o braku wspólnych informacji. Przy samych państwowych materiałach komunikat
-  wskazuje ich wyłączną obecność.
-- Puste perspektywy są ukrywane. Pozostałe części to kontekst i źródła.
-  Usunięcie z widoku różnic/sprzeczności/sygnałów nie usuwa danych z bazy.
-- Pasek na karcie i w oknie tematu liczy artykuły, także kilka jednej redakcji;
-  państwowe i niesklasyfikowane nie należą do mianownika ani segmentów.
-- Aktualizacja ma wydzielone nowe ustalenia neutralne oraz oceny lewicowe,
-  prawicowe, centrowe i doniesienia państwowe. Rzeczywiste rozszerzenie
-  potwierdzenia neutralnego ustalenia daje „Szersze potwierdzenie”.
-  Sama klasyfikacja wcześniej zapisanego faktu nie tworzy aktualizacji.
-  Powtórzenie znanych informacji nie tworzy aktualizacji ani nie cofa przeczytania.
-
-## Generowanie i zgodność
-
-Nowa synteza z użytecznymi ustaleniami: co najmniej dwa zapytania w obecnej
-puli równoległych zadań. Od v73 całkowicie pusta ekstrakcja kończy się
-bez zamawiania narracji i kontekstu.
-Pierwszy etap wyciąga atomowe fakty i cytowania z pełnych artykułów; przy dużym
-zestawie wykonuje kolejne paczki, a każda widzi ustalenia z poprzednich.
-Kod wyznacza ich części. Drugie dostaje wyłącznie
-fakty dopuszczone do głównej syntezy oraz tytuł i tworzy narrację/kontekst.
-Kod sprawdza identyfikatory artykułów, stabilność znanych faktów i odwołania
-akapitów/kontekstu. Ocena znaczenia i poprawności przypisań jest zadaniem modelu.
-
-Aktualizacja nowego formatu analizuje wszystkie artykuły wątku. Limit
-AI_SUMMARY_MAX_PAYLOAD_CHARS (domyślnie 300000 znaków) jest celem rozmiaru
-paczki, a nie limitem treści. Artykuły nigdy nie są zastępowane wyciągami ani
-metadanymi w analizie syntez i faktów. Pojedynczy artykuł przekraczający cel
-przekazywany jest w całości; jeśli przekroczy twardy limit modelu, analiza
-kończy się błędem zamiast zapisać niepełne opracowanie. Stare aktualizacje
-również analizują całe artykuły w paczkach i przekazują zaakceptowane
-aktualizacje z poprzednich paczek do następnych. Zapis następuje dopiero po
-przejściu wszystkich paczek. Zachowuje rejestr dotychczasowych faktów, uzupełnia ich
-potwierdzenia i odświeża bieżący widok podziału w osobnym perspective_state. Historia aktualizacji pozostaje.
-Syntezy starego formatu nadal korzystają ze starego sposobu aktualizacji;
-nie przebudowujemy ich automatycznie.
-
-Nowe wątki/kandydaci otrzymują ID topic_perspectives_…; zapisane opracowania
-mają perspective_version=1. Nowe artykuły nie są dopasowywane do starych wątków.
-Nie ma przepinania wcześniej przetworzonych artykułów ze starych opracowań.
-
-Na końcu full/ai-only jest dodatkowa kontrola embeddingów ACTIVE wątków
-z syntezami w aktualnym oknie 36 godzin, tylko dla par z nowymi wątkami lub
-ich zachowanymi po scaleniu odpowiednikami. Wykluczamy krawędzie pomiędzy
-wersjami przed tworzeniem grup; jest też kontrola przed zapisem scalenia.
-Stare łączą się wyłącznie ze starymi, nowe wyłącznie z nowymi, także w trybie
-merge-existing-summaries. Przeniesione artykuły trafiają do kolejki aktualizacji.
-Kontrola nie pyta AI o zgodę na scalenie. Kosztem są dodatkowe embeddingi
-oraz ewentualne aktualizacje rzeczywiście scalonych tematów.
-
-### Jawne decyzje audytu i wznowienie po ekstrakcji (v71)
-
-Przebieg `39403835206` przeszedł format zapytania v70, ale model w trzeciej
-paczce audytu zwrócił puste `new_text_pl` i `covered_fact_ids`, opisując fakt
-jako całkowicie nowy. Audyt API teraz wybiera `decision=NEW|DUPLICATE|DETAIL`.
-NEW zachowuje oryginalny tekst kandydata w kodzie, bez przepisywania go przez
-model. DUPLICATE wymaga wskazania wcześniejszych faktów. DETAIL wymaga
-odniesień do starej części oraz samodzielnego zdania opisującego nowy szczegół.
-Nie odgadujemy decyzji z uzasadnienia i nie dopisujemy referencji. Nieprawidłowe
-decyzje nadal mają jedną próbę poprawy; nie są publikowane.
-
-Pełna ekstrakcja, która przeszła kontrolę wszystkich paczek i napraw pokrycia,
-może zostać zachowana w prywatnym `topic_runs.raw_output.extraction_checkpoint`,
-jeżeli późniejszy etap zawiedzie. Nie jest to publikacja częściowej syntezy
-ani oznaczenie artykułów jako przetworzonych. Ponowne ai-only przy identycznym
-wejściu i modelu może zacząć od audytu, bez ponownego przesyłania artykułów.
-Sprawdzany jest skrót pełnego wejścia i instrukcji ekstrakcji, tożsamość,
-treść i typ starych faktów, nowe identyfikatory i cytowania. Zmiana danych,
-instrukcji ekstrakcji lub uszkodzony checkpoint uruchamia pełną analizę.
-Zmiana wyłącznie protokołu audytu nie unieważnia poprawnej ekstrakcji.
-Starsze nieudane przebiegi nie zawierają takiego checkpointu; ich odzyskanie
-wstecz nie jest możliwe. Nie wymaga migracji ani publicznego eksportu tych danych.
-
-### Kompletne przypisania w pierwszej odpowiedzi (v72)
-
-Poniżej opis v72; od v73 braki są dopuszczane zgodnie z preferencją kosztową
-użytkowniczki i nie uruchamiają korekt opisanych w tej sekcji.
-
-Od v72 produkcyjne `perspective_facts` od razu wymaga `article_results`
-z osobnym wynikiem każdego artykułu: ustaleniami albo konkretnym powodem braku
-informacji o wydarzeniu. Dawna globalna lista ustaleń i osobna lista kluczy
-pokrycia pozwalały zwrócić np. 17 ustaleń wyłącznie pod jednym z 8 artykułów,
-a pozostałe oznaczyć pustym powodem. To uruchamiało dodatkowe zapytania
-`perspective_article_coverage` w paczkach po dwa pełne artykuły, jeszcze przed
-końcowym scalaniem. Nowy schemat nie dopuszcza takiego pustego wyniku.
-
-Brak nowych faktów jest poprawny. Gdy artykuł powtarza zapisane ustalenia,
-model zwraca pod jego kluczem odpowiednie `known_fact_id`, typ oraz puste
-teksty i uzasadnienia nowości. Kod zachowuje stare zdania, dopisuje wyłącznie
-jawnie wskazane potwierdzenia i nie tworzy aktualizacji. Dla nowego faktu
-przypisanie wynika z klucza artykułu wybranego przez model, bez osobnej listy
-cytowań. Nie dopisujemy źródeł automatycznie z samego wspólnego tematu.
-Pełne teksty, limit ośmiu artykułów w paczce i kontrola nowości pozostają.
-Nieprawidłowa odpowiedź nadal może wymagać jednej korekty; schemat nie
-gwarantuje poprawności semantycznej. Starszy płaski adapter zachowuje
-dotychczasowy mechanizm napraw dla zgodności wewnętrznej.
-
-Końcowe scalanie może dołączyć nowe artykuły i wymagać kolejnej aktualizacji
-wcześniej poprawnie opracowanego wątku. Jednak analiza, która już zawiodła
-w głównej kolejce, nie jest powtarzana po scaleniu w tym samym przebiegu.
-Blokada podąża za zachowanym identyfikatorem także przy wchłonięciu wątku.
-Błąd pozostaje w wyniku przebiegu, a nieprzetworzone artykuły czekają na
-kolejne ai-only. Nie zapisujemy niepełnej analizy jako poprawnej.
-
-Zmiana dotyczy protokołu pierwszej odpowiedzi, bez zmiany reguł ustaleń
-lub formatu zapisanego rejestru. Poprawne, kompletne checkpointy v71 nadal
-mogą być wykorzystane przy identycznych danych i przejściu dotychczasowych
-kontroli. Testy adaptera SDK obejmują osiem źródeł potwierdzających znany fakt
-w jednym zapytaniu bez napraw i aktualizacji oraz 49 pełnych artykułów
-w siedmiu paczkach bez dodatkowego odczytu pokrycia. Odpowiedzi w testach
-są sztuczne; rzeczywistych oszczędności tokenów nie mierzymy płatnym API.
-
-### Pomijanie zamiast dodatkowych odczytów (v73)
-
-Użytkowniczka woli brak informacji z artykułu od kolejnych zapytań o jego
-pokrycie. Produkcyjne full, ai-only i przebieg jednego źródła używają teraz
-ekstrakcji dopuszczającej pominięcia. Każda paczka pełnych artykułów ma jedną
-próbę `perspective_facts` (`retry_limit=1`, także bez ponawiania JSON).
-Pusty wynik artykułu jest dozwolony również bez uzasadnienia. Nie wykonujemy
-`perspective_article_coverage` ani semantycznej korekty ekstrakcji.
-
-Kod sprawdza każde dostępne ustalenie osobno. Zachowuje poprawne cytowania
-i potwierdzenia, a odrzuca błędne ID, obce źródła, nieznane typy, zmienione
-znane fakty i nowe ustalenia bez uzasadnienia nowości. Nie poprawia ID przez
-podobieństwo ani nie dopisuje potwierdzeń na podstawie innych materiałów.
-Gdy zakończona odpowiedź zawiera pełny obiekt JSON niezgodny ze schematem,
-lokalna kontrola może zachować jego poprawne pozycje. Nieczytelna lub ucięta
-odpowiedź daje brak faktów z tej paczki; nie jest ponownie wysyłana do AI.
-Błędy transportu/API nadal mogą zatrzymać analizę; nie są udawanym sukcesem.
-
-Pominięcia i liczba odrzuconych ustaleń trafiają do logów. Nie dowodzą,
-że artykuł był nieistotny ani że nie zawierał nowości. Artykuł pozostaje
-w bazie i w materiałach wątku, ale nie otrzymuje brakujących potwierdzeń.
-Po poprawnym zakończeniu tematu objęte próbą nowe artykuły są oznaczane jako
-przetworzone także przy pominięciach, aby zwykłe ponowienie ai-only nie
-wracało do nich tylko z tego powodu. Następna rzeczywista aktualizacja z
-nowymi materiałami nadal może analizować pełen wątek zgodnie z dotychczasową
-regułą; końcowe scalanie nie jest wyłączone.
-
-Poprzednia publikacja, kontekst i stare fakty pozostają zachowane. W nowym
-temacie bez żadnych użytecznych ustaleń nie zamawiamy narracji ani kontekstu.
-Audyt rzeczywiście nowych kandydatów i kontrola pisania nadal obowiązują;
-to osobne etapy, a nie dodatkowe odczyty brakujących artykułów.
-Checkpoint po późniejszym błędzie zapisuje listę pominięć i może być wznowiony
-w tym samym trybie, bez ponownego wysyłania tekstów. Taki checkpoint nie jest
-akceptowany przez dawny wewnętrzny tryb wymagający pełnego pokrycia.
-
-Testy bez płatnego API obejmują m.in. siedem pominięć przy jednym zapytaniu,
-40 artykułów w pięciu odczytach mimo braków, zachowanie poprawnej pozycji
-obok błędnej odpowiedzi, brak dopisywania cytowań, ucięty/pusty JSON,
-zapis przetworzonych artykułów i brak zapytań narracyjnych przy pustej ekstrakcji.
-
-## Cofnięcie
-
-Całość jest publikowana jako jeden commit pod tytułem:
-`Add isolated editorial perspectives and final synthesized-topic deduplication`.
-Punktem wyjścia jest commit `74db8f518e72e9388ccee67b8e43f26180511efd`.
-
-Aby cofnąć: wykonać `git revert <SHA tego commita>` i wypchnąć commit cofający.
-Zachowuje to historię i uruchamia ponowne wdrożenie Pages. Nie używać reset/force
-push ani usuwać danych. Jeżeli po tej zmianie pojawią się inne poprawki, cofamy
-wskazany commit, a nie dowolny ostatni commit.
-
-Przy wdrożeniu nie uruchamiamy produkcyjnego AI, harvestera ani migracji.
-Cofnięcie przywraca poprzedni kod i reguły; nie usuwa syntez ani scaleń, które
-użytkowniczka zdąży później wygenerować produkcyjnym workflow. Rejestr nowych
-perspektyw zostaje w JSON i nie wymaga odwracania schematu bazy.
-
-## Weryfikacja
-
-Testy bez płatnego API: podział faktów, centrum, wyjątki, doniesienia państwowe,
-walidacja cytowań, potwierdzenia, promocje, zapis i historia, izolacja dopasowań
-oraz końcowe scalanie przy silniejszej krawędzi pomiędzy wersjami. Interfejs:
-ukrywanie pustej syntezy, niezależne przełączniki, liczniki artykułów, odczyt
-oraz pełny/przycięty eksport. Przeglądarka: telefon 390 px i komputer 1280 px.
-
-Korekta pod tytułem `Preserve full article texts in synthesis and update batches`
-usuwa skracanie tekstów. Przy cofaniu całego formatu perspektyw należy najpierw
-cofnąć tę późniejszą korektę, a następnie commit wprowadzający perspektywy.
-Korekta nie zmienia modelu embeddingów ani zasady odświeżania bieżącej syntezy.
-
-## Niezmienna synteza po publikacji
-
-Korekta `Keep published syntheses immutable during topic updates` wyłącza
-ponowne pisanie syntezy i kontekstu przy KAŻDEJ późniejszej analizie nowego
-formatu, także po scaleniu. Wywołanie perspective_summary występuje wyłącznie
-przy pierwszym opracowaniu. Później wyciągane są fakty z pełnych artykułów
-w paczkach. Od v65 propozycje nowych faktów przechodzą dodatkowo opisaną niżej
-kontrolę nowości znaczeniowej. Brak nowych ustaleń oznacza brak aktualizacji.
-
-base_summary pozostaje dokładną kopią poprzednio opublikowanego opracowania.
-Bieżące fakty, cytowania, podział i perspektywy znajdują się w osobnym
-perspective_state. Jest przekazywany następnej analizie, aby ta nie odkrywała
-ponownie informacji już dopisanych wcześniej. Interfejs i eksport łączą
-pierwotny tekst/kontekst z bieżącymi faktami i perspektywami.
-
-Jeśli pierwotnie nie było wspólnych faktów i tekst syntezy jest pusty, późniejsze
-szersze potwierdzenie udostępnia wspólne fakty i aktualizację, bez tworzenia
-nowej syntezy. Widoczna jest wtedy tylko zakładka Fakty. Bez wspólnych informacji
-wciąż nie ma obu zakładek, zgodnie z wcześniejszym ustaleniem. Jeśli pierwotna
-synteza była jednostronna, komunikat zachowuje informację o jej pierwotnej
-podstawie również po pojawieniu się innych profili.
-
-Korekta nie przywraca automatycznie wcześniejszych historycznych wersji już
-przepisanych syntez. Od momentu zastosowania zachowuje ich obecny zapis.
-Nie zmienia modelu embeddingów ani progów. Przy cofaniu całego formatu cofnąć
-korekty w odwrotnej kolejności, przed commitem wprowadzającym perspektywy.
-
-## Kompletność i atomowość faktów
-
-Korekta `Extract complete atomic facts with per-article coverage` precyzuje
-ekstrakcję w dotychczasowym zapytaniu. Model ma przejrzeć każdy pełny artykuł,
-w tym dalsze akapity, zebrać istotne działania, decyzje, okoliczności, skalę,
-reakcje i skutki, a następnie porównać każde ustalenie ze wszystkimi artykułami
-paczki. Jedno ustalenie to jedno samodzielnie sprawdzalne twierdzenie;
-wspólna informacja i szczegół występujący tylko w części źródeł są rozdzielane.
-Nie ma minimalnej ani narzuconej liczby faktów. Parafrazy nie tworzą duplikatów.
-
-Wymagane article_coverage potwierdza przejrzenie każdego artykułu lub podaje
-powód braku istotnych informacji o wydarzeniu. Od v62 kod sam wylicza indeksy
-ustaleń z facts[].article_ids. Odrzuca odpowiedź pomijającą artykuł; nie publikuje jej
-częściowo i nie uruchamia dodatkowego zapytania naprawczego. Log odpowiedzi
-podaje liczbę ustaleń, artykułów, potwierdzeń oraz zakres ustaleń na artykuł.
-Kontrola nie dowodzi prawdziwości ani semantycznej kompletności odpowiedzi;
-te nadal zależą od modelu. Znane potwierdzenia nie tworzą aktualizacji.
-
-Rozbieżne liczby wymagają zachowania źródła, czasu i zakresu: osiem zatrzymań
-w jednym zdarzeniu nie musi przeczyć dziesięciu łącznie w dwóch zdarzeniach.
-Pierwszy tekst syntezy dostaje nazwy redakcji i daty tylko materiałów
-potwierdzających dopuszczone fakty, aby móc czytelnie opisać rozbieżności.
-Nie otrzymuje tekstów ani ustaleń pozostałych perspektyw.
-
-Bez zmiany modelu, progów embeddingów, reguł profili i niezmienności
-opublikowanej syntezy. Większa kompletność może zwiększyć liczbę tokenów
-odpowiedzi. Dotychczasowych opracowań nie przebudowujemy automatycznie;
-nowe instrukcje dotyczą kolejnych analiz, bez migracji i produkcyjnych wywołań
-przy wdrażaniu. Cofnięcie tego commita przywraca poprzednią ekstrakcję.
-
-## Identyfikatory faktów i źródeł
-
-Korekta `Constrain perspective evidence IDs and add targeted AI rollback SQL`
-ogranicza identyfikatory w ścisłym schemacie odpowiedzi. Przy pierwszej
-ekstrakcji known_fact_id może być tylko pusty. Przy potwierdzeniu znanego
-faktu model wybiera istniejący identyfikator i zwraca pusty text_pl; kod
-sam zachowuje oryginalny tekst. Nowe fakty nadal wymagają własnej treści
-i uzasadnienia nowości. Nie rozluźniamy weryfikacji zmienionych twierdzeń.
-
-Schemat pierwszej syntezy dopuszcza w kontekście tylko article_ids materiałów
-potwierdzających wspólne fakty. fact_ids akapitów też mają zamknięty zbiór.
-Bez takich materiałów listy cytowań muszą być puste, a wiedza ogólna wymaga
-needs_verification=true. Weryfikacja w kodzie pozostaje dodatkową kontrolą.
-W razie błędu walidacji zapisujemy także odpowiedź i nazwę etapu w topic_runs;
-wcześniej zwykły ValueError nie zachowywał tych danych. Nie zwiększamy liczby
-zapytań ani nie zmieniamy opublikowanych syntez.
-
-`sql_rollback_ai_20261019T080527Z.sql` to jednorazowy skrypt wyłącznie dla
-wskazanego przebiegu, z metadanymi i 162 powiązaniami 13 starych wątków
-z archiwalnego eksportu 2026-10-19 04:18:57 UTC (artefakt 12162828048).
-Przywraca ich syntezy z zachowanych wersji, usuwa 286 nowych kandydatów
-i decyzje wykluczenia 142 artykułów, zachowuje pobrane artykuły i harvest.
-Prywatna kopia cofanych danych trafia do gni_recovery.ai_rollbacks.
-Skrypt odmawia wykonania po nowszym harveście/analizie lub przy braku historii.
-Nie odtwarza dokładnych technicznych dat starych przypisań, których eksport
-nie zawiera; ustawia je nie później niż poprzednia analiza, aby samo cofnięcie
-nie tworzyło aktualizacji. input_hash przywróconej starszej wersji dostaje
-znacznik odtworzenia, jeśli nie zachowano poprzedniego hasha.
-
-Po SQL uruchomić NOWE ai-only na aktualnym main, a nie Re-run jobs starego
-uruchomienia, które odtwarzałoby stary commit. Pobrane artykuły kwalifikują się
-do nazwania w ciągu 24 godzin od fetched_at. SQL raportuje materiały starsze
-od tego okna, nie przestawia ich dat. Eksport Pages odświeży kolejny workflow;
-sam SQL nie zmienia już opublikowanych plików strony.
-
-Kontrola zależnych scaleń blokuje wyłącznie zewnętrzne przekierowania do
-NOWYCH kandydatów przeznaczonych do usunięcia. Starsze przekierowania do
-13 przywracanych wątków pozostają bez zmian i nie blokują operacji, ponieważ
-ich docelowe wątki nadal istnieją. Pierwsza wersja SQL zbyt szeroko obejmowała
-oba zbiory. Przerwanie przez tę kontrolę wycofywało całą operację; można
-wkleić poprawiony plik i wykonać go ponownie.
-
-## Wyłącznie media kontrolowane przez państwo
-
-W STATE_ONLY etap perspective_summary nie jest wywoływany. Zapis obejmuje
-wyłącznie przypisane źródłom doniesienia w sekcji STATE, bez głównej syntezy,
-leadów z faktów i generowanego kontekstu. Stare wątki oparte wyłącznie na
-takich źródłach są pomijane w kolejce pierwszych syntez i aktualizacji.
-Interfejs ustala ten warunek również z rzeczywistych artykułów, więc ukrywa
-stary tekst/lead, główne zakładki i wcześniejsze aktualizacje nawet przy
-nieaktualnych metadanych opracowania. Dane w bazie pozostają bez zmian.
-
-Publiczna agencja typu GOVERNMENT_AGENCY z normalnym profilem redakcyjnym
-nie jest automatycznie medium kontrolowanym przez państwo. Regułę oznaczają
-STATE_ALIGNED/STATE_MEDIA w profilu albo source_type=STATE_MEDIA.
-
-## Synteza w formie artykułu
-
-Prompt pierwszej syntezy wymaga opisania wszystkich dopuszczonych main_facts
-w spójnym artykule informacyjnym, z akapitami grupującymi powiązane ustalenia.
-Zabrania list i mechanicznego przepisywania pojedynczych faktów. Przy kilku
-odrębnych ustaleniach wymaga co najmniej dwóch akapitów; nie dopisuje treści
-przy pojedynczym fakcie. Elementy paragraphs nadal rozdzielamy pustą linią.
-Synteza i zakładka Fakty opisują te same ustalenia w różnych formach.
-Usunięto nieprecyzyjny zakaz powtórzeń między tymi dwiema częściami; kontekst
-nadal ma dostarczać dodatkowego tła bez powielania treści artykułu.
-Reguły dopuszczania faktów, STATE_ONLY i niezmienności opublikowanej syntezy
-pozostają bez zmian. Doprecyzowanie dotyczy nowych syntez, bez dodatkowych
-wywołań API i bez automatycznego przepisywania istniejących opracowań.
-
-## Jedno źródło powiązań faktów z artykułami
-
-Przebieg Actions 39231054381 ujawnił 13 odrzuceń przez rozbieżne lub błędne
-pomocnicze fact_indexes w article_coverage. Była to redundantna numeracja
-wyliczalna z facts[].article_ids. Od v62 model jej nie zwraca: article_coverage
-jest obiektem z obowiązkowym kluczem każdego wysłanego article_id i polem
-no_relevant_facts_reason_pl. Ścisły schemat wymusza obecność wszystkich kluczy.
-Kod wylicza pokrycie i logowane liczniki bezpośrednio z cytowań faktów.
-
-Starsze odpowiedzi z listą article_coverage też są obsługiwane: błędne indeksy
-są odtwarzane lokalnie bez zmiany treści faktów i bez dodawania/usuwania ich
-article_ids. Nadal odrzucamy obce cytowania i pominięte/powtórzone artykuły.
-Artykuł bez zwróconych cytowań i bez uzasadnienia oznaczamy needs_review
-w diagnostyce pokrycia oraz ostrzegamy w logach. Nie odrzucamy przez ten
-brak całego opracowania, nie uznajemy artykułu za nieistotny i nie dopisujemy
-mu automatycznie żadnego potwierdzenia. Nie dodajemy wywołań AI.
-Przypadki z rzeczywistych logów są utrwalone w test_data i testowane bez API.
-
-## Ścisłe cytowania i pojedyncza korekta odpowiedzi
-
-Od v63 nowe fakty mogą cytować wyłącznie dokładne article_ids z wysłanej
-paczki. Potwierdzenia znanych faktów mogą ponadto zachować wcześniejsze
-cytowania; kod nadal sprawdza ten warunek osobno dla każdego faktu. Nie ma
-dopasowywania podobnych identyfikatorów ani automatycznego zmieniania źródła.
-Schemat wymaga niepustej treści nowego faktu, a przy istniejącym rejestrze
-także niepustego why_new_pl. Potwierdzenia mają pustą treść i uzasadnienie,
-bo kod przywraca ich niezmieniony, znany tekst.
-
-Jeśli odpowiedź ekstrakcji lub pisania nie przejdzie walidacji semantycznej,
-ponawiamy tylko ten etap jeden raz. Model dostaje konkretne zastrzeżenie,
-wadliwą odpowiedź i te same dane wejściowe, w tym pełne treści artykułów
-przy ekstrakcji. Musi ponownie sprawdzić źródło lub nowość ustalenia;
-kod nie dopisuje uzasadnień. Ponowna wadliwa odpowiedź kończy temat błędem
-z diagnostyką, bez zapisywania częściowego opracowania. Poprawne odpowiedzi
-nie powodują dodatkowych zapytań. Błędy transportu mają osobną dotychczasową
-politykę ponowień. Aktualizacja nadal nie wywołuje pisania syntezy i nie
-zmienia opublikowanego tekstu ani kontekstu.
-
-Przy braku wspólnych faktów paragraphs=[] jest wymagane. Kontekst może być
-pusty, jeśli tytuł nie daje podstaw do neutralnego objaśnienia; nie jest to
-błąd ani powód do wymyślania tła. Zachowujemy fakty poszczególnych perspektyw,
-a strona pokazuje komunikat o braku wspólnych informacji zamiast zakładek
-głównej syntezy/faktów. Jeśli wspólne fakty istnieją, ogólny kontekst nadal
-jest obowiązkowy. STATE_ONLY w dalszym ciągu nie wywołuje pisania w ogóle.
-
-Testy regresji odtwarzają cztery wadliwe odpowiedzi z Actions 39236469690,
-wraz z rzeczywistymi profilami źródeł i wcześniejszym rejestrem faktów
-z publicznego eksportu. Odpowiedzi naprawcze są symulowane; testy nie
-wywołują OpenAI ani nie modyfikują bazy. Uruchomienie:
-`python -m pip install -r requirements-dev.txt`, następnie
-`python -m unittest discover -p 'test_*.py'`.
-
-## Fakty perspektyw a oś aktualizacji
-
-Pełny perspective_state obejmuje również fakty dopisane w aktualizacjach.
-Interfejs nie powtarza ich w dolnej sekcji „Co dodatkowo podają źródła”:
-porównuje jej fakty z wszystkimi wyświetlanymi aktualizacjami i szerszymi
-potwierdzeniami według fact_id, a dla starszych wpisów także identycznej
-treści po ujednoliceniu białych znaków i wielkości liter. Nie stosuje
-przybliżonego dopasowania ani nie łączy różniących się liczb/twierdzeń.
-
-Nowe informacje pozostają w swojej aktualizacji, wcześniejsze odrębne
-ustalenia pozostają w sekcjach profili. Puste grupy i pusta sekcja znikają.
-Pełny rejestr faktów, pierwotna synteza, dane źródłowe, historia aktualizacji
-i oznaczenia przeczytania pozostają bez zmian. Przy STATE_ONLY aktualizacji
-nie wyświetlamy, więc nie odfiltrowujemy na ich podstawie doniesień STATE.
-Poprawka działa na istniejących danych bez ponownego AI i bez zapisu do bazy.
-Regresja OS82 z publicznego eksportu jest w test_data; sprawdza ją
-`node test_frontend_perspective_updates.js`.
-
-Etykiety nad paskiem udziału artykułów pokazujemy dla wszystkich trzech
-profili, również przy 0%, wraz z rzeczywistym licznikiem artykułów. Pasek
-zawiera trzy kolory w kolejności lewica, centrum, prawica. Fragment przy 0%
-ma minimalną szerokość 4 px, pozostałe fragmenty mają minimum 2 px.
-Pozostała szerokość jest rozdzielana proporcjonalnie do liczby artykułów.
-Rzeczywiste procenty i liczniki pozostają bez zmian. Przy samych mediach
-kontrolowanych przez państwo nadal nie pokazujemy tego paska.
-
-## Klasyfikacja treści ustalenia — v64
-
-W dotychczasowym perspective_facts każde nowe ustalenie i potwierdzenie ma
-obowiązkowy kind: FACT, STATEMENT lub EDITORIAL. To jeden krótki atrybut;
-nie ma osobnych wywołań klasyfikatora, zmiany modelu, równoległości ani
-skracania artykułów. Profil źródła nie określa typu treści. Prompt wymaga
-rozdzielania zdarzenia od wartościowania i zachowania autora zarzutu/tezy.
-Przy pojedynczej redakcji autor syntezy ma wskazywać źródło, a przy wypowiedzi
-zachowywać jej autora, warunkowość i niepewność. Typ nie oznacza weryfikacji
-prawdziwości twierdzenia. Oceny redakcyjne nie są przekazywane piszącemu
-syntezę; neutralny rdzeń jest przekazywany przed uzupełnieniami.
-
-Rejestr przechowuje jeden fakt EDITORIAL, a widoki LEFT/RIGHT/CENTER/STATE
-cytują tylko artykuły tej grupy wyrażające daną ocenę. Zbieżna ocena wielu
-grup nadal nie staje się neutralnym faktem. Media kontrolowane przez państwo
-nie tworzą samodzielnie syntezy niezależnie od rodzaju treści.
-
-Brak kind w starym rejestrze oznacza zachowanie dawnych reguł do momentu
-rzeczywistego sklasyfikowania ustalenia w zwykłej analizie. Raz zapisany typ
-jest chroniony przy potwierdzeniach, podobnie jak treść. Przypisanie typu lub
-przeniesienie starego ustalenia do części ogólnej bez nowych potwierdzeń nie
-jest aktualizacją. Nowe potwierdzenie spełniające kryterium centrum/lewica+
-prawica jest wykrywane również dla faktu już obecnego w części neutralnej.
-Opublikowana synteza i kontekst pozostają niezmienne. Nie uruchamiamy
-przebudowy historycznych tekstów ani masowej migracji.
-
-Metadane fact_classification_version=1 są zapisywane w stanie, aktualizacjach
-i podglądzie eksportu; stare opracowania zachowują stare etykiety. Nowe
-aktualizacje używają „Nowe ustalenia” oraz etykiet ocen, aby neutralnego
-dopełnienia nie nazywać wspólnie potwierdzonym. Ukrywanie powtórzeń dotyczy
-tej samej grupy perspektyw, więc wcześniejsza aktualizacja lewicowa nie
-ukrywa późniejszego potwierdzenia danej oceny przez redakcję prawicową.
-
-## Pokrycie artykułów i kontrola nowości — v67
-
-Ekstrakcja czyta pełne artykuły w paczkach do ośmiu, dodatkowo z dotychczasowym
-miękkim limitem znaków. Żaden artykuł nie jest obcinany ani pomijany z powodu
-wielkości. Jeden długi materiał jest wysyłany w całości. Poprzednie ustalenia
-przechodzą do kolejnych paczek, więc powtórzenie może poszerzyć potwierdzenia
-bez tworzenia nowego faktu.
-
-Brak potwierdzeń i konkretnego powodu braku informacji uruchamia ponowne
-sprawdzenie tylko pominiętych artykułów, w paczkach do dwóch, z zachowaniem
-poprawnych ustaleń. „Brak nowych informacji” nie usprawiedliwia braku pokrycia:
-powtórzenie trzeba przypisać do znanego faktu. Dopiero kompletne pokrycie
-pozwala zakończyć analizę. Trwały brak po korekcie pozostaje błędem do ponowienia;
-kod nie zgaduje cytowań, nie publikuje częściowego wyniku i nie oznacza go jako
-przeanalizowany.
-
-Schemat kontroli nowości dopuszcza w każdej decyzji tylko ID ze starego rejestru
-lub wcześniejszych kandydatów. Samoodwołania, odwołania w przyszłość i pętle
-nie są już poprawną odpowiedzią API. Całkowicie nowa treść jest kopiowana
-dokładnie; odrzucenie lub wydzielenie nowego szczegółu wymaga rzeczywistych
-wcześniejszych ustaleń. Wspólna lista starych ID i paczki do 24 kandydatów
-ograniczają rozmiar schematu. Kontrola nadal nie przesyła treści artykułów.
-
-Model, równoległość, próg embeddingów 0,78, niezmienność opublikowanej syntezy
-i kontekstu oraz rozdział formatów pozostają bez zmian. Do ponowienia błędnych
-tematów wystarcza zwykłe `ai-only`; nie wymaga to SQL ani ponownego pobierania.
-
-## Stabilne potwierdzenia i cytowania bieżącej paczki — v68
-
-Identyczna treść po normalizacji jest potwierdzeniem również wtedy, gdy model
-zwrócił pusty `known_fact_id` i zaproponował inny `kind`. Kod zachowuje istniejący
-identyfikator, dokładny tekst i typ, a dopisuje tylko rzeczywiste potwierdzenia.
-Ta sama reguła działa w pojedynczej odpowiedzi, między paczkami i przy
-aktualizacji publikacji. Nie ma kolejnego zapytania o klasyfikację ani nowej
-aktualizacji z samego przepisania faktu. Nowa treść i niesklasyfikowane wcześniej
-ustalenia nadal otrzymują typ z ekstrakcji; obce ID lub zmiana treści wskazanego
-znanego faktu pozostają błędem.
-
-Schemat wymaga teraz wyłącznie ID artykułów z bieżącej paczki we wszystkich
-ustaleniach, także potwierdzeniach. Dawne potwierdzenia pozostają w rejestrze
-i są łączone przez kod. Usuwa to możliwość skopiowania źródła innego znanego
-faktu tylko dlatego, że jego ID występowało gdzieś w poprzednim rejestrze.
-
-Powtórzenie tego samego poprawnego ID w `covered_fact_ids` jest normalizowane
-lokalnie z zachowaniem kolejności. Nie ponawia całej kontroli i nie zmienia
-decyzji o nowości. W historii pozostają zarówno znormalizowane decyzje, jak
-i oryginalna odpowiedź, jeśli usunięto powtórzenia. Każde ID jest wcześniej
-sprawdzane: obce, własne i przyszłe odwołania nadal są odrzucane.
-
-## Jawny wynik naprawy dla każdego artykułu — v69
-
-Naprawa pominiętych artykułów ma osobny format `article_results` i etap
-`perspective_article_coverage`. Każdy ID artykułu jest wymaganym kluczem,
-którego wynik zawiera niepustą listę ustaleń albo konkretny powód braku
-informacji o wydarzeniu. Pusta lista z pustym powodem nie przechodzi już
-schematu API. Nie zmienia to zwykłej ekstrakcji, liczby artykułów w paczce,
-modelu ani równoległości.
-
-Ustalenie pod kluczem artykułu jest jawnym przypisaniem mu treści przez model;
-nie ma drugiej listy `article_ids`, która mogłaby pominąć ten sam materiał.
-Kod przekształca takie wyniki w dotychczasowy rejestr, zachowuje typy i znane
-ID oraz nadal sprawdza treść i uzasadnienia. Nie przypisuje brakującemu
-artykułowi faktów innego źródła ani nie dopisuje automatycznie powodów.
-„Brak nowych informacji” wymaga potwierdzeń znanych faktów, a nie wykluczenia.
-Naprawa nadal czyta pełne treści tylko pominiętych materiałów w paczkach do
-dwóch. Wspólna definicja schematu faktu ogranicza powtarzanie listy znanych ID.
+# AI-only i publikacja perspektyw — v74
+
+Obowiązująca wersja: `ai-prompts-v74-current-evidence-ledger`.
+Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
+pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
+`fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok v74
+ma dodatkowo `publication_version=2`.
+
+## Cel publikacji
+
+Czytelnik najpierw dostaje krótki, aktualny opis wydarzenia. Osobno może sprawdzić
+ustalenia ze źródłami, oceny i interpretacje oraz tło. Profil polityczny portalu
+nie decyduje o prawdziwości i nie dowodzi przemilczania tematu. Dwa portale mogą
+uzupełniać się albo cytować tę samą depeszę lub cudzą ocenę.
+
+- `FACT`: neutralna informacja; trafia do części ogólnej także wtedy, gdy
+  pochodzi z jednego źródła. Sformułowania nie mogą obiecywać niezależnej weryfikacji.
+- `STATEMENT`: wypowiedź, zapowiedź lub zarzut z nazwanym autorem. Zarzut nie
+  staje się ustalonym faktem.
+- `EDITORIAL`: ocena lub interpretacja redakcji/analityka. Jest wyświetlana
+  raz, z autorem i źródłami, które ją przytaczają. Cytowanie Le Monde przez
+  prawicowy portal nie jest automatycznie własnym stanowiskiem tego portalu.
+- Materiał pochodzący wyłącznie z mediów kontrolowanych przez państwo pozostaje
+  osobnym doniesieniem. Nie trafia do neutralnej syntezy. Dotyczy to również
+  widoku starych zapisów oraz archiwalnych tekstów dołączonych przy scaleniu.
+
+Lista źródeł i pasek pokazują wszystkie przypisane artykuły. Nie są liczbą
+niezależnych potwierdzeń; fakty pokazują własne, zaakceptowane przypisania.
+Kolory podpisów odpowiadają paskowi. Zero nadal ma napis `0%` i odcinek 4 px.
+
+## Jeden przebieg
+
+1. Nadaj nazwy nieprzetworzonym artykułom.
+2. Porównaj i scal kandydatów przed syntezami, uporządkuj tytuły.
+3. Uruchom jedną kolejkę opracowań. Każdy temat ma ekstrakcję nowych lub
+   zmienionych materiałów, kontrolę nowości krótkich ustaleń i najwyżej jedno
+   napisanie bieżącej syntezy.
+4. Uzupełnij brakujące kategorie.
+
+Nie ma końcowego scalania uruchamiającego drugą kolejkę. Dotyczy to `full`,
+`ai-only` i workflow jednego źródła. Ręczny tryb kompatybilności
+`merge-existing-summaries` nadal istnieje jako osobna operacja; nie jest
+wywoływany automatycznie na końcu zwykłego przebiegu.
+
+## Grupowanie tematów
+
+Próg pozostaje **0,78** dla wszystkich tematów. Wejście embeddingu to tytuł
+(do 300 znaków) i krótki bieżący opis (do 650 znaków). Jeśli kandydat nie ma
+opisu, używany jest nagłówek jego artykułu. Długie syntezy i przypadkowe wzmianki
+o innych wydarzeniach nie poszerzają tekstu embeddingu.
+
+Porównania obejmują nowe–nowe i nowe–stare, także przy ponowieniu nieukończonego
+harvestu. Nie ma par stary–stary. Para powyżej progu przechodzi dodatkowy tani
+filtr wspólnego konkretnego zdarzenia w tytule/opisie. Sama wspólna osoba lub
+państwo nie wystarcza. To konserwatywna heurystyka tekstowa: może pozostawić
+osobno dwa powiązane tematy i nie gwarantuje poprawnej identyfikacji wydarzenia.
+Nie wykonuje dodatkowego zapytania AI.
+
+Grupa zaczyna się od najsilniejszej pary. Następny temat musi pasować do obu
+stałych punktów odniesienia. Grupa może zawierać najwyżej jeden temat spoza
+bieżącej puli nowych; nowy „most” nie scala pośrednio dwóch starych historii.
+
+Przy łączeniu publikacji zachowywane są rejestry faktów, cytowania,
+identyfikatory aktualizacji, przetworzone artykuły oraz oryginalne teksty.
+Zapis unii poprzedza przekierowanie starych wątków. Operacje są idempotentne,
+ale wieloetapowy zapis REST nie jest jedną transakcją SQL. `first_published_at`
+nie zmienia się po nowej analizie; dla dawnych rekordów używany jest fallback
+`first_seen_at`. Scalenie nie zmienia czasu utworzenia przypisania artykułu
+ani nie zamienia już przeczytanego materiału w nową wiadomość.
+
+## Ekstrakcja i koszt
+
+Pełne teksty są wysyłane tylko dla nowych artykułów lub zmienionego
+`content_hash`, w paczkach do ośmiu i według limitu wielkości pakietu.
+Artykuł nie jest skracany. Wcześniejsze artykuły pozostają metadanymi/cytowaniami.
+
+Każdy zaakceptowany fakt z nowej ekstrakcji musi mieć samodzielny tekst,
+poprawny typ, przypisanie do konkretnego artykułu i dosłowny fragment
+`evidence_quote` występujący w jego pełnej treści. Wypowiedzi i oceny wymagają
+`attribution`. Sprawdzenie fragmentu chroni przed cytatem spoza artykułu;
+nie dowodzi samo w sobie, że polska parafraza logicznie wynika z cytatu.
+Znaczenie i klasyfikacja nadal zależą od modelu.
+
+Braki, obce ID, placeholdery i niepoprawne ustalenia są pomijane lokalnie.
+Nie ma napraw pokrycia ani ponownych prób generowania odpowiedzi perspektyw.
+Poprawne elementy tej samej paczki pozostają użyteczne. Pusty wynik nie jest
+interpretowany jako dowód przemilczenia przez redakcję.
+
+Wyniki każdej paczki są zapisywane w `topic_runs`, etap
+`ARTICLE_EXTRACTION_CACHE`, zanim worker wyśle kolejne zapytanie. Klucz obejmuje
+wersję ekstraktora, model, temat, identyfikator i treść artykułu oraz profil
+źródła. Ponowienie po awarii wykorzystuje zapisane wyniki, także oznaczone jako
+pominięte. Zmiana treści/modelu/tematu/wersji ekstraktora unieważnia trafienie.
+Odczyt cache korzysta z klucza głównego tabeli, nie wymaga nowego indeksu.
+Błąd zapisu cache zatrzymuje dany temat przed dalszym wydawaniem tokenów.
+
+Domyślne ustawienia:
+
+| Ustawienie | Wartość | Zakres |
+| --- | --- | --- |
+| `AI_TOPIC_MAX_CALLS` | 16 (minimum 3) | Wszystkie zapytania perspektyw na temat; z rezerwą na audyt i tekst |
+| `AI_STAGE_MAX_OUTPUT_TOKENS` | 16000 | Limit odpowiedzi jednego zapytania, razem z rozumowaniem |
+| `OPENAI_EXTRACTION_REASONING_EFFORT` | low | Ekstrakcja i kontrola nowości, modele gpt-5 |
+| `AI_SUMMARY_REASONING_EFFORT` | medium | Pisanie krótkiej syntezy |
+| `AI_SUMMARY_CONCURRENCY` | 10 | Równoległe tematy, zapisy bazy na koordynatorze |
+
+Budżet nie gwarantuje kompletności. Po jego wyczerpaniu pozostały materiał
+jest pomijany zamiast uruchamiania pętli napraw. Poprawnie zakończona analiza
+zapisuje artykuły jako przetworzone, również jeśli nie dostarczyły użytecznych
+ustaleń. Nie uruchamia ponownie takich pominięć przy każdym `ai-only`.
+`quality_report` rozróżnia artykuły rzeczywiście wysłane, użyte z cache,
+pominięte ustalenia, pominięte etapy i koszt tokenów; log zawiera ID tematu.
+Limity te nie obejmują etykietowania, kategorii, embeddingów ani ręcznych
+narzędzi starego formatu.
+
+## Nowość i bieżący tekst
+
+Audyt porównuje krótkie treści, nigdy pełne artykuły. Ma do 24 kandydatów
+w paczce i maksymalnie osiem najbliższych tekstowo znanych ustaleń na kandydata.
+Działa także dla pierwszej publikacji. Krótkie aliasy `K1`, `C1` zastępują
+przepisywanie hashy. Model wybiera `NEW`, `DUPLICATE` albo `DETAIL`.
+
+Walidacja blokuje odniesienia do siebie, obcych i późniejszych ID, ewidentnie
+niezwiązanych treści, zmianę typu oraz zrównanie różnych liczb/zaprzeczeń.
+Błędna decyzja usuwa tylko niepewnego kandydata, bez próby poprawy. Jednoznaczny
+duplikat uzupełnia źródła istniejącego faktu; nie dodaje aktualizacji.
+Nie przenosimy wszystkich cytowań zdania złożonego na wszystkie jego składowe.
+Dobór podobnych tekstów i walidacje są heurystykami, nie formalnym dowodem
+równoważności. Różne parafrazy mogą pozostać osobno.
+
+`base_summary` pozostaje archiwum pierwszej publikacji. `current_summary`
+jest odświeżane raz, gdy zmieniły się ustalenia lub po scaleniu rejestrów.
+Same nowe potwierdzenia nie kupują kolejnego pisania i nie tworzą aktualizacji.
+Niepoprawne akapity są pomijane. Jeśli model nie zwróci żadnego użytecznego
+akapitu, krótką syntezę tworzą zaakceptowane ustalenia z przypisaniem do źródła,
+bez kolejnego zapytania. Zmieniony artykuł traci stare cytowania przed ponowną
+ekstrakcją; niepodparte innym źródłem stare ustalenia znikają z bieżącego rejestru.
+Archiwum pozostaje zachowane.
+
+## Widok i kontekst
+
+Najpierw bieżąca synteza, potem oceny i kontekst; pełny rejestr jest w zakładce
+Fakty. Historia aktualizacji oraz wcześniejsze teksty są zwinięte i oznaczone
+jako historia. Obecność informacji w archiwum nie usuwa jej z bieżącego stanu.
+Wielokrotne identyczne karty ocen są łączone z sumą ich źródeł.
+
+Kontekst jest opcjonalny. Ma wyjaśniać wcześniejsze wydarzenia, uwarunkowania,
+instytucje i mechanizmy. Nie ma być streszczeniem ani opisem „o czym jest artykuł”.
+Krótkie odniesienie do znanego faktu jest dozwolone, jeśli prowadzi do dodatkowego
+objaśnienia. Organizacja wymaga opisu działalności/roli, nie samej nazwy.
+Treść musi mieć podstawę w dostępnych ustaleniach; biogramów nie dopisujemy
+z pamięci. Puste lub oznaczone `needs_verification` tło nie jest pokazywane.
+
+Indeks listy zawiera podgląd syntezy i metadane aktualizacji. Nie zawiera
+rejestru faktów, cytatów ani audytu nowości aktualizacji. Pełny szczegół jest
+pobierany po otwarciu. Tekst aktualizacji pozostaje dokładny, aby zachować
+zgodność oznaczenia przeczytania między podglądem i pełnym widokiem.
+
+## Wdrożenie i ograniczenia danych historycznych
+
+Nie jest potrzebna nowa migracja SQL. Kod nie uruchamia sam regeneracji całej
+bazy ani automatycznego dzielenia błędnie scalonych dawnych wątków.
+Frontend od razu scala identyczne oceny w jednym widoku, zwija historię i
+ukrywa placeholdery oraz niezweryfikowany kontekst. Stare parafrazy, błędne
+cytowania i nietrafne scalenia zapisane przed v74 mogą nadal wymagać osobnej
+korekty. Nowa synteza powstaje przy następnym kwalifikującym się przetwarzaniu;
+bez nowych danych nie kupujemy jej tylko dlatego, że zmienił się kod.
+
+Testy obejmują przykłady Francji, sankcji i Ukrainy z publicznego snapshotu
+`ded1b21dd927e527f0d4`, błąd transportu w połowie ekstrakcji i ponowienie z cache,
+awarię zapisu, zmianę treści artykułu, budżet, nieuwzględnianie starych par,
+rozróżnienie autora oceny od cytującej redakcji i zachowanie historii.
+Odpowiedzi API są symulowane; testy nie zastępują kontroli jakości kolejnych
+rzeczywistych odpowiedzi modelu.

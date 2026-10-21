@@ -10,8 +10,8 @@ można pozostawić listę pustą lub wkleić od 2 do 20 `topic_id`.
 Pierwsze uruchomienie może wyzwolić push na izolowaną gałąź
 `diagnostics/embedding-france-20261019`; push na main nie uruchamia obliczenia.
 
-- A: dokładna produkcyjna funkcja `_topic_embedding_text`, z dotychczasowymi
-  limitami 1200 znaków syntezy i 1800 znaków całego pakietu.
+- A: dokładna produkcyjna funkcja `_topic_embedding_text`: tytuł do 300 znaków
+  i bieżący krótki opis do 650 znaków.
 - B: tylko aktualny tytuł i pełny zapisany krótki opis, bez syntezy i nagłówków.
 
 Opis nie jest gwarantowany dla każdego kandydata: powstaje przy pierwszej
@@ -21,7 +21,8 @@ Przekierowane wątki zachowują wskazane ID i jawny status w raporcie.
 
 Oba warianty dostają ten sam snapshot odczytu, model `text-embedding-3-small`
 i liczbę wymiarów jak workflow główny. Jedno zapytanie embeddingów obejmuje
-zwykle 16 tekstów dla 8 wątków (identyczne teksty są deduplikowane). Pozostałe
+do 16 tekstów dla 8 wątków (identyczne teksty są deduplikowane).
+Od v74 warianty często są identyczne; wtedy wysyłane jest tylko 8 tekstów. Pozostałe
 obliczenia są lokalne. Nie ma wywołań modelu czatu. Ponowienia API zachowują
 dotychczasowy limit; użycie tokenów trafia do raportu.
 
@@ -36,3 +37,7 @@ wątki; niższy próg nie musi zmniejszać liczby grup przy obecnej regule dwóc
 punktów odniesienia. Niskie wartości nie są rekomendacją dla produkcji.
 Raport nie ocenia, czy zbliżone wydarzenia powinny być
 jednym wątkiem; wynik nie zmienia produkcyjnego progu.
+
+Symulacja pokazuje grupowanie według obu kotwic w wybranym zestawie. Nie
+stosuje produkcyjnego filtra konkretnego zdarzenia ani podziału nowe/stare;
+nie jest prognozą liczby scaleń w zwykłym przebiegu.

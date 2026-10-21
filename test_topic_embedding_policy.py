@@ -34,10 +34,10 @@ class TopicPolicyTests(unittest.TestCase):
         for ukraine_ids in (None, {'a'}, {'a', 'b', 'c'}):
             with self.subTest(ukraine_ids=ukraine_ids):
                 groups = ai.build_anchored_embedding_groups(list('abcdef'), edges, ukraine_ids=ukraine_ids)
-                self.assertEqual(groups[0]['topic_ids'], ['a', 'b', 'c', 'd'])
+                self.assertEqual(groups[0]['topic_ids'], ['a', 'b'])
                 self.assertNotIn('e', groups[0]['topic_ids'])
                 self.assertNotIn('f', groups[0]['topic_ids'])
-                self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .78)
+                self.assertAlmostEqual(groups[0]['minimum_anchor_similarity'], .90)
 
     def test_diagnostic_simulations_apply_selected_threshold_to_every_topic(self):
         self.assertEqual(ai.embedding_pair_threshold('a', 'b', .85, {'a', 'b'}), .85)

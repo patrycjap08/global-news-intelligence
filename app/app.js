@@ -41,7 +41,7 @@ let openDialogTopicId = null;
 let dialogRequestToken = 0;
 const REQUEST_TIMEOUT_MS = 15000;
 const LOAD_TIMEOUT_MS = 90000;
-const SUMMARY_PREVIEW_COLUMNS = 'current_fact_classification_version:summary->perspective_state->fact_classification_version,fact_classification_version:summary->base_summary->fact_classification_version,current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
+const SUMMARY_PREVIEW_COLUMNS = 'current_topic:summary->current_summary->topic,current_text:summary->current_summary->summary_pl,publication_version:summary->current_summary->publication_version,current_fact_classification_version:summary->perspective_state->fact_classification_version,fact_classification_version:summary->base_summary->fact_classification_version,current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
 const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
 const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
@@ -537,8 +537,11 @@ function topicModel(topic) {
   const summaryRow = state.summaries.get(topic.topic_id) || {};
   const storedSummary = summaryRow.summary || summaryRow;
   const baseSummary = storedSummary.base_summary || storedSummary;
-  const summary = { ...baseSummary, ...(storedSummary.perspective_state || {}) };
-  if (summary.perspective_version === 1) summary.synthesis_coverage_mode = baseSummary.synthesis_coverage_mode ?? baseSummary.coverage_mode;
+  const currentSummary = storedSummary.current_summary || baseSummary;
+  const summary = { ...currentSummary, ...(storedSummary.perspective_state || {}) };
+  summary.facts = uniqueFacts(summary.facts || []);
+  summary.background_context = (summary.background_context || []).filter(item => !item.needs_verification && usableDisplayFact(item));
+  if (summary.perspective_version === 1) summary.synthesis_coverage_mode = currentSummary.synthesis_coverage_mode ?? currentSummary.coverage_mode;
   const stateOnly = articles.length > 0 && articles.every(isStateSource);
   if (stateOnly) {
     // Apply to previews and historical stored publications as well. Keep
@@ -579,6 +582,8 @@ function topicModel(topic) {
     newestArticleAt,
     profileCounts,
     summary: hasAggregation ? summary : {},
+    originalSummary: baseSummary,
+    mergedPublications: storedSummary.merged_publications || [],
     latestUpdate: hasAggregation && !stateOnly ? latestUpdate : {},
     latestAnalysisStatus: storedSummary.last_analysis?.status || latestUpdate.status || null,
     updates: hasAggregation && !stateOnly ? updates : [],
@@ -658,8 +663,9 @@ async function fetchRowsForIds(table, column, ids, query, options) {
 function summaryPreview(row) {
   if (row.summary) return row;
   return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
-    summary: { base_summary: { topic: row.base_topic || row.legacy_topic || {},
-      summary_pl: row.base_text || row.legacy_text || '', perspective_version: row.perspective_version, fact_classification_version: row.current_fact_classification_version ?? row.fact_classification_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
+    summary: { base_summary: { topic: row.current_topic || row.base_topic || row.legacy_topic || {},
+      publication_version: row.publication_version,
+      summary_pl: row.current_text ?? row.base_text ?? row.legacy_text ?? '', perspective_version: row.perspective_version, fact_classification_version: row.current_fact_classification_version ?? row.fact_classification_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
       latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
       last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
 }
@@ -1039,18 +1045,67 @@ function cardHtml(model, index) {
   </article>`;
 }
 
+function displayFactText(item) {
+  if (typeof item === 'string') return item;
+  if (!item || typeof item !== 'object') return '';
+  return item.text_pl || item.text || item.fact_pl || item.fact || item.claim || item.description_pl || item.description || item.explanation_pl || item.agreement_pl || item.agreement || item.point_pl || item.point || item.differences_pl || item.difference_pl || item.difference || item.frame || item.tone_pl || item.tone || item.signal_pl || item.signal || item.reason || item.context_pl || item.context || item.unknown_pl || item.unknown || item.contradiction_pl || item.contradiction || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || item.notes_pl || item.notes || item.name || item.term || '';
+}
+
+function usableDisplayFact(item) {
+  const text = String(displayFactText(item)).trim();
+  return Boolean(text) && !/\?\?|\b\d{2,4}\?|\b\d+:\?|\w+\/\w+\?|(?:brak|bez) (?:dodatkowych |nowych )?(?:ustaleń|faktów)/i.test(text)
+    && !/^(?:i |oraz |ale |(?:stwierdził|twierdzi|dodał|dodaje|powiedział|podkreśla|podkreślił|uważa|ocenił|zaznaczył|zapewnił)(?=\s|[,.:]|$)|on |ona |oni |to (?:oznacza|potwierdza))/i.test(text);
+}
+
+function uniqueFacts(items) {
+  const records = new Map();
+  for (const item of items.filter(usableDisplayFact)) {
+    const text = displayFactText(item);
+    const key = normalizeDisplayText(text).replace(/\s+/g, ' ').trim().toLocaleLowerCase('pl').replace(/\.$/, '');
+    if (!records.has(key)) records.set(key, typeof item === 'string' ? item : { ...item, article_ids: [...(item.article_ids || [])] });
+    else if (typeof item === 'object' && typeof records.get(key) === 'object') {
+      const old = records.get(key);
+      old.article_ids = [...new Set([...old.article_ids, ...(item.article_ids || [])])];
+      old.evidence = { ...(old.evidence || {}), ...(item.evidence || {}) };
+    }
+  }
+  return [...records.values()];
+}
+
+function editorialCards(sections) {
+  return uniqueFacts(['EDITORIAL', 'LEFT', 'RIGHT', 'CENTER'].flatMap(g => sections?.[g] || []));
+}
+
+function editorialCardsHtml(items) {
+  const labels = { LEFT: 'Lewicowe', CENTER: 'Centrum', RIGHT: 'Prawicowe', STATE: 'Państwowe' };
+  return items.map(item => {
+    const profiles = [...new Set((item.article_ids || []).map(id => articleMap().get(String(id))).filter(Boolean).map(editorialGroup))];
+    const carried = profiles.map(g => `<span class="profile-share-${g.toLowerCase()}">${labels[g] || g}</span>`).join(' · ');
+    return `<div class="editorial-card">${carried ? `<p class="editorial-carried">Przytaczają: ${carried}</p>` : ''}<ul class="insight-list">${listValue([item])}</ul></div>`;
+  }).join('');
+}
+
 function listValue(value) {
   if (!Array.isArray(value)) return '';
-  return value.map((item) => {
+  return uniqueFacts(value).map((item) => {
     if (typeof item === 'string') return `<li class="insight-item">${richTextHtml(item)}</li>`;
-    const primary = item.text_pl || item.text || item.fact_pl || item.fact || item.claim || item.description_pl || item.description || item.explanation_pl || item.agreement_pl || item.agreement || item.point_pl || item.point || item.differences_pl || item.difference_pl || item.difference || item.frame || item.tone_pl || item.tone || item.signal_pl || item.signal || item.reason || item.context_pl || item.context || item.unknown_pl || item.unknown || item.contradiction_pl || item.contradiction || item.event || item.headline_pl || item.what_changed_pl || item.new_information_pl || '';
+    const primary = displayFactText(item);
     const notes = item.notes_pl || item.notes || '';
     const text = primary && notes && primary !== notes ? `${primary} ${notes}` : primary || notes;
     const marker = item.date || item.time || item.period || item.name || item.term || '';
     const rendered = marker && text ? `${marker} — ${text}` : text || marker || JSON.stringify(item);
     const sources = itemArticleSources(item);
     const sourceHtml = sources.length ? `<div class="insight-sources">${escapeHtml(sources.join(' · '))}</div>` : '';
-    return `<li class="insight-item">${richTextHtml(rendered)}${sourceHtml}</li>`;
+    const kind = { FACT: 'Informacja', STATEMENT: 'Wypowiedź lub zarzut', EDITORIAL: 'Ocena lub interpretacja' }[item.kind];
+    const attribution = item.attribution ? `<p class="claim-attribution">Autor: ${escapeHtml(item.attribution)}</p>` : '';
+    const evidence = Object.entries(item.evidence || {}).map(([aid, e]) => {
+      const article = articleMap().get(String(aid));
+      if (!article || !e.quote) return '';
+      const url = article.original_url || article.canonical_url || '';
+      const source = /^https?:\/\//i.test(url) ? `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(article.source_name)}</a>` : escapeHtml(article.source_name);
+      return `<blockquote>${escapeHtml(e.quote)}<cite>${source}</cite></blockquote>`;
+    }).join('');
+    return `<li class="insight-item">${kind ? `<small class="claim-kind">${kind}</small>` : ''}${richTextHtml(rendered)}${attribution}${sourceHtml}${evidence ? `<details class="claim-evidence"><summary>Fragmenty źródeł</summary>${evidence}</details>` : ''}</li>`;
   }).join('');
 }
 
@@ -1105,42 +1160,34 @@ function coverageNotice(summary) {
 function perspectiveSectionsHtml(summary, detailsState, updates = []) {
   if (summary.perspective_version !== 1) return '';
   if (detailsState !== 'ready') return '<p class="perspective-pending">Perspektywy będą dostępne po pobraniu pełnego opracowania.</p>';
-  const labels = { LEFT: 'Źródła lewicowe', RIGHT: 'Źródła prawicowe', CENTER: 'Źródła centrowe', STATE: 'Media kontrolowane przez państwo' };
-  // The current fact ledger includes later additions. Those already have a
-  // place in the update timeline; do not repeat them in the sections below
-  // the original synthesis. Keep the stored ledger and update history intact.
-  const textKey = fact => normalizeDisplayText(typeof fact === 'string' ? fact : fact?.text_pl || fact?.text || '')
-    .replace(/\s+/g, ' ').trim().toLocaleLowerCase('pl');
-  const sections = Object.fromEntries(Object.keys(labels).map(group => {
-    const updateFacts = updates.flatMap(update => [
-      ...(Array.isArray(update.perspective_sections?.[group]) ? update.perspective_sections[group] : []),
-      ...(Array.isArray(update.promoted_facts) ? update.promoted_facts : []),
-    ]);
-    const updateIds = new Set(updateFacts.map(fact => fact?.fact_id).filter(Boolean));
-    const updateTexts = new Set(updateFacts.map(textKey).filter(Boolean));
-    return [group, (summary.perspective_sections?.[group] || []).filter(fact =>
-      !updateIds.has(fact?.fact_id) && !updateTexts.has(textKey(fact)))];
-  }));
-  const groups = Object.keys(labels).filter(g => sections[g].length);
-  if (!groups.length) return '';
-  const heading = summary.fact_classification_version === 1 ? 'Perspektywy źródeł' : 'Co dodatkowo podają źródła';
-  return `<section class="perspectives-section"><h3>${heading}</h3><div class="perspective-tabs" role="tablist" aria-label="Dodatkowe perspektywy">${groups.map((g,i) => `<button type="button" role="tab" id="perspective-tab-${g}" data-perspective-tab="${g}" aria-controls="perspective-panel-${g}" aria-selected="${i===0}" class="perspective-tab ${i===0?'is-active':''}">${labels[g]}</button>`).join('')}</div>${groups.map((g,i) => `<div role="tabpanel" id="perspective-panel-${g}" aria-labelledby="perspective-tab-${g}" data-perspective-panel="${g}" ${i===0?'':'hidden'}><ul class="insight-list">${listValue(sections[g])}</ul></div>`).join('')}</section>`;
+  const opinions = editorialCards(summary.perspective_sections);
+  const stateFacts = uniqueFacts(summary.perspective_sections?.STATE || []);
+  return (opinions.length ? `<section class="perspectives-section"><h3>${summary.fact_classification_version ? 'Oceny i interpretacje' : 'Informacje uzupełniające'}</h3><p class="insight-subtitle">Jedna treść może być przytaczana przez źródła o różnych profilach. Samo cytowanie nie oznacza poparcia tej oceny przez redakcję.</p>${editorialCardsHtml(opinions)}</section>` : '')
+    + (stateFacts.length ? `<section class="perspectives-section"><h3>Media kontrolowane przez państwo</h3><ul class="insight-list">${listValue(stateFacts)}</ul></section>` : '');
 }
 
 function perspectiveUpdateLabel(update) {
-  if (!update.perspective_sections) return 'AKTUALIZACJA';
+  if (!update.perspective_sections && !update.section_counts) return 'AKTUALIZACJA';
   const mapping = update.fact_classification_version === 1 ? CLASSIFIED_UPDATE_LABELS : PERSPECTIVE_LABELS;
-  const labels = Object.keys(mapping).filter(g => update.perspective_sections[g]?.length).map(g => mapping[g]);
-  if (update.promoted_facts?.length) labels.push('Szersze potwierdzenie');
+  const count = g => update.perspective_sections?.[g]?.length || update.section_counts?.[g] || 0;
+  if (update.fact_classification_version === 1) {
+    return [count('COMMON') ? 'Nowe ustalenia' : '',
+      ['EDITORIAL', 'LEFT', 'CENTER', 'RIGHT'].some(g => count(g)) ? 'Nowe oceny i interpretacje' : '',
+      count('STATE') ? 'Nowe doniesienia mediów państwowych' : ''].filter(Boolean).join(' · ') || 'AKTUALIZACJA';
+  }
+  const labels = Object.keys(mapping).filter(g => count(g)).map(g => mapping[g]);
+  if (count('EDITORIAL')) labels.push('Nowe oceny i interpretacje');
   return labels.join(' · ') || 'AKTUALIZACJA';
 }
 
 function perspectiveUpdateHtml(update) {
   if (!update.perspective_sections) return richTextHtml(updateText(update));
-  const labels = update.fact_classification_version === 1 ? CLASSIFIED_UPDATE_LABELS : PERSPECTIVE_LABELS;
-  return Object.entries(labels).filter(([g]) => update.perspective_sections[g]?.length)
-    .map(([g,label]) => `<h4>${label}</h4><ul class="insight-list">${listValue(update.perspective_sections[g])}</ul>`).join('')
-    + (update.promoted_facts?.length ? `<h4>Szersze potwierdzenie</h4><ul class="insight-list">${listValue(update.promoted_facts)}</ul>` : '');
+  const common = uniqueFacts(update.perspective_sections.COMMON || []);
+  const opinions = editorialCards(update.perspective_sections);
+  const stateFacts = uniqueFacts(update.perspective_sections.STATE || []);
+  return (common.length ? `<h4>Nowe ustalenia</h4><ul class="insight-list">${listValue(common)}</ul>` : '')
+    + (opinions.length ? `<h4>Nowe oceny i interpretacje</h4>${editorialCardsHtml(opinions)}` : '')
+    + (stateFacts.length ? `<h4>Nowe doniesienia mediów państwowych</h4><ul class="insight-list">${listValue(stateFacts)}</ul>` : '');
 }
 
 function dialogHtml(model, { detailsState = 'ready' } = {}) {
@@ -1162,7 +1209,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   }).join('');
   const factsOnly = summary.perspective_version === 1 && !summary.summary_pl;
   const summaryPanel = summary.summary_pl
-    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? (summary.perspective_version === 1 ? 'Synteza pierwotna' : 'Synteza') : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
+    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? (summary.publication_version === 2 ? 'Aktualna synteza' : 'Synteza') : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
     : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
   const factsPanel = detailsState !== 'ready'
     ? `<section class="dialog-section"><h3>Fakty</h3><p>${detailsState === 'error' ? 'Fakty będą dostępne po pobraniu pełnego opracowania. Użyj przycisku „Spróbuj ponownie” u góry.' : 'Trwa pobieranie faktów…'}</p></section>`
@@ -1172,11 +1219,10 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     ${coverageNotice(summary)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
-    <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
+    ${detailsState !== 'ready' || !summary.summary_pl ? `<p class="dialog-lead">${richInlineHtml(model.lead)}</p>` : ''}
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
-    ${updatesHtml}
-    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : summary.fact_classification_version === 1 ? 'W zebranych materiałach nie ma neutralnych ustaleń do syntezy. Dostępne są perspektywy źródeł.' : 'Źródła o różnych profilach nie podają wspólnych informacji.'}</p>` : `
+    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : summary.fact_classification_version === 1 ? 'W zebranych materiałach nie ma neutralnych ustaleń do syntezy. Dostępne są perspektywy źródeł.' : 'Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.'}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
       ${factsOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
       <button class="dialog-tab ${factsOnly ? 'is-active' : ''}" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="${factsOnly}" aria-controls="dialog-panel-facts">Fakty</button>
@@ -1186,6 +1232,9 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     `}
     ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
     ${stateOnly ? '' : section('Kontekst', summary.background_context, 'insight-context')}
+    ${updatesHtml ? `<details class="publication-history"><summary>Co się zmieniło — historia aktualizacji (${model.updates.length})</summary>${updatesHtml}</details>` : ''}
+    ${!stateOnly && model.originalSummary?.summary_pl && model.originalSummary.summary_pl !== summary.summary_pl ? `<details class="publication-history"><summary>Pierwsza opublikowana synteza</summary><div class="summary-copy">${richTextHtml(synthesisParagraphs(model.originalSummary.summary_pl))}</div></details>` : ''}
+    ${!stateOnly && (model.mergedPublications || []).length ? `<details class="publication-history"><summary>Opracowania dołączone przy scalaniu (${model.mergedPublications.length})</summary>${model.mergedPublications.map(p => `<h3>${escapeHtml(p.base_summary?.topic?.headline_pl || '')}</h3><div class="summary-copy">${richTextHtml(p.base_summary?.summary_pl || '')}</div>`).join('')}</details>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
 }

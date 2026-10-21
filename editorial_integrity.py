@@ -1,0 +1,106 @@
+"""Cheap, conservative publication checks. These do not establish truth.
+
+Uncertain material is omitted, never repaired by inventing evidence or buying
+another model response. Original publications remain available in history.
+"""
+import copy
+import hashlib
+import json
+import re
+import unicodedata
+
+EXTRACTOR_VERSION = 'article-evidence-v1'
+
+
+def text_key(text):
+    return re.sub(r'\s+', ' ', str(text or '')).strip().casefold().rstrip('. ')
+
+
+def tokens(text):
+    text = unicodedata.normalize('NFKD', text_key(text).replace('ł', 'l'))
+    text = ''.join(c for c in text if not unicodedata.combining(c))
+    stop = {'przez', 'ktory', 'ktora', 'ktore', 'tego', 'jest', 'oraz', 'jako', 'bylo',
+            'jego', 'przed', 'takze', 'wedlug', 'zostal', 'zostala', 'powiedzial'}
+    return {w[:6] for w in re.findall(r'[^\W\d_]{4,}', text) if w not in stop}
+
+
+def usable_claim(text):
+    text = str(text or '').strip()
+    if not text or len(text.split()) < 2:
+        return False
+    if re.search(r'\?\?|\b\d{2,4}\?|\b\d+:\?|\w+/\w+\?|\b(?:brak|bez) (?:dodatkowych |nowych |istotnych )?(?:faktów|ustaleń|informacji)\b', text, re.I):
+        return False
+    # A detached continuation or pronoun without its subject is not a claim.
+    if re.match(r'^(?:i |oraz |ale |(?:stwierdził|twierdzi|dodał|dodaje|powiedział|podkreśla|podkreślił|uważa|ocenił|zaznaczył|zapewnił)\b|on |ona |oni |to (?:oznacza|potwierdza))', text, re.I):
+        return False
+    return True
+
+
+def related_claims(left, right):
+    """Reject plainly unrelated references; semantic equivalence still needs AI."""
+    a, b = tokens(left), tokens(right)
+    return bool(a and b and len(a & b) >= min(2, len(a), len(b))
+                and len(a & b) / min(len(a), len(b)) >= .35)
+
+
+def compatible_duplicate(left, right):
+    if text_key(left) == text_key(right):
+        return True
+    numbers = lambda s: set(re.findall(r'\d+(?:[.,:]\d+)*', s))
+    # Different quantities/dates or polarity must remain separate versions.
+    if numbers(left) != numbers(right):
+        return False
+    if bool(re.search(r'\b(?:nie|bez|zaprzeczył|zaprzecza)\b', left, re.I)) != bool(re.search(r'\b(?:nie|bez|zaprzeczył|zaprzecza)\b', right, re.I)):
+        return False
+    return related_claims(left, right)
+
+
+def cache_key(article, model, topic_id=''):
+    body = {k: article.get(k) for k in ('article_id', 'title_original', 'body_original', 'source_id', 'source_profile', 'source_type')}
+    # Selection is event-specific: an omission for one topic must not suppress
+    # useful information when the same article is assigned to another topic.
+    return hashlib.sha256(json.dumps([EXTRACTOR_VERSION, model, topic_id, body], ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+
+def merge_publications(canonical, others):
+    """Union publication ledgers without turning a technical merge into news.
+
+    Keep originals and update IDs. Repeating an interrupted merge is idempotent.
+    The next summary pass refreshes the narrative once from the merged ledger.
+    """
+    result = copy.deepcopy(canonical)
+    base = result.get('base_summary') or result
+    if base.get('perspective_version') != 1:
+        return result
+    facts, updates, processed, archives, hashes = {}, {}, set(), {}, {}
+    sources = [('', canonical), *others]
+    by_text = {}
+    for tid, stored in sources:
+        old_base = stored.get('base_summary') or stored
+        state = stored.get('perspective_state') or old_base
+        for raw in state.get('perspective_facts') or []:
+            if not usable_claim(raw.get('text_pl')):
+                continue
+            key = (text_key(raw['text_pl']), raw.get('kind'))
+            fid = by_text.setdefault(key, raw['fact_id'])
+            existing = facts.setdefault(fid, {**copy.deepcopy(raw), 'fact_id': fid})
+            existing['article_ids'] = list(dict.fromkeys([*existing.get('article_ids', []), *raw.get('article_ids', [])]))
+            existing['evidence'] = {**existing.get('evidence', {}), **raw.get('evidence', {})}
+        for update in stored.get('updates') or []:
+            uid = update.get('update_id') or hashlib.sha256(json.dumps(update, sort_keys=True).encode()).hexdigest()
+            updates.setdefault(uid, copy.deepcopy(update))
+        processed.update(stored.get('processed_article_ids') or [])
+        hashes.update(stored.get('article_content_hashes') or {})
+        for archive in stored.get('merged_publications') or []:
+            archives[archive['topic_id']] = copy.deepcopy(archive)
+        if tid:
+            archives[tid] = {'topic_id': tid, 'base_summary': copy.deepcopy(old_base),
+                             'first_published_at': stored.get('first_published_at')}
+    result['perspective_state'] = {**(result.get('perspective_state') or base), 'perspective_facts': list(facts.values())}
+    result['updates'] = sorted(updates.values(), key=lambda u: (u.get('generated_at', ''), u.get('update_id', '')))
+    result['latest_update'] = result['updates'][-1] if result['updates'] else result.get('latest_update', {})
+    result['processed_article_ids'] = sorted(processed)
+    result['article_content_hashes'] = hashes
+    result['merged_publications'] = list(archives.values())
+    result['needs_narrative_refresh'] = True
+    return result
