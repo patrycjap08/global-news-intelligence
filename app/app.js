@@ -530,6 +530,17 @@ function markTopicRead(model) {
   saveReadTopics();
 }
 
+function missingSynthesisMessage(summary) {
+  const sections = summary.perspective_sections || {};
+  const hasAssessments = ['EDITORIAL', 'LEFT', 'RIGHT', 'CENTER'].some(key => (sections[key] || []).length > 0);
+  if (summary.fact_classification_version === 1 && !hasAssessments) {
+    return 'Nie udało się przygotować syntezy z dostępnych materiałów.';
+  }
+  return summary.fact_classification_version === 1
+    ? 'W zebranych materiałach nie ma neutralnych ustaleń do syntezy. Dostępne są perspektywy źródeł.'
+    : 'Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.';
+}
+
 function topicModel(topic) {
   const articlesById = articleMap();
   const topicLinks = indexes().linksByTopic.get(topic.topic_id) || [];
@@ -591,7 +602,7 @@ function topicModel(topic) {
     summaryUpdatedAt: summaryRow.updated_at || summaryRow.generated_at || topic.last_seen_at,
     history: hasAggregation && !stateOnly ? storedHistory : [],
     title: hasAggregation ? (topic.headline_pl || summaryTopic.headline_pl || 'Temat bez tytułu') : (topic.headline_pl || 'Temat bez tytułu'),
-    lead: stateOnly ? 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' : hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Ustalenia z dostępnych materiałów oraz aktualizacje są przedstawione poniżej.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
+    lead: stateOnly ? 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' : hasAggregation ? readableEvidenceText(summaryTopic.what_happened_one_sentence_pl || summary.summary_pl || (summary.perspective_version === 1 ? 'Zebrane materiały źródłowe są dostępne poniżej.' : 'Opracowanie tego tematu jest jeszcze niedostępne.')) : 'Opracowanie dostępne po pojawieniu się materiałów z co najmniej dwóch źródeł.',
   };
   model.lead = model.lead.replace(/;\s*/g, ', ');
   model.searchText = `${model.title} ${model.lead} ${model.sources.join(' ')}`.toLowerCase();
@@ -1096,14 +1107,7 @@ function listValue(value) {
     const rendered = marker && text ? `${marker} — ${text}` : text || marker || JSON.stringify(item);
     const sources = itemArticleSources(item);
     const sourceHtml = sources.length ? `<div class="insight-sources">${escapeHtml(sources.join(' · '))}</div>` : '';
-    const evidence = Object.entries(item.evidence || {}).map(([aid, e]) => {
-      const article = articleMap().get(String(aid));
-      if (!article || !e.quote) return '';
-      const url = article.original_url || article.canonical_url || '';
-      const source = /^https?:\/\//i.test(url) ? `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(article.source_name)}</a>` : escapeHtml(article.source_name);
-      return `<blockquote>${escapeHtml(e.quote)}<cite>${source}</cite></blockquote>`;
-    }).join('');
-    return `<li class="insight-item">${richTextHtml(rendered)}${sourceHtml}${evidence ? `<details class="claim-evidence"><summary>Fragmenty źródeł</summary>${evidence}</details>` : ''}</li>`;
+    return `<li class="insight-item">${richTextHtml(rendered)}${sourceHtml}</li>`;
   }).join('');
 }
 
@@ -1212,7 +1216,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
-    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : summary.fact_classification_version === 1 ? 'W zebranych materiałach nie ma neutralnych ustaleń do syntezy. Dostępne są perspektywy źródeł.' : 'Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.'}</p>` : `
+    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : missingSynthesisMessage(summary)}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
       ${factsOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
       <button class="dialog-tab ${factsOnly ? 'is-active' : ''}" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="${factsOnly}" aria-controls="dialog-panel-facts">Fakty</button>

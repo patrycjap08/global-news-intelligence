@@ -1,6 +1,6 @@
-# AI-only i publikacja perspektyw — v76
+# AI-only i publikacja perspektyw — v77
 
-Obowiązująca wersja: `ai-prompts-v76-inline-context`.
+Obowiązująca wersja: `ai-prompts-v77-facts-without-quotes`.
 Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
@@ -75,11 +75,13 @@ Pełne teksty są wysyłane tylko dla nowych artykułów lub zmienionego
 Artykuł nie jest skracany. Wcześniejsze artykuły pozostają metadanymi/cytowaniami.
 
 Każdy zaakceptowany fakt z nowej ekstrakcji musi mieć samodzielny tekst,
-poprawny typ, przypisanie do konkretnego artykułu i dosłowny fragment
-`evidence_quote` występujący w jego pełnej treści. Wypowiedzi i oceny wymagają
-`attribution`. Sprawdzenie fragmentu chroni przed cytatem spoza artykułu;
-nie dowodzi samo w sobie, że polska parafraza logicznie wynika z cytatu.
-Znaczenie i klasyfikacja nadal zależą od modelu.
+poprawny typ i przypisanie do konkretnego artykułu przez jego klucz
+w `article_results`. Wypowiedzi i oceny wymagają `attribution`.
+Od v77 nie żądamy cytatu ani identyfikatora fragmentu źródła i nie sprawdzamy
+dosłownego dopasowania brzmienia. Model nadal odczytuje pełne artykuły;
+kontrole ID, struktury i klasyfikacji nie są dowodem prawdziwości parafrazy.
+Poprawność znaczenia i zgodność ustalenia z materiałem nadal zależą od modelu.
+Nowe odpowiedzi i cache faktów nie wymagają ani nie dopisują `evidence_quote`.
 
 Braki, obce ID, placeholdery i niepoprawne ustalenia są pomijane lokalnie.
 Nie ma napraw pokrycia ani ponownych prób generowania odpowiedzi perspektyw.
@@ -156,7 +158,8 @@ Najpierw bieżąca synteza z potrzebnym tłem, potem oceny; pełny rejestr jest 
 Fakty. Historia aktualizacji nie jest wyświetlana; pozostaje w danych do
 audytu i oznaczeń przeczytania. Wcześniejsze syntezy pozostają zwijanym
 archiwum. Karty nie mają powtarzanych nagłówków typu informacji ani „Autor:”.
-Przypisanie wypowiedzi w treści i źródła pozostają. Rozwijane cytaty są dostępne.
+Przypisanie wypowiedzi w treści i źródła pozostają. Od v77 nie ma rozwijanych
+cytatów. Dawne fragmenty pozostają w zapisanych danych, bez wyświetlania.
 Obecność informacji w archiwum nie usuwa jej z bieżącego stanu.
 Wielokrotne identyczne karty ocen są łączone z sumą ich źródeł.
 
@@ -201,6 +204,21 @@ również przy pustych dodatkach, aby ten sam warunek nie kupował kolejnego
 pisania przy każdym AI-only. Nowe dane mogą odświeżyć syntezę według zwykłych
 zasad. `quality_report` zawiera liczbę przekazanych źródeł, znaków fragmentów
 i zaakceptowanych dodatków kontekstowych.
+
+Od v77 istniejąca publikacja v2, która jest całkowicie pusta po odrzuceniu
+ustaleń z powodu dosłownych cytatów, może otrzymać jedną ekstrakcję nowym
+protokołem. To dotyczy np. tematu protestów przewoźników we Włoszech.
+`fact_extraction_version=2` zapisuje się także po pustym wyniku. Pozostałe
+pominięcia oraz niepuste publikacje nie uruchamiają tej próby.
+Cache używa wersji `article-facts-v2`, aby stary pusty wynik odrzuconych
+cytatów nie zastąpił nowego odczytu. Nie ma pętli napraw ani ponawiania całego
+AI-only przez kod. Samo wdrożenie nie uruchamia płatnego przebiegu.
+
+Interfejs odróżnia brak zachowanych wyników ekstrakcji od opracowania
+zawierającego wyłącznie oceny. Całkowicie pusty wynik pokazuje jako
+nieprzygotowaną syntezę, zamiast twierdzić, że w materiałach nie było
+neutralnych ustaleń lub że istnieją niewidoczne perspektywy. Profil centrowy
+sam w sobie nie ustanawia prawdziwości ani typu ustalenia.
 
 Indeks listy zawiera podgląd syntezy i metadane aktualizacji. Nie zawiera
 rejestru faktów, cytatów ani audytu nowości aktualizacji. Pełny szczegół jest

@@ -36,7 +36,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v76-inline-context"
+PROMPT_VERSION = "ai-prompts-v77-facts-without-quotes"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2723,7 +2723,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
             f"czas {seconds(time.monotonic() - started)}; odczytane artykuły {raw['quality_report']['read_articles']}, "
             f"z cache {raw['quality_report']['cached_articles']}.")
         normalized = normalize_summary_response(raw)
-        for field in ("article_content_hashes", "publication_version", "inline_context_version", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("article_content_hashes", "publication_version", "fact_extraction_version", "inline_context_version", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = raw.get(field)
         return normalized
     return generate_full_article_legacy_update(payload, model)
@@ -3046,7 +3046,7 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         if not is_non_contradiction_statement(item.get("text_pl"))
     ]
     if response.get("perspective_version") == 1:
-        for field in ("article_content_hashes", "publication_version", "inline_context_version", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("article_content_hashes", "publication_version", "fact_extraction_version", "inline_context_version", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = response.get(field)
     quality = response.get("quality")
     normalized["quality"] = quality if isinstance(quality, dict) else {
@@ -5061,6 +5061,7 @@ def retry_incomplete_summaries(
             previous_updated_at = str((previous_row or {}).get("updated_at") or "")
             latest_assignment = latest_assignment_by_topic.get(topic_id, "")
             stored = (previous_row or {}).get("summary") or {}
+            fact_rebuild = integrity.needs_fact_rebuild(stored)
             refresh = bool(stored.get("needs_narrative_refresh"))
             if (stored.get('current_summary') or {}).get('publication_version') == 2:
                 current = stored['current_summary']
@@ -5069,6 +5070,9 @@ def retry_incomplete_summaries(
                     topic.get('headline_pl', ''), current.get('summary_pl', ''), ledger.get('facts') or [])
                 refresh = refresh or integrity.needs_inline_context(current)
             processed = set(stored.get("processed_article_ids") or [])
+            if fact_rebuild:
+                forced_new_ids = list(dict.fromkeys([*forced_new_ids, *all_ids]))
+                processed.difference_update(all_ids)
             perspective_topic = topic_generation(topic_id, stored_base_summary(stored)) == "perspectives"
             hashes = stored.get("article_content_hashes") or {}
             if hashes:

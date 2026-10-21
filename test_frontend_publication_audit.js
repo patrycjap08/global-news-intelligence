@@ -1,6 +1,7 @@
 const fs = require('fs'), vm = require('vm'), assert = require('assert');
 const fixture = JSON.parse(fs.readFileSync('test_data/publication_audit_20261021.json', 'utf8'));
-const context = {window: {GNI_CONFIG: {}, localStorage: {getItem: () => null, setItem: () => {}}}, document: {}, console, assert, fixture};
+const italy = JSON.parse(fs.readFileSync('test_data/italy_empty_extraction_20261021.json', 'utf8'));
+const context = {italy, window: {GNI_CONFIG: {}, localStorage: {getItem: () => null, setItem: () => {}}}, document: {}, console, assert, fixture};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('app/app.js', 'utf8').split("document.addEventListener('click'")[0], context);
 vm.runInContext(`
@@ -54,5 +55,17 @@ const preview = {status: fullUpdate.status, new_information_pl: fullUpdate.new_i
  section_counts: Object.fromEntries(Object.entries(fullUpdate.perspective_sections || {}).map(([k,v]) => [k,v.length]))};
 assert.equal(perspectiveUpdateLabel(preview), perspectiveUpdateLabel(fullUpdate));
 assert.equal(topicReadContent({...current, updates: [preview]}), topicReadContent({...current, updates: [fullUpdate]}));
+// Actual seven-article Italy record has no retained facts or assessments:
+// extraction discarded all seven quotes. Do not claim neutral news is absent.
+state.topics = [italy.topic]; state.articles = italy.articles; state.links = italy.links;
+state.summaries = new Map([[italy.topic.topic_id, italy.summary]]); invalidateViewCache();
+const failedItaly = topicModel(italy.topic), failedHtml = dialogHtml(failedItaly);
+assert.strictEqual(failedItaly.articles.filter(a => a.source_profile === 'CENTER').length, 6);
+assert(failedHtml.includes('Nie udało się przygotować syntezy z dostępnych materiałów.'));
+assert(!failedHtml.includes('nie ma neutralnych ustaleń'));
+assert(!failedHtml.includes('Dostępne są perspektywy źródeł'));
+assert(!failedItaly.lead.includes('aktualizacje są przedstawione poniżej'));
+assert(failedHtml.includes('Centrum <strong>86% (6)</strong>'));
+for (const article of italy.articles) assert(failedHtml.includes(escapeHtml(article.original_url)));
 console.log('Public audit: France, sanctions and Ukraine — one opinion, optional context, no placeholders, current text and stable history/read marks.');
 `, context);

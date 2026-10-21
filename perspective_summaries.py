@@ -215,9 +215,8 @@ def article_coverage_schema(known, article_ids, *, allow_omissions=False):
         branch['properties'].pop('article_ids')
         branch['required'].remove('article_ids')
         if allow_omissions:
-            branch['properties'].update({'evidence_quote': copy.deepcopy(NONBLANK_STRING),
-                                          'attribution': copy.deepcopy(STRING)})
-            branch['required'].extend(['evidence_quote', 'attribution'])
+            branch['properties']['attribution'] = copy.deepcopy(STRING)
+            branch['required'].append('attribution')
     result = {'anyOf': [
         obj({'facts': {'type': 'array', 'items': {'$ref': '#/$defs/article_fact'}, 'minItems': 1},
              'no_relevant_facts_reason_pl': {'type': 'string', 'enum': ['']}}),
@@ -271,12 +270,6 @@ def usable_extraction(response, batch, articles, known, normalize, topic):
             text = raw['text_pl'] or next((f['text_pl'] for f in known if f['fact_id'] == raw['known_fact_id']), '')
             if not integrity.usable_claim(text):
                 raise ValueError('Niepełne zdanie lub techniczny placeholder zamiast ustalenia.')
-            for aid in raw['article_ids']:
-                article = next((a for a in batch if str(a['article_id']) == aid), {})
-                body = article.get('body_original') or ''
-                quote = raw.get('evidence_quote', '')
-                if body and (not quote or integrity.text_key(quote) not in integrity.text_key(body)):
-                    raise ValueError('Brak dosłownego fragmentu potwierdzającego ustalenie w tym artykule.')
             if raw.get('kind') == 'EDITORIAL' and not str(raw.get('attribution') or '').strip():
                 raise ValueError('Ocena wymaga wskazania autora, a nie profilu portalu przytaczającego ocenę.')
             if raw.get('kind') == 'STATEMENT' and any(a.get('body_original') for a in batch) and not str(raw.get('attribution') or '').strip():
@@ -286,7 +279,9 @@ def usable_extraction(response, batch, articles, known, normalize, topic):
         except (ValueError, TypeError, KeyError) as exc:
             discarded.append(str(exc))
             continue
-        accepted.append(copy.deepcopy(raw))
+        fact = copy.deepcopy(raw)
+        fact.pop('evidence_quote', None)  # Historical model responses may still contain it.
+        accepted.append(fact)
     cited = {aid for f in accepted for aid in f['article_ids']}
     omitted = sorted(expected - cited)
     title = response.get('headline_pl')
@@ -631,8 +626,8 @@ Wiedza ogólna bez źródła: article_ids=[], needs_verification=true.
 
 ARTICLE_EXTRACTION_INSTRUCTIONS += """
 Dodatkowe obowiązkowe zasady:
-- evidence_quote to krótki DOSŁOWNY ciągły cytat z body_original danego artykułu,
-  w języku oryginału. Nie tłumacz cytatu, nie stosuj wielokropków zamiast treści.
+- Nie zwracaj dosłownych cytatów, evidence_quote ani identyfikatorów bloków.
+  Przypisanie ustalenia do artykułu wynika z jego klucza w article_results.
 - Każde ustalenie jest samodzielnym zdaniem z nazwanym podmiotem. Bez 'Dodał',
   'Stwierdził', bez fragmentów, placeholderów, znaków ?? i domyślnych dat/liczb.
 - attribution wskazuje autora wypowiedzi lub oceny (osobę, instytucję, redakcję).
@@ -642,7 +637,7 @@ Dodatkowe obowiązkowe zasady:
   uczestników są STATEMENT. Nie zmieniaj zarzutów w udowodnione fakty.
 - Nie przepisuj całej historii. Wybierz informacje dotyczące konkretnego
   zdarzenia opisanego w topic; samo wspomnienie tej samej osoby/kraju nie wystarcza.
-- Omiń informację, gdy nie masz odpowiedniego cytatu albo jednoznacznego podmiotu.
+- Omiń informację, gdy nie potrafisz jej przypisać artykułowi albo brakuje jednoznacznego podmiotu.
 """
 
 LEGACY_WRITING_INSTRUCTIONS = """
@@ -786,7 +781,7 @@ def route_facts(response, articles, previous_facts, normalize):
             # Explicit attribution may conservatively correct a historical
             # FACT to a statement/opinion. Never upgrade an opinion to truth.
             if not (old['kind'] == 'FACT' and kind in ('STATEMENT', 'EDITORIAL')
-                    and raw.get('attribution') and raw.get('evidence_quote')):
+                    and raw.get('attribution')):
                 kind = old['kind']
         if not fid:
             if known and not str(raw.get('why_new_pl') or '').strip():
@@ -1467,6 +1462,10 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                         and a.get('content_hash') and a['content_hash'] != hashes[str(a['article_id'])]}
     requested |= changed_articles
     processed -= changed_articles
+    if allow_omissions and previous is not None and integrity.needs_fact_rebuild(previous):
+        recovery_ids = {str(a['article_id']) for a in articles if article_group(a) != 'STATE'}
+        requested |= recovery_ids
+        processed -= recovery_ids
     if changed_articles:
         remaining = []
         for old in known:
@@ -1690,6 +1689,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
             result['inline_context_version'] = 1
             result['narrative_context'] = written.get('narrative_context') or []
     result['publication_version'] = 2 if allow_omissions else result.get('publication_version', 1)
+    if allow_omissions and (prepared or cached_articles):
+        result['fact_extraction_version'] = integrity.FACT_EXTRACTION_VERSION
     result['quality_report'] = {'omissions': omissions, 'novelty_omissions': omitted_novelty,
                                 'cached_articles': cached_articles, 'read_articles': len(prepared),
                                 'narrative_core_fallback': core_fallback,

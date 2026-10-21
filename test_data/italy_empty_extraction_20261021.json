@@ -1,0 +1,401 @@
+{
+  "exported_at": "2026-10-21T11:12:13.469896+00:00",
+  "generation": "9de77afe249dab55c087",
+  "topic": {
+    "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+    "headline_pl": "[Włochy] Protesty w sektorze transportowym",
+    "status": "ACTIVE",
+    "first_seen_at": "2026-10-19T09:39:23.559639+00:00",
+    "last_seen_at": "2026-10-21T09:33:53.452719+00:00",
+    "article_count": 7,
+    "source_count": 2,
+    "coverage_status": "MULTI_SOURCE",
+    "needs_review": false,
+    "merged_into_topic_id": null,
+    "merged_at": null,
+    "updated_at": "2026-10-21T09:33:53.452719+00:00",
+    "categories": [
+      "SWIAT"
+    ],
+    "is_current": true
+  },
+  "links": [
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "394a51aca605a9dfd9727237",
+      "confidence": 0.7853825573732628
+    },
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "5dea87058a5884798f109b30",
+      "confidence": 0.7853825573732628
+    },
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "677238f3254bc1c89205dcbc",
+      "confidence": 0.7853825573732628
+    },
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "9926bbe78eba7310582c3ca3",
+      "confidence": 0.7853825573732628
+    },
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "c746e536b9a3f07aa5d7be49",
+      "confidence": 0.7853825573732628
+    },
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "e74bb0a7c6961dda6792d4d9",
+      "confidence": 0.7853825573732628
+    },
+    {
+      "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+      "article_id": "ee77be12b91a76d79ca1c63e",
+      "confidence": 0.7853825573732628
+    }
+  ],
+  "articles": [
+    {
+      "article_id": "394a51aca605a9dfd9727237",
+      "source_id": "corriere",
+      "source_name": "Corriere della Sera",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "A Campobasso camion, tir e trattori sfilano in centro per la protesta di autotrasportatori e agricoltori: il video",
+      "original_url": "https://video.corriere.it/cronaca/a-campobasso-camion-tir-e-trattori-sfilano-in-centro-per-la-protesta-di-autotrasportatori-e-agricoltori-il-video/ff090eb1-f3a3-4cff-b40d-12fd7c01exlk",
+      "published_at": "2026-10-19T11:26:14+1:00",
+      "fetched_at": "2026-10-19T10:59:30.300605+00:00",
+      "word_count": 352
+    },
+    {
+      "article_id": "5dea87058a5884798f109b30",
+      "source_id": "corriere",
+      "source_name": "Corriere della Sera",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Sciopero autotrasportatori, code a Caserta",
+      "original_url": "https://video.corriere.it/video-verticali/sciopero-autotrasportatori-code-a-caserta/7d0369ed-c1e9-4a95-96ad-6c7aca8d8xlk",
+      "published_at": "2026-10-20T15:34:04+1:00",
+      "fetched_at": "2026-10-20T14:18:32.830751+00:00",
+      "word_count": 222
+    },
+    {
+      "article_id": "677238f3254bc1c89205dcbc",
+      "source_id": "la_repubblica",
+      "source_name": "La Repubblica",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "La protesta degli autotrasportatori contro il caro carburanti: tir bloccano l’A1, 8 km di coda",
+      "original_url": "https://www.repubblica.it/economia/2026/10/19/diretta/protesta_autotrasportatori_prezzo_carburanti_blocco_tir_diretta-425657973/",
+      "published_at": "2026-10-19T10:46:06Z",
+      "fetched_at": "2026-10-19T10:59:42.076307+00:00",
+      "word_count": 1762
+    },
+    {
+      "article_id": "9926bbe78eba7310582c3ca3",
+      "source_id": "corriere",
+      "source_name": "Corriere della Sera",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Sciopero autotraportatori, scaffali vuoti nel Casertano",
+      "original_url": "https://video.corriere.it/cronaca/video-verticali/sciopero-autotraportatori-scaffali-vuoti-nel-casertano/d54230ef-6048-4266-aec8-0c521354fxlk",
+      "published_at": "2026-10-20T21:44:14+1:00",
+      "fetched_at": "2026-10-21T03:49:23.274296+00:00",
+      "word_count": 233
+    },
+    {
+      "article_id": "c746e536b9a3f07aa5d7be49",
+      "source_id": "corriere",
+      "source_name": "Corriere della Sera",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Caro carburante, aziende in pressing: «Servono interventi da parte della Provincia»",
+      "original_url": "https://corrieredeltrentino.corriere.it/notizie/economia/26_ottobre_19/caro-carburante-aziende-in-pressing-servono-interventi-da-parte-della-provincia-48da92f6-f420-437d-8285-9ec978d01xlk.shtml",
+      "published_at": "2026-10-19T10:17:05+0200",
+      "fetched_at": "2026-10-19T08:18:43.867248+00:00",
+      "word_count": 826
+    },
+    {
+      "article_id": "e74bb0a7c6961dda6792d4d9",
+      "source_id": "corriere",
+      "source_name": "Corriere della Sera",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Scaffali vuoti nei supermercati in provincia di Caserta: lo sciopero degli autotrasportatori blocca i rifornimenti",
+      "original_url": "https://video.corriere.it/economia/scaffali-vuoti-nei-supermercati-in-provincia-di-caserta-lo-sciopero-degli-autotrasportatori-blocca-i-rifornimenti/0de306ac-694d-4726-a5cd-0e828ca8bxlk",
+      "published_at": "2026-10-20T12:42:33+1:00",
+      "fetched_at": "2026-10-20T10:54:08.755245+00:00",
+      "word_count": 257
+    },
+    {
+      "article_id": "ee77be12b91a76d79ca1c63e",
+      "source_id": "corriere",
+      "source_name": "Corriere della Sera",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Scaffali vuoti o quasi, distributori a secco: la protesta del Sud crea disagi anche a Nord e nel Lazio",
+      "original_url": "https://www.corriere.it/economia/consumi/26_ottobre_20/scaffali-vuoti-o-quasi-distributori-a-secco-la-protesta-del-sud-crea-disagi-anche-a-nord-e-nel-lazio-8bb9ab72-b8c1-4e67-a85c-ad8ba674dxlk.shtml",
+      "published_at": "2026-10-20T23:18:47+0200",
+      "fetched_at": "2026-10-21T03:49:23.274296+00:00",
+      "word_count": 667
+    }
+  ],
+  "summary": {
+    "topic_id": "topic_perspectives_d87167e2aade98914ada6c99",
+    "version": 1,
+    "summary": {
+      "updates": [],
+      "base_summary": {
+        "facts": [],
+        "topic": {
+          "categories": [
+            "GOSPODARKA",
+            "SWIAT"
+          ],
+          "headline_pl": "[Włochy] Protesty w sektorze transportowym",
+          "what_happened_one_sentence_pl": ""
+        },
+        "update": {
+          "status": "BASE_SUMMARY",
+          "is_update": false,
+          "new_article_ids": [],
+          "what_changed_pl": "",
+          "new_information_pl": ""
+        },
+        "quality": {
+          "source_count": 0,
+          "article_count": 0,
+          "limitations_pl": "",
+          "overall_confidence": "MEDIUM",
+          "has_multiple_perspectives": false
+        },
+        "sources": [],
+        "agreement": [],
+        "summary_pl": "",
+        "differences": [],
+        "coverage_mode": "MIXED",
+        "contradictions": [],
+        "quality_report": {
+          "tokens": {
+            "input": 11554,
+            "output": 2104,
+            "reasoning": 768
+          },
+          "api_calls": 1,
+          "omissions": [
+            {
+              "discard_reasons": [
+                "Brak dosłownego fragmentu potwierdzającego ustalenie w tym artykule."
+              ],
+              "ignored_article_ids": [],
+              "omitted_article_ids": [
+                "394a51aca605a9dfd9727237",
+                "5dea87058a5884798f109b30",
+                "677238f3254bc1c89205dcbc",
+                "9926bbe78eba7310582c3ca3",
+                "c746e536b9a3f07aa5d7be49",
+                "e74bb0a7c6961dda6792d4d9",
+                "ee77be12b91a76d79ca1c63e"
+              ],
+              "discarded_fact_count": 7
+            }
+          ],
+          "read_articles": 7,
+          "cached_articles": 0,
+          "novelty_omissions": [],
+          "budget_skipped_stages": []
+        },
+        "reader_context": [],
+        "shared_available": false,
+        "perspective_facts": [],
+        "background_context": [],
+        "perspective_version": 1,
+        "publication_version": 2,
+        "perspective_sections": {
+          "LEFT": [],
+          "RIGHT": [],
+          "STATE": [],
+          "CENTER": [],
+          "EDITORIAL": []
+        },
+        "article_content_hashes": {
+          "394a51aca605a9dfd9727237": "510034967577f3ce8430a936a21f95b0f2667851752dee89f2a04b9b5c7226eb",
+          "5dea87058a5884798f109b30": "6c6d0fbc838bbb280e70cb593b881804fbef7a71eef5b9bf22e971cee0855b4d",
+          "677238f3254bc1c89205dcbc": "c7d50a9b7ce5738e36692a74e427ed0849cb50c7fc92ca7626fb470d7d4dca68",
+          "9926bbe78eba7310582c3ca3": "53ef531f0d74c48f5e6cfb4b6c45fc9453f0ffdaaea485414c8a187a2e2fadab",
+          "c746e536b9a3f07aa5d7be49": "1ba8da179b0e5205a12812783d80846941aea5cf74dacb245a51672e5c34c8a4",
+          "e74bb0a7c6961dda6792d4d9": "80dd5d3a1bd3456fc34b917a0ab9e3cff65b9925f3c3f9f4e8fab6b197381cdc",
+          "ee77be12b91a76d79ca1c63e": "bd43fe064c2f86d570aa41278319663c6f742de6b789ea62c8bba47ed6ad10df"
+        },
+        "synthesis_coverage_mode": "MIXED",
+        "fact_classification_version": 1,
+        "potential_manipulation_signals": []
+      },
+      "last_analysis": {
+        "run_id": "harvest_20261021T033312Z",
+        "status": "BASE_SUMMARY",
+        "is_update": false,
+        "generated_at": "2026-10-21T09:33:53.452719+00:00",
+        "new_article_ids": [
+          "394a51aca605a9dfd9727237",
+          "5dea87058a5884798f109b30",
+          "677238f3254bc1c89205dcbc",
+          "9926bbe78eba7310582c3ca3",
+          "c746e536b9a3f07aa5d7be49",
+          "e74bb0a7c6961dda6792d4d9",
+          "ee77be12b91a76d79ca1c63e"
+        ],
+        "what_changed_pl": "",
+        "new_information_pl": ""
+      },
+      "latest_update": {
+        "status": "BASE_SUMMARY",
+        "is_update": false,
+        "new_article_ids": [],
+        "what_changed_pl": "",
+        "new_information_pl": ""
+      },
+      "current_summary": {
+        "topic": {
+          "categories": [
+            "GOSPODARKA",
+            "SWIAT"
+          ],
+          "headline_pl": "[Włochy] Protesty w sektorze transportowym",
+          "what_happened_one_sentence_pl": ""
+        },
+        "quality": {
+          "source_count": 0,
+          "article_count": 0,
+          "limitations_pl": "",
+          "overall_confidence": "MEDIUM",
+          "has_multiple_perspectives": false
+        },
+        "sources": [],
+        "agreement": [],
+        "summary_pl": "",
+        "differences": [],
+        "coverage_mode": "MIXED",
+        "contradictions": [],
+        "quality_report": {
+          "tokens": {
+            "input": 11554,
+            "output": 2104,
+            "reasoning": 768
+          },
+          "api_calls": 1,
+          "omissions": [
+            {
+              "discard_reasons": [
+                "Brak dosłownego fragmentu potwierdzającego ustalenie w tym artykule."
+              ],
+              "ignored_article_ids": [],
+              "omitted_article_ids": [
+                "394a51aca605a9dfd9727237",
+                "5dea87058a5884798f109b30",
+                "677238f3254bc1c89205dcbc",
+                "9926bbe78eba7310582c3ca3",
+                "c746e536b9a3f07aa5d7be49",
+                "e74bb0a7c6961dda6792d4d9",
+                "ee77be12b91a76d79ca1c63e"
+              ],
+              "discarded_fact_count": 7
+            }
+          ],
+          "read_articles": 7,
+          "cached_articles": 0,
+          "novelty_omissions": [],
+          "budget_skipped_stages": []
+        },
+        "reader_context": [],
+        "shared_available": false,
+        "background_context": [],
+        "perspective_version": 1,
+        "publication_version": 2,
+        "article_content_hashes": {
+          "394a51aca605a9dfd9727237": "510034967577f3ce8430a936a21f95b0f2667851752dee89f2a04b9b5c7226eb",
+          "5dea87058a5884798f109b30": "6c6d0fbc838bbb280e70cb593b881804fbef7a71eef5b9bf22e971cee0855b4d",
+          "677238f3254bc1c89205dcbc": "c7d50a9b7ce5738e36692a74e427ed0849cb50c7fc92ca7626fb470d7d4dca68",
+          "9926bbe78eba7310582c3ca3": "53ef531f0d74c48f5e6cfb4b6c45fc9453f0ffdaaea485414c8a187a2e2fadab",
+          "c746e536b9a3f07aa5d7be49": "1ba8da179b0e5205a12812783d80846941aea5cf74dacb245a51672e5c34c8a4",
+          "e74bb0a7c6961dda6792d4d9": "80dd5d3a1bd3456fc34b917a0ab9e3cff65b9925f3c3f9f4e8fab6b197381cdc",
+          "ee77be12b91a76d79ca1c63e": "bd43fe064c2f86d570aa41278319663c6f742de6b789ea62c8bba47ed6ad10df"
+        },
+        "synthesis_coverage_mode": "MIXED",
+        "fact_classification_version": 1,
+        "potential_manipulation_signals": []
+      },
+      "perspective_state": {
+        "facts": [],
+        "coverage_mode": "MIXED",
+        "quality_report": {
+          "tokens": {
+            "input": 11554,
+            "output": 2104,
+            "reasoning": 768
+          },
+          "api_calls": 1,
+          "omissions": [
+            {
+              "discard_reasons": [
+                "Brak dosłownego fragmentu potwierdzającego ustalenie w tym artykule."
+              ],
+              "ignored_article_ids": [],
+              "omitted_article_ids": [
+                "394a51aca605a9dfd9727237",
+                "5dea87058a5884798f109b30",
+                "677238f3254bc1c89205dcbc",
+                "9926bbe78eba7310582c3ca3",
+                "c746e536b9a3f07aa5d7be49",
+                "e74bb0a7c6961dda6792d4d9",
+                "ee77be12b91a76d79ca1c63e"
+              ],
+              "discarded_fact_count": 7
+            }
+          ],
+          "read_articles": 7,
+          "cached_articles": 0,
+          "novelty_omissions": [],
+          "budget_skipped_stages": []
+        },
+        "shared_available": false,
+        "perspective_facts": [],
+        "perspective_version": 1,
+        "publication_version": 2,
+        "perspective_sections": {
+          "LEFT": [],
+          "RIGHT": [],
+          "STATE": [],
+          "CENTER": [],
+          "EDITORIAL": []
+        },
+        "fact_classification_version": 1
+      },
+      "first_published_at": "2026-10-21T09:33:53.452719+00:00",
+      "merged_publications": [],
+      "processed_article_ids": [
+        "394a51aca605a9dfd9727237",
+        "5dea87058a5884798f109b30",
+        "677238f3254bc1c89205dcbc",
+        "9926bbe78eba7310582c3ca3",
+        "c746e536b9a3f07aa5d7be49",
+        "e74bb0a7c6961dda6792d4d9",
+        "ee77be12b91a76d79ca1c63e"
+      ],
+      "article_content_hashes": {
+        "394a51aca605a9dfd9727237": "510034967577f3ce8430a936a21f95b0f2667851752dee89f2a04b9b5c7226eb",
+        "5dea87058a5884798f109b30": "6c6d0fbc838bbb280e70cb593b881804fbef7a71eef5b9bf22e971cee0855b4d",
+        "677238f3254bc1c89205dcbc": "c7d50a9b7ce5738e36692a74e427ed0849cb50c7fc92ca7626fb470d7d4dca68",
+        "9926bbe78eba7310582c3ca3": "53ef531f0d74c48f5e6cfb4b6c45fc9453f0ffdaaea485414c8a187a2e2fadab",
+        "c746e536b9a3f07aa5d7be49": "1ba8da179b0e5205a12812783d80846941aea5cf74dacb245a51672e5c34c8a4",
+        "e74bb0a7c6961dda6792d4d9": "80dd5d3a1bd3456fc34b917a0ab9e3cff65b9925f3c3f9f4e8fab6b197381cdc",
+        "ee77be12b91a76d79ca1c63e": "bd43fe064c2f86d570aa41278319663c6f742de6b789ea62c8bba47ed6ad10df"
+      },
+      "needs_narrative_refresh": false
+    },
+    "generated_at": "2026-10-21T09:33:53.452719+00:00",
+    "updated_at": "2026-10-21T09:33:53.452719+00:00"
+  }
+}

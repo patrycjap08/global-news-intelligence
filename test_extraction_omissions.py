@@ -37,7 +37,6 @@ class ExtractionOmissionTests(unittest.TestCase):
                 return value
             for a in data.get('all_articles', []):
                 for f in value.get('article_results', {}).get(a['article_id'], {}).get('facts', []):
-                    f.setdefault('evidence_quote', a['body_original'].split('.')[0] + '.')
                     f.setdefault('attribution', '')
             return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(value, ensure_ascii=False))
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-only'}), patch('openai.OpenAI') as sdk, patch.object(ai, 'log') as log:

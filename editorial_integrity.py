@@ -9,7 +9,8 @@ import json
 import re
 import unicodedata
 
-EXTRACTOR_VERSION = 'article-evidence-v1'
+EXTRACTOR_VERSION = 'article-facts-v2'
+FACT_EXTRACTION_VERSION = 2
 
 
 def text_key(text):
@@ -97,6 +98,21 @@ def needs_inline_context(current):
     acronyms = {name for name in acronyms if not re.search(
         rf'\b{re.escape(name)}\s*(?:\(|[—–:])|\([^()]*\b{re.escape(name)}\b[^()]*\)', text)}
     return len(acronyms) >= 2
+
+
+def needs_fact_rebuild(stored):
+    """One new-protocol attempt for a wholly empty, quote-rejected publication."""
+    current = stored.get('current_summary') or stored.get('base_summary') or {}
+    state = stored.get('perspective_state') or current
+    if (current.get('publication_version') != 2 or current.get('summary_pl')
+            or (current.get('coverage_mode') or state.get('coverage_mode')) == 'STATE_ONLY'
+            or state.get('perspective_facts') or state.get('facts')
+            or (current.get('fact_extraction_version') or 0) >= FACT_EXTRACTION_VERSION):
+        return False
+    quality = current.get('quality_report') or state.get('quality_report') or {}
+    return any(row.get('discarded_fact_count', 0) and any(
+        'dosłownego fragmentu' in reason for reason in row.get('discard_reasons', []))
+        for row in quality.get('omissions', []) if isinstance(row, dict))
 
 
 def cache_key(article, model, topic_id=''):

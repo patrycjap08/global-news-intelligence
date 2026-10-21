@@ -147,7 +147,7 @@ class StructuredOutputTests(unittest.TestCase):
                      reason='', kind='STATEMENT')], data['all_articles']))
             for result in answer['article_results'].values():
                 for f in result['facts']:
-                    f.update(evidence_quote='Minister ogłosił decyzję.', attribution='Minister')
+                    f.update(attribution='Minister')
             jsonschema.validate(answer, fmt['schema'])
             return SimpleNamespace(status='completed', usage=None, output_text=json.dumps(answer))
 

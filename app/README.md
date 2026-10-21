@@ -139,7 +139,7 @@ Karty faktów pokazują treść i źródła, bez powtarzanych nagłówków
 typu „Informacja”, „Wypowiedź lub zarzut” i dopisków „Autor:”. Przypisanie
 w samej treści, klasyfikacja i dane o autorze są zachowane
 w danych. Identyczna ocena przytaczana przez kilka profili jest jedną kartą
-z autorem i źródłami. Ustalenia mają opcjonalny podgląd dosłownych cytatów.
+z autorem i źródłami. Od v77 nie ma rozwijanych cytatów; treść ustaleń i nazwy źródeł pozostają.
 
 Od v75 synteza ma zaczynać się od głównej informacji związanej z tytułem.
 Jeżeli walidacja zachowa tylko poboczne akapity, brakujący rdzeń zostanie
@@ -160,3 +160,11 @@ w audycie narracji; nie stają się faktami potwierdzonymi przez artykuły.
 Nie ma zapytań naprawczych. Istniejące syntezy z kilkoma nieznanymi skrótami
 mogą dostać jedną próbę takiego pisania przy najbliższym AI-only; pusty wynik
 również zapisuje zakończenie tej próby, aby nie powtarzać kosztu.
+
+Od v77 ekstrakcja nie żąda dosłownych cytatów ani nie odrzuca ustaleń z powodu
+ich niedopasowania. AI nadal czyta pełne treści i przypisuje ustalenia do
+artykułów; wypowiedzi i oceny wymagają autora. Puste publikacje powstałe
+wyłącznie po odrzuceniu cytatów mogą otrzymać jedną próbę nowym protokołem
+przy następnym AI-only. Próba zapisuje zakończenie również przy pustym wyniku.
+Brak zachowanych wyników jest opisany jako nieprzygotowana synteza, bez
+stwierdzenia, że w artykułach nie ma neutralnych informacji.

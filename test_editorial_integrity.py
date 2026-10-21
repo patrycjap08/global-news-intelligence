@@ -25,7 +25,7 @@ def extraction(data, specs):
     results = {}
     for a in data['all_articles']:
         aid = a['article_id']
-        results[aid] = {'facts': [{k: v for k, v in f.items() if k != 'article_ids'}
+        results[aid] = {'facts': [{k: v for k, v in f.items() if k not in ('article_ids', 'evidence_quote')}
                                  for f in specs if aid in f['article_ids']],
                         'no_relevant_facts_reason_pl': ''}
     return {'headline_pl': '[Francja] Protesty w Marsylii', 'categories': ['SWIAT'], 'article_results': results}
@@ -43,12 +43,14 @@ class EditorialIntegrityTests(unittest.TestCase):
             self.assertFalse(q.usable_claim(text), text)
         self.assertTrue(q.usable_claim('Policja zatrzymała 8 osób w Marsylii.'))
 
-    def test_foreign_quote_is_omitted_without_reading_article_again(self):
+    def test_fact_does_not_require_a_literal_quote_and_does_not_store_an_old_one(self):
         rows = [article('a', 'Policja zatrzymała 8 osób w Marsylii.')]
-        raw = extraction({'all_articles': rows}, [claim('Policja zatrzymała 10 osób w Marsylii.', 'a')])
+        raw = extraction({'all_articles': rows}, [claim('Policja zatrzymała 8 osób w Marsylii.', 'a')])
+        raw['article_results']['a']['facts'][0]['evidence_quote'] = 'An old translated quotation is ignored.'
         result, report = p.usable_extraction(raw, rows, rows, [], ai.normalize_generated_text, {})
-        self.assertEqual(result['facts'], [])
-        self.assertEqual(report['discarded_fact_count'], 1)
+        self.assertEqual(len(result['facts']), 1)
+        self.assertNotIn('evidence_quote', result['facts'][0])
+        self.assertEqual(report['discarded_fact_count'], 0)
 
     def test_one_assessment_carried_by_left_and_right_is_one_card(self):
         rows = [article('l', 'Tekst', 'LEFT'), article('r', 'Tekst', 'RIGHT')]
