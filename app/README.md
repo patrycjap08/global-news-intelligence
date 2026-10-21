@@ -131,6 +131,17 @@ pierwotny tekst. Jeżeli początkowo nie było tekstu syntezy, późniejsze wsp�
 ustalenia są dostępne w Faktach i aktualizacji, bez tworzenia nowej narracji.
 
 Od v74 aplikacja pokazuje current_summary z bieżącym rejestrem faktów.
-Pierwsza synteza i aktualizacje są zwijanym archiwum. Identyczna ocena
-przytaczana przez kilka profili jest jedną kartą z autorem i źródłami.
-Nowe ustalenia mają opcjonalny podgląd dosłownych cytatów.
+Historia aktualizacji nie jest wyświetlana w dialogu; zapisane aktualizacje
+nadal służą do ustalania nowych informacji i statusu przeczytania. Pierwsza
+synteza i opracowania dołączone przy scalaniu pozostają zwijanym archiwum.
+Karty faktów pokazują treść i źródła, bez powtarzanych nagłówków
+typu „Informacja”, „Wypowiedź lub zarzut” i dopisków „Autor:”. Przypisanie
+w samej treści, klasyfikacja i dane o autorze są zachowane
+w danych. Identyczna ocena przytaczana przez kilka profili jest jedną kartą
+z autorem i źródłami. Ustalenia mają opcjonalny podgląd dosłownych cytatów.
+
+Od v75 synteza ma zaczynać się od głównej informacji związanej z tytułem.
+Jeżeli walidacja zachowa tylko poboczne akapity, brakujący rdzeń zostanie
+uzupełniony przyjętym ustaleniem bez dodatkowego wywołania AI. Ewidentne braki
+w istniejącym bieżącym tekście mogą kwalifikować się do jednego pisania
+podczas następnego AI-only, na zapisanych faktach, bez odczytywania artykułów.

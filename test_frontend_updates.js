@@ -25,10 +25,14 @@ assert.strictEqual(model.articles.length, 4); // new confirming article remains
 assert.strictEqual(model.latestAnalysisStatus, 'NO_NEW_INFORMATION');
 assert.strictEqual(cardHtml(model, 1).includes('AKTUALIZACJA'), false);
 const html = dialogHtml(model);
-assert.strictEqual((html.match(/class="update-label"/g) || []).length, 2);
-assert(html.includes('Pierwszy nowy fakt.') && html.includes('Drugi nowy fakt.'));
+assert.strictEqual((html.match(/class="update-label"/g) || []).length, 0);
+assert(!html.includes('historia aktualizacji'));
+assert(!html.includes('Pierwszy nowy fakt.') && !html.includes('Drugi nowy fakt.'));
+assert.strictEqual(model.updates[0].new_information_pl, 'Drugi nowy fakt.');
+assert.strictEqual(model.updates[1].new_information_pl, 'Pierwszy nowy fakt.');
 assert(!html.includes('Nie pokazuj potwierdzenia.'));
-assert(html.includes('02.10.2026') && html.includes('10:34') && html.includes('11:45'));
+assert(formatDateTime(first.generated_at).includes('02.10.2026') && formatDateTime(first.generated_at).includes('10:34'));
+assert(formatDateTime(second.generated_at).includes('11:45'));
 assert(html.includes('Materiały źródłowe'));
 
 state.summaries.set(topic.topic_id, {summary: {base_summary: base, updates: [], latest_update: {status: 'BASE_SUMMARY'}, last_analysis: noChange}});

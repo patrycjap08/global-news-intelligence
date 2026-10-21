@@ -1,9 +1,9 @@
-# AI-only i publikacja perspektyw — v74
+# AI-only i publikacja perspektyw — v75
 
-Obowiązująca wersja: `ai-prompts-v74-current-evidence-ledger`.
+Obowiązująca wersja: `ai-prompts-v75-narrative-core`.
 Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
-`fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok v74
+`fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
 ma dodatkowo `publication_version=2`.
 
 ## Cel publikacji
@@ -137,11 +137,27 @@ bez kolejnego zapytania. Zmieniony artykuł traci stare cytowania przed ponowną
 ekstrakcją; niepodparte innym źródłem stare ustalenia znikają z bieżącego rejestru.
 Archiwum pozostaje zachowane.
 
+Od v75 pisanie dostaje także `primary_fact_id`: przyjęte ustalenie najbliższe
+roboczemu tytułowi. Pierwszy akapit ma opisać samo wydarzenie, zanim poda
+wycenę, liczbę odbiorców lub warunki. Gdy częściowo poprawna odpowiedź pomija
+to ustalenie, kod dodaje jego zaakceptowane brzmienie z przypisaniem źródła,
+bez ponownego zapytania. Raport zapisuje `narrative_core_fallback`.
+
+Kolejka może rozpoznać ewidentne pominięcie kilku kluczowych elementów tytułu
+w publikacji `publication_version=2`. Taki temat może dostać jedno nowe pisanie
+na podstawie zapisanego rejestru, bez nowych artykułów, ekstrakcji ani audytu
+nowości. Nie jest to przebudowa wszystkich syntez ani test pełnej semantycznej
+kompletności. Po uzupełnieniu rdzenia ten sam brak nie wywołuje kolejnego
+pisania. Stare formaty nie są automatycznie regenerowane przez ten warunek.
+
 ## Widok i kontekst
 
 Najpierw bieżąca synteza, potem oceny i kontekst; pełny rejestr jest w zakładce
-Fakty. Historia aktualizacji oraz wcześniejsze teksty są zwinięte i oznaczone
-jako historia. Obecność informacji w archiwum nie usuwa jej z bieżącego stanu.
+Fakty. Historia aktualizacji nie jest wyświetlana; pozostaje w danych do
+audytu i oznaczeń przeczytania. Wcześniejsze syntezy pozostają zwijanym
+archiwum. Karty nie mają powtarzanych nagłówków typu informacji ani „Autor:”.
+Przypisanie wypowiedzi w treści i źródła pozostają. Rozwijane cytaty są dostępne.
+Obecność informacji w archiwum nie usuwa jej z bieżącego stanu.
 Wielokrotne identyczne karty ocen są łączone z sumą ich źródeł.
 
 Kontekst jest opcjonalny. Ma wyjaśniać wcześniejsze wydarzenia, uwarunkowania,
@@ -160,11 +176,12 @@ zgodność oznaczenia przeczytania między podglądem i pełnym widokiem.
 
 Nie jest potrzebna nowa migracja SQL. Kod nie uruchamia sam regeneracji całej
 bazy ani automatycznego dzielenia błędnie scalonych dawnych wątków.
-Frontend od razu scala identyczne oceny w jednym widoku, zwija historię i
+Frontend od razu scala identyczne oceny w jednym widoku, ukrywa historię aktualizacji i
 ukrywa placeholdery oraz niezweryfikowany kontekst. Stare parafrazy, błędne
 cytowania i nietrafne scalenia zapisane przed v74 mogą nadal wymagać osobnej
 korekty. Nowa synteza powstaje przy następnym kwalifikującym się przetwarzaniu;
 bez nowych danych nie kupujemy jej tylko dlatego, że zmienił się kod.
+Wyjątkiem jest opisana wyżej kontrola ewidentnie brakującego rdzenia w v75.
 
 Testy obejmują przykłady Francji, sankcji i Ukrainy z publicznego snapshotu
 `ded1b21dd927e527f0d4`, błąd transportu w połowie ekstrakcji i ponowienie z cache,

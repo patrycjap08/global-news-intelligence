@@ -20,9 +20,11 @@ for (const record of fixture.topics) {
     assert(!listValue(model.summary.facts).includes(bad), 'Reject public placeholder: ' + bad);
   }
   assert(model.summary.background_context.every(c => !c.needs_verification));
-  assert(html.includes('<details class="publication-history"><summary>'));
+  assert(!html.includes('historia aktualizacji'));
+  assert(!html.includes('class="update-section'));
+  assert(!html.includes('class="claim-kind"'));
+  assert(!html.includes('class="claim-attribution"'));
   assert(!html.includes('<details open'));
-  assert(html.indexOf('data-dialog-panel="summary"') < html.indexOf('<details class="publication-history">'));
   for (const update of model.updates) {
     const onlyPromotions = {...update, perspective_sections: {}, new_information_pl: ''};
     assert(!perspectiveUpdateHtml(onlyPromotions).includes('Szersze potwierdzenie'));

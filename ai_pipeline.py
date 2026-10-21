@@ -36,7 +36,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v74-current-evidence-ledger"
+PROMPT_VERSION = "ai-prompts-v75-narrative-core"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -5062,6 +5062,11 @@ def retry_incomplete_summaries(
             latest_assignment = latest_assignment_by_topic.get(topic_id, "")
             stored = (previous_row or {}).get("summary") or {}
             refresh = bool(stored.get("needs_narrative_refresh"))
+            if (stored.get('current_summary') or {}).get('publication_version') == 2:
+                current = stored['current_summary']
+                ledger = stored.get('perspective_state') or {}
+                refresh = refresh or integrity.narrative_missing_core(
+                    topic.get('headline_pl', ''), current.get('summary_pl', ''), ledger.get('facts') or [])
             processed = set(stored.get("processed_article_ids") or [])
             perspective_topic = topic_generation(topic_id, stored_base_summary(stored)) == "perspectives"
             hashes = stored.get("article_content_hashes") or {}

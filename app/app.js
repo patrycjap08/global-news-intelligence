@@ -1096,8 +1096,6 @@ function listValue(value) {
     const rendered = marker && text ? `${marker} — ${text}` : text || marker || JSON.stringify(item);
     const sources = itemArticleSources(item);
     const sourceHtml = sources.length ? `<div class="insight-sources">${escapeHtml(sources.join(' · '))}</div>` : '';
-    const kind = { FACT: 'Informacja', STATEMENT: 'Wypowiedź lub zarzut', EDITORIAL: 'Ocena lub interpretacja' }[item.kind];
-    const attribution = item.attribution ? `<p class="claim-attribution">Autor: ${escapeHtml(item.attribution)}</p>` : '';
     const evidence = Object.entries(item.evidence || {}).map(([aid, e]) => {
       const article = articleMap().get(String(aid));
       if (!article || !e.quote) return '';
@@ -1105,7 +1103,7 @@ function listValue(value) {
       const source = /^https?:\/\//i.test(url) ? `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(article.source_name)}</a>` : escapeHtml(article.source_name);
       return `<blockquote>${escapeHtml(e.quote)}<cite>${source}</cite></blockquote>`;
     }).join('');
-    return `<li class="insight-item">${kind ? `<small class="claim-kind">${kind}</small>` : ''}${richTextHtml(rendered)}${attribution}${sourceHtml}${evidence ? `<details class="claim-evidence"><summary>Fragmenty źródeł</summary>${evidence}</details>` : ''}</li>`;
+    return `<li class="insight-item">${richTextHtml(rendered)}${sourceHtml}${evidence ? `<details class="claim-evidence"><summary>Fragmenty źródeł</summary>${evidence}</details>` : ''}</li>`;
   }).join('');
 }
 
@@ -1199,14 +1197,6 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const section = (title, items, className = '', subtitle = '') => Array.isArray(items) && items.length ? `<section class="dialog-section insight-section ${className}"><div class="insight-heading"><div><h3>${title}</h3>${subtitle ? `<p class="insight-subtitle">${subtitle}</p>` : ''}</div><span class="insight-count">${items.length}</span></div><ul class="insight-list">${listValue(items)}</ul></section>` : '';
-  const updatesHtml = (stateOnly ? [] : model.updates || []).map((update, index) => {
-    const newArticleIds = Array.isArray(update.new_article_ids) ? update.new_article_ids.map(String) : [];
-    const newArticleIdSet = new Set(newArticleIds);
-    const newArticleSources = [...new Set(model.articles.filter((article) => newArticleIdSet.has(String(article.article_id))).map((article) => article.source_name).filter(Boolean))];
-    const updateCopy = updateText(update);
-    const when = update.generated_at ? ` · ${formatDateTime(update.generated_at)}` : '';
-    return `<section class="update-section ${index > 0 ? 'older-update' : ''}"><p class="update-label">${escapeHtml(perspectiveUpdateLabel(update))}${when}</p><h3>${index === 0 ? 'Co nowego od poprzedniej wersji?' : 'Wcześniejsza aktualizacja'}</h3><div class="rich-copy">${perspectiveUpdateHtml(update)}</div>${newArticleIds.length ? `<small>Nowe materiały${newArticleSources.length ? `: ${escapeHtml(newArticleSources.join(', '))}` : ''} · ${articleCountLabel(newArticleIds.length)}</small>` : ''}</section>`;
-  }).join('');
   const factsOnly = summary.perspective_version === 1 && !summary.summary_pl;
   const summaryPanel = summary.summary_pl
     ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? (summary.publication_version === 2 ? 'Aktualna synteza' : 'Synteza') : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
@@ -1232,7 +1222,6 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     `}
     ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
     ${stateOnly ? '' : section('Kontekst', summary.background_context, 'insight-context')}
-    ${updatesHtml ? `<details class="publication-history"><summary>Co się zmieniło — historia aktualizacji (${model.updates.length})</summary>${updatesHtml}</details>` : ''}
     ${!stateOnly && model.originalSummary?.summary_pl && model.originalSummary.summary_pl !== summary.summary_pl ? `<details class="publication-history"><summary>Pierwsza opublikowana synteza</summary><div class="summary-copy">${richTextHtml(synthesisParagraphs(model.originalSummary.summary_pl))}</div></details>` : ''}
     ${!stateOnly && (model.mergedPublications || []).length ? `<details class="publication-history"><summary>Opracowania dołączone przy scalaniu (${model.mergedPublications.length})</summary>${model.mergedPublications.map(p => `<h3>${escapeHtml(p.base_summary?.topic?.headline_pl || '')}</h3><div class="summary-copy">${richTextHtml(p.base_summary?.summary_pl || '')}</div>`).join('')}</details>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>

@@ -1,0 +1,1120 @@
+{
+  "curfew": {
+    "topic": {
+      "topic_id": "topic_perspectives_5b5e026fe04d9224a6da8fd9",
+      "headline_pl": "[Francja] Godzina policyjna w odpowiedzi na zamieszki",
+      "status": "ACTIVE",
+      "first_seen_at": "2026-10-19T09:36:21.933604+00:00",
+      "last_seen_at": "2026-10-21T09:37:33.36597+00:00",
+      "article_count": 76,
+      "source_count": 33,
+      "coverage_status": "MULTI_SOURCE",
+      "needs_review": false,
+      "merged_into_topic_id": null,
+      "merged_at": null,
+      "updated_at": "2026-10-21T09:37:33.36597+00:00",
+      "categories": [
+        "POLITYKA",
+        "SWIAT"
+      ],
+      "is_current": true
+    },
+    "updated_at": "2026-10-21T09:37:33.36597+00:00",
+    "summary_pl": "Premier Francji Sebastien Lecornu poinformował, że zwrócił się do prefektów o wprowadzenie częściowych godzin policyjnych w wybranych miejscach; działania mają być bardzo punktowe i częściowe, a ich realizacja ma rozpocząć się od wieczora w poniedziałek, aby przywrócić porządek publiczny.\n\nLecornu dodał we wtorek, że w niektórych miejscach godzina policyjna przyczyniła się do spokoju; zapowiedział nowe ograniczenia tam, gdzie będzie to konieczne; decyzje będą podejmowane przez prefektów w koordynacji z merami; w Marsylii planowana była nocna godzina policyjna dla niepełnoletnich od 22:00 do 5:00.\n\nPolskie MSZ ostrzegło przed wprowadzaniem godzin policyjnych we Francji i wskazało na ograniczenia w przemieszczaniu się oraz utrudnienia w dostępie do atrakcji turystycznych; apelowano o unikanie miejsc protestów i ściśle stosowanie się do poleceń służb porządkowych.\n\nPrezydent Emmanuel Macron nie przyjął rezygnacji ministra spraw wewnętrznych Laurenta Nuneza i zlecił mu działania mające zapewnić przejrzystość informacji i prognoz przed demonstracjami; Nunez przyznał, że w niektórych dużych miastach w sobotę policja straciła kontrolę; według relacji BBC weekend protestów przyciągnął ponad pół miliona demonstrantów, zniszczono 1500 sklepów, tysiące rannych i setki interwencji; w Paryżu zatrzymano 350 osób.",
+    "facts": [
+      {
+        "fact_id": "fact_04198054601e72e1443d5955",
+        "text_pl": "Premier Francji Sebastien Lecornu poinformował, że zwrócił się do prefektów o wprowadzenie częściowych godzin policyjnych w niektórych miejscach; określił je jako bardzo punktowe i częściowe; działania mają rozpocząć się od wieczora w poniedziałek; dodał, że jest zdeterminowany przywrócić porządek publiczny.",
+        "article_ids": [
+          "2b71536a43a7ccf89b1d1193",
+          "eb06e24d1ab9fe80a052e055"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "PAP"
+      },
+      {
+        "fact_id": "fact_f7ba7c07995b5bc9d808266d",
+        "text_pl": "Lecornu poinformował we wtorek, że w niektórych miejscach w kraju godzina policyjna przyczyniła się do spokoju; zapowiedział nowe ograniczenia tam, gdzie będzie to konieczne; decyzje mają być podjęte przez prefektów w koordynacji z merami; w Marsylii planowana była nocna godzina policyjna dla niepełnoletnich od 22:00 do 5:00.",
+        "article_ids": [
+          "392f5a2714898bd5db37a277"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "PAP"
+      },
+      {
+        "fact_id": "fact_5d4dc170e8dd74a630e9ed12",
+        "text_pl": "Polskie MSZ ostrzegło przed wprowadzaniem godzin policyjnych we Francji i wskazało na ograniczenia w przemieszczaniu się oraz utrudnienia w dostępie do atrakcji turystycznych; apelowano o unikanie miejsc protestów oraz ścisłe stosowanie się do poleceń służb porządkowych.",
+        "article_ids": [
+          "63ec3d2d4c70065700c774f5"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "PAP"
+      },
+      {
+        "fact_id": "fact_77a78a1ed2e8bea23303bccc",
+        "text_pl": "Prezydent Francji Emmanuel Macron nie przyjął rezygnacji szefa MSW Laurenta Nuneza i uznał, że minister powinien pozostać na stanowisku; zlecił Nunezowi działania mające zapewnić przejrzystość w informacjach i prognozach przed demonstracjami; Nunez przyznał, że w niektórych dużych miastach w sobotę policja „straciła kontrolę”; dodał, że liczba wandali i obecność aktywistów skrajnej lewicy były nieproporcjonalnie wysokie; w nocy z soboty na niedzielę w Paryżu i Marsylii doszło do starć i grabieży; w niedzielę zatrzymano 350 osób w Paryżu zgodnie z raportami.",
+        "article_ids": [
+          "83911a59d3802e8adaaea4e7"
+        ],
+        "kind": "STATEMENT",
+        "lane": "COMMON",
+        "attribution": "PAP"
+      },
+      {
+        "fact_id": "fact_9d69410644de112036c508aa",
+        "text_pl": "BBC relacjonuje, że rząd zwołał posiedzenie kryzysowe; premier Lecornu zapowiada powołanie działań mających na celu bezpieczeństwo; podczas weekendu ponad pół miliona protestujących; demonstracje przekszaciły się w przemoc; 1500 sklepów zniszczonych; tysiące rannych; w Paryżu i innych miastach doszło do starć z policją; 1000 policjantów i strażaków rannych; zapowiedziano wysoką presję na sprawców.",
+        "article_ids": [
+          "ba20fbc1ea3b13be9a33dd08"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "BBC"
+      }
+    ],
+    "articles": [
+      {
+        "article_id": "08dbb11866f1439f77ef2593",
+        "source_id": "cnn",
+        "source_name": "CNN",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "France reels from weekend of chaos as violence spreads across Europe",
+        "original_url": "https://www.cnn.com/2026/10/19/europe/france-protests-violence-wwk-intl-hnk",
+        "published_at": "2026-10-19T06:35:18.038Z",
+        "fetched_at": "2026-10-19T08:13:00.99352+00:00",
+        "word_count": 1022
+      },
+      {
+        "article_id": "0d468cf941fd509f9c09bb86",
+        "source_id": "le_monde",
+        "source_name": "Le Monde",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Mobilisation du 17 octobre : conséquences de la fin du macronisme, les violences sont aussi le produit d’un système politique dominé par deux radicalités",
+        "original_url": "https://www.lemonde.fr/politique/article/2026/10/19/mobilisation-du-17-octobre-consequences-de-la-fin-du-macronisme-les-violences-sont-aussi-le-produit-d-un-systeme-politique-domine-par-deux-radicalites_6797495_823448.html",
+        "published_at": "2026-10-19T10:00:09+02:00",
+        "fetched_at": "2026-10-19T08:18:04.507848+00:00",
+        "word_count": 316
+      },
+      {
+        "article_id": "15b48d219102a930b8ac0f95",
+        "source_id": "la_repubblica",
+        "source_name": "La Repubblica",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Parigi, torna la calma dopo l'ordine di coprifuoco nelle zone della protesta",
+        "original_url": "https://www.repubblica.it/esteri/2026/10/20/video/parigi_torna_la_calma_dopo_lordine_di_coprifuoco_nelle_zone_della_protesta-425660114/",
+        "published_at": "2026-10-20T10:53:52Z",
+        "fetched_at": "2026-10-20T14:18:45.871477+00:00",
+        "word_count": 135
+      },
+      {
+        "article_id": "1618939f187486573dd69255",
+        "source_id": "polsat_news",
+        "source_name": "Polsat News",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Zdumiewający komunikat Pałacu Elizejskiego",
+        "original_url": "https://www.polsatnews.pl/wiadomosc/2026-10-19/zamieszki-we-francji-zdumiewajacy-komunikat-palacu-elizejskiego/",
+        "published_at": "2026-10-19T10:03:00+02:00",
+        "fetched_at": "2026-10-19T08:09:17.866688+00:00",
+        "word_count": 377
+      },
+      {
+        "article_id": "17af97e846a319e7d363dc09",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Inician toques de queda en ciudades de Francia tras violencia y saqueos en medio de protestas",
+        "original_url": "https://www.france24.com/es/video/20261020-inician-toques-de-queda-en-ciudades-de-francia-tras-violencia-y-saqueos-en-medio-de-protestas",
+        "published_at": "2026-10-20T03:25:04+00:00",
+        "fetched_at": "2026-10-20T03:47:59.956878+00:00",
+        "word_count": 167
+      },
+      {
+        "article_id": "182aa7739d9d31ff3c3b84c0",
+        "source_id": "efe",
+        "source_name": "EFE",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Macron rechaza la dimisión del ministro del Interior y pide más medidas contra los violentos",
+        "original_url": "https://efe.com/mundo/2026-10-19/francia-disturbios-protestas-medidas/",
+        "published_at": "2026-10-19T08:33:20+02:00",
+        "fetched_at": "2026-10-19T08:19:22.845824+00:00",
+        "word_count": 984
+      },
+      {
+        "article_id": "1afa2e6a6f305c91342acdc0",
+        "source_id": "le_monde",
+        "source_name": "Le Monde",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Watch: Macron denounces 'unbridled violence' after protests across France",
+        "original_url": "https://www.lemonde.fr/en/politics/video/2026/10/19/watch-macron-denounces-unbridled-violence-after-protests-across-france_6758807_5.html",
+        "published_at": "2026-10-19T17:36:07+02:00",
+        "fetched_at": "2026-10-19T15:48:48.260861+00:00",
+        "word_count": 121
+      },
+      {
+        "article_id": "1eff1a8efe759b859481a815",
+        "source_id": "le_monde",
+        "source_name": "Le Monde",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Manifestations du 17 octobre : Emmanuel Macron, dépassé par les violences et vilipendé dans les cortèges, s’en remet aux corps intermédiaires pour trouver une issue à la crise",
+        "original_url": "https://www.lemonde.fr/politique/article/2026/10/19/mobilisation-du-17-octobre-emmanuel-macron-tente-de-reaffirmer-son-autorite-ebranlee-par-les-violences-et-les-mouvements-sociaux_6797402_823448.html",
+        "published_at": "2026-10-19T05:25:10+02:00",
+        "fetched_at": "2026-10-19T10:58:55.123636+00:00",
+        "word_count": 298
+      },
+      {
+        "article_id": "22b1d3689d0eb8e6c4a300e0",
+        "source_id": "onet",
+        "source_name": "Onet",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja stanęła w ogniu. Kto protestuje i skąd taka fala przemocy [WYJAŚNIAMY]",
+        "original_url": "https://wiadomosci.onet.pl/swiat/francja-stanela-w-ogniu-kto-protestuje-i-skad-taka-fala-przemocy-wyjasniamy/r4r074v",
+        "published_at": "2026-10-19T09:43:56+0200",
+        "fetched_at": "2026-10-19T08:09:44.295351+00:00",
+        "word_count": 520
+      },
+      {
+        "article_id": "23cf9553a3093df0fd23c8a9",
+        "source_id": "bbc",
+        "source_name": "BBC",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Curfew imposed in parts of central Paris and other cities after rioting across France",
+        "original_url": "https://www.bbc.com/news/articles/cx30ez03djyqo",
+        "published_at": "2026-10-19T14:13:39.499Z",
+        "fetched_at": "2026-10-20T03:44:20.47723+00:00",
+        "word_count": 778
+      },
+      {
+        "article_id": "246f3e18bd78271e583a8f3a",
+        "source_id": "bankier",
+        "source_name": "Bankier",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Marsylia zakazuje demonstracji po zamieszkach. Władze zaostrzają środki",
+        "original_url": "https://www.bankier.pl/wiadomosc/Marsylia-zakazuje-demonstracji-po-zamieszkach-Wladze-zaostrzaja-srodki-9214686.html",
+        "published_at": "2026-10-19T11:52:00+0200",
+        "fetched_at": "2026-10-19T10:50:49.762259+00:00",
+        "word_count": 231
+      },
+      {
+        "article_id": "2b71536a43a7ccf89b1d1193",
+        "source_id": "pap",
+        "source_name": "PAP",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja reaguje na zamieszki. Premier chce częściowej godziny policyjnej [WIDEO]",
+        "original_url": "https://pap.pl/aktualnosci/francja-reaguje-na-zamieszki-premier-chce-czesciowej-godziny-policyjnej",
+        "published_at": "",
+        "fetched_at": "2026-10-19T15:33:34.064243+00:00",
+        "word_count": 277
+      },
+      {
+        "article_id": "2ced82323c7947fc112aa1f0",
+        "source_id": "polsat_news",
+        "source_name": "Polsat News",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Tak rząd Francji może zdławić chaos na ulicach. Premier nie wyklucza stanu wyjątkowego",
+        "original_url": "https://www.polsatnews.pl/wiadomosc/2026-10-19/tak-rzad-francji-moze-zdlawic-chaos-na-ulicach-premier-nie-wyklucza-stanu-wyjatkowego/",
+        "published_at": "2026-10-19T15:28:00+02:00",
+        "fetched_at": "2026-10-19T15:36:52.122082+00:00",
+        "word_count": 371
+      },
+      {
+        "article_id": "2d74728ae3d7b11b43a92b9d",
+        "source_id": "politico_europe",
+        "source_name": "Politico Europe",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "French PM orders ‘localized’ curfews in response to looting and unrest",
+        "original_url": "https://www.politico.eu/article/france-sebastien-lecornu-partial-curfews-riots-protests/",
+        "published_at": "2026-10-19T13:12:09Z",
+        "fetched_at": "2026-10-19T15:46:46.860618+00:00",
+        "word_count": 629
+      },
+      {
+        "article_id": "2f68eb569c6872f9e44d6cac",
+        "source_id": "onet",
+        "source_name": "Onet",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Władze wprowadzają godzinę policyjną",
+        "original_url": "https://wiadomosci.onet.pl/swiat/zamieszki-we-francji-wladze-wprowadzaja-godzine-policyjna/0523mhn",
+        "published_at": "2026-10-19T15:41:13+0200",
+        "fetched_at": "2026-10-19T15:37:27.666953+00:00",
+        "word_count": 375
+      },
+      {
+        "article_id": "31be0b3c7007e2d099cca86b",
+        "source_id": "deutsche_welle",
+        "source_name": "Deutsche Welle",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Frankreich: 1800 Festnahmen bei Protesten",
+        "original_url": "https://www.dw.com/de/frankreich-krawalle-festnahmen-pluenderungen-emmanuel-macron-paris-nizza-marseille-italien-mailand/a-79692403",
+        "published_at": "2026-10-18T11:50:24.064Z",
+        "fetched_at": "2026-10-19T08:16:34.922692+00:00",
+        "word_count": 629
+      },
+      {
+        "article_id": "374c8ecef9d24e75929014f3",
+        "source_id": "bankier",
+        "source_name": "Bankier",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Demonstracje wymknęły się spod kontroli. Bruksela zabrała głos",
+        "original_url": "https://www.bankier.pl/wiadomosc/Demonstracje-wymknely-sie-spod-kontroli-Bruksela-zabrala-glos-9214794.html",
+        "published_at": "2026-10-19T14:43:00+0200",
+        "fetched_at": "2026-10-19T15:39:13.070608+00:00",
+        "word_count": 227
+      },
+      {
+        "article_id": "392f5a2714898bd5db37a277",
+        "source_id": "pap",
+        "source_name": "PAP",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Premier Francji o godzinie policyjnej w kraju. \"Tam, gdzie będzie to konieczne\"",
+        "original_url": "https://pap.pl/aktualnosci/premier-francji-o-godzinie-policyjnej-w-kraju-tam-gdzie-bedzie-konieczne",
+        "published_at": "",
+        "fetched_at": "2026-10-20T13:55:14.386113+00:00",
+        "word_count": 245
+      },
+      {
+        "article_id": "3abda2a97274d3620447d46b",
+        "source_id": "politico_europe",
+        "source_name": "Politico Europe",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "French riots lay bare risks and opportunities for 2027 election candidates",
+        "original_url": "https://www.politico.eu/article/french-riots-lay-bare-risks-and-opportunities-for-2027-election-candidates/",
+        "published_at": "2026-10-20T02:00:00Z",
+        "fetched_at": "2026-10-20T03:46:04.799186+00:00",
+        "word_count": 1232
+      },
+      {
+        "article_id": "3d3613dfb407fd02d46a8935",
+        "source_id": "kommersant",
+        "source_name": "Kommersant",
+        "source_profile": "STATE_ALIGNED",
+        "source_type": "UNCLASSIFIED",
+        "title": "Где еще протестуют в Европе",
+        "original_url": "https://www.kommersant.ru/doc/9042051",
+        "published_at": "2026-10-20T00:00:00+03:00",
+        "fetched_at": "2026-10-19T15:54:21.616634+00:00",
+        "word_count": 407
+      },
+      {
+        "article_id": "4486ee104fa4e4e3b2f1017d",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "L'origine des manifestations en France : la Gen Z, une génération mobilisée",
+        "original_url": "https://www.france24.com/fr/vid%C3%A9o/20261020-l-origine-des-manifestations-en-france-la-gen-z-une-g%C3%A9n%C3%A9ration-mobilis%C3%A9e",
+        "published_at": "2026-10-20T13:59:15+00:00",
+        "fetched_at": "2026-10-20T14:17:28.620402+00:00",
+        "word_count": 155
+      },
+      {
+        "article_id": "4840ceb043b80d7c25726d10",
+        "source_id": "bankier",
+        "source_name": "Bankier",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Strach przed samosądami we Francji. Minister zapowiada surowe kary za obrabowanie sklepu i godzinę policyjną",
+        "original_url": "https://www.bankier.pl/wiadomosc/Strach-przed-samosadami-we-Francji-Minister-zapowiada-surowe-kary-za-obrabowanie-sklepu-9215553.html",
+        "published_at": "2026-10-20T17:56:00+0200",
+        "fetched_at": "2026-10-21T03:39:13.660196+00:00",
+        "word_count": 943
+      },
+      {
+        "article_id": "4d5560591192af7f08306f67",
+        "source_id": "cnn",
+        "source_name": "CNN",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "France imposes curfews across several cities after weekend of chaos",
+        "original_url": "https://www.cnn.com/world/video/france-imposes-curfews-across-several-cities-after-weekend-of-chaos-cnc",
+        "published_at": "2026-10-20T13:56:38.189Z",
+        "fetched_at": "2026-10-20T14:11:02.214012+00:00",
+        "word_count": 1346
+      },
+      {
+        "article_id": "4ec5e35bbbc9014a3d59063e",
+        "source_id": "polsat_news",
+        "source_name": "Polsat News",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Wrze we Francji. MSZ ostrzega Polaków przed protestami",
+        "original_url": "https://www.polsatnews.pl/wiadomosc/2026-10-20/wrze-we-francji-msz-ostrzega-polakow-przed-protestami/",
+        "published_at": "2026-10-20T17:32:00+02:00",
+        "fetched_at": "2026-10-20T15:38:08.441072+00:00",
+        "word_count": 349
+      },
+      {
+        "article_id": "4fe1c3ed1abb2da16178b45b",
+        "source_id": "vox",
+        "source_name": "Vox",
+        "source_profile": "LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "The French youth revolt",
+        "original_url": "https://www.vox.com/today-explained-newsletter/506346/2026-france-protests",
+        "published_at": "2026-10-19T21:45:00+00:00",
+        "fetched_at": "2026-10-20T03:42:57.958222+00:00",
+        "word_count": 894
+      },
+      {
+        "article_id": "52a0df0542cec54ddcbbc8e2",
+        "source_id": "wp",
+        "source_name": "WP",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Macron odrzuca dymisję szefa MSW. Kolejna noc brutalnych zamieszek",
+        "original_url": "https://wiadomosci.wp.pl/macron-odrzuca-dymisje-szefa-msw-kolejna-noc-brutalnych-zamieszek-7341630175021088a",
+        "published_at": "2026-10-19T06:27:52.000Z",
+        "fetched_at": "2026-10-19T08:10:00.238617+00:00",
+        "word_count": 458
+      },
+      {
+        "article_id": "55e3915d17d3e87683d89d33",
+        "source_id": "do_rzeczy",
+        "source_name": "Do Rzeczy",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "\"Żałosne przemówienie\". Orędzie Macrona po zamieszkach we Francji zmiażdżone krytyką",
+        "original_url": "https://dorzeczy.pl/opinie/959137/burza-po-oredziu-macrona-opozycja-nie-przebiera-w-slowach.html",
+        "published_at": "2026-10-19T16:51:00+02:00",
+        "fetched_at": "2026-10-19T15:40:43.661095+00:00",
+        "word_count": 389
+      },
+      {
+        "article_id": "58ed002038d3e531245bc60d",
+        "source_id": "euronews",
+        "source_name": "Euronews",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Emmanuel Macron rejects resignation of interior minister Laurent Nuñez",
+        "original_url": "https://www.euronews.com/2026/10/19/emmanuel-macron-rejects-resignation-of-interior-minister-laurent-nunez",
+        "published_at": "2026-10-19T09:26:06+02:00",
+        "fetched_at": "2026-10-19T08:16:24.95989+00:00",
+        "word_count": 162
+      },
+      {
+        "article_id": "592241d350ef30c4a0fb9e36",
+        "source_id": "fox_news",
+        "source_name": "Fox News",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "France could face even worse destruction with second weekend of planned riots, State Dept warns",
+        "original_url": "https://www.foxnews.com/politics/france-face-worse-destruction-second-weekend-planned-riots-state-dept-warns",
+        "published_at": "2026-10-20T11:14:02-04:00",
+        "fetched_at": "2026-10-20T15:41:31.331273+00:00",
+        "word_count": 811
+      },
+      {
+        "article_id": "63ec3d2d4c70065700c774f5",
+        "source_id": "pap",
+        "source_name": "PAP",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Polskie MSZ ostrzega m.in. przed godziną policyjną",
+        "original_url": "https://pap.pl/aktualnosci/zamieszki-we-francji-polskie-msz-ostrzega-min-przed-godzina-policyjna",
+        "published_at": "",
+        "fetched_at": "2026-10-21T03:33:13.078584+00:00",
+        "word_count": 235
+      },
+      {
+        "article_id": "683be65cf4eaf15f5118a8eb",
+        "source_id": "el_mundo",
+        "source_name": "El Mundo",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Macron señala a \"grupos de ultraizquierda y delincuentes\" como culpables de la \"violencia extrema\" en las calles",
+        "original_url": "https://www.elmundo.es/internacional/2026/10/19/6ad5c508e4d4d8bf3a8b4572-video.html",
+        "published_at": "2026-10-19T07:23:31Z",
+        "fetched_at": "2026-10-19T08:19:50.731256+00:00",
+        "word_count": 239
+      },
+      {
+        "article_id": "6c2ea64592648d07a2e92038",
+        "source_id": "niezalezna",
+        "source_name": "Niezależna",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja: Premier proponuje godzinę policyjną",
+        "original_url": "https://niezalezna.pl/swiat/francja-premier-proponuje-godzine-policyjna/582051",
+        "published_at": "2026-10-19T12:43:53+00:00",
+        "fetched_at": "2026-10-19T15:41:05.940442+00:00",
+        "word_count": 354
+      },
+      {
+        "article_id": "6c9ded31f0c0b43baf7f8087",
+        "source_id": "le_monde",
+        "source_name": "Le Monde",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Violence in France is a consequence of the last decade's political reconfiguration",
+        "original_url": "https://www.lemonde.fr/en/politics/article/2026/10/19/violence-in-the-french-protests-stems-from-a-political-system-dominated-by-two-forms-of-radicalism_6758793_5.html",
+        "published_at": "2026-10-19T12:34:32+02:00",
+        "fetched_at": "2026-10-19T10:58:55.123636+00:00",
+        "word_count": 313
+      },
+      {
+        "article_id": "7115e4c689642f127a187139",
+        "source_id": "deutsche_welle",
+        "source_name": "Deutsche Welle",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Lecornu: Ausgangssperren in Frankreich wirken",
+        "original_url": "https://www.dw.com/de/frankreich-proteste-ausgangssperren-festnahmen-zerstoerung-paris-limoges/a-79712469",
+        "published_at": "2026-10-20T13:16:17.263Z",
+        "fetched_at": "2026-10-20T14:15:45.084621+00:00",
+        "word_count": 572
+      },
+      {
+        "article_id": "713dfb3dc9f84271d28412b4",
+        "source_id": "onet",
+        "source_name": "Onet",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Ogień, starcia i splądrowane sklepy. Chaos zalewa ulice Francji. \"Ponownie doszło do zniszczeń\"",
+        "original_url": "https://wiadomosci.onet.pl/swiat/we-francji-coraz-gorzej-zamieszki-paralizuja-kraj-ponownie-doszlo-do-zniszczen/10587rz",
+        "published_at": "2026-10-19T09:50:38+0200",
+        "fetched_at": "2026-10-19T08:09:44.295351+00:00",
+        "word_count": 480
+      },
+      {
+        "article_id": "724db1fbdd9f78b9005fcaa6",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Couvre-feux à Paris, Nice et Lille après les violences : la France a-t-elle perdu le contrôle ?",
+        "original_url": "https://www.france24.com/fr/%C3%A9missions/le-d%C3%A9bat/20261020-couvre-feux-%C3%A0-paris-nice-et-lille-apr%C3%A8s-les-violences-la-france-a-t-elle-perdu-le-contr%C3%B4le",
+        "published_at": "2026-10-20T10:25:44+00:00",
+        "fetched_at": "2026-10-20T10:53:20.138425+00:00",
+        "word_count": 255
+      },
+      {
+        "article_id": "7458cf7c809c97895e55aa8e",
+        "source_id": "deutsche_welle",
+        "source_name": "Deutsche Welle",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "News kompakt: Macron verurteilt Gewalt bei landesweiten Protesten",
+        "original_url": "https://www.dw.com/de/news-kompakt-macron-frankreich-gewalt-ukraine-geheimdienstinformationen-brand-kaserne-kanada/a-79695501",
+        "published_at": "2026-10-19T07:01:40.013Z",
+        "fetched_at": "2026-10-19T08:16:34.922692+00:00",
+        "word_count": 697
+      },
+      {
+        "article_id": "790ba3c0012b9e5735421e42",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Informe desde París: Inician toques de queda parciales en Francia tras masivas protestas",
+        "original_url": "https://www.france24.com/es/video/20261020-informe-desde-par%C3%ADs-inician-toques-de-queda-parciales-en-francia-tras-masivas-protestas",
+        "published_at": "2026-10-20T03:29:57+00:00",
+        "fetched_at": "2026-10-20T03:47:59.956878+00:00",
+        "word_count": 162
+      },
+      {
+        "article_id": "79137a0fcad8127a06b74f7a",
+        "source_id": "corriere",
+        "source_name": "Corriere della Sera",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Parigi, le vie deserte dopo il coprifuoco a Les Halles e in Place \"de la République\"",
+        "original_url": "https://video.corriere.it/esteri/video-verticali/parigi-le-vie-deserte-dopo-il-coprifuoco-a-les-halles-e-in-place-de-la-republique/8fc7678d-d16d-4ff1-96ce-61e517af5xlk",
+        "published_at": "2026-10-20T15:37:27+1:00",
+        "fetched_at": "2026-10-20T14:18:32.830751+00:00",
+        "word_count": 186
+      },
+      {
+        "article_id": "7a3a6ae1711f5d025451a271",
+        "source_id": "le_monde",
+        "source_name": "Le Monde",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "De nouveaux couvre-feux pour mardi soir, à Paris, Lyon, Bordeaux et Nice, après une nuit calme",
+        "original_url": "https://www.lemonde.fr/politique/article/2026/10/20/de-nouveaux-couvre-feux-pour-mardi-soir-a-lyon-bordeaux-et-nice-apres-une-nuit-calme_6797939_823448.html",
+        "published_at": "2026-10-20T16:44:02+02:00",
+        "fetched_at": "2026-10-20T15:46:21.5635+00:00",
+        "word_count": 645
+      },
+      {
+        "article_id": "7a686c359da243b4ce899913",
+        "source_id": "bild",
+        "source_name": "Bild",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Unheimliche Allianz führt „bewaffneten Kampf“: Dobrindt: Das steckt wirklich hinter Frankreich-Krawallen",
+        "original_url": "https://www.bild.de/politik/inland/unheimliche-allianz-fuehrt-bewaffneten-kampf-dobrindt-das-steckt-wirklich-hinter-frankreich-krawallen-6ad5e913de9d7a845942b3a7",
+        "published_at": "2026-10-19T10:44:10.980Z",
+        "fetched_at": "2026-10-19T10:58:17.156352+00:00",
+        "word_count": 382
+      },
+      {
+        "article_id": "7dcb73a8263d4dfc82550e25",
+        "source_id": "guardian",
+        "source_name": "Guardian",
+        "source_profile": "LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Macron refuses minister’s resignation after huge protests rock France – Europe live",
+        "original_url": "https://www.theguardian.com/world/live/2026/oct/19/europe-france-protests-riots-macron-ukraine-russia-zelenskyy-sweden-latest-news-updates",
+        "published_at": "2026-10-19T08:12:54.000Z",
+        "fetched_at": "2026-10-19T08:15:20.118479+00:00",
+        "word_count": 327
+      },
+      {
+        "article_id": "7e6b56fe95bc4f1365370afb",
+        "source_id": "euronews",
+        "source_name": "Euronews",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "French PM Lecornu calls for regional authorities to impose partial curfews",
+        "original_url": "https://www.euronews.com/2026/10/19/french-pm-lecornu-calls-for-regional-authorities-to-impose-partial-curfews",
+        "published_at": "2026-10-19T16:07:38+02:00",
+        "fetched_at": "2026-10-19T15:46:53.594183+00:00",
+        "word_count": 284
+      },
+      {
+        "article_id": "7fa7a3e9f81ff74c923949e3",
+        "source_id": "bankier",
+        "source_name": "Bankier",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji wymknęły się spod kontroli. Media ujawniają kulisy",
+        "original_url": "https://www.bankier.pl/wiadomosc/Zamieszki-we-Francji-wymknely-sie-spod-kontroli-Media-ujawniaja-kulisy-9215410.html",
+        "published_at": "2026-10-20T13:15:00+0200",
+        "fetched_at": "2026-10-20T14:09:13.300741+00:00",
+        "word_count": 985
+      },
+      {
+        "article_id": "81d43751af814b9f4cba3403",
+        "source_id": "xinhua",
+        "source_name": "Xinhua",
+        "source_profile": "STATE_ALIGNED",
+        "source_type": "UNCLASSIFIED",
+        "title": "Multiple French cities announce curfew after violent weekend protests: report",
+        "original_url": "https://english.news.cn/20261020/b8423ecde6974c32850eb60a65e7b640/c.html",
+        "published_at": "2026-10-20",
+        "fetched_at": "2026-10-20T03:50:14.517458+00:00",
+        "word_count": 495
+      },
+      {
+        "article_id": "83911a59d3802e8adaaea4e7",
+        "source_id": "pap",
+        "source_name": "PAP",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Szef MSW: policja straciła kontrolę",
+        "original_url": "https://pap.pl/aktualnosci/zamieszki-we-francji-nunez-policja-stracila-kontrole",
+        "published_at": "",
+        "fetched_at": "2026-10-19T10:38:45.095263+00:00",
+        "word_count": 372
+      },
+      {
+        "article_id": "88c8b8dc81f982ee175437cf",
+        "source_id": "rzeczpospolita",
+        "source_name": "Rzeczpospolita",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Prezydent Macron nie przyjął dymisji ministra spraw wewnętrznych",
+        "original_url": "https://www.rp.pl/spoleczenstwo/art45354801-zamieszki-we-francji-prezydent-macron-nie-przyjal-dymisji-ministra-spraw-wewnetrznych",
+        "published_at": "2026-10-19T09:30:11+02:00",
+        "fetched_at": "2026-10-19T08:10:22.793102+00:00",
+        "word_count": 1094
+      },
+      {
+        "article_id": "8a0cbeef3818546c116b7eb1",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "French PM blames 'ultra-left' groups for weekend riots, promises 'massive' security deployment",
+        "original_url": "https://www.france24.com/en/france/20261020-french-pm-blames-ultra-left-groups-for-weekend-riots-promises-massive-security-deployment",
+        "published_at": "2026-10-20T14:16:16+00:00",
+        "fetched_at": "2026-10-20T14:17:28.620402+00:00",
+        "word_count": 296
+      },
+      {
+        "article_id": "8cad53fd913a7141d94578da",
+        "source_id": "le_figaro",
+        "source_name": "Le Figaro",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Paris : un nouveau couvre-feu dès 23 heures dans certains quartiers",
+        "original_url": "https://www.lefigaro.fr/actualite-france/paris-un-nouveau-couvre-feu-des-23-heures-dans-certains-quartiers-20261020",
+        "published_at": "2026-10-20T17:27:15+02:00",
+        "fetched_at": "2026-10-20T15:46:31.520021+00:00",
+        "word_count": 158
+      },
+      {
+        "article_id": "91909e0c0ead6945131b0f9c",
+        "source_id": "bankier",
+        "source_name": "Bankier",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Paryż reaguje na grabieże. Godzina policyjna i zakaz demonstracji",
+        "original_url": "https://www.bankier.pl/wiadomosc/Paryz-reaguje-na-grabieze-Godzina-policyjna-i-zakaz-demonstracji-9215019.html",
+        "published_at": "2026-10-19T20:13:00+0200",
+        "fetched_at": "2026-10-20T03:39:21.608572+00:00",
+        "word_count": 324
+      },
+      {
+        "article_id": "938a7226d692e1770b9625ce",
+        "source_id": "el_pais",
+        "source_name": "El País",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Macron rechaza la dimisión del ministro del Interior tras los disturbios del fin de semana",
+        "original_url": "https://elpais.com/internacional/2026-10-19/macron-rechaza-la-dimision-del-ministro-del-interior-tras-los-disturbios-del-fin-de-semana.html",
+        "published_at": "2026-10-19T08:42:26+02:00",
+        "fetched_at": "2026-10-19T08:19:37.369882+00:00",
+        "word_count": 659
+      },
+      {
+        "article_id": "93d63ebe26441b12f5911b27",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Police 'lost control' during French protests, says interior minister",
+        "original_url": "https://www.france24.com/en/live-news/20261019-police-lost-control-during-french-protests-says-interior-minister",
+        "published_at": "2026-10-19T07:47:22+00:00",
+        "fetched_at": "2026-10-19T08:17:51.510638+00:00",
+        "word_count": 475
+      },
+      {
+        "article_id": "9d228c3f4ad3b73def4b62f5",
+        "source_id": "npr",
+        "source_name": "NPR",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "How the protests in France could affect its upcoming presidential elections",
+        "original_url": "https://www.npr.org/2026/10/19/nx-s1-6007837/how-the-protests-in-france-could-affect-its-upcoming-presidential-elections",
+        "published_at": "2026-10-19T17:55:23-04:00",
+        "fetched_at": "2026-10-20T03:42:34.407993+00:00",
+        "word_count": 10690
+      },
+      {
+        "article_id": "a93dae5e3ab67599f63885ef",
+        "source_id": "tvn24",
+        "source_name": "TVN24",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francuski minister złożył rezygnację. Emmanuel Macron odmawia jej przyjęcia",
+        "original_url": "https://tvn24.pl/swiat/zamieszki-we-francji-minister-spraw-wewnetrznych-laurent-nunez-zlozyl-rezygnacje-emmanuel-macron-odmawia-st9293724",
+        "published_at": "2026-10-19T06:31:55.000Z",
+        "fetched_at": "2026-10-19T08:06:09.130011+00:00",
+        "word_count": 354
+      },
+      {
+        "article_id": "ab723a67eaf423ed82349d40",
+        "source_id": "washington_examiner",
+        "source_name": "Washington Examiner",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "France rocked by anti-government protests and riots: What to know",
+        "original_url": "https://www.washingtonexaminer.com/news/world/4770315/france-anti-government-protests-riots-what-to-know/",
+        "published_at": "2026-10-19T14:56:29+00:00",
+        "fetched_at": "2026-10-19T15:44:18.776945+00:00",
+        "word_count": 133
+      },
+      {
+        "article_id": "ae949fc90aaa29920fc33c7c",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "17 octobre : les violences en marge des manifestations font le lit du rassemblement national",
+        "original_url": "https://www.france24.com/fr/vid%C3%A9o/20261019-17-octobre-les-violences-en-marge-des-manifestations-font-le-lit-du-rassemblement-national",
+        "published_at": "2026-10-19T10:46:06+00:00",
+        "fetched_at": "2026-10-19T10:58:41.689337+00:00",
+        "word_count": 148
+      },
+      {
+        "article_id": "afaf2bdba735b4968133abc9",
+        "source_id": "el_mundo",
+        "source_name": "El Mundo",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Emmanuel Macron rechaza la dimisión del ministro de Interior Laurent Nuñez por la explosión de violencia en Francia",
+        "original_url": "https://www.elmundo.es/internacional/2026/10/19/6ad5cb13fc6c837b518b4590.html",
+        "published_at": "2026-10-19T07:55:14Z",
+        "fetched_at": "2026-10-19T08:19:50.731256+00:00",
+        "word_count": 541
+      },
+      {
+        "article_id": "b11f866069776de2c57595f2",
+        "source_id": "rzeczpospolita",
+        "source_name": "Rzeczpospolita",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja po zamieszkach. Minister sprawiedliwości ostrzega przed samosądami",
+        "original_url": "https://www.rp.pl/spoleczenstwo/art45367221-francja-po-zamieszkach-minister-sprawiedliwosci-ostrzega-przed-samosadami",
+        "published_at": "2026-10-20T16:37:00+02:00",
+        "fetched_at": "2026-10-20T15:39:07.297242+00:00",
+        "word_count": 825
+      },
+      {
+        "article_id": "b323a1c098d7200a3deeac9d",
+        "source_id": "rt",
+        "source_name": "RT",
+        "source_profile": "STATE_ALIGNED",
+        "source_type": "UNCLASSIFIED",
+        "title": "France deploying counterterrorism troops to quell riots",
+        "original_url": "https://www.rt.com/news/647461-france-sentinelle-troops-riots/",
+        "published_at": "2026-10-21T02:19:12+00:00",
+        "fetched_at": "2026-10-21T03:54:05.211459+00:00",
+        "word_count": 907
+      },
+      {
+        "article_id": "b733eea6e715982ad9124892",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "El costo de los saqueos y disturbios para los comerciantes en Francia",
+        "original_url": "https://www.france24.com/es/video/20261020-el-costo-de-los-saqueos-y-disturbios-para-los-comerciantes-en-francia",
+        "published_at": "2026-10-20T03:27:50+00:00",
+        "fetched_at": "2026-10-20T03:47:59.956878+00:00",
+        "word_count": 171
+      },
+      {
+        "article_id": "b9d561b07098d5c9156227ec",
+        "source_id": "new_york_post",
+        "source_name": "New York Post",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "French government braces for next round of protests after weekend of riots and looting",
+        "original_url": "https://nypost.com/2026/10/20/world-news/french-government-braces-for-next-round-of-protests-after-weekend-of-riots-and-looting/",
+        "published_at": "2026-10-20T10:16:41Z",
+        "fetched_at": "2026-10-20T10:50:06.69007+00:00",
+        "word_count": 403
+      },
+      {
+        "article_id": "ba20fbc1ea3b13be9a33dd08",
+        "source_id": "bbc",
+        "source_name": "BBC",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "France's government under pressure after weekend of widespread violence",
+        "original_url": "https://www.bbc.com/news/articles/crwyd02yz22vo",
+        "published_at": "2026-10-19T04:16:46.383Z",
+        "fetched_at": "2026-10-19T08:14:54.850485+00:00",
+        "word_count": 854
+      },
+      {
+        "article_id": "bdc61ee7a3d9bb3150b9fd6f",
+        "source_id": "polsat_news",
+        "source_name": "Polsat News",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja: Godzina policyjna w Paryżu i innych miastach. Reakcja na gwałtowne zamieszki",
+        "original_url": "https://www.polsatnews.pl/wiadomosc/2026-10-19/francja-godzina-policyjna-w-paryzu-i-innych-miastach-reakcja-na-gwaltowne-zamieszki/",
+        "published_at": "2026-10-19T19:09:00+02:00",
+        "fetched_at": "2026-10-20T03:37:16.490881+00:00",
+        "word_count": 545
+      },
+      {
+        "article_id": "c1cf00eec164b576f6d18374",
+        "source_id": "wp",
+        "source_name": "WP",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "\"Ludzie są wykończeni. Koniec panowania\". Jak we Francji sytuacja wymknęła się spod kontroli",
+        "original_url": "https://wiadomosci.wp.pl/ludzie-sa-wykonczeni-koniec-panowania-jak-we-francji-sytuacja-wymknela-sie-spod-kontroli-7341723619575904a",
+        "published_at": "2026-10-19T14:25:56.000Z",
+        "fetched_at": "2026-10-19T15:37:45.953712+00:00",
+        "word_count": 1937
+      },
+      {
+        "article_id": "c2ef010930f2904d9ee937ab",
+        "source_id": "rzeczpospolita",
+        "source_name": "Rzeczpospolita",
+        "source_profile": "CENTER_RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja obudziła się w szoku. Dzienniki piszą o fiasku i błędach władz",
+        "original_url": "https://www.rp.pl/przestepczosc/art45355421-francja-obudzila-sie-w-szoku-dzienniki-pisza-o-fiasku-i-bledach-wladz",
+        "published_at": "2026-10-19T11:45:11+02:00",
+        "fetched_at": "2026-10-19T10:50:08.087245+00:00",
+        "word_count": 938
+      },
+      {
+        "article_id": "c3fa5714008727c0ec19bc18",
+        "source_id": "tvn24",
+        "source_name": "TVN24",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Godzina policyjna w dwóch rejonach Paryża. Wprowadzono szereg ograniczeń",
+        "original_url": "https://tvn24.pl/swiat/francja-paryz-godzina-policyjna-w-dwoch-rejonach-miasta-wprowadzono-szereg-ograniczen-st9297212",
+        "published_at": "2026-10-20T20:44:00.000Z",
+        "fetched_at": "2026-10-21T03:34:29.243074+00:00",
+        "word_count": 252
+      },
+      {
+        "article_id": "c4bc4ccf6b81695794a9b170",
+        "source_id": "niezalezna",
+        "source_name": "Niezależna",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Francja po wielkich zamieszkach. Teraz padają poważne oskarżenia",
+        "original_url": "https://niezalezna.pl/swiat/francja-po-wielkich-zamieszkach-teraz-padaja-powazne-oskarzenia/582026",
+        "published_at": "2026-10-19T08:32:00+00:00",
+        "fetched_at": "2026-10-19T10:51:32.560221+00:00",
+        "word_count": 591
+      },
+      {
+        "article_id": "d42ce668c3e6333a6279ec65",
+        "source_id": "do_rzeczy",
+        "source_name": "Do Rzeczy",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Część Marsylii zdemolowana",
+        "original_url": "https://dorzeczy.pl/swiat/958825/imigranci-i-lewicowe-bojowki-zdemolowaly-czesc-marsylii.html",
+        "published_at": "2026-10-19T06:02:00+02:00",
+        "fetched_at": "2026-10-19T08:11:39.09348+00:00",
+        "word_count": 307
+      },
+      {
+        "article_id": "dfe44f608a5e4062b670f674",
+        "source_id": "niezalezna",
+        "source_name": "Niezależna",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Zamieszki we Francji. Minister chciał zrezygnować",
+        "original_url": "https://niezalezna.pl/swiat/zamieszki-we-francji-minister-chcial-zrezygnowac/582015",
+        "published_at": "2026-10-19T06:40:29+00:00",
+        "fetched_at": "2026-10-19T08:12:00.273482+00:00",
+        "word_count": 172
+      },
+      {
+        "article_id": "e4027d033beffb1ed7ce7425",
+        "source_id": "onet",
+        "source_name": "Onet",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Fala oburzenia po orędziu Emmanuela Macrona. \"Żałosne przemówienie\"",
+        "original_url": "https://wiadomosci.onet.pl/swiat/fala-oburzenia-po-oredziu-emmanuel-macrona-zalosne-przemowienie/9fv2g7w",
+        "published_at": "2026-10-19T09:03:26+0200",
+        "fetched_at": "2026-10-19T08:09:44.295351+00:00",
+        "word_count": 542
+      },
+      {
+        "article_id": "e88dc356347d1fd891464abb",
+        "source_id": "do_rzeczy",
+        "source_name": "Do Rzeczy",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Godzina policyjna w niektórych miastach. Francja reaguje na zamieszki",
+        "original_url": "https://dorzeczy.pl/swiat/959086/francja-wprowadza-godzine-policyjna-w-niektorych-miastach.html",
+        "published_at": "2026-10-19T14:57:00+02:00",
+        "fetched_at": "2026-10-19T15:40:43.661095+00:00",
+        "word_count": 286
+      },
+      {
+        "article_id": "ea5d7682546655a076aa1ccd",
+        "source_id": "fox_news",
+        "source_name": "Fox News",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "WHO'S WHO: Inside France's 'Chaos Inc.' franchise of communist groups, labor unions and global activists",
+        "original_url": "https://www.foxnews.com/world/whos-who-inside-frances-chaos-inc-franchise-communist-groups-labor-unions-global-activists",
+        "published_at": "2026-10-19T04:00:44-04:00",
+        "fetched_at": "2026-10-19T08:13:09.492666+00:00",
+        "word_count": 2927
+      },
+      {
+        "article_id": "eb06e24d1ab9fe80a052e055",
+        "source_id": "efe",
+        "source_name": "EFE",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "El primer ministro francés anuncia toques de queda parciales en varias ciudades ante la ola de disturbios",
+        "original_url": "https://efe.com/mundo/2026-10-19/toques-queda-ciudades-francia-disturbios/",
+        "published_at": "2026-10-19T13:01:02+02:00",
+        "fetched_at": "2026-10-19T15:49:52.857473+00:00",
+        "word_count": 996
+      },
+      {
+        "article_id": "f40f0b63fd85bc583461b14e",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "France wants curfews in some areas after weekend of riots",
+        "original_url": "https://www.france24.com/en/video/20261019-france-wants-curfews-in-some-areas-after-weekend-of-riots",
+        "published_at": "2026-10-19T15:37:30+00:00",
+        "fetched_at": "2026-10-19T15:48:29.627745+00:00",
+        "word_count": 143
+      },
+      {
+        "article_id": "f585c257bcdfd967b849adb9",
+        "source_id": "france_24",
+        "source_name": "France 24",
+        "source_profile": "CENTER",
+        "source_type": "UNCLASSIFIED",
+        "title": "مباشر: ماكرون يرفض استقالة وزير الداخلية ويطلب وضع \"أساليب عمل جديدة\" لمواجهة مثيري الشغب",
+        "original_url": "https://www.france24.com/ar/%D9%81%D8%B1%D9%86%D8%B3%D8%A7/20261019-%D9%81%D8%B1%D9%86%D8%B3%D8%A7-%D9%85%D8%A7%D9%83%D8%B1%D9%88%D9%86-%D9%8A%D8%B1%D9%81%D8%B6-%D8%A7%D8%B3%D8%AA%D9%82%D8%A7%D9%84%D8%A9-%D9%88%D8%B2%D9%8A%D8%B1-%D8%A7%D9%84%D8%AF%D8%A7%D8%AE%D9%84%D9%8A%D8%A9-%D8%A7%D8%AD%D8%AA%D8%AC%D8%A7%D8%AC%D8%A7%D8%AA-%D8%A3%D8%B9%D9%85%D8%A7%D9%84-%D8%B9%D9%86%D9%81-%D8%B4%D8%BA%D8%A8",
+        "published_at": "2026-10-19T05:29:07+00:00",
+        "fetched_at": "2026-10-19T08:17:51.510638+00:00",
+        "word_count": 722
+      },
+      {
+        "article_id": "fe3bfea568989500e86e44dc",
+        "source_id": "der_spiegel",
+        "source_name": "Der Spiegel",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Frankreich: Innenminister will nach Unruhen zurücktreten - Macron lehnt ab",
+        "original_url": "https://www.spiegel.de/ausland/frankreich-innenminister-will-nach-unruhen-zuruecktreten-macron-lehnt-ab-a-c19da9c5-d839-45e6-8c13-bb20ab4a0e59",
+        "published_at": "2026-10-19T09:03:00+02:00",
+        "fetched_at": "2026-10-19T08:16:45.800464+00:00",
+        "word_count": 354
+      }
+    ]
+  },
+  "spacex": {
+    "topic": {
+      "topic_id": "topic_perspectives_8eff32214c2a5a89a6798c6c",
+      "headline_pl": "[Świat] Udziały SpaceX dla dzieci obiecane przez Elona Muska",
+      "status": "ACTIVE",
+      "first_seen_at": "2026-10-19T11:08:32.36883+00:00",
+      "last_seen_at": "2026-10-21T09:38:11.329664+00:00",
+      "article_count": 4,
+      "source_count": 4,
+      "coverage_status": "MULTI_SOURCE",
+      "needs_review": false,
+      "merged_into_topic_id": null,
+      "merged_at": null,
+      "updated_at": "2026-10-21T09:38:11.329664+00:00",
+      "categories": [
+        "SWIAT",
+        "TECHNOLOGIA"
+      ],
+      "is_current": true
+    },
+    "updated_at": "2026-10-21T09:38:11.329664+00:00",
+    "summary_pl": "Z doniesień sugerujących notowania SpaceX, akcje miały zamknąć dzień w granicach 146 dolarów, a populacja dzieci poniżej 18 lat w USA wynosi około 73 miliony, co podnosi szacunek co do skali potencjalnej darowizny. Jednocześnie nie doprecyzowano warunków rozdziału i nie jest jasne, czy wszyscy będą uprawnieni.",
+    "facts": [
+      {
+        "fact_id": "fact_ce9b336b54aeddcd921be972",
+        "text_pl": "Elon Musk napisał, że „Next year, I will give one of my SpaceX shares to every kid in America”",
+        "article_ids": [
+          "221a73325a977a42c0b86e48",
+          "93ba568a7b808539c3be1470"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "Elon Musk (CNN)"
+      },
+      {
+        "fact_id": "fact_9c14f4e41a24b2acbc822cd0",
+        "text_pl": "W doniesieniu CNBC/CNN podano, że akcje SpaceX były notowane na poziomie około 146 dolarów po zamknięciu rynku, a populacja dzieci poniżej 18 lat w USA wynosi około 73 milionów.",
+        "article_ids": [
+          "221a73325a977a42c0b86e48"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "CNN"
+      },
+      {
+        "fact_id": "fact_84ee5deb23751c80505a86ee",
+        "text_pl": "Z artykułu wynika, że ciężar rozdziału udziałów nie został doprecyzowany i nie jest jasne, czy wszyscy będą uprawnieni.",
+        "article_ids": [
+          "221a73325a977a42c0b86e48"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "CNN"
+      },
+      {
+        "fact_id": "fact_5c5f897d0e5e7513b5393b59",
+        "text_pl": "Jedna akcja SpaceX była wyceniana na około 150 dolarów, a w USA jest około 72 milionów dzieci poniżej 18 roku życia, co według szacunków mogłoby dać darowiznę o wartości około 10,8 miliarda dolarów.",
+        "article_ids": [
+          "93ba568a7b808539c3be1470"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "Artykuł"
+      },
+      {
+        "fact_id": "fact_29aed6e4c9d87a72b964f6a4",
+        "text_pl": "Anthropic ogłosił, że przeznaczy 5% swoich udziałów na fundusz „public benefit fund”, mający wspierać osoby dotknięte skutkami AI, w tym możliwość dokonywania dużych darowizn lub przekazów dla określonych populacji.",
+        "article_ids": [
+          "93ba568a7b808539c3be1470"
+        ],
+        "kind": "FACT",
+        "lane": "COMMON",
+        "attribution": "Anthropic"
+      }
+    ],
+    "articles": [
+      {
+        "article_id": "221a73325a977a42c0b86e48",
+        "source_id": "cnn",
+        "source_name": "CNN",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Elon Musk says he will give a SpaceX share to ‘every kid in America’",
+        "original_url": "https://www.cnn.com/2026/10/19/business/elon-musk-children-spacex-shares-x-post-intl",
+        "published_at": "2026-10-19T10:26:20.621Z",
+        "fetched_at": "2026-10-19T10:52:54.438244+00:00",
+        "word_count": 429
+      },
+      {
+        "article_id": "43ae51fa6b33b1fbb6de1bd8",
+        "source_id": "washington_examiner",
+        "source_name": "Washington Examiner",
+        "source_profile": "RIGHT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Thanks to Trump Accounts tweak, Musk can give every child SpaceX shares even if parents object",
+        "original_url": "https://www.washingtonexaminer.com/policy/finance-and-economy/4770523/trump-accounts-musk-spacex-children-stocks/",
+        "published_at": "2026-10-19T15:02:50+00:00",
+        "fetched_at": "2026-10-19T15:44:18.776945+00:00",
+        "word_count": 102
+      },
+      {
+        "article_id": "93ba568a7b808539c3be1470",
+        "source_id": "mother_jones",
+        "source_name": "Mother Jones",
+        "source_profile": "LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "One SpaceX Share Per Child: The New AI PR Strategy",
+        "original_url": "https://www.motherjones.com/politics/2026/10/one-spacex-share-per-child-the-new-ai-pr-strategy/",
+        "published_at": "",
+        "fetched_at": "2026-10-21T03:44:32.119471+00:00",
+        "word_count": 468
+      },
+      {
+        "article_id": "e61df2c7d1252e3989e5d6f1",
+        "source_id": "nbc_news",
+        "source_name": "NBC News",
+        "source_profile": "CENTER_LEFT",
+        "source_type": "UNCLASSIFIED",
+        "title": "Elon Musk and Anthropic make promises to give the public a piece of the AI pie",
+        "original_url": "https://www.nbcnews.com/tech/tech-news/elon-musk-anthropic-make-promises-give-public-piece-ai-pie-rcna604313",
+        "published_at": "2026-10-19T14:39:38.716Z",
+        "fetched_at": "2026-10-19T15:42:53.38204+00:00",
+        "word_count": 541
+      }
+    ]
+  },
+  "exported_at": "2026-10-21T09:42:23.103279+00:00",
+  "generation": "33e7ba0d246895d567ca"
+}

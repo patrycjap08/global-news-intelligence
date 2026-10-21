@@ -55,6 +55,37 @@ def compatible_duplicate(left, right):
     return related_claims(left, right)
 
 
+def story_terms(text):
+    """Short stems for headline coverage, never for merging factual claims."""
+    return {word[:4] for word in tokens(re.sub(r'^\s*\[[^]]+\]\s*', '', str(text or '')))}
+
+
+def primary_fact(facts, headline):
+    """Find the admitted main claim most closely tied to the working title."""
+    candidates = [f for f in facts if f.get('lane', 'COMMON') == 'COMMON'
+                  and f.get('kind', 'FACT') in ('FACT', 'STATEMENT')
+                  and usable_claim(f.get('text_pl'))]
+    if not candidates:
+        return None
+    title = story_terms(headline)
+    return max(candidates, key=lambda f: len(title & story_terms(f['text_pl'])))
+
+
+def narrative_missing_core(headline, narrative, facts):
+    """Detect only an obvious omission of several central headline anchors.
+
+    This is a cheap queue/coverage guard, not proof that all details are covered.
+    Two missing anchors avoid treating one inflected name or a short headline
+    as evidence that another writing request is needed.
+    """
+    primary = primary_fact(facts, headline)
+    if not primary:
+        return False
+    anchors = story_terms(headline) & story_terms(primary['text_pl'])
+    missing = anchors - story_terms(narrative)
+    return len(anchors) >= 2 and len(missing) >= 2 and len(missing) / len(anchors) >= .5
+
+
 def cache_key(article, model, topic_id=''):
     body = {k: article.get(k) for k in ('article_id', 'title_original', 'body_original', 'source_id', 'source_profile', 'source_type')}
     # Selection is event-specific: an omission for one topic must not suppress

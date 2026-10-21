@@ -324,9 +324,7 @@ button { color: inherit; }
 .publication-history { border-top: 1px solid var(--line, #c9bfb0); margin: 1.5rem 0; padding: 1rem 0; }
 .publication-history > summary, .claim-evidence > summary { cursor: pointer; font-weight: 600; }
 .publication-history[open] > summary { margin-bottom: 1rem; }
-.claim-kind, .claim-attribution, .editorial-carried { display: block; font-family: var(--font-sans, sans-serif); font-size: .8rem; }
-.claim-kind { font-weight: 600; margin-bottom: .5rem; }
-.claim-attribution { margin: .6rem 0; }
+.editorial-carried { display: block; font-family: var(--font-sans, sans-serif); font-size: .8rem; }
 .claim-evidence { font-size: .85rem; margin-top: .75rem; }
 .claim-evidence blockquote { margin: 1rem 0; padding-left: .8rem; border-left: 2px solid #aaa; }
 .claim-evidence cite { display: block; margin-top: .5rem; }

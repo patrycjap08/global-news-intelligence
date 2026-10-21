@@ -12,12 +12,13 @@ state.history = new Map([[fixture.topic.topic_id, fixture.history]]);
 invalidateViewCache();
 const before = JSON.stringify(fixture);
 const model = topicModel(fixture.topic), html = dialogHtml(model);
-assert.strictEqual(html.split(fixture.repeated_text).length - 1, 2,
-  'Current state and explicitly collapsed history each retain their record');
+assert.strictEqual(html.split(fixture.repeated_text).length - 1, 1,
+  'Show the current fact once; archived updates must not repeat it');
 assert(model.updates.some(update => perspectiveUpdateHtml(update).includes(fixture.repeated_text)));
 assert(perspectiveSectionsHtml(model.summary, 'ready', model.updates).includes(fixture.repeated_text));
-assert(html.includes('<details class="publication-history">'));
-assert(html.indexOf(fixture.repeated_text) < html.indexOf('<details class="publication-history">'));
+assert(!html.includes('historia aktualizacji'));
+assert(!html.includes('class="update-section'));
+assert(!html.includes('class="claim-kind"'));
 assert(model.summary.perspective_sections.LEFT.some(fact => fact.fact_id === fixture.repeated_fact_id),
   'the complete current ledger is preserved');
 assert.strictEqual(model.summary.summary_pl, fixture.summary.summary.base_summary.summary_pl);

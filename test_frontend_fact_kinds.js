@@ -8,6 +8,7 @@ const topic=state.topics[0];
 const fact=(id,text,kind='FACT',ids=['demo-a1'])=>({fact_id:id,text_pl:text,kind,article_ids:ids});
 const detail=fact('detail','Numer lotu to OS82.');
 const statement=fact('statement','Minister twierdzi, że reforma obniży ceny.','STATEMENT');
+statement.attribution='Minister spraw wewnętrznych';
 const assessment=fact('assessment','Autor nazywa plan skandalicznym.','EDITORIAL');
 const centerAssessment=fact('center','Autor redakcji centrowej krytykuje plan.','EDITORIAL');
 const frozen={perspective_version:1,summary_pl:'Pierwotna synteza.',coverage_mode:'MIXED',shared_available:true,
@@ -17,6 +18,14 @@ const current={perspective_version:1,fact_classification_version:1,coverage_mode
 state.summaries.set(topic.topic_id,{summary:{base_summary:frozen,perspective_state:current,updates:[]}});
 let model=topicModel(topic),html=dialogHtml(model);
 assert(html.includes('Numer lotu to OS82.') && html.includes('Minister twierdzi'));
+assert(!html.includes('class="claim-kind"'));
+assert(!html.includes('Autor: Minister spraw wewnętrznych'));
+assert(!html.includes('class="claim-attribution"'));
+assert.strictEqual(model.summary.facts.find(f => f.fact_id === 'statement').attribution, 'Minister spraw wewnętrznych');
+const withEvidence={...statement,evidence:{'demo-a1':{quote:'Minister powiedział, że reforma obniży ceny.'}}};
+const evidenceHtml=listValue([withEvidence]);
+assert(evidenceHtml.includes('<details class="claim-evidence">'));
+assert(evidenceHtml.includes('Fragmenty źródeł') && evidenceHtml.includes('Minister powiedział'));
 assert(html.includes('Oceny i interpretacje') && html.includes(centerAssessment.text_pl));
 const sections=perspectiveSectionsHtml(model.summary,'ready',[]);
 assert(!sections.includes(detail.text_pl) && !sections.includes(statement.text_pl));
