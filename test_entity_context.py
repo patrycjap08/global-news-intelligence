@@ -131,6 +131,25 @@ class EntityContextTests(unittest.TestCase):
                 self.assertNotIn('unknown-fact', str(result['facts']))
                 self.assertEqual('republikański senator USA' in result['summary_pl'], status == 'completed')
 
+    def test_new_synthesis_and_fallback_do_not_add_publisher_labels(self):
+        for rejected in (False, True):
+            with self.subTest(rejected=rejected):
+                raw = response(reject=rejected)
+                for paragraph in raw['paragraphs']:
+                    paragraph['text_pl'] = 'Według WP: ' + paragraph['text_pl']
+                result = p.generate(self.payload(previous()), lambda *args: raw,
+                                    ai.normalize_generated_text, allow_omissions=True)
+                self.assertNotIn('Według WP:', result['summary_pl'])
+                self.assertNotIn('Według WP:', result['topic']['what_happened_one_sentence_pl'])
+                self.assertIn('Tillis', result['summary_pl'])
+                self.assertEqual(result['facts'], DATA['facts'])
+        self.assertEqual(integrity.without_publisher_prefixes(
+            'Według agencji PAP: Minister powiedział, że rozmowy trwają.\n\nWedług Onet: Zapadła decyzja.', ['PAP', 'Onet']),
+            'Minister powiedział, że rozmowy trwają.\n\nZapadła decyzja.')
+        self.assertEqual(integrity.without_publisher_prefixes(
+            'Według lekarza: Pacjent wymaga leczenia.', ['PAP']),
+            'Według lekarza: Pacjent wymaga leczenia.')
+
     def test_queue_and_persistence_rewrite_old_fallback_but_never_reread_it(self):
         topic = {**DATA['topic'], 'last_seen_at': '2026-10-07T12:00:00Z'}
         tid = topic['topic_id']

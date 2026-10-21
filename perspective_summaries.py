@@ -699,8 +699,11 @@ new_fact_ids wskazują nowy rozwój wydarzenia; zachowaj potrzebne wcześniejsze
 informacje. Połącz źródła powtarzające to samo, nie powielaj zdań.
 Bieżące zdarzenia, daty, liczby, zarzuty i wypowiedzi muszą wynikać z main_facts.
 Każdy akapit wskazuje właściwe fact_ids. STATEMENT ma autora i pozostaje
-wypowiedzią/zarzutem. Przypisz informację jednej redakcji, jeśli tylko ona ją
-podaje. Nie dopisuj ocen redakcyjnych, niezależnego potwierdzenia ani przyczyn,
+wypowiedzią/zarzutem. Nazwy redakcji i linki źródłowe są pokazywane osobno
+na podstawie fact_ids. Nie dodawaj prefiksów „Według PAP:”, „Według Onet:”
+ani podobnych etykiet źródła; pisz płynną narrację. Zachowaj autora wypowiedzi
+lub zarzutu, np. „Minister poinformował, że…”. Nie dopisuj ocen redakcyjnych,
+niezależnego potwierdzenia ani przyczyn,
 których źródła nie ustalają. Profil polityczny nie dowodzi prawdziwości.
 
 KONTEKST WPLEĆ W SYNTEZĘ. Nie twórz osobnego kafelka, sekcji ani słowniczka.
@@ -1752,23 +1755,20 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                 narrative_fallback = True
                 fallback = ([primary] + [f for f in main if f['fact_id'] != primary['fact_id']]) if primary else main
                 for fact in fallback[:3]:
-                    names = list(dict.fromkeys(str(by_id[aid].get('source_name') or by_id[aid].get('source_id') or '')
-                                              for aid in fact['article_ids'] if aid in by_id))
-                    prefix = f"Według {names[0]}: " if len(names) == 1 and names[0] else ''
-                    written['paragraphs'].append({'text_pl': prefix + fact['text_pl'], 'fact_ids': [fact['fact_id']]})
+                    written['paragraphs'].append({'text_pl': fact['text_pl'], 'fact_ids': [fact['fact_id']]})
             covered = {fid for paragraph in written['paragraphs'] for fid in paragraph['fact_ids']}
             if primary and (primary['fact_id'] not in covered or integrity.narrative_missing_core(
                     working_title, ' '.join(p['text_pl'] for p in written['paragraphs']), main)):
                 # A partly valid response must not lose the story's main claim.
                 # Use its admitted wording and citations; never buy a repair.
-                names = list(dict.fromkeys(str(by_id[aid].get('source_name') or by_id[aid].get('source_id') or '')
-                                          for aid in primary['article_ids'] if aid in by_id))
-                prefix = f"Według {names[0]}: " if len(names) == 1 and names[0] else ''
-                written['paragraphs'].insert(0, {'text_pl': prefix + primary['text_pl'], 'fact_ids': [primary['fact_id']]})
+                written['paragraphs'].insert(0, {'text_pl': primary['text_pl'], 'fact_ids': [primary['fact_id']]})
                 for item in written.get('narrative_context') or []:
                     item['paragraph_index'] += 1
                 core_fallback = True
             insert_entity_context(written, main)
+            source_names = [a.get('source_name') or a.get('source_id') for a in articles]
+            for paragraph in written['paragraphs']:
+                paragraph['text_pl'] = integrity.without_publisher_prefixes(paragraph['text_pl'], source_names)
         else:
             written, _ = validated_call(call, LEGACY_WRITING_INSTRUCTIONS, writing_input,
                 writing_schema(main), 'perspective_summary', lambda response: validate_written(response, main),

@@ -412,7 +412,7 @@ function readableEvidenceText(value) {
 }
 
 function synthesisParagraphs(value) {
-  let text = readableEvidenceText(value).trim();
+  let text = withoutPublisherPrefixes(readableEvidenceText(value)).trim();
   const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(Boolean);
   if (paragraphs.length > 1 && /^(?:Podsumowując\b|Podsumowanie\s*:)/iu.test(paragraphs.at(-1))) {
     paragraphs.pop(); text = paragraphs.join('\n\n');
@@ -424,6 +424,15 @@ function synthesisParagraphs(value) {
   if (!boundaries.length) return text;
   const split = boundaries.reduce((best, index) => Math.abs(index - text.length / 2) < Math.abs(best - text.length / 2) ? index : best);
   return text.slice(0, split).trim() + '\n\n' + text.slice(split).trim();
+}
+
+function withoutPublisherPrefixes(value) {
+  const names = [...new Set([...indexes().sourceById.values()].map(name => String(name).trim()).filter(Boolean))];
+  if (!names.length) return String(value || '');
+  const alternatives = names.sort((a, b) => b.length - a.length)
+    .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const prefix = new RegExp(`^[ \\t]*Według[ \\t]+(?:(?:agencji|portalu|dziennika|redakcji)[ \\t]+)?(?:${alternatives})[ \\t]*[:,][ \\t]*`, 'gimu');
+  return String(value || '').replace(prefix, '');
 }
 
 function richTextHtml(value) {
@@ -1050,7 +1059,6 @@ function cardHtml(model, index) {
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
     <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? escapeHtml(perspectiveUpdateLabel(model.latestUpdate)) : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}<span class="card-category-group">${category}</span></span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
     <h4>${escapeHtml(model.title)}</h4>
-    <p class="card-dek">${richInlineHtml(model.lead)}</p>
     ${articleProfileBar(model)}
     <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
   </article>`;
@@ -1215,7 +1223,6 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     ${coverageNotice(summary, model.updates || [], model.latestAnalysisStatus)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
-    <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
     ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : missingSynthesisMessage(summary)}</p>` : `
@@ -1228,7 +1235,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     `}
     ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
     ${!stateOnly && model.originalSummary?.summary_pl && model.originalSummary.summary_pl !== summary.summary_pl ? `<details class="publication-history"><summary>Pierwsza opublikowana synteza</summary><div class="summary-copy">${richTextHtml(synthesisParagraphs(model.originalSummary.summary_pl))}</div></details>` : ''}
-    ${!stateOnly && (model.mergedPublications || []).length ? `<details class="publication-history"><summary>Opracowania dołączone przy scalaniu (${model.mergedPublications.length})</summary>${model.mergedPublications.map(p => `<h3>${escapeHtml(p.base_summary?.topic?.headline_pl || '')}</h3><div class="summary-copy">${richTextHtml(p.base_summary?.summary_pl || '')}</div>`).join('')}</details>` : ''}
+    ${!stateOnly && (model.mergedPublications || []).length ? `<details class="publication-history"><summary>Opracowania dołączone przy scalaniu (${model.mergedPublications.length})</summary>${model.mergedPublications.map(p => `<h3>${escapeHtml(p.base_summary?.topic?.headline_pl || '')}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(p.base_summary?.summary_pl || ''))}</div>`).join('')}</details>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
 }

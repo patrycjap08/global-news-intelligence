@@ -36,7 +36,7 @@ from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
 
 
-PROMPT_VERSION = "ai-prompts-v78-context-through-fallback"
+PROMPT_VERSION = "ai-prompts-v79-clean-narrative"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.

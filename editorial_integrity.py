@@ -18,6 +18,16 @@ def text_key(text):
     return re.sub(r'\s+', ' ', str(text or '')).strip().casefold().rstrip('. ')
 
 
+def without_publisher_prefixes(text, source_names):
+    """Remove publisher labels, preserving the author of a statement/claim."""
+    names = sorted({str(name).strip() for name in source_names if str(name or '').strip()}, key=len, reverse=True)
+    if not names:
+        return text
+    alternatives = '|'.join(re.escape(name) for name in names)
+    return re.sub(r'^[ \t]*Według[ \t]+(?:(?:agencji|portalu|dziennika|redakcji)[ \t]+)?(?:'
+                  + alternatives + r')[ \t]*[:,][ \t]*', '', text, flags=re.I | re.M)
+
+
 def tokens(text):
     text = unicodedata.normalize('NFKD', text_key(text).replace('ł', 'l'))
     text = ''.join(c for c in text if not unicodedata.combining(c))

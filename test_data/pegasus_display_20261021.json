@@ -1,0 +1,290 @@
+{
+  "topic": {
+    "topic_id": "topic_perspectives_f1e4864e593d404f00e5ecb7",
+    "headline_pl": "[Polska] Komisja ds. Pegasusa rozpatruje raport końcowy",
+    "status": "ACTIVE",
+    "first_seen_at": "2026-10-20T11:02:58.041022+00:00",
+    "last_seen_at": "2026-10-21T16:22:15.491693+00:00",
+    "article_count": 2,
+    "source_count": 2,
+    "coverage_status": "MULTI_SOURCE",
+    "needs_review": false,
+    "merged_into_topic_id": null,
+    "merged_at": null,
+    "updated_at": "2026-10-21T16:22:15.491693+00:00",
+    "categories": [
+      "POLITYKA",
+      "POLSKA",
+      "SWIAT"
+    ],
+    "is_current": true
+  },
+  "articles": [
+    {
+      "article_id": "6348554ecde6d0381fbe0c0b",
+      "source_id": "onet",
+      "source_name": "Onet",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Komisja śledcza do sprawy Pegasusa zakończyła prace. Jest raport końcowy",
+      "original_url": "https://wiadomosci.onet.pl/kraj/komisja-sledcza-do-sprawy-pegasusa-zakonczyla-prace-raport-trafi-do-sejmu/d6lst4d",
+      "published_at": "2026-10-21T17:23:08+0200",
+      "fetched_at": "2026-10-21T15:45:33.899295+00:00",
+      "word_count": 452
+    },
+    {
+      "article_id": "99080e427363aea467df45ff",
+      "source_id": "pap",
+      "source_name": "PAP",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Sroka: w środę komisja ds. Pegasusa rozpatrzy poprawki i zagłosuje nad przyjęciem raportu końcowego",
+      "original_url": "https://pap.pl/aktualnosci/sroka-w-srode-komisja-ds-pegasusa-rozpatrzy-poprawki-i-zaglosuje-nad-przyjeciem-raportu",
+      "published_at": "",
+      "fetched_at": "2026-10-20T10:32:47.546308+00:00",
+      "word_count": 654
+    }
+  ],
+  "links": [
+    {
+      "topic_id": "topic_perspectives_f1e4864e593d404f00e5ecb7",
+      "article_id": "6348554ecde6d0381fbe0c0b",
+      "confidence": 0.8694403161871713
+    },
+    {
+      "topic_id": "topic_perspectives_f1e4864e593d404f00e5ecb7",
+      "article_id": "99080e427363aea467df45ff",
+      "confidence": 0.8694403161871713
+    }
+  ],
+  "summary": {
+    "topic_id": "topic_perspectives_f1e4864e593d404f00e5ecb7",
+    "version": 1,
+    "generated_at": "2026-10-21T16:22:15.491693+00:00",
+    "updated_at": "2026-10-21T16:22:15.491693+00:00",
+    "summary": {
+      "base_summary": {
+        "topic": {
+          "categories": [
+            "POLSKA",
+            "POLITYKA",
+            "SWIAT"
+          ],
+          "headline_pl": "[Polska] Komisja ds. Pegasusa rozpatruje raport końcowy",
+          "what_happened_one_sentence_pl": "Według PAP: W środę sejmowa komisja śledcza ds. Pegasusa rozpatrzy ewentualne poprawki do projektu stanowiska końcowego i zagłosuje nad całością raportu."
+        },
+        "summary_pl": "Według PAP: W środę sejmowa komisja śledcza ds. Pegasusa rozpatrzy ewentualne poprawki do projektu stanowiska końcowego i zagłosuje nad całością raportu.\n\nWedług Onet: W Sejmie zakończono prace komisji śledczej ds. Pegasusa; odbyło się 131. posiedzenie.\n\nWedług Onet: W głosowaniu nad przyjęciem raportu końcowego wzięło udział sześcioro członków komisji, wszyscy byli za.",
+        "publication_version": 2,
+        "perspective_version": 1,
+        "fact_classification_version": 1,
+        "coverage_mode": "MIXED",
+        "synthesis_coverage_mode": "MIXED",
+        "shared_available": true
+      },
+      "current_summary": {
+        "topic": {
+          "categories": [
+            "POLSKA",
+            "POLITYKA",
+            "SWIAT"
+          ],
+          "headline_pl": "[Polska] Komisja ds. Pegasusa rozpatruje raport końcowy",
+          "what_happened_one_sentence_pl": "Według PAP: W środę sejmowa komisja śledcza ds. Pegasusa rozpatrzy ewentualne poprawki do projektu stanowiska końcowego i zagłosuje nad całością raportu."
+        },
+        "summary_pl": "Według PAP: W środę sejmowa komisja śledcza ds. Pegasusa rozpatrzy ewentualne poprawki do projektu stanowiska końcowego i zagłosuje nad całością raportu.\n\nWedług Onet: W Sejmie zakończono prace komisji śledczej ds. Pegasusa; odbyło się 131. posiedzenie.\n\nWedług Onet: W głosowaniu nad przyjęciem raportu końcowego wzięło udział sześcioro członków komisji, wszyscy byli za.",
+        "publication_version": 2,
+        "perspective_version": 1,
+        "fact_classification_version": 1,
+        "coverage_mode": "MIXED",
+        "synthesis_coverage_mode": "MIXED",
+        "shared_available": true
+      },
+      "updates": [],
+      "last_analysis": {
+        "run_id": "harvest_20261021T153326Z",
+        "status": "BASE_SUMMARY",
+        "is_update": false,
+        "generated_at": "2026-10-21T16:22:15.491693+00:00",
+        "new_article_ids": [
+          "6348554ecde6d0381fbe0c0b",
+          "99080e427363aea467df45ff"
+        ],
+        "what_changed_pl": "",
+        "new_information_pl": ""
+      },
+      "perspective_state": {
+        "facts": [
+          {
+            "kind": "FACT",
+            "fact_id": "fact_cd5d525d8feace4286b47bd3",
+            "text_pl": "W Sejmie zakończono prace komisji śledczej ds. Pegasusa; odbyło się 131. posiedzenie.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Onet"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_9730f2b0653789680f11637e",
+            "text_pl": "W głosowaniu nad przyjęciem raportu końcowego wzięło udział sześcioro członków komisji, wszyscy byli za.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Onet"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_7a7c3a2faaeed1ed33f5c260",
+            "text_pl": "Nieobecni byli Przemysław Wipler, Mariusz Gosek i Sebastian Łukaszewicz.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Onet"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_917bed4948da143c4bdccfaa",
+            "text_pl": "Nie wpłynęły żadne zdania odrębne w sprawie sprawozdania z prac komisji.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Onet"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_11666325e8b06838527a76c8",
+            "text_pl": "Raport końcowy wskazuje, że Pegasus był wykorzystywany bez akredytacji i dane mogły trafiać poza Polskę, przede wszystkim do NSO Group.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Onet"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_6b480b8929607095bd55cd40",
+            "text_pl": "Zakup systemu kosztował 33,4 mln zł, a finansowanie pochodziło ze środków Funduszu Sprawiedliwości.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Onet"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_a6f244a481509cf2569c00e2",
+            "text_pl": "Citizen Lab wskazywał, że system inwigilował polityków ówczesnej opozycji, w tym Krzysztofa Brejzę.",
+            "article_ids": [
+              "6348554ecde6d0381fbe0c0b"
+            ],
+            "attribution": "Citizen Lab"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_65c2fc40e9bfd7a90b7c3053",
+            "text_pl": "W środę sejmowa komisja śledcza ds. Pegasusa rozpatrzy ewentualne poprawki do projektu stanowiska końcowego i zagłosuje nad całością raportu.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Magdalena Sroka"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_8bd75b3509960956e780e61a",
+            "text_pl": "Ostateczny termin na składanie poprawek upływa we wtorek o godz. 15.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Magdalena Sroka"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_1f5b1b23c62160047773fbd6",
+            "text_pl": "Podczas posiedzenia komisja wyznaczy termin na składanie zdań odrębnych do raportu.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Magdalena Sroka"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_2fe6fd10d1d3e5ca371a32b7",
+            "text_pl": "Raport końcowy ma być prezentowany na sali sejmowej w formie jawnej i niejawnej.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Magdalena Sroka"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_97b68d7c1cb2c67f551ac6a5",
+            "text_pl": "Raport wskazuje, że Pegasus był wykorzystywany bez wymaganej akredytacji bezpieczeństwa teleinformatycznego, a dane pozyskiwane za jego pomocą mogły opuszczać terytorium Polski.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Źródła komisji"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_5c883d38f3a3f649aa9941e6",
+            "text_pl": "Część infrastruktury Pegasusa pozostawała pod kontrolą izraelskiej firmy NSO Group, a producent miał możliwość dostępu do materiałów pozyskiwanych w ramach kontroli operacyjnej.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Źródła komisji"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_f15a2183ea85fd992ad0891a",
+            "text_pl": "Zakup Pegasusa kosztował 33,4 mln zł, z czego ponad 8 mln zł przypadło firmie pośredniczącej.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Źródła komisji"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_fa785752b63aff9b21e4a30f",
+            "text_pl": "Kwota ta nie obejmuje wszystkich kosztów eksploatacji, utrzymania systemu i przedłużania licencji, więc łączny rachunek jest wyższy.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Źródła komisji"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_caa5f60aeba34b57b3cf43a2",
+            "text_pl": "Komisja zakwestionowała sposób finansowania zakupu ze środków Funduszu Sprawiedliwości.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Źródła komisji"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_58e73094379b28bac9304aa8",
+            "text_pl": "Z ustaleń wynika, że część infrastruktury Pegasusa była pod kontrolą NSO Group.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Źródła komisji"
+          },
+          {
+            "kind": "FACT",
+            "fact_id": "fact_be38c1b23e6df1c54b519a8d",
+            "text_pl": "Citizen Lab wskazał, że Pegasusem inwigelizano Krzysztofa Brejzę.",
+            "article_ids": [
+              "99080e427363aea467df45ff"
+            ],
+            "attribution": "Citizen Lab"
+          }
+        ],
+        "perspective_sections": {
+          "LEFT": [],
+          "RIGHT": [],
+          "STATE": [],
+          "CENTER": [],
+          "EDITORIAL": []
+        }
+      }
+    }
+  }
+}
