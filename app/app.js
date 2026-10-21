@@ -1209,7 +1209,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     ${coverageNotice(summary)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
-    ${detailsState !== 'ready' || !summary.summary_pl ? `<p class="dialog-lead">${richInlineHtml(model.lead)}</p>` : ''}
+    <p class="dialog-lead">${richInlineHtml(model.lead)}</p>
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
     ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : summary.fact_classification_version === 1 ? 'W zebranych materiałach nie ma neutralnych ustaleń do syntezy. Dostępne są perspektywy źródeł.' : 'Brak ustaleń spełniających kryteria tej syntezy. Dodatkowe informacje ze źródeł są poniżej.'}</p>` : `

@@ -89,6 +89,8 @@ zakładkę, ukrywanie przeczytanych, profil źródeł i wyszukiwane hasło.
 Zakładka, sortowanie, kategorie, sposób ich łączenia, profil, ukrywanie
 przeczytanych i hasło są zapamiętywane lokalnie na tym urządzeniu.
 Wyszukiwanie obejmuje tytuł, krótki opis i nazwy źródeł.
+Krótki opis jest widoczny pod tytułem na karcie i w otwartym wątku,
+również po pobraniu pełnej syntezy. Korzysta z już zapisanego tekstu.
 
 Syntezy bez podziału na akapity są dzielone na granicy zdania, gdy taki podział
 jest możliwy, bez dopisywania treści. Oznaczony „Podsumowując” ostatni akapit
