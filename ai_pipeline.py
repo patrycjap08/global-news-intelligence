@@ -34,9 +34,10 @@ from queue import SimpleQueue
 from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
 from structured_outputs import check_response_schema
+from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v79-clean-narrative"
+PROMPT_VERSION = "ai-prompts-v80-situation-paragraph"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2723,6 +2724,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
             log('AI', f"Pisanie syntezy [{(payload.get('topic') or {}).get('topic_id', '')}]: "
                 f"zaakceptowane akapity {writing.get('accepted_paragraphs', 0)}/{writing.get('supplied_paragraphs', 0)}, "
                 f"objaśnienia {raw['quality_report'].get('context_additions_accepted', 0)}, "
+                f"akapit tła {writing.get('situation_context', 'bez pisania')}, "
                 f"tekst awaryjny {bool(raw['quality_report'].get('narrative_fallback'))}; "
                 f"powody odrzucenia: {json.dumps(writing.get('rejections') or {}, ensure_ascii=False)}.")
         raw['article_content_hashes'] = {a['article_id']: a['content_hash'] for a in payload.get('all_articles', []) if a.get('content_hash')}
@@ -2731,7 +2733,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
             f"czas {seconds(time.monotonic() - started)}; odczytane artykuły {raw['quality_report']['read_articles']}, "
             f"z cache {raw['quality_report']['cached_articles']}.")
         normalized = normalize_summary_response(raw)
-        for field in ("article_content_hashes", "publication_version", "fact_extraction_version", "inline_context_version", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("article_content_hashes", "publication_version", "fact_extraction_version", "inline_context_version", "situation_context_version", "situation_context", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = raw.get(field)
         return normalized
     return generate_full_article_legacy_update(payload, model)
@@ -3054,7 +3056,7 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         if not is_non_contradiction_statement(item.get("text_pl"))
     ]
     if response.get("perspective_version") == 1:
-        for field in ("article_content_hashes", "publication_version", "fact_extraction_version", "inline_context_version", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
+        for field in ("article_content_hashes", "publication_version", "fact_extraction_version", "inline_context_version", "situation_context_version", "situation_context", "narrative_context", "quality_report", "perspective_version", "fact_classification_version", "coverage_mode", "shared_available", "perspective_sections", "perspective_facts", "perspective_state", "synthesis_coverage_mode"):
             normalized[field] = response.get(field)
     quality = response.get("quality")
     normalized["quality"] = quality if isinstance(quality, dict) else {
@@ -3441,7 +3443,7 @@ STATE_SOURCE_PROFILES = {"STATE_ALIGNED", "STATE_MEDIA"}
 
 def is_state_source(row: dict[str, Any]) -> bool:
     """Return whether an article comes from a state-aligned/state outlet."""
-    profile = str(row.get("source_profile") or "").strip().upper()
+    profile = corrected_editorial_profile(row.get('source_id'), str(row.get("source_profile") or "").strip().upper())
     source_type = str(row.get("source_type") or "").strip().upper()
     return profile in STATE_SOURCE_PROFILES or source_type == "STATE_MEDIA"
 
@@ -3466,7 +3468,7 @@ def article_for_ai(
         "title_original": row["title"],
         "source_id": row["source_id"],
         "source_name": row["source_name"],
-        "source_profile": row.get("source_profile") or "UNCLASSIFIED",
+        "source_profile": corrected_editorial_profile(row.get('source_id'), row.get("source_profile") or "UNCLASSIFIED"),
         "source_type": row.get("source_type") or "UNCLASSIFIED",
         "language": row["original_language"],
         "published_at": row.get("published_at") or "",
@@ -5077,6 +5079,7 @@ def retry_incomplete_summaries(
                 refresh = refresh or integrity.narrative_missing_core(
                     topic.get('headline_pl', ''), current.get('summary_pl', ''), ledger.get('facts') or [])
                 refresh = refresh or integrity.needs_inline_context(current, ledger.get('facts') or [])
+                refresh = refresh or integrity.needs_situation_context(current, ledger.get('facts') or [])
             processed = set(stored.get("processed_article_ids") or [])
             if fact_rebuild:
                 forced_new_ids = list(dict.fromkeys([*forced_new_ids, *all_ids]))

@@ -1280,7 +1280,7 @@ def main() -> int:
                 # than the historical tester recommendation in source_runtime.
                 if runtime.get(key) and not source.get(key):
                     source[key] = runtime[key]
-    sources = [source for source in sources if source.get("enabled", True)]
+    sources = [source for source in sources if st.source_is_enabled(source)]
     selected = set(args.source or [])
     if selected:
         sources = [source for source in sources if source.get("id") in selected]

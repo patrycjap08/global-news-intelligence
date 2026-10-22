@@ -10,6 +10,7 @@ import json
 import re
 from typing import Any
 import editorial_integrity as integrity
+from source_tester import corrected_editorial_profile
 
 LANES = ('COMMON', 'LEFT', 'RIGHT', 'CENTER', 'STATE')
 FORMAT_VERSION = 1
@@ -22,7 +23,7 @@ STATE_FIELDS = ('publication_version', 'quality_report', 'perspective_version', 
 
 
 def article_group(row: dict) -> str:
-    profile = str(row.get('source_profile') or '').strip().upper()
+    profile = corrected_editorial_profile(row.get('source_id'), str(row.get('source_profile') or '').strip().upper())
     kind = str(row.get('source_type') or '').strip().upper()
     if profile in {'STATE_ALIGNED', 'STATE_MEDIA'} or kind == 'STATE_MEDIA':
         return 'STATE'
@@ -139,10 +140,13 @@ def writing_schema(main, *, inline_context=False):
         entity = obj({
             'mentions': {'type': 'array', 'minItems': 1, 'maxItems': 5,
                          'items': {'type': 'string', 'minLength': 3, 'maxLength': 80}},
-            'description_pl': {'type': 'string', 'minLength': 3, 'maxLength': 180},
+            'description_pl': {'type': 'string', 'minLength': 3, 'maxLength': 100},
             'basis': {'type': 'string', 'enum': ['GENERAL_KNOWLEDGE', 'SUPPLIED_MATERIAL']}})
-        return obj({'entity_context': {'type': 'array', 'maxItems': 6 if main else 0, 'items': entity},
-                    'paragraphs': {'type': 'array', 'maxItems': 4 if main else 0, 'items': paragraph}})
+        return obj({'situation_context': obj({
+                        'text_pl': {**copy.deepcopy(NONBLANK_STRING), 'maxLength': 1000},
+                        'basis': {'type': 'string', 'enum': ['GENERAL_KNOWLEDGE', 'SUPPLIED_MATERIAL']}}),
+                    'entity_context': {'type': 'array', 'maxItems': 2 if main else 0, 'items': entity},
+                    'paragraphs': {'type': 'array', 'maxItems': 3 if main else 0, 'items': paragraph}})
     schema = copy.deepcopy(WRITING_SCHEMA)
     article_ids = {i for f in main for i in f['article_ids']}
     schema['properties']['paragraphs']['items']['properties']['fact_ids'] = allowed_strings(f['fact_id'] for f in main)
@@ -179,8 +183,11 @@ def context_source_passages(articles, main):
                          r'організаці\w*|заснован\w*|зареєстрован\w*|закон\w*|раніше|'
                          r'организаци\w*|основан\w*|зарегистрирован\w*|ранее)\b', re.I)
     sources, remaining, seen = [], 3600, set()
-    # Roles beside a name matter more to this story than generic legal or
-    # organizational boilerplate elsewhere in the same fetched article.
+    # Prefer antecedents and mechanisms over biographies. Keep the same
+    # bounded input, drawn from already downloaded article bodies.
+    background = re.compile(r'\b(?:after|before|since|because|previously|began|started|war|conflict|'
+                            r'wcześniej|od czasu|po tym|ponieważ|powodem|przyczyn\w*|wojn\w*|konflikt\w*|'
+                            r'powstał\w*|ustaw\w*|negocjacj\w*|wprowadzon\w*)\b', re.I)
     names = {word.casefold()[:6] for fact in main
              for word in re.findall(r'\b[A-ZĄĆĘŁŃÓŚŹŻ][a-ząćęłńóśźż]{3,}\b', fact['text_pl'])}
     ordered = sorted(articles, key=lambda a: str(a['article_id']) not in supporting)
@@ -197,12 +204,12 @@ def context_source_passages(articles, main):
         parts = [s.strip() for s in re.split(r'\n+|(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])(?=[A-Z])', body) if s.strip()]
         def relevance(part):
             named = any(word.casefold()[:6] in names for word in re.findall(r'\w+', part))
-            return len(signals.findall(part)) + (4 if named and signals.search(part) else 0)
+            return len(signals.findall(part)) + 4 * len(background.findall(part)) + (2 if named else 0)
         ranked = sorted(enumerate(parts), key=lambda row: (-relevance(row[1]), row[0]))
         selected, budget = [], min(1200, remaining)
         for index, part in ranked:
             key = integrity.text_key(part)
-            if not signals.search(part) or budget <= 0 or key in seen:
+            if not (signals.search(part) or background.search(part)) or budget <= 0 or key in seen:
                 continue
             passage = part[:budget]
             if len(passage) < 20:
@@ -706,51 +713,46 @@ lub zarzutu, np. „Minister poinformował, że…”. Nie dopisuj ocen redakcyj
 niezależnego potwierdzenia ani przyczyn,
 których źródła nie ustalają. Profil polityczny nie dowodzi prawdziwości.
 
-KONTEKST WPLEĆ W SYNTEZĘ. Nie twórz osobnego kafelka, sekcji ani słowniczka.
-Możesz dodać od siebie dobrze ugruntowaną wiedzę ogólną, także nieobecną
-w artykułach, jeżeli czytelnik potrzebuje jej do zrozumienia historii:
-krótkie tło poprzedzających wydarzeń, wyjaśnienie mechanizmu lub instytucji.
-Nie dodawaj ciekawostek ani pobocznych historii. Jeśli kontekst nie jest
-potrzebny, nie dodawaj go na siłę. Nie zgaduj, gdy nie masz pewności.
-Przy pierwszym użyciu mniej znanej osoby czytelnik musi dostać kilka słów, kim
-jest, np. „Sébastien Lecornu (premier Francji)”. Prezydentów państw nie trzeba
-objaśniać. Nie tłumacz, czym są państwa, ani powszechnie znanych nazw geograficznych.
-Przy organizacji lub nieoczywistym skrócie krótko rozwiń nazwę i powiedz,
-czym się zajmuje, np. „USPS (United States Postal Service, amerykański operator pocztowy)” albo
-„TENT (organizacja wspierająca osoby transpłciowe w Teksasie)”. Samo słowo
-„organizacja” niczego nie wyjaśnia. Nie powtarzaj objaśnienia później.
-Jeśli funkcja osoby jest już podana w zdaniu, nie dodawaj jej drugi raz.
-Nie pomyl podobnie nazwanych organizacji i nie przedstawiaj rzekomego
-nadawcy lub niepotwierdzonego podmiotu jako ustalonej instytucji.
-context_sources, jeżeli są, to krótkie fragmenty już pobranych artykułów;
-korzystaj z nich w pierwszej kolejności. Mogą uzupełniać tło poza main_facts.
-Wiedza ogólna nie służy do dopisywania nowych bieżących doniesień, świeżych
-zmian stanowisk, zarzutów, spornych powiązań ani domysłów o motywach sprawców.
-Funkcję osoby podawaj zgodnie z czasem wydarzenia; nie zgaduj aktualnego stanowiska.
+KONTEKST WPLEĆ W SYNTEZĘ: zawsze przygotuj JEDEN akapit tła całej sprawy.
+Zwróć go osobno w situation_context: {text_pl, basis: SUPPLIED_MATERIAL lub
+GENERAL_KNOWLEDGE}. Program wstawi go jako drugi akapit tej samej syntezy,
+bez nagłówka i bez osobnego kafelka. Nie wpisuj go drugi raz do paragraphs.
+Dwa–cztery zwięzłe zdania mają wyjaśnić, czego dotyczy spór, proces albo
+zdarzenie, co je poprzedziło i dlaczego obecny rozwój ma znaczenie. Czytelnik
+ma zrozumieć sprawę bez znajomości poprzednich doniesień. Nie streszczaj
+ponownie aktualnego wydarzenia, nie pisz „artykuł dotyczy” ani ogólników
+„sprawa wywołuje kontrowersje”. Opisy osób i organizacji nie zastępują tła.
+Np. przy reakcji na wypowiedź negocjatora wyjaśnij, jakich negocjacji dotyczy
+sprawa i w jakich okolicznościach padły słowa. Przy komisji śledczej wyjaśnij,
+co bada komisja i jaką rolę pełni jej raport. Nie twórz dodatkowych biogramów.
 
-Najpierw zwróć entity_context: krótkie objaśnienia osób, organizacji i skrótów,
-których używasz. Każdy wpis ma mentions (dokładne formy nazwy z main_facts,
-także odmienione nazwisko, jeśli go używasz), description_pl (kilka słów,
-bez nawiasów), basis (SUPPLIED_MATERIAL lub GENERAL_KNOWLEDGE). Np.
-{mentions: ["USPS"], description_pl: "United States Postal Service, amerykański operator pocztowy",
-basis: "GENERAL_KNOWLEDGE"}. Program wstawi objaśnienie w nawiasie przy
-pierwszym użyciu nazwy. W text_pl nie powtarzaj tych definicji. Opis ma
-wyjaśniać funkcję lub działalność, nie dopisywać bieżącego doniesienia.
-Nie podawaj prezydentów, państw ani osób już przedstawionych przez funkcję.
-Gdy nie możesz pewnie objaśnić podmiotu, pomiń go. Jeśli nikt nie wymaga
-objaśnienia, entity_context=[].
+Wykorzystaj main_facts i context_sources, czyli krótkie fragmenty już
+pobranych artykułów. Możesz dodać dobrze ugruntowaną wiedzę ogólną spoza
+artykułów, jeśli pomaga zrozumieć sytuację. Nie zgaduj nowych zdarzeń,
+świeżych zmian stanowisk, motywów ani spornych powiązań. Zachowaj niepewność.
+Tło nie staje się nowym faktem źródłowym ani aktualizacją. situation_context
+jest niezależny od akapitów wydarzenia: nie wymaga fact_ids ani usuwania
+context_spans. Daty i informacje tła nie muszą występować w main_facts.
 
-Potem zwróć paragraphs: tekst wydarzenia wraz z potrzebnym tłem. Nie pisz
-trzech wariantów tej samej reakcji. Jeśli opisujesz reakcję na czyjeś słowa,
-zwięźle wyjaśnij, kiedy i w związku z czym padły, korzystając z main_facts.
-W każdym akapicie context_spans to
-lista DOKŁADNYCH, krótkich fragmentów text_pl dodanych jako objaśnienie lub
-kontekst: {text_pl, basis: GENERAL_KNOWLEDGE lub SUPPLIED_MATERIAL}.
-Zaznacz sam nawias z objaśnieniem albo całe zdanie dodanego tła, najwyżej
-280 znaków na fragment. Bez dodatków: context_spans=[]. Głównego wydarzenia,
-wypowiedzi ani liczby z main_facts nie oznaczaj jako kontekst. Akapit po
-usunięciu context_spans nadal musi opisywać ustalenia wskazane w fact_ids.
-Wiedza ogólna nie staje się nowym faktem źródłowym ani potwierdzeniem artykułu.
+Objaśnienia podmiotów mają być oszczędne: najwyżej DWIE mniej znane osoby
+lub organizacje na całą syntezę, tylko gdy to potrzebne. Zwróć entity_context
+jako listę {mentions, description_pl, basis}. mentions to dokładne formy nazwy
+z main_facts, także odmienione nazwisko użyte w tekście; description_pl to
+kilka słów po polsku, zwykle 3–8, bez biogramu ani obcojęzycznej pełnej nazwy.
+Program doda je w nawiasie przy pierwszym użyciu. Nie powtarzaj ich w text_pl.
+Jeżeli funkcja jest już podana w zdaniu, nie dodawaj jej drugi raz.
+Prezydentów państw nie trzeba objaśniać. Nigdy nie tłumacz państw, nazw
+geograficznych ani oczywistych skrótów: USA, US, UE, EU, UK, RP, ONZ, NATO.
+Nie pisz „USA (Stany Zjednoczone)” ani „USA (United States of America)”.
+Przy nieoczywistym skrócie wystarczy krótka rola, np. „USPS (amerykańska poczta)”,
+a nie długa nazwa angielska. Gdy nie potrzeba objaśnień: entity_context=[].
+
+paragraphs to 1–3 krótkie akapity samego wydarzenia, łącznie z akapitem tła
+około 150–250 słów. Każdy z paragraphs ma text_pl i właściwe fact_ids.
+context_spans zachowaj tylko dla krótkich dodatkowych objaśnień wewnątrz
+zdania, jeżeli są potrzebne: {text_pl: dokładny fragment, basis}. Zwykle [].
+Nie oznaczaj głównego wydarzenia jako kontekstu. Nie powtarzaj reakcji
+w kilku wariantach i nie zastępuj tła słowniczkiem osób oraz skrótów.
 """.strip()
 
 
@@ -1429,6 +1431,7 @@ def safe_inline_written(written, main):
         paragraphs.append({'text_pl': text.strip(), 'fact_ids': ids})
     return {'paragraphs': paragraphs, 'general_context': None, 'background_context': [],
             'narrative_context': additions, 'entity_context': written.get('entity_context') or [],
+            'situation_context': written.get('situation_context'),
             'writing_validation': {'supplied_paragraphs': len(supplied),
                                    'accepted_paragraphs': len(paragraphs), 'rejections': rejected}}
 
@@ -1446,19 +1449,24 @@ def insert_entity_context(written, main):
         return
     evidence = ' '.join(f['text_pl'] for f in main)
     seen = set()
+    inserted = 0
     for entry in entries[:6]:
+        if inserted >= 2:
+            break
         if not isinstance(entry, dict):
             continue
         mentions, description, basis = entry.get('mentions'), entry.get('description_pl'), entry.get('basis')
         if (not isinstance(mentions, list) or not 1 <= len(mentions) <= 5
-                or not isinstance(description, str) or not 3 <= len(description.strip()) <= 180
-                or len(description.split()) < 2 or re.search(r'[\n\r()]', description)
+                or not isinstance(description, str) or not 3 <= len(description.strip()) <= 100
+                or not 2 <= len(description.split()) <= 10 or re.search(r'[\n\r()]', description)
                 or basis not in {'SUPPLIED_MATERIAL', 'GENERAL_KNOWLEDGE'}):
             continue
         patterns = []
         for mention in mentions:
             if (not isinstance(mention, str) or not 3 <= len(mention.strip()) <= 80
                     or re.search(r'[\n\r()]', mention)):
+                continue
+            if integrity.text_key(mention) in integrity.OBVIOUS_ENTITIES:
                 continue
             pattern = re.compile(r'(?<!\w)' + re.escape(mention.strip()) + r'(?!\w)', re.I)
             if pattern.search(evidence):
@@ -1483,7 +1491,45 @@ def insert_entity_context(written, main):
                 'entity': match.group()})
             seen.update(integrity.text_key(mention) for mention in mentions if isinstance(mention, str))
             seen.add(key)
+            inserted += 1
             break
+
+
+def insert_situation_context(written, main, source_passages):
+    """Keep one standalone background paragraph, even after prose fallback.
+
+    No event-fact citation or matching-number requirement: context can use
+    supplied background or general knowledge. Structural/topic checks do not
+    independently verify the model's knowledge. Invalid content is omitted,
+    never repaired with another paid request.
+    """
+    report = written.setdefault('writing_validation', {})
+    report['situation_context'] = 'MISSING'
+    context = written.get('situation_context')
+    if not isinstance(context, dict):
+        return None
+    report['situation_context'] = 'INVALID'
+    text, basis = context.get('text_pl'), context.get('basis')
+    if (not isinstance(text, str) or not 8 <= len(text.split()) <= 150 or len(text) > 1000
+            or basis not in {'SUPPLIED_MATERIAL', 'GENERAL_KNOWLEDGE'}):
+        return None
+    text = integrity.without_obvious_definitions(re.sub(r'\s+', ' ', text).strip())
+    evidence = ' '.join([*(f['text_pl'] for f in main),
+                         *(part for source in source_passages for part in source['passages'])])
+    if not integrity.usable_claim(text) or not (integrity.tokens(text) & integrity.tokens(evidence)):
+        report['situation_context'] = 'UNRELATED_OR_INCOMPLETE'
+        return None
+    if any(integrity.text_key(text) == integrity.text_key(p['text_pl']) for p in written['paragraphs']):
+        report['situation_context'] = 'DUPLICATE_PARAGRAPH'
+        return None
+    written['paragraphs'].insert(1, {'text_pl': text, 'fact_ids': []})
+    for item in written.get('narrative_context') or []:
+        if item['paragraph_index'] >= 1:
+            item['paragraph_index'] += 1
+    written.setdefault('narrative_context', []).append({
+        'text_pl': text, 'basis': basis, 'paragraph_index': 1, 'kind': 'SITUATION'})
+    report['situation_context'] = 'ACCEPTED'
+    return {'text_pl': text, 'basis': basis}
 
 
 
@@ -1710,10 +1756,12 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         allow_omissions and previous is not None and previous_current.get('publication_version') == 2
         and integrity.narrative_missing_core(
             working_title, previous_current.get('summary_pl', ''), main)) or (
-            allow_omissions and previous is not None and integrity.needs_inline_context(previous_current, main)))
+            allow_omissions and previous is not None and integrity.needs_inline_context(previous_current, main)) or (
+            allow_omissions and previous is not None and integrity.needs_situation_context(previous_current, main)))
     core_fallback = False
     narrative_fallback = False
     writing_validation = {}
+    situation_context = None
     if previous is not None and (not allow_omissions or (not changed and not refresh)):
         # Confirmations alone do not buy another writing request.
         previous_base = (previous or {}).get('current_summary') or previous_base
@@ -1766,9 +1814,11 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                     item['paragraph_index'] += 1
                 core_fallback = True
             insert_entity_context(written, main)
+            situation_context = insert_situation_context(written, main, context_sources)
             source_names = [a.get('source_name') or a.get('source_id') for a in articles]
             for paragraph in written['paragraphs']:
-                paragraph['text_pl'] = integrity.without_publisher_prefixes(paragraph['text_pl'], source_names)
+                paragraph['text_pl'] = integrity.without_obvious_definitions(
+                    integrity.without_publisher_prefixes(paragraph['text_pl'], source_names))
         else:
             written, _ = validated_call(call, LEGACY_WRITING_INSTRUCTIONS, writing_input,
                 writing_schema(main), 'perspective_summary', lambda response: validate_written(response, main),
@@ -1786,6 +1836,8 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                   'synthesis_coverage_mode': mode}
         if allow_omissions:
             result['inline_context_version'] = integrity.INLINE_CONTEXT_VERSION
+            result['situation_context_version'] = integrity.SITUATION_CONTEXT_VERSION
+            result['situation_context'] = situation_context
             result['narrative_context'] = written.get('narrative_context') or []
     result['publication_version'] = 2 if allow_omissions else result.get('publication_version', 1)
     if allow_omissions and (prepared or cached_articles):
@@ -1797,6 +1849,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                                 'writing_validation': writing_validation,
                                 'context_source_count': len(context_sources),
                                 'context_passage_chars': sum(len(p) for s in context_sources for p in s['passages']),
+                                'situation_context_included': bool(result.get('situation_context')),
                                 'context_additions_accepted': len(result.get('narrative_context') or [])}
     sections = {lane: items for lane, items in fact_sections(facts).items() if lane != 'COMMON'}
     update = make_update(facts, known, previous is not None, payload.get('new_article_ids') or [], by_id)

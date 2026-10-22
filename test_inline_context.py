@@ -31,7 +31,7 @@ def written():
     postal = '(United States Postal Service, amerykańskiego operatora pocztowego)'
     history = 'Działa od 2010 roku.'
     registry = 'Spółkę o tej nazwie zarejestrowano we wrześniu 2026 roku.'
-    return {'entity_context': [], 'paragraphs': [
+    return {'situation_context': {'text_pl': 'Sprawa dotyczy niejasnego nadawcy listów o zasobach dla osób transpłciowych w Teksasie. Wskazanie organizacji w ulotce nie przesądza, że przygotowała ona lub rozesłała materiały.', 'basis': 'SUPPLIED_MATERIAL'}, 'entity_context': [], 'paragraphs': [
         {'text_pl': 'Do rodzin w Teksasie trafiły SMS-y i listy dotyczące zasobów dla osób transpłciowych; jako nadawca widnieje Texas Transgender Student Union. ' + registry,
          'fact_ids': [DATA['facts'][2]['fact_id']],
          'context_spans': [{'text_pl': registry, 'basis': 'SUPPLIED_MATERIAL'}]},
@@ -50,7 +50,7 @@ class InlineContextTests(unittest.TestCase):
         schema = p.writing_schema(DATA['facts'], inline_context=True)
         check_response_schema(schema)
         jsonschema.validate(response, schema)
-        self.assertEqual(set(schema['required']), {'entity_context', 'paragraphs'})
+        self.assertEqual(set(schema['required']), {'situation_context', 'entity_context', 'paragraphs'})
         result = p.safe_inline_written(response, DATA['facts'])
         self.assertEqual(len(result['paragraphs']), 3)
         self.assertEqual(len(result['narrative_context']), 4)
@@ -144,6 +144,7 @@ class InlineContextTests(unittest.TestCase):
         generate.assert_called_once()
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
         summaries[0]['summary']['current_summary']['inline_context_version'] = 1
+        summaries[0]['summary']['current_summary']['situation_context_version'] = integrity.SITUATION_CONTEXT_VERSION
         stats, generate, persist, _ = h.run_queue([topic], rows, links, summaries, assignments)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()
@@ -158,7 +159,7 @@ class InlineContextTests(unittest.TestCase):
         request.assert_called_once()
         self.assertEqual(request.call_args.kwargs['retry_limit'], 1)
         self.assertEqual(result['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
-        self.assertEqual(len(result['narrative_context']), 4)
+        self.assertEqual(len(result['narrative_context']), 5)
         client = FakeMergeClient([], [], [])
         ai.persist_summary(client, topic_id=DATA['topic']['topic_id'], run_id='test', model='fake',
             summary=result, summary_hash='h', previous_row={'version': 1, 'summary': previous}, new_article_ids=[])

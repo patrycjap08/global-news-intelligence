@@ -12,6 +12,12 @@ import unicodedata
 EXTRACTOR_VERSION = 'article-facts-v2'
 FACT_EXTRACTION_VERSION = 2
 INLINE_CONTEXT_VERSION = 2
+SITUATION_CONTEXT_VERSION = 1
+OBVIOUS_ENTITIES = {'usa', 'us', 'ue', 'eu', 'uk', 'rp', 'onz', 'nato',
+                    'polska', 'stany zjednoczone', 'stany zjednoczone ameryki',
+                    'united states', 'united states of america', 'rosja', 'ukraina',
+                    'chiny', 'francja', 'niemcy', 'wielka brytania', 'włochy',
+                    'hiszpania', 'kanada', 'japonia', 'izrael', 'iran'}
 
 
 def text_key(text):
@@ -26,6 +32,25 @@ def without_publisher_prefixes(text, source_names):
     alternatives = '|'.join(re.escape(name) for name in names)
     return re.sub(r'^[ \t]*Według[ \t]+(?:(?:agencji|portalu|dziennika|redakcji)[ \t]+)?(?:'
                   + alternatives + r')[ \t]*[:,][ \t]*', '', text, flags=re.I | re.M)
+
+
+def without_obvious_definitions(text):
+    """Remove only parenthetical expansions of obvious country/common names."""
+    return re.sub(r'\b(USA|US|UE|EU|UK|RP|ONZ|NATO)\s*\(([^()]{1,180})\)',
+                  lambda m: m.group(1) if re.fullmatch(
+                      r'(?:stany zjednoczone(?: ameryki)?|stanów zjednoczonych(?: ameryki)?|'
+                      r'united states(?: of america)?|unia europejska|unii europejskiej|european union|'
+                      r'wielka brytania|united kingdom|rzeczpospolita polska|'
+                      r'organizacj[ai] narodów zjednoczonych|north atlantic treaty organization|'
+                      r'sojusz północnoatlantycki)', text_key(m.group(2))) else m.group(),
+                  text, flags=re.I)
+
+
+def needs_situation_context(current, facts):
+    """One writing-only migration for recent publications using inline context."""
+    return (current.get('publication_version') == 2 and bool(current.get('inline_context_version'))
+            and bool(current.get('summary_pl')) and bool(facts)
+            and (current.get('situation_context_version') or 0) < SITUATION_CONTEXT_VERSION)
 
 
 def tokens(text):

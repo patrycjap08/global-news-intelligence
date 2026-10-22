@@ -12,7 +12,7 @@ import sys
 
 from ai_pipeline import analyze_run, normalize_topic_titles
 from pipeline_logging import log
-from source_tester import load_config
+from source_tester import load_config, source_is_enabled
 from supabase_client import SupabaseRestClient
 from supabase_sync import pull_state, push_run
 
@@ -34,7 +34,7 @@ def resolve_harvest_source(config_path: Path, requested: str) -> dict:
     key = requested.strip().casefold()
     matches = [
         source for source in sources
-        if source.get("enabled", True) and key
+        if source_is_enabled(source) and key
         and key in {str(source["id"]).casefold(), str(source.get("name", "")).casefold()}
     ]
     if len(matches) != 1:

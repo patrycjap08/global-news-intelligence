@@ -32,7 +32,7 @@ def extraction(data, specs):
 
 
 def writer(data):
-    return {'entity_context': [], 'paragraphs': [{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']], 'context_spans': []}
+    return {'situation_context': {'text_pl': 'Sprawa dotyczy wcześniejszych wydarzeń związanych z tematem: ' + str(data.get('headline_pl') or data['main_facts'][0]['text_pl']), 'basis': 'SUPPLIED_MATERIAL'}, 'entity_context': [], 'paragraphs': [{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']], 'context_spans': []}
                            for f in data['main_facts'][:3]]}
 
 

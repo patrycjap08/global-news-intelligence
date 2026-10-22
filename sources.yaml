@@ -506,14 +506,16 @@ sources:
       - '^/(?:deportes|gente|television|cultura|gastronomia)(?:/|$)'
   - {id: el_mundo, name: El Mundo, region: Spain, homepage: https://www.elmundo.es}
 
-  - {id: xinhua, name: Xinhua, region: China, homepage: https://english.news.cn}
-  - {id: cgtn, name: CGTN, region: China, homepage: https://www.cgtn.com}
-  - {id: china_daily, name: China Daily, region: China, homepage: https://www.chinadaily.com.cn}
-  - {id: global_times, name: Global Times, region: China, homepage: https://www.globaltimes.cn}
-  - {id: caixin, name: Caixin, region: China, homepage: https://www.caixinglobal.com}
+  - {id: xinhua, name: Xinhua, region: China, homepage: https://english.news.cn, enabled: false, state_controlled: true}
+  - {id: cgtn, name: CGTN, region: China, homepage: https://www.cgtn.com, enabled: false, state_controlled: true}
+  - {id: china_daily, name: China Daily, region: China, homepage: https://www.chinadaily.com.cn, enabled: false, state_controlled: true}
+  - {id: global_times, name: Global Times, region: China, homepage: https://www.globaltimes.cn, enabled: false, state_controlled: true}
+  - {id: caixin, name: Caixin, region: China, homepage: https://www.caixinglobal.com, state_controlled: false}
   - {id: south_china_morning_post, name: South China Morning Post, region: China, homepage: https://www.scmp.com}
 
   - id: tass
+    enabled: false
+    state_controlled: true
     name: TASS
     region: Russia
     homepage: https://tass.com
@@ -522,9 +524,10 @@ sources:
       - https://tass.com/rss/v2.xml
     candidate_include_url_patterns:
       - '^/[a-z-]+/[0-9]+/?$'
-  - {id: ria, name: RIA Novosti, region: Russia, homepage: https://ria.ru}
-  - {id: rt, name: RT, region: Russia, homepage: https://www.rt.com}
+  - {id: ria, name: RIA Novosti, region: Russia, homepage: https://ria.ru, enabled: false, state_controlled: true}
+  - {id: rt, name: RT, region: Russia, homepage: https://www.rt.com, enabled: false, state_controlled: true}
   - id: kommersant
+    state_controlled: false
     name: Kommersant
     region: Russia
     homepage: https://www.kommersant.ru
@@ -560,6 +563,7 @@ sources:
 
   - id: ukrinform
     enabled: false
+    state_controlled: true
     name: Ukrinform
     region: Ukraine
     homepage: https://www.ukrinform.net

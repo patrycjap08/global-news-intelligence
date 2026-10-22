@@ -86,9 +86,9 @@ SOURCE_EDITORIAL_PROFILES = {
     # China, Russia and Ukraine: state-aligned is intentionally separate from
     # the left-right scale, because state ownership/control is a different axis.
     "xinhua": "STATE_ALIGNED", "cgtn": "STATE_ALIGNED", "china_daily": "STATE_ALIGNED",
-    "global_times": "STATE_ALIGNED", "caixin": "STATE_ALIGNED",
+    "global_times": "STATE_ALIGNED", "caixin": "CENTER_RIGHT",
     "south_china_morning_post": "CENTER", "tass": "STATE_ALIGNED",
-    "ria": "STATE_ALIGNED", "rt": "STATE_ALIGNED", "kommersant": "STATE_ALIGNED",
+    "ria": "STATE_ALIGNED", "rt": "STATE_ALIGNED", "kommersant": "CENTER_RIGHT",
     "meduza": "CENTER_LEFT", "moscow_times": "CENTER_LEFT",
     "ukrinform": "STATE_ALIGNED", "suspilne": "CENTER",
     "kyiv_independent": "CENTER_LEFT", "kyiv_post": "CENTER_RIGHT",
@@ -101,6 +101,29 @@ def infer_editorial_profile(source: dict[str, Any]) -> str:
     if configured and configured != "UNCLASSIFIED":
         return configured
     return SOURCE_EDITORIAL_PROFILES.get(str(source.get("id", "")), "UNCLASSIFIED")
+
+
+STATE_CONTROLLED_SOURCE_IDS = frozenset({
+    'xinhua', 'cgtn', 'china_daily', 'global_times', 'tass', 'ria', 'rt', 'ukrinform'})
+
+
+def corrected_editorial_profile(source_id, profile):
+    """Correct two legacy ownership labels without reclassifying other media.
+
+    Private ownership is distinct from political alignment/censorship. The
+    replacement editorial profiles follow the cited MBFC outlet reviews.
+    """
+    if source_id in {'caixin', 'kommersant'} and profile in {'STATE_ALIGNED', 'STATE_MEDIA'}:
+        return 'CENTER_RIGHT'
+    return profile
+
+
+def source_is_enabled(source: dict[str, Any]) -> bool:
+    """Exclude verified state control, not alignment or public financing."""
+    return (bool(source.get('enabled', True))
+            and source.get('state_controlled') is not True
+            and source.get('id') not in STATE_CONTROLLED_SOURCE_IDS
+            and str(source.get('source_type') or '').upper() != 'STATE_MEDIA')
 
 
 @dataclass
@@ -1409,7 +1432,7 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=4, help="Maximum sources tested concurrently; requests within one source stay sequential.")
     args = parser.parse_args()
     defaults, sources = load_config(args.config)
-    sources = [source for source in sources if source.get("enabled", True)]
+    sources = [source for source in sources if source_is_enabled(source)]
     selected = set(args.source or [])
     if selected:
         sources = [source for source in sources if source.get("id") in selected]

@@ -26,7 +26,7 @@ def previous():
 
 def response(*, reject=False):
     facts = DATA['facts']
-    result = {'entity_context': [
+    result = {'situation_context': {'text_pl': 'Witkoff uczestniczy w amerykańskich zabiegach dyplomatycznych dotyczących zakończenia wojny w Ukrainie. Spotkaniom z rosyjskimi władzami towarzyszą rozmowy o uwalnianiu przetrzymywanych obywateli USA, stąd znaczenie podziękowania Putinowi za zwolnienie Hubbarda.', 'basis': 'SUPPLIED_MATERIAL'}, 'entity_context': [
         {'mentions': ['Thom Tillis', 'Tillis'], 'description_pl': 'republikański senator USA', 'basis': 'SUPPLIED_MATERIAL'},
         {'mentions': ['Steve Witkoff', 'Witkoffa', 'Witkoff'], 'description_pl': 'specjalny wysłannik prezydenta USA', 'basis': 'SUPPLIED_MATERIAL'}],
         'paragraphs': [
@@ -74,7 +74,7 @@ class EntityContextTests(unittest.TestCase):
         self.assertIn('Witkoffa (specjalny wysłannik prezydenta USA)', result['summary_pl'])
         self.assertIn('Petersburgu', result['summary_pl'])
         self.assertIn('przetrzymywanego od 2022', result['summary_pl'])
-        self.assertEqual(len(result['narrative_context']), 2)
+        self.assertEqual(len(result['narrative_context']), 3)
         self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
         self.assertEqual(result['quality_report']['read_articles'], 0)
         self.assertFalse(result['quality_report']['narrative_fallback'])
@@ -92,7 +92,7 @@ class EntityContextTests(unittest.TestCase):
         self.assertEqual(calls, ['perspective_summary'])
         self.assertNotIn('2099', result['summary_pl'])
         self.assertIn('Thom Tillis (republikański senator USA)', result['summary_pl'])
-        self.assertIn('Hubbard (obywatel USA uwolniony z rosyjskiego więzienia)', result['summary_pl'])
+        self.assertNotIn('Hubbard (obywatel USA uwolniony z rosyjskiego więzienia)', result['summary_pl'])
         self.assertEqual(result['summary_pl'].count('(republikański senator USA)'), 1)
         self.assertTrue(result['quality_report']['narrative_fallback'])
         self.assertEqual(result['quality_report']['writing_validation']['rejections'],
@@ -170,6 +170,8 @@ class EntityContextTests(unittest.TestCase):
         saved = next(items[0]['summary'] for table, items, _ in client.upserts if table == 'topic_summaries')
         self.assertIn('republikański senator', saved['current_summary']['summary_pl'])
         self.assertEqual(saved['current_summary']['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
+        self.assertEqual(saved['current_summary']['situation_context_version'], integrity.SITUATION_CONTEXT_VERSION)
+        self.assertEqual(saved['current_summary']['situation_context'], response()['situation_context'])
         summaries[0]['summary'] = saved
         stats, generate, _, _ = queue_tests.SummaryQueueTests().run_queue([topic], rows, links, summaries)
         self.assertEqual(stats['summaries'], 0)

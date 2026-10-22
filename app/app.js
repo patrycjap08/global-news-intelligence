@@ -114,7 +114,9 @@ function indexes() {
     const sourceById = new Map();
     const linksByTopic = new Map();
     state.articles.forEach((article) => {
-      articlesById.set(String(article.article_id), article);
+      const corrected = ['caixin', 'kommersant'].includes(article.source_id) && STATE_SOURCE_PROFILES.has(article.source_profile)
+        ? {...article, source_profile: 'CENTER_RIGHT'} : article;
+      articlesById.set(String(article.article_id), corrected);
       if (article.source_id && article.source_name) sourceById.set(String(article.source_id), article.source_name);
     });
     state.links.forEach((link) => {
@@ -412,7 +414,7 @@ function readableEvidenceText(value) {
 }
 
 function synthesisParagraphs(value) {
-  let text = withoutPublisherPrefixes(readableEvidenceText(value)).trim();
+  let text = withoutObviousDefinitions(withoutPublisherPrefixes(readableEvidenceText(value))).trim();
   const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(Boolean);
   if (paragraphs.length > 1 && /^(?:Podsumowując\b|Podsumowanie\s*:)/iu.test(paragraphs.at(-1))) {
     paragraphs.pop(); text = paragraphs.join('\n\n');
@@ -424,6 +426,11 @@ function synthesisParagraphs(value) {
   if (!boundaries.length) return text;
   const split = boundaries.reduce((best, index) => Math.abs(index - text.length / 2) < Math.abs(best - text.length / 2) ? index : best);
   return text.slice(0, split).trim() + '\n\n' + text.slice(split).trim();
+}
+
+function withoutObviousDefinitions(value) {
+  return String(value || '').replace(/\b(USA|US|UE|EU|UK|RP|ONZ|NATO)\s*\(([^()]{1,180})\)/giu,
+    (full, name, explanation) => /^(?:stany zjednoczone(?: ameryki)?|stanów zjednoczonych(?: ameryki)?|united states(?: of america)?|unia europejska|unii europejskiej|european union|wielka brytania|united kingdom|rzeczpospolita polska|organizacj[ai] narodów zjednoczonych|north atlantic treaty organization|sojusz północnoatlantycki)\.?$/iu.test(explanation.trim()) ? name : full);
 }
 
 function withoutPublisherPrefixes(value) {
