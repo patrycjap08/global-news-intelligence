@@ -179,3 +179,13 @@ Starsze modele 4.x, GPT-5 nano/mini i GPT-5.4 nano mają w dokumentacji oznaczen
 Konfiguracja przyjmuje też inne modele OpenAI obsługujące Responses API
 i Structured Outputs; zgodność parametrów i dostęp trzeba sprawdzić w ich karcie.
 Nie podmieniamy modelu automatycznie po błędzie, bo zepsułoby to porównanie.
+
+## Pokrycie informacji w aktualnym pisaniu (v86)
+
+Aktualny prompt wymaga wszystkich odrębnych informacji z faktów, połączenia
+powtórzeń i kontekstu w jednym artykule. Nie ogranicza tekstu do 250 słów
+lub czterech akapitów. Raport diagnostyczny
+`quality_report.writing_validation.fact_coverage` pokazuje, ile ustaleń model
+powiązał z zaakceptowanymi akapitami i których ID brakuje. Same powiązania
+nie zastępują przeczytania i oceny treści. Nie ma dodatkowego zapytania
+naprawczego. Dotyczy to także wariantu testu obejmującego samo pisanie.

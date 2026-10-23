@@ -1,6 +1,6 @@
-# AI-only i publikacja perspektyw — v77
+# AI-only i publikacja perspektyw — v86
 
-Obowiązująca wersja: `ai-prompts-v77-facts-without-quotes`.
+Obowiązująca wersja: `ai-prompts-v86-complete-synthesis`.
 Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
@@ -243,3 +243,14 @@ awarię zapisu, zmianę treści artykułu, budżet, nieuwzględnianie starych pa
 rozróżnienie autora oceny od cytującej redakcji i zachowanie historii.
 Odpowiedzi API są symulowane; testy nie zastępują kontroli jakości kolejnych
 rzeczywistych odpowiedzi modelu.
+
+## Pełne pokrycie informacji w syntezie (v86)
+
+Synteza i zakładka Fakty mają przedstawiać ten sam zakres przyjętych
+informacji FACT/STATEMENT. Jedno pisanie obejmuje wszystkie `main_facts`,
+łączy powtórzenia i dodaje potrzebne tło w tym samym tekście. Nie obowiązuje
+redakcyjny limit 250 słów ani techniczne ucinanie do czterech akapitów.
+Oceny redakcyjne pozostają w odrębnych perspektywach. Brakujące powiązania
+faktów z zaakceptowanymi akapitami są raportowane bez dodatkowych zapytań.
+Szczegóły i przykład 57 ustaleń opisuje
+[przegląd pokrycia syntez](SYNTHESIS_COVERAGE_REVIEW_20261023.md).

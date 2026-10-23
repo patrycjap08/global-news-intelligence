@@ -1,0 +1,627 @@
+{
+  "source": "Public GitHub Pages snapshot, 2026-10-23",
+  "topic_id": "topic_perspectives_efe86fd7a5c0cf982ec81c3d",
+  "headline_pl": "[Indie] Donalda Tuska powitanie w Indiach",
+  "published_summary_pl": "Donald Tusk rozpoczął dwudniową wizytę w Indiach i spotkał się z Narendrą Modim w Nowym Delhi. Na lotnisku powitała go oficjalna delegacja, czerwony dywan i tancerki prezentujące taniec klasyczny; w mieście umieszczono billboardy z jego wizerunkiem i napisem „Witamy”.\n\nW 2024 roku Narendra Modi odwiedził Warszawę, a Polska i Indie podpisały umowę o partnerstwie strategicznym. Była to pierwsza wizyta szefa polskiego rządu w Indiach od 16 lat.",
+  "published_quality_report": {
+    "tokens": {
+      "input": 37096,
+      "output": 11488,
+      "reasoning": 2353
+    },
+    "api_calls": 5,
+    "omissions": [],
+    "read_articles": 3,
+    "cached_articles": 0,
+    "novelty_omissions": [
+      {
+        "reason": "Odniesienie nie dotyczy treści ocenianego ustalenia.",
+        "fact_id": "fact_255622d927900694ae6a66a4"
+      },
+      {
+        "reason": "Odniesienie nie dotyczy treści ocenianego ustalenia.",
+        "fact_id": "fact_0888fec197588fa34171d254"
+      },
+      {
+        "reason": "Odniesienie nie dotyczy treści ocenianego ustalenia.",
+        "fact_id": "fact_a04c749a67a8852b05820e16"
+      },
+      {
+        "reason": "Odniesienie nie dotyczy treści ocenianego ustalenia.",
+        "fact_id": "fact_767bf2f454b8c36f7bc24c9e"
+      }
+    ],
+    "narrative_fallback": false,
+    "writing_validation": {
+      "rejections": {},
+      "situation_context": "ACCEPTED",
+      "accepted_paragraphs": 1,
+      "supplied_paragraphs": 1
+    },
+    "context_source_count": 3,
+    "budget_skipped_stages": [],
+    "context_passage_chars": 3600,
+    "narrative_core_fallback": false,
+    "context_additions_accepted": 1,
+    "situation_context_included": true
+  },
+  "facts": [
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_ce9a639f7eb2077c352b048f",
+      "text_pl": "Donald Tusk rozpoczął dwudniową wizytę w Indiach i spotkał się z Narendrą Modim w Nowym Delhi.",
+      "evidence": {},
+      "article_ids": [
+        "d578f148e3729f561410407a",
+        "f9d762a37120ed5d6791294f"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_ee9f009a8c87018a958da67a",
+      "text_pl": "Donaldowi Tuskowi podczas wizyty towarzyszyli minister finansów Andrzej Domański oraz przedstawiciele blisko 100 polskich firm.",
+      "evidence": {},
+      "article_ids": [
+        "d578f148e3729f561410407a",
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_f293dce978493c850d692cc8",
+      "text_pl": "Donald Tusk wziął udział w Polsko-Indyjskim Forum Biznesowym w Nowym Delhi.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_81f761ec67def167b5563625",
+      "text_pl": "„The Times of India” opisał osobisty wymiar relacji Donalda Tuska i Narendry Modiego oraz przytoczył określenie Modiego jako promienia nadziei w czasie globalnej niepewności.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ],
+      "attribution": "The Times of India"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_3cd55c5ed181927c0e047fb9",
+      "text_pl": "„Hindustan Times” skupił się w relacji z wizyty na współpracy gospodarczej i technologicznej w sektorach strategicznych.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ],
+      "attribution": "Hindustan Times"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_11a92737fec96b518ce3cb68",
+      "text_pl": "„The Indian Express” podkreślił znaczenie polsko-indyjskiego partnerstwa w okresie napięć międzynarodowych.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ],
+      "attribution": "The Indian Express"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_d4e7a2d7fea8f534343f4cbb",
+      "text_pl": "Narendra Modi powiedział, że Indie będą wspierać wszelkie realne działania na rzecz pokoju.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ],
+      "attribution": "Narendra Modi"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_8fcb0cdb83285707c7589f0e",
+      "text_pl": "Według relacji indyjskich mediów rozmowy o relacjach dwustronnych obejmowały także kontekst wojny w Ukrainie i sytuacji na Bliskim Wschodzie.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ],
+      "attribution": "Indyjskie media"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_6c2ea738617092d87349a205",
+      "text_pl": "Wśród tematów rozmów polsko-indyjskich wymieniono technologie podwójnego zastosowania, przemysł obronny, sektor rolno-spożywczy, technologie dla rolnictwa, farmację, medycynę, technologie przemysłowe, górnictwo i surowce.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_38001684fb3b94dc50a791f5",
+      "text_pl": "Sektor kosmiczny wskazano jako jeden z ważnych obszarów współpracy Polski i Indii.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_7eca123cae2f232c33ddaa0b",
+      "text_pl": "Podczas Polsko-Indyjskiego Forum Biznesowego przewidziano podpisanie umów i memorandów o współpracy.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_0d7838a23b504bc95bf2d462",
+      "text_pl": "Polska delegacja miała udać się w piątek do Bengaluru, gdzie zaplanowano drugie forum gospodarcze.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_0f9616cc9ec6cf0a3b01f83e",
+      "text_pl": "W Bengaluru Donald Tusk miał wziąć udział w seminarium poświęconym branżom informatyczno-komunikacyjnej i lotniczo-kosmicznej oraz spotkać się z władzami stanu Karnataka.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_f0ddf8cbb0e9af20a3f6d05f",
+      "text_pl": "Polski rząd postawił sobie za cel co najmniej podwojenie wymiany handlowej z Indiami do 2030 roku i jej większe zrównoważenie.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_63a9144e68eb04a67b39ae67",
+      "text_pl": "W 2025 roku obroty handlowe Polski i Indii wyniosły 5,681 miliarda euro.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_2484e277f4013c48d8018e17",
+      "text_pl": "W 2025 roku polski eksport do Indii wyniósł 1,366 miliarda euro, a import z Indii do Polski 4,315 miliarda euro.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_653a66d4d0e48ecd63b264d7",
+      "text_pl": "Po wizycie w Indiach Donald Tusk miał udać się do Wietnamu.",
+      "article_ids": [
+        "d578f148e3729f561410407a"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_f52839f8b6a34eebddb151d2",
+      "text_pl": "Donald Tusk napisał w serwisie X, że Polska rozpoczyna gospodarczą ofensywę w Indiach i Wietnamie oraz że nikt jej nie zatrzyma.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_b5da311d12a2e8be0b302e3e",
+      "text_pl": "Wizyta Donalda Tuska była pierwszą wizytą szefa polskiego rządu w Indiach od 16 lat.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_fe490575317e99c2056e4442",
+      "text_pl": "W 2024 roku Narendra Modi odwiedził Warszawę, a Polska i Indie podpisały wtedy umowę o partnerstwie strategicznym.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_4452e1b701dce469de874012",
+      "text_pl": "Umowa o partnerstwie strategicznym z 2024 roku przewidziała współpracę Polski i Indii w przemyśle obronnym, zaawansowanych technologiach, zielonej energii i przemyśle spożywczym.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_f7e0a8235904884509ef4afb",
+      "text_pl": "Andrzej Domański powtórzył podczas lotu do Bengaluru deklarację, że Polska chce podwoić wymianę handlową z Indiami do 2030 roku.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Andrzej Domański"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_c69db6c07f321d576c0689fb",
+      "text_pl": "W czwartek Tusk i Domański uczestniczyli w rozmowach delegacji obu państw i otworzyli forum.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_ba776d606e9a0c08565af822",
+      "text_pl": "Według danych przytoczonych z rządowego portalu trade.gov.pl polski eksport do Indii wyniósł w 2024 roku 1,44 miliarda dolarów, a import z Indii 4,36 miliarda dolarów.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "trade.gov.pl"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_759240dcfc5512023586826f",
+      "text_pl": "Polska eksportuje do Indii między innymi koks, złom żeliwa i stali, kauczuk syntetyczny, świeże jabłka i przyrządy medyczne.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_1bfa8247e013aaa8e5aa3ebd",
+      "text_pl": "Polska sprowadza z Indii między innymi leki, obuwie, odzież, tytoń i oleje napędowe.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_efd3ef0231e5b1cc12b01ec2",
+      "text_pl": "Donald Tusk powiedział, że Polska chce być bramą do Europy dla indyjskich firm, a Indie bramą do Azji dla polskich firm.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_0441f8fd7ef46993eb2e6573",
+      "text_pl": "Donald Tusk wskazał zaawansowany przemysł, wykwalifikowaną kadrę i członkostwo w unijnym rynku jako atuty Polski dla współpracy gospodarczej z Indiami.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_e9bceba39d67b708d762e290",
+      "text_pl": "Marek Sawicki ocenił, że polski sektor przetwórstwa rolno-spożywczego ma dużą szansę rozwoju na rynku indyjskim.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_7c5b78b7c2166f3e413ef9e2",
+      "text_pl": "Marek Sawicki powiedział, że według niego około 70 procent produktów rolnych w Indiach marnuje się, zanim dotrą do konsumentów, między innymi z powodu niedostatku chłodni i zakładów przetwórczych.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_f928076d24028418bbf41f1c",
+      "text_pl": "Marek Sawicki ocenił, że indyjski rynek potrzebuje technologii, inwestycji i rozwiązań pozwalających zagospodarować nadwyżki żywności.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_81dc623478615d25213def0c",
+      "text_pl": "Marek Sawicki stwierdził, że ze względu na problem niedożywienia części ludności sukces w indyjskim sektorze rolno-spożywczym wymaga długofalowych inwestycji.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_b76361f99dc901f679465e66",
+      "text_pl": "Donald Tusk mówił w Nowym Delhi o możliwościach, które może otworzyć umowa o wolnym handlu między Indiami a Unią Europejską.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_7ab7d44f908dc1863d33f095",
+      "text_pl": "Według artykułu wstępne porozumienie w sprawie umowy o wolnym handlu między Indiami a Unią Europejską podpisano w styczniu 2026 roku.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_a44ac21a51171c5b8cb879ba",
+      "text_pl": "Planowana umowa o wolnym handlu ma obniżyć lub znieść cła na około 90 procent towarów, z ochroną wybranych unijnych sektorów rolnych, między innymi wołowiny, mięsa drobiowego i cukru.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_ca1232424d08d0080a479631",
+      "text_pl": "Marek Sawicki ocenił, że nie ma realnych podstaw do obaw, iż indyjskie produkty zdestabilizują lub zaleją polski rynek.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_0e10528a24d51c9c9ef2ddc6",
+      "text_pl": "Marek Sawicki argumentował, że odmienna kultura żywieniowa i różne preferencje konsumentów w Indiach i Europie ograniczają ryzyko destabilizacji rynku przez handel produktami spożywczymi.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_0481ef6db0f97768f216de8c",
+      "text_pl": "Marek Sawicki ocenił, że skala rynków indyjskiego i chińskiego jest tak duża, iż nawet znaczny wzrost polskich dostaw nie wywołałby na nich presji podażowej.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_c848a24f0e501158751aeeeb",
+      "text_pl": "Marek Sawicki powiedział, że zamożniejsi konsumenci w Indiach coraz częściej poszukują nowych doświadczeń kulinarnych i produktów z innych części świata.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Marek Sawicki"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_51ba1f078d6618bb62f105c5",
+      "text_pl": "Narendra Modi zapraszał polskie firmy do udziału w inicjatywie „Make in India”, promującej inwestowanie i produkcję dóbr na terenie Indii.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_0cab468465f37d0b4f6c745a",
+      "text_pl": "Według prognoz Międzynarodowego Funduszu Walutowego Indie mają w 2027 roku wyprzedzić Japonię i stać się czwartą co do wielkości gospodarką świata.",
+      "article_ids": [
+        "f434fd88aa6216bb90e405b9"
+      ],
+      "attribution": "Międzynarodowy Fundusz Walutowy"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_8deedad6ed1bae67ef18e281",
+      "text_pl": "Po przylocie rządowego samolotu do Nowego Delhi na lotnisku na Donalda Tuska czekał czerwony dywan i oficjalna delegacja.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_4d3bf9e015716764896af634",
+      "text_pl": "Na lotnisku w Nowym Delhi Donalda Tuska powitały tancerki prezentujące taniec klasyczny.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_aa0cf1463f46de58363198c0",
+      "text_pl": "Na ulicach Nowego Delhi umieszczono billboardy z wizerunkiem Donalda Tuska, powitaniem w języku hindi i polskim napisem „Witamy”.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ]
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_5514fc6a0603a7424158974d",
+      "text_pl": "Były ambasador Polski w Indiach Adam Burakowski opublikował w mediach społecznościowych zdjęcia billboardów przygotowanych na przyjazd Donalda Tuska.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_109b199f15de7d46e7f4b70f",
+      "text_pl": "Adam Burakowski napisał, że w Indiach w podobny sposób wita się zazwyczaj głowy państw i szefów rządów.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Adam Burakowski"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_1a4ed7681f741310e6b4eb4b",
+      "text_pl": "Donald Tusk określił wizytę jako największą tego rodzaju w historii relacji Polski i Indii.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_abfd17f66721834c35869c63",
+      "text_pl": "Donald Tusk złożył w Nowym Delhi wieniec w miejscu pamięci Mahatmy Gandhiego, Rajghat.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ]
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_fce84473a98599a5eae413f6",
+      "text_pl": "Donald Tusk powiedział, że Polska i Indie nie mają konfliktu interesów ani złych zaszłości historycznych, a ich przyjaźń może opierać się na zaufaniu i idei niestosowania przemocy.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_af51882a5ff0d988c4903d45",
+      "text_pl": "Donald Tusk stwierdził, że polska rewolucja Solidarności była bezpośrednio inspirowana metodami działania bez przemocy.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_11ee146fd58d4ffa394a3701",
+      "text_pl": "Donald Tusk ocenił, że globalna rola Narendry Modiego jest dla Polski i Unii Europejskiej znakiem nadziei w czasie destabilizacji i chaosu.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_9bc63501a9a29dd5d8cf7813",
+      "text_pl": "Donald Tusk powiedział Narendrze Modiemu, że jest dumny, mogąc nazywać go swoim przyjacielem.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_0b4fdf973374170261a44df2",
+      "text_pl": "Donald Tusk ocenił, że Polska i Indie rozwijają się w sposób, któremu świat może zazdrościć.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_3ae8a4b0428e39cb31417d53",
+      "text_pl": "Donald Tusk zadeklarował, że będzie osobiście wspierał współpracę polskich i indyjskich firm.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_e86345fb0a99074751581282",
+      "text_pl": "Donald Tusk powiedział, że współpraca satelitarna i dronowa mogła pomóc Indiom w okresach napięć lub kryzysów.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Donald Tusk"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_2a93fd6269fd75420b5bbba8",
+      "text_pl": "Narendra Modi powiedział, że przyjaźń polsko-indyjska opiera się na wspólnym podejściu do człowieczeństwa i powinna przynieść wymierne korzyści obu gospodarkom.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Narendra Modi"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_38f6909d29c00030a766ab94",
+      "text_pl": "Narendra Modi zapowiedział współpracę zespołów obu państw nad tworzeniem zaufanych łańcuchów dostaw.",
+      "article_ids": [
+        "f9d762a37120ed5d6791294f"
+      ],
+      "attribution": "Narendra Modi"
+    }
+  ],
+  "articles": [
+    {
+      "article_id": "d578f148e3729f561410407a",
+      "source_id": "zero_pl",
+      "source_name": "Zero.pl",
+      "source_profile": "CENTER_RIGHT",
+      "source_type": "UNCLASSIFIED",
+      "title": "„Prawdziwi przyjaciele” i „promień nadziei”. Indyjskie media opisują wizytę Tuska",
+      "published_at": "2026-10-22T17:03:57+00:00"
+    },
+    {
+      "article_id": "f434fd88aa6216bb90e405b9",
+      "source_id": "zero_pl",
+      "source_name": "Zero.pl",
+      "source_profile": "CENTER_RIGHT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Co Donald Tusk może ugrać w Indiach? „Nikt nas nie zatrzyma”",
+      "published_at": "2026-10-22T18:05:06+00:00"
+    },
+    {
+      "article_id": "f9d762a37120ed5d6791294f",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Huczne powitanie premiera w Indiach. Na ulicach plakaty z Tuskiem",
+      "published_at": "2026-10-22T10:24:50.000Z"
+    }
+  ]
+}
