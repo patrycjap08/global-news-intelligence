@@ -1,7 +1,17 @@
 # GNI — aplikacja webowa
 
-To jest pierwsza wersja interfejsu mobile-first. Ma gazetowy układ, jasne beżowe
-tło, typografię szeryfową dla nagłówków oraz widok tematów, źródeł i opracowań.
+Interfejs mobile-first pokazuje tematy, źródła i opracowania w trzech stylach.
+Domyślna „Gazeta” zachowuje ciepły papier i szeryfowe nagłówki. „Minimalistyczny”
+ma jasne tło, proste litery i spokojne karty, a „Wieczorny” — granatowe tło
+i kolory dostosowane do czytania po zmroku.
+
+Wygląd zmienia się pod kołem zębatym po prawej od „Odśwież dane”. Wybór działa
+od razu, obejmuje także opracowania i jest zapamiętywany lokalnie na urządzeniu
+(`gni.appearance.v1`). Przy ponownym otwarciu styl jest przywracany przed
+wyświetleniem treści. Zmiana wyglądu nie pobiera danych, nie uruchamia AI
+i zachowuje filtry oraz pozycję czytania. Gdy pamięć przeglądarki jest
+niedostępna, wybór nadal działa w bieżącej karcie. Ustawienia można obsługiwać
+klawiaturą, a Escape zamyka okno wyboru.
 
 ## Podłączenie Supabase lokalnie
 
