@@ -8,6 +8,7 @@ import ai_pipeline as ai
 import editorial_integrity as integrity
 import perspective_summaries as p
 import test_summary_queue as queue_tests
+from test_writing_fixtures import article_response
 
 
 FIXTURE = json.loads(Path(__file__).with_name('test_data').joinpath(
@@ -47,11 +48,11 @@ class NarrativeCoreTests(unittest.TestCase):
             calls.append(name)
             self.assertEqual(name, 'perspective_summary', 'No extraction, novelty audit or repair call')
             self.assertEqual(data['primary_fact_id'], primary['fact_id'])
-            return {'paragraphs': [
+            return article_response([
                 {'text_pl': 'Elon Musk zapowiedział przekazanie w przyszłym roku po jednej akcji SpaceX każdemu dziecku w USA.',
                  'fact_ids': [primary['fact_id']]},
                 {'text_pl': record['summary_pl'], 'fact_ids': [facts[1]['fact_id'], facts[2]['fact_id']]},
-            ], 'general_context': None, 'background_context': []}
+            ])
         previous = stored(record)
         payload = {'topic': {'topic_id': record['topic']['topic_id'], 'working_title_pl': record['topic']['headline_pl']},
                    'all_articles': record['articles'], 'new_article_ids': [], 'previous_aggregation': previous}

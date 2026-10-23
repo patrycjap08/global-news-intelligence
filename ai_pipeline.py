@@ -37,7 +37,7 @@ from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v83-coherent-news-narrative"
+PROMPT_VERSION = "ai-prompts-v84-single-text-synthesis"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2724,7 +2724,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
             log('AI', f"Pisanie syntezy [{(payload.get('topic') or {}).get('topic_id', '')}]: "
                 f"zaakceptowane akapity {writing.get('accepted_paragraphs', 0)}/{writing.get('supplied_paragraphs', 0)}, "
                 f"objaśnienia {raw['quality_report'].get('context_additions_accepted', 0)}, "
-                f"akapit tła {writing.get('situation_context', 'bez pisania')}, "
+                f"kontekst {writing.get('situation_context', 'bez pisania')}, "
                 f"tekst awaryjny {bool(raw['quality_report'].get('narrative_fallback'))}; "
                 f"powody odrzucenia: {json.dumps(writing.get('rejections') or {}, ensure_ascii=False)}.")
         raw['article_content_hashes'] = {a['article_id']: a['content_hash'] for a in payload.get('all_articles', []) if a.get('content_hash')}

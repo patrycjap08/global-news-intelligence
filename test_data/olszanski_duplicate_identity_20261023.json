@@ -1,0 +1,117 @@
+{
+  "source": "Public site snapshot, 2026-10-23",
+  "topic_id": "topic_perspectives_297bd1734adbe277d8383a87",
+  "headline_pl": "[Polska] Zatrzymanie Wojciecha Olszańskiego i jego skazanie",
+  "published_summary_pl": "Zatrzymanie Wojciecha Olszańskiego, ps. Jaszczur (polski aktor i kontrowersyjny youtuber, lider ruchu Rodacy Kamraci), przez policję i doprowadzenie go do aresztu śledczego zgodnie z postanowieniem Sądu Rejonowego dla Warszawy-Śródmieścia.\n\nSprawa dotyczy Wojciecha Olszańskiego (ps. Jaszczur), kontrowersyjnego twórcy i lidera ruchu Rodacy Kamraci. W 2022 r. podczas marszu w Grudziądzu doszło do wypowiedzi uznanych za nawoływanie do nienawiści wobec Żydów; w 2025 r. Sąd Apelacyjny w Gdańsku potwierdził winę i częściowo zmienił karę, a policja doprowadziła go do aresztu śledczego zgodnie z postanowieniem Sądu Rejonowego dla Warszawy-Śródmieścia.",
+  "published_narrative_context": [
+    {
+      "basis": "SUPPLIED_MATERIAL",
+      "entity": "Jaszczur",
+      "text_pl": " (polski aktor i kontrowersyjny youtuber, lider ruchu Rodacy Kamraci)",
+      "paragraph_index": 0
+    },
+    {
+      "kind": "SITUATION",
+      "basis": "SUPPLIED_MATERIAL",
+      "text_pl": "Sprawa dotyczy Wojciecha Olszańskiego (ps. Jaszczur), kontrowersyjnego twórcy i lidera ruchu Rodacy Kamraci. W 2022 r. podczas marszu w Grudziądzu doszło do wypowiedzi uznanych za nawoływanie do nienawiści wobec Żydów; w 2025 r. Sąd Apelacyjny w Gdańsku potwierdził winę i częściowo zmienił karę, a policja doprowadziła go do aresztu śledczego zgodnie z postanowieniem Sądu Rejonowego dla Warszawy-Śródmieścia.",
+      "paragraph_index": 1
+    }
+  ],
+  "published_quality_report": {
+    "tokens": {
+      "input": 14115,
+      "output": 15402,
+      "reasoning": 13888
+    },
+    "api_calls": 3,
+    "omissions": [],
+    "read_articles": 4,
+    "cached_articles": 0,
+    "novelty_omissions": [],
+    "narrative_fallback": false,
+    "writing_validation": {
+      "rejections": {},
+      "situation_context": "ACCEPTED",
+      "accepted_paragraphs": 1,
+      "supplied_paragraphs": 1
+    },
+    "context_source_count": 3,
+    "budget_skipped_stages": [],
+    "context_passage_chars": 1749,
+    "narrative_core_fallback": false,
+    "context_additions_accepted": 2,
+    "situation_context_included": true
+  },
+  "facts": [
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_5ab00bba6864f52beadd9ab2",
+      "text_pl": "Wyrok Sądu Apelacyjnego w Gdańsku potwierdził winę Olszańskiego za publiczne nawoływanie do nienawiści wobec Żydów w 2022 r. podczas marszu w Grudziądzu.",
+      "article_ids": [
+        "33dd949a9961f59a70dbca5f"
+      ],
+      "attribution": "Sąd Apelacyjny w Gdańsku"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_4cab7072fd24613cb5aa3ab6",
+      "text_pl": "Olszański miał odbywać karę w postaci 20 godzin pracy społecznej miesięcznie w ramach ograniczenia wolności.",
+      "article_ids": [
+        "33dd949a9961f59a70dbca5f"
+      ],
+      "attribution": "Sąd Apelacyjny w Gdańsku"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_7d40935f18bb5bf1463221e5",
+      "text_pl": "Wyrok Sądu Apelacyjnego w Gdańsku z września 2025 r. uznał Wojciecha Olszańskiego za winnego publicznego nawoływania do nienawiści wobec osób narodowości żydowskiej podczas zgromadzenia w Grudziądzu w 2022 r.",
+      "article_ids": [
+        "7178cc38802d51000ec49578"
+      ],
+      "attribution": "Sąd Apelacyjny w Gdańsku"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_37d57f2393c67864b0d859b2",
+      "text_pl": "Sąd odwoławczy obniżył karę z dwóch lat ograniczenia wolności do półtora roku ograniczenia wolności, polegającego na wykonywaniu nieodpłatnej, kontrolowanej pracy na cele społeczne (20 godzin miesięcznie).",
+      "article_ids": [
+        "7178cc38802d51000ec49578"
+      ],
+      "attribution": "Sąd Apelacyjny w Gdańsku"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_83ba1a94c7a492e8d3b1af2e",
+      "text_pl": "Wojciech Olszański ps. „Jaszczur” został zatrzymany przez policję w celu doprowadzenia go do zakładu karnego zgodnie z postanowieniem Sądu Rejonowego dla Warszawy-Śródmieścia.",
+      "article_ids": [
+        "9b08ea32ef0545930db05c91"
+      ],
+      "attribution": "Marcin Kierwiński (MSWiA)"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_dc03c23104c32331c8d1fc04",
+      "text_pl": "Wojciech Olszański, ps. Jaszczur, został zatrzymany przez policję i doprowadzony do aresztu śledczego zgodnie z postanowieniem Sądu Rejonowego dla Warszawy-Śródmieścia.",
+      "article_ids": [
+        "c5d19d486e1bb17b40739080"
+      ],
+      "attribution": "Policja/MSWiA"
+    },
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_39b2c16d716a2c4d68f2cb6b",
+      "text_pl": "Wyrok z 2022 r. został uznany za nawoływanie do nienawiści i dotyczył wypowiedzi na temat Żydów; wyrok z 2025 r. to trzy miesiące bezwzględnego pozbawienia wolności.",
+      "article_ids": [
+        "c5d19d486e1bb17b40739080"
+      ],
+      "attribution": "Sąd drugiej instancji (Sąd Apelacyjny w Gdańsku)"
+    }
+  ]
+}

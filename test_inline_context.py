@@ -11,6 +11,7 @@ import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 import test_summary_queue as queue_tests
+from test_writing_fixtures import article_response
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath('texas_context_20261021.json').read_text())
 
@@ -42,6 +43,22 @@ def written():
          'fact_ids': [DATA['facts'][1]['fact_id']],
          'context_spans': [{'text_pl': postal, 'basis': 'GENERAL_KNOWLEDGE'}]},
     ]}
+
+
+def article_written():
+    registry = 'Spółkę o tej nazwie zarejestrowano we wrześniu 2026 roku.'
+    tent = '(organizacja wspierająca osoby transpłciowe)'
+    postal = '(amerykańska poczta)'
+    return article_response([
+        {'text_pl': 'Do rodzin w Teksasie trafiły SMS-y i listy dotyczące zasobów dla osób transpłciowych. Jako nadawca widnieje Texas Transgender Student Union. ' + registry,
+         'fact_ids': [DATA['facts'][2]['fact_id']]},
+        {'text_pl': f'TENT {tent} zaprzeczyła swojemu udziałowi w wysyłce ulotki.',
+         'fact_ids': [DATA['facts'][0]['fact_id']]},
+        {'text_pl': f'CBS News zwróciło się o komentarz do USPS {postal}, ale nie otrzymało odpowiedzi.',
+         'fact_ids': [DATA['facts'][1]['fact_id']]}], [
+             {'text_pl': registry, 'basis': 'SUPPLIED_MATERIAL', 'kind': 'SITUATION'},
+             {'text_pl': tent, 'basis': 'GENERAL_KNOWLEDGE', 'kind': 'ENTITY'},
+             {'text_pl': postal, 'basis': 'GENERAL_KNOWLEDGE', 'kind': 'ENTITY'}])
 
 
 class InlineContextTests(unittest.TestCase):
@@ -97,7 +114,7 @@ class InlineContextTests(unittest.TestCase):
             self.assertIn('dobrze ugruntowaną wiedzę ogólną', instructions)
             self.assertIn('Prezydentów państw nie trzeba', instructions)
             self.assertIn('context_sources', data)
-            response = written()
+            response = article_written()
             jsonschema.validate(response, schema)
             return response
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
@@ -109,7 +126,7 @@ class InlineContextTests(unittest.TestCase):
         self.assertEqual(result['background_context'], [])
         self.assertEqual(len(result['facts']), len(DATA['facts']))
         self.assertFalse(any('2010' in f['text_pl'] for f in result['facts']))
-        self.assertIn('2010', result['summary_pl'])
+        self.assertIn('2026', result['summary_pl'])
         self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
         previous['current_summary'] = result
         previous['perspective_state'] = result['perspective_state']
@@ -119,7 +136,7 @@ class InlineContextTests(unittest.TestCase):
         previous = stored()
         def call(*args):
             primary = integrity.primary_fact(DATA['facts'], DATA['topic']['headline_pl'])
-            return {'paragraphs': [{'text_pl': primary['text_pl'], 'fact_ids': [primary['fact_id']], 'context_spans': []}]}
+            return article_response([{'text_pl': primary['text_pl'], 'fact_ids': [primary['fact_id']]}])
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
                    'all_articles': articles(), 'new_article_ids': [], 'previous_aggregation': previous}
         result = p.generate(payload, call, ai.normalize_generated_text, allow_omissions=True)
@@ -154,12 +171,12 @@ class InlineContextTests(unittest.TestCase):
         previous = stored()
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
                    'all_articles': articles(), 'new_article_ids': [], 'previous_aggregation': previous}
-        with patch.object(ai, 'call_openai', return_value=written()) as request, patch.object(ai, 'log'):
+        with patch.object(ai, 'call_openai', return_value=article_written()) as request, patch.object(ai, 'log'):
             result = ai.generate_summary_response(payload, 'gpt-5-nano')
         request.assert_called_once()
         self.assertEqual(request.call_args.kwargs['retry_limit'], 1)
         self.assertEqual(result['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
-        self.assertEqual(len(result['narrative_context']), 5)
+        self.assertEqual(len(result['narrative_context']), 3)
         client = FakeMergeClient([], [], [])
         ai.persist_summary(client, topic_id=DATA['topic']['topic_id'], run_id='test', model='fake',
             summary=result, summary_hash='h', previous_row={'version': 1, 'summary': previous}, new_article_ids=[])

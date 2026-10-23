@@ -12,6 +12,7 @@ import perspective_summaries as p
 from structured_outputs import check_response_schema
 import test_summary_queue as queue_tests
 from test_topic_titles import FakeMergeClient
+from test_writing_fixtures import article_response
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath('witkoff_missing_context_20261021.json').read_text())
 
@@ -24,7 +25,7 @@ def previous():
             'processed_article_ids': [a['article_id'] for a in DATA['articles']]}
 
 
-def response(*, reject=False):
+def legacy_response(*, reject=False):
     facts = DATA['facts']
     result = {'situation_context': {'text_pl': 'Witkoff uczestniczy w amerykańskich zabiegach dyplomatycznych dotyczących zakończenia wojny w Ukrainie. Spotkaniom z rosyjskimi władzami towarzyszą rozmowy o uwalnianiu przetrzymywanych obywateli USA, stąd znaczenie podziękowania Putinowi za zwolnienie Hubbarda.', 'basis': 'SUPPLIED_MATERIAL'}, 'entity_context': [
         {'mentions': ['Thom Tillis', 'Tillis'], 'description_pl': 'republikański senator USA', 'basis': 'SUPPLIED_MATERIAL'},
@@ -40,6 +41,23 @@ def response(*, reject=False):
         result['entity_context'].append({'mentions': ['Hubbard', 'Stephena Hubbarda'],
             'description_pl': 'obywatel USA uwolniony z rosyjskiego więzienia', 'basis': 'SUPPLIED_MATERIAL'})
     return result
+
+
+def response(*, reject=False):
+    old = legacy_response()
+    senator = '(republikański senator USA)'
+    envoy = '(specjalny wysłannik prezydenta USA)'
+    first = f'Thom Tillis {senator} skrytykował Witkoffa {envoy} za nazwanie Putina humanitarystą.'
+    if reject:
+        first = f'Thom Tillis {senator} skrytykował Witkoffa {envoy} w 2099 roku.'
+    paragraphs = [{'text_pl': first, 'fact_ids': [DATA['facts'][0]['fact_id']]},
+                  {'text_pl': old['situation_context']['text_pl'], 'fact_ids': []}]
+    if not reject:
+        paragraphs.append(old['paragraphs'][1])
+    return article_response(paragraphs, [
+        {'text_pl': senator, 'basis': 'SUPPLIED_MATERIAL', 'kind': 'ENTITY'},
+        {'text_pl': envoy, 'basis': 'SUPPLIED_MATERIAL', 'kind': 'ENTITY'},
+        {**old['situation_context'], 'kind': 'SITUATION'}])
 
 
 class EntityContextTests(unittest.TestCase):
@@ -82,7 +100,7 @@ class EntityContextTests(unittest.TestCase):
         stored['current_summary'] = result
         p.generate(self.payload(stored), lambda *args: self.fail('No repeated writing'), ai.normalize_generated_text, allow_omissions=True)
 
-    def test_rejected_prose_preserves_roles_in_fallback_and_records_why(self):
+    def test_rejected_prose_uses_facts_without_assembling_roles_or_buying_a_repair(self):
         calls = []
         def call(*args):
             calls.append(args[-1])
@@ -91,19 +109,19 @@ class EntityContextTests(unittest.TestCase):
         result = p.generate(self.payload(stored), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
         self.assertNotIn('2099', result['summary_pl'])
-        self.assertIn('Thom Tillis (republikański senator USA)', result['summary_pl'])
+        self.assertIn('Thom Tillis', result['summary_pl'])
         self.assertNotIn('Hubbard (obywatel USA uwolniony z rosyjskiego więzienia)', result['summary_pl'])
-        self.assertEqual(result['summary_pl'].count('(republikański senator USA)'), 1)
+        self.assertNotIn('(republikański senator USA)', result['summary_pl'])
         self.assertTrue(result['quality_report']['narrative_fallback'])
         self.assertEqual(result['quality_report']['writing_validation']['rejections'],
                          {'event_not_supported_by_cited_facts': 1})
-        self.assertEqual(result['quality_report']['context_additions_accepted'], 3)
+        self.assertEqual(result['quality_report']['context_additions_accepted'], 0)
         self.assertEqual(result['facts'], DATA['facts'])
         stored['current_summary'] = result
         p.generate(self.payload(stored), lambda *args: self.fail('No repair loop'), ai.normalize_generated_text, allow_omissions=True)
 
     def test_only_known_entities_get_inline_context_once_without_changing_ids(self):
-        raw = response()
+        raw = legacy_response()
         raw['entity_context'].extend([
             {'mentions': ['Nieobecna osoba'], 'description_pl': 'zupełnie inna osoba', 'basis': 'GENERAL_KNOWLEDGE'},
             copy.deepcopy(raw['entity_context'][0]),
@@ -115,9 +133,9 @@ class EntityContextTests(unittest.TestCase):
         self.assertEqual(ids, [p['fact_ids'] for p in written['paragraphs']])
         self.assertNotIn('Nieobecna', str(written['paragraphs']))
 
-    def test_complete_schema_failure_keeps_usable_roles_but_truncation_does_not(self):
+    def test_complete_schema_failure_or_truncation_does_not_assemble_roles_from_rejected_text(self):
         raw = response(reject=True)
-        raw['paragraphs'][0]['fact_ids'] = ['unknown-fact']
+        raw['paragraph_sources'][0]['fact_ids'] = ['unknown-fact']
         for status in ('completed', 'incomplete'):
             with self.subTest(status=status):
                 error = ai.AIResponseParseError('Invalid paragraph reference', json.dumps(raw))
@@ -129,14 +147,13 @@ class EntityContextTests(unittest.TestCase):
                 self.assertTrue(result['quality_report']['narrative_fallback'])
                 self.assertNotIn('2099', result['summary_pl'])
                 self.assertNotIn('unknown-fact', str(result['facts']))
-                self.assertEqual('republikański senator USA' in result['summary_pl'], status == 'completed')
+                self.assertNotIn('republikański senator USA', result['summary_pl'])
 
     def test_new_synthesis_and_fallback_do_not_add_publisher_labels(self):
         for rejected in (False, True):
             with self.subTest(rejected=rejected):
                 raw = response(reject=rejected)
-                for paragraph in raw['paragraphs']:
-                    paragraph['text_pl'] = 'Według WP: ' + paragraph['text_pl']
+                raw['summary_pl'] = 'Według WP: ' + raw['summary_pl']
                 result = p.generate(self.payload(previous()), lambda *args: raw,
                                     ai.normalize_generated_text, allow_omissions=True)
                 self.assertNotIn('Według WP:', result['summary_pl'])
@@ -171,7 +188,8 @@ class EntityContextTests(unittest.TestCase):
         self.assertIn('republikański senator', saved['current_summary']['summary_pl'])
         self.assertEqual(saved['current_summary']['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
         self.assertEqual(saved['current_summary']['situation_context_version'], integrity.SITUATION_CONTEXT_VERSION)
-        self.assertEqual(saved['current_summary']['situation_context'], response()['situation_context'])
+        self.assertIsNone(saved['current_summary']['situation_context'])
+        self.assertTrue(any(s.get('kind') == 'SITUATION' for s in saved['current_summary']['narrative_context']))
         summaries[0]['summary'] = saved
         stats, generate, _, _ = queue_tests.SummaryQueueTests().run_queue([topic], rows, links, summaries)
         self.assertEqual(stats['summaries'], 0)

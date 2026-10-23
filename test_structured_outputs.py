@@ -30,7 +30,7 @@ class StructuredOutputTests(unittest.TestCase):
                                p.article_coverage_schema(known, [f'a{i}' for i in range(8)]),
                                p.article_coverage_schema(known, [f'a{i}' for i in range(8)], allow_omissions=True),
                                p.novelty_schema(known, candidates), p.novelty_decision_schema(known, candidates),
-                               p.writing_schema(known)):
+                               p.writing_schema(known), p.article_writing_schema(known)):
                     check_response_schema(schema)
                 novelty = p.novelty_schema(known, candidates)
                 for value in novelty['properties']['decisions']['properties'].values():

@@ -59,10 +59,11 @@ class FakeAPI:
                 'covered_fact_ids': [], 'reason_pl': 'Nowe, odrębne ustalenie.'} for f in data['candidate_facts']}}
         else:
             facts = data['main_facts']
-            raw = {'entity_context': [], 'situation_context': {
-                'text_pl': 'W Marsylii protesty wiążą się z wysokimi kosztami życia i niezadowoleniem z polityki rządu.',
-                'basis': 'GENERAL_KNOWLEDGE'}, 'paragraphs': [
-                    {'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']], 'context_spans': []} for f in facts[:2]]}
+            context = 'W Marsylii protesty wiążą się z wysokimi kosztami życia i niezadowoleniem z polityki rządu.'
+            raw = fixtures.article_response([
+                *[{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']]} for f in facts[:2]],
+                {'text_pl': context, 'fact_ids': []}],
+                [{'text_pl': context, 'basis': 'GENERAL_KNOWLEDGE', 'kind': 'SITUATION'}])
         return NS(status=self.status, output_text=json.dumps(raw, ensure_ascii=False), id='response-test',
                   model=request['model'], usage=NS(input_tokens=1000, output_tokens=500,
                     input_tokens_details=NS(cached_tokens=200), output_tokens_details=NS(reasoning_tokens=400)))

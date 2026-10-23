@@ -71,6 +71,11 @@ Możesz osobno zmienić model i poziom rozumowania dla:
 | `audit` | Weryfikuje nowość i powtórzenia | Krótkie ustalenia, paczki do 24 |
 | `writing` | Pisze aktualną syntezę i jej kontekst | Wybrane fakty i ograniczone fragmenty źródeł |
 
+Etap `writing` zwraca cały gotowy artykuł w jednym polu `summary_pl`, z akapitami
+i wplecionym tłem. Nie ma osobnego zapytania o kontekst ani późniejszego
+doklejania akapitów lub opisów osób. Pozostałe pola odpowiedzi służą kontroli
+źródeł i oznaczeniu fragmentów tła, nie dodają treści do syntezy.
+
 Liczba wywołań zależy od rozmiaru wątku i liczby ustaleń. Podział na perspektywy
 i prezentacja ocen nie mają osobnych wywołań AI. Nie prosimy modelu o nowe
 tytuły i kategorie; te pola zostały usunięte ze schematu ekstrakcji w laboratorium.
