@@ -497,13 +497,41 @@ Każde ustalenie ma kind:
   przypuszczający. Fakt wypowiedzenia tezy nie dowodzi jej prawdziwości.
 - EDITORIAL: własna ocena autora/redakcji, wartościowanie lub interpretacja
   niewynikająca wprost z ustaleń. Opisz ją jako ocenę tego źródła. Cytat
-  polityka lub cudza ocena przytoczona w tekście to STATEMENT. Dodanie
-  „autor twierdzi” nie zamienia własnej opinii redakcji w STATEMENT.
+  polityka lub przytoczenie jego zarzutu to STATEMENT. Przytoczona ocena
+  analityka lub innej redakcji pozostaje EDITORIAL z rzeczywistym autorem,
+  nie staje się własnym stanowiskiem portalu. Dodanie „autor twierdzi” nie
+  zamienia własnej opinii redakcji w STATEMENT.
 Rozdziel neutralny rdzeń i ocenę: „rząd zatwierdził skandaliczną podwyżkę”
 to osobne FACT o decyzji oraz EDITORIAL o określeniu jej przez autora.
 source_group LEFT/RIGHT/CENTER/STATE nie decyduje o typie ani prawdziwości.
-Nie dopisuj ocen z doboru tematu, profilu albo pominięcia informacji.
-Brak EDITORIAL jest poprawny. Oceny przypisz tylko materiałom wyrażającym je.
+Sam dobór tematu, opis niekorzystnych zdarzeń, pominięcie informacji albo
+profil źródła nie wystarczają do przypisania mu oceny. Brak EDITORIAL jest
+poprawny. Oceny przypisz tylko materiałom rzeczywiście je wyrażającym.
+
+SPRAWDŹ TAKŻE WYDŹWIĘK CAŁEGO ARTYKUŁU, nie tylko zdania z jawną oceną.
+Odczytaj łącznie nagłówek, wstęp, narrację i zakończenie. Wychwytuj wyraźnie
+pozytywne, krytyczne, ironiczne lub inne wartościujące przedstawianie
+konkretnej osoby, decyzji albo sprawy, także gdy autor nie pisze wprost
+„uważam”. Może o nim świadczyć konsekwentny język pochwały, dezaprobaty,
+ośmieszania lub obwiniania w narracji autora. Pojedyncza wypowiedź rozmówcy
+ani sam fakt, że tekst opisuje porażkę, ofiary lub zarzuty, tego nie dowodzi.
+Nie utożsamiaj wydźwięku opisywanego zdarzenia z oceną redakcji.
+Gdy sposób przedstawiania wynika z całości tekstu, zapisz go jako EDITORIAL,
+np. „Artykuł redakcji X przedstawia decyzję jako sukces, podkreślając
+sprawność działań władz”. Dla odmiennej oceny: „Artykuł redakcji Y przedstawia
+decyzję krytycznie, akcentując chaos i błędy w jej przygotowaniu”. Użyj tylko
+ocen i uzasadnień rzeczywiście obecnych w materiale. Wskaż przedmiot oceny
+i krótko, co w sposobie pisania uzasadnia ten odczyt. Nie wystarczy etykieta
+„negatywny artykuł”. Nie wymyślaj konkretnej tezy, jeśli tekst jej nie stawia.
+To opis sposobu przedstawienia sprawy w TYM materiale, nie dowód stałego
+stanowiska redakcji, jej intencji ani obiektywnego charakteru wydarzenia.
+attribution wskazuje autora tej narracji lub redakcję publikującą własny
+tekst. Nie przypisuj jej stanowiska cytowanej osoby ani cytowanego medium.
+Jeśli materiał zawiera różne oceny, zachowaj ich przedmioty i rozróżnienia.
+Nie wymuszaj jednej etykiety pozytywnej/negatywnej dla całego tekstu.
+Zbiorczy wydźwięk ujmij zwięźle, bez osobnego ustalenia dla każdego epitetu
+i bez dublowania jawnej oceny o tym samym znaczeniu. Gdy brak wyraźnego
+oparcia w języku i narracji autora, pomiń tę interpretację.
 
 Przejrzyj także dalsze akapity: działania, decyzje, uczestników, datę/miejsce,
 skalę/liczby, okoliczności, podane przyczyny, skutki, reakcje i zapowiedzi.
@@ -515,6 +543,10 @@ Nie rozdrabniaj twierdzenia na urwane frazy, parafrazy i oczywiste wnioski.
 Nie ma narzuconej minimalnej ani maksymalnej liczby ustaleń.
 
 previous_facts zawiera zapisane ustalenia i wyniki wcześniejszych paczek.
+Paczki są technicznym podziałem jednego wątku, a NIE osobnymi historiami.
+Nie zaczynaj rejestru od nowa przy następnej paczce. Jeśli kolejne artykuły
+powtarzają znane ustalenie, dodaj tylko jego potwierdzenie, niezależnie od
+języka, redakcji i innego brzmienia. Nowy artykuł nie oznacza nowego faktu.
 Potwierdzenie: skopiuj dokładny known_fact_id z previous_facts, zachowaj kind,
 ustaw text_pl="" i why_new_pl="". Kod zachowa oryginalne zdanie i stare źródła.
 Jeśli brak wcześniejszego kind, sklasyfikuj treść. Zmiana klasyfikacji nie
@@ -1166,6 +1198,14 @@ Przy DETAIL zachowaj podmiot, autora wypowiedzi/zarzutu, niepewność, daty,
 liczby i zakres. Nie dopisuj wiedzy, chronologii ani motywów. Rozbieżności
 nie stają się tą samą informacją tylko dlatego, że zdania brzmią podobnie.
 Nie zmieniaj oceny redakcyjnej w neutralny fakt i odwrotnie.
+
+Dla EDITORIAL porównuj także przedmiot i kierunek oceny oraz jej autora.
+Krytyczna i pozytywna ocena tej samej decyzji to różne ustalenia, nie
+duplikaty. Nie usuwaj tej różnicy tylko dlatego, że oba teksty omawiają ten
+sam fakt. Zachowaj uzasadnienie sposobu przedstawienia sprawy i przypisanie
+do rzeczywistego autora. Kolejny portal cytujący tę samą ocenę tej samej
+osoby/redakcji nie tworzy nowej opinii. Nie łącz oceny jednego podmiotu
+z oceną innego ani negatywnego opisu zdarzenia z krytyką uczestnika.
 
 Jeśli validation_feedback wskazuje błąd poprzedniej odpowiedzi, popraw go
 na podstawie tych samych danych. Zachowaj poprawne decyzje. Zwróć pełne

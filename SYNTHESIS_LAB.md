@@ -71,6 +71,13 @@ Możesz osobno zmienić model i poziom rozumowania dla:
 | `audit` | Weryfikuje nowość i powtórzenia | Krótkie ustalenia, paczki do 24 |
 | `writing` | Pisze aktualną syntezę i jej kontekst | Wybrane fakty i ograniczone fragmenty źródeł |
 
+Paczki ekstrakcji współdzielą narastający rejestr ustaleń jednego wątku.
+Powtórzony fakt dodaje potwierdzenie kolejnego artykułu, a nie nowy wpis.
+Audyt sprawdza też parafrazy powstałe między paczkami. Ekstrakcja rozpoznaje
+również wyraźny wydźwięk narracji autora jako ocenę redakcyjną, z krótkim
+uzasadnieniem i przypisaniem źródła. Opis negatywnego zdarzenia sam w sobie
+nie jest negatywną oceną redakcji. Oceny pozostają poza syntezą faktów.
+
 Etap `writing` zwraca cały gotowy artykuł w jednym polu `summary_pl`, z akapitami
 i wplecionym tłem. Nie ma osobnego zapytania o kontekst ani późniejszego
 doklejania akapitów lub opisów osób. Pozostałe pola odpowiedzi służą kontroli
