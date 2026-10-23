@@ -2,6 +2,9 @@
 -- Uruchom przy zatrzymanym workflow, potem NOWE ai-only z main.
 -- Zakres: aktywne watki podpiete do artykulow faktycznie pobranych
 -- (run_articles.fetched_now = true) w OSTATNIM harvescie.
+-- Reset obejmuje tylko watki odtwarzalne przez obecna kolejke ai-only.
+-- Starszy format, watki poza 36 h i bez dwoch artykulow/zrodel sa pomijane;
+-- ich opracowania pozostaja, a powod jest pokazany w wyniku SQL.
 -- Usuwa cale opracowania i ich wersje: syntezy, fakty, perspektywy,
 -- aktualizacje oraz cache ekstrakcji i checkpointy uzywane do wznowienia.
 -- Artykuly, przypisania, watki, daty, tytuly i kategorie pozostaja.
@@ -14,7 +17,9 @@ declare
     requested_run_id constant text := null;
     selected_run_id text;
     fetched_article_ids text[];
+    candidate_topic_ids text[];
     selected_topic_ids text[];
+    skipped_topics jsonb;
     all_topic_article_ids text[];
     cache_ids text[];
     checkpoint_ids text[];
@@ -50,24 +55,48 @@ begin
     end if;
 
     select coalesce(array_agg(t.topic_id order by t.topic_id), '{}'::text[])
-    into selected_topic_ids
+    into candidate_topic_ids
     from public.topics t
     where t.status = 'ACTIVE' and exists (
         select 1 from public.topic_articles ta
         where ta.topic_id = t.topic_id and ta.article_id = any(fetched_article_ids)
     );
-    if cardinality(selected_topic_ids) = 0 then
+    if cardinality(candidate_topic_ids) = 0 then
         raise exception 'Brak aktywnych watkow powiazanych z artykulami harvestu %. Nic nie zmieniono.', selected_run_id;
     end if;
 
-    -- Nie kasuj opracowan, ktorych obecna kolejka ai-only nie odtworzy.
-    if exists (
-        select 1 from public.topics t where t.topic_id = any(selected_topic_ids)
-        and (not starts_with(t.topic_id, 'topic_perspectives_')
-             or t.last_seen_at < now() - interval '36 hours')
-    ) then
-        raise exception 'Czesc wskazanych watkow ma stary format lub jest poza oknem 36 godzin kolejki ai-only. Nic nie zmieniono.';
-    end if;
+    -- Jeden nieodtwarzalny watek nie blokuje resetu pozostalych.
+    -- Zachowaj jego wyniki i pokaz powod, zamiast zmieniac daty albo format ID.
+    with coverage as (
+        select ta.topic_id, count(distinct ta.article_id) as linked_articles,
+            count(distinct a.article_id) as available_articles,
+            count(distinct nullif(btrim(coalesce(nullif(a.source_id, ''), a.source_name, '')), '')) as sources
+        from public.topic_articles ta
+        left join public.articles a on a.article_id = ta.article_id
+        where ta.topic_id = any(candidate_topic_ids)
+        group by ta.topic_id
+    ), eligibility as (
+        select t.topic_id, t.headline_pl, t.last_seen_at,
+            case
+                when not starts_with(t.topic_id, 'topic_perspectives_') then 'stary format watku'
+                when t.last_seen_at is null then 'brak daty ostatniej aktywnosci'
+                when t.last_seen_at < now() - interval '36 hours' then 'poza oknem 36 godzin'
+                when c.linked_articles < 2 then 'mniej niz dwa podpiete artykuly'
+                when c.available_articles < 2 then 'mniej niz dwa dostepne artykuly'
+                when c.sources < 2 then 'artykuly pochodza tylko z jednego zrodla'
+                else null
+            end as skip_reason
+        from public.topics t join coverage c on c.topic_id = t.topic_id
+    )
+    select
+        coalesce(array_agg(e.topic_id order by e.topic_id)
+                 filter (where e.skip_reason is null), '{}'::text[]),
+        coalesce(jsonb_agg(jsonb_build_object(
+            'topic_id', e.topic_id, 'tytul', e.headline_pl,
+            'ostatnia_aktywnosc', e.last_seen_at, 'powod', e.skip_reason
+        ) order by e.topic_id) filter (where e.skip_reason is not null), '[]'::jsonb)
+    into selected_topic_ids, skipped_topics
+    from eligibility e;
 
     -- Nowa ekstrakcja obejmie WSZYSTKIE artykuly wybranych watkow, takze starsze.
     select coalesce(array_agg(distinct ta.article_id order by ta.article_id), '{}'::text[])
@@ -100,7 +129,9 @@ begin
 
     select jsonb_build_object(
         'fetched_article_ids', to_jsonb(fetched_article_ids),
+        'candidate_topic_ids', to_jsonb(candidate_topic_ids),
         'topic_ids', to_jsonb(selected_topic_ids),
+        'skipped_topics', skipped_topics,
         'all_topic_article_ids', to_jsonb(all_topic_article_ids),
         'topic_summaries', (select coalesce(jsonb_agg(to_jsonb(s)), '[]'::jsonb)
             from public.topic_summaries s where s.topic_id = any(selected_topic_ids)),
@@ -150,11 +181,14 @@ $reset_harvest_analysis$;
 -- Wynik pozostaje dostepny takze po zmianie polaczenia SQL Editora.
 select reset_id as id_kopii, run_id,
     jsonb_array_length(payload->'fetched_article_ids') as pobrane_artykuly,
+    jsonb_array_length(payload->'candidate_topic_ids') as powiazane_aktywne_watki,
     jsonb_array_length(payload->'topic_ids') as wybrane_watki,
+    jsonb_array_length(payload->'skipped_topics') as pominiete_watki_bez_kasowania,
     jsonb_array_length(payload->'all_topic_article_ids') as artykuly_do_ponownej_ekstrakcji,
     (payload->'result'->>'summaries')::integer as usuniete_syntezy_z_faktami,
     (payload->'result'->>'versions')::integer as usuniete_wersje,
     (payload->'result'->>'cache')::integer as usuniety_cache_ekstrakcji,
-    (payload->'result'->>'checkpoints')::integer as wyczyszczone_checkpointy
+    (payload->'result'->>'checkpoints')::integer as wyczyszczone_checkpointy,
+    payload->'skipped_topics' as pominiete_watki_i_powody
 from gni_recovery.harvest_analysis_resets
 order by reset_id desc limit 1;
