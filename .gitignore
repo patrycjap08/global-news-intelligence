@@ -29,3 +29,7 @@ topic-update-rebuild.json.tmp
 public_site_data/
 downloaded_public_data/
 app/data/
+
+# Local synthesis experiments: article snapshots, requests and private settings.
+lab-data/
+synthesis_lab_config.py
