@@ -46,11 +46,11 @@ jobs:
     timeout-minutes: 180
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
-      # Separate from labels/titles/categories and old OPENAI_MODEL overrides.
-      OPENAI_SUMMARY_MODEL: 'gpt-5-nano'
-      OPENAI_LABEL_MODEL: ${{ vars.OPENAI_LABEL_MODEL || 'gpt-4o-mini' }}
-      OPENAI_TITLE_MODEL: ${{ vars.OPENAI_TITLE_MODEL || 'gpt-4o-mini' }}
+      # Pin every text stage; stale repository variables cannot restore old models.
+      OPENAI_MODEL: 'gpt-6-luna'
+      OPENAI_SUMMARY_MODEL: 'gpt-6-luna'
+      OPENAI_LABEL_MODEL: 'gpt-6-luna'
+      OPENAI_TITLE_MODEL: 'gpt-6-luna'
       AI_LABEL_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_LABEL_REQUEST_TIMEOUT_SECONDS || '60' }}
       AI_LABEL_MAX_RETRIES: ${{ vars.AI_LABEL_MAX_RETRIES || '2' }}
       RETRY_REJECTED: ${{ inputs.retry_rejected || 'false' }}
@@ -91,6 +91,7 @@ jobs:
       AI_SUMMARY_CONCURRENCY: ${{ vars.AI_SUMMARY_CONCURRENCY || '10' }}
       AI_SUMMARY_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_SUMMARY_REQUEST_TIMEOUT_SECONDS || '300' }}
       AI_SUMMARY_REASONING_EFFORT: 'medium'
+      OPENAI_EXTRACTION_REASONING_EFFORT: 'low'
       # Soft full-article batch target; article bodies are never truncated.
       AI_SUMMARY_MAX_PAYLOAD_CHARS: ${{ vars.AI_SUMMARY_MAX_PAYLOAD_CHARS || '300000' }}
       AI_CATEGORY_BATCH_SIZE: ${{ vars.AI_CATEGORY_BATCH_SIZE || '30' }}

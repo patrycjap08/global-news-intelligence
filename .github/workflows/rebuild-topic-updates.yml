@@ -33,7 +33,10 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+      OPENAI_MODEL: 'gpt-6-luna'
+      OPENAI_SUMMARY_MODEL: 'gpt-6-luna'
+      OPENAI_LABEL_MODEL: 'gpt-6-luna'
+      OPENAI_TITLE_MODEL: 'gpt-6-luna'
       AI_SUMMARY_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_SUMMARY_REQUEST_TIMEOUT_SECONDS || '180' }}
       AI_SUMMARY_MAX_PAYLOAD_CHARS: ${{ vars.AI_SUMMARY_MAX_PAYLOAD_CHARS || '300000' }}
       REBUILD_TOPIC_ID: ${{ inputs.topic_id }}

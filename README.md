@@ -202,7 +202,10 @@ z artykułów mają przypisane źródła; wiedza ogólna i niepewne role są ozn
 syntezę i kontekst. Zmiana promptu dotyczy kolejnych generowanych syntez.
 
 
-Syntezy i aktualizacje w głównym workflow używają `gpt-5-nano`
-z rozumowaniem `medium`. Osobny `OPENAI_SUMMARY_MODEL` pozwala zachować
-dotychczasowe modele nazw, tytułów i kategorii. Model syntez jest podawany
-w logu kolejki i zapisywany przy wynikach w bazie.
+Wszystkie tekstowe etapy workflow używają `gpt-6-luna`: nazwy kandydatów,
+tytuły, kategorie, ekstrakcja faktów, deduplikacja, syntezy i aktualizacje.
+Proste zadania nazw/tytułów/kategorii mają reasoning `none`, ekstrakcja
+i kontrola nowości `low`, a pisanie syntez `medium`. Workflow ustawia modele
+jawnie, niezależnie od starszych zmiennych repozytorium. Embeddingi nadal
+powstają przez `text-embedding-3-small`; nie są wywołaniem modelu tekstowego.
+Model syntez jest podawany w logu kolejki i zapisywany przy wynikach w bazie.

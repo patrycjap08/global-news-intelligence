@@ -47,7 +47,7 @@ PRICES = {
 }
 STAGES = {'perspective_facts': 'extraction',
           'perspective_novelty_audit': 'audit', 'perspective_summary': 'writing'}
-DEFAULT_STAGES = {name: {'model': 'gpt-5-nano', 'reasoning_effort': effort}
+DEFAULT_STAGES = {name: {'model': 'gpt-6-luna', 'reasoning_effort': effort}
                   for name, effort in [('extraction', 'low'), ('audit', 'low'), ('writing', 'medium')]}
 
 

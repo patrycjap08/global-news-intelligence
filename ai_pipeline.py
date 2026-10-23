@@ -37,7 +37,7 @@ from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v81-nonrepeating-synthesis"
+PROMPT_VERSION = "ai-prompts-v82-luna-all-text-stages"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -109,8 +109,8 @@ CATEGORY_REQUEST_TIMEOUT_SECONDS = max(
 CATEGORY_MAX_RETRIES = max(
     1, int(os.environ.get("AI_CATEGORY_MAX_RETRIES", "2"))
 )
-DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-LABEL_MODEL = os.environ.get("OPENAI_LABEL_MODEL", "gpt-4o-mini")
+DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
+LABEL_MODEL = os.environ.get("OPENAI_LABEL_MODEL", "gpt-6-luna")
 TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", LABEL_MODEL)
 GROUPING_EXCERPT_WORDS = min(
     100,
@@ -2569,7 +2569,7 @@ def generate_topic_update(payload: dict[str, Any], model: str) -> ParsedAIRespon
 
 def summary_reasoning_effort(model: str) -> str | None:
     """Bound latency/cost for supported reasoning models, leaving other APIs unchanged."""
-    if "pro" in model or not model.startswith(("gpt-5", "o3", "o4")):
+    if "pro" in model or not model.startswith(("gpt-5", "gpt-6", "o3", "o4")):
         return None
     value = os.environ.get("AI_SUMMARY_REASONING_EFFORT", "medium").strip().lower()
     if value not in {"low", "medium", "high"}:
@@ -2626,7 +2626,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                 response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                     timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                     reasoning_effort=(os.environ.get('OPENAI_EXTRACTION_REASONING_EFFORT', 'low')
-                                      if name in ('perspective_facts', 'perspective_novelty_audit') and model.startswith('gpt-5')
+                                      if name in ('perspective_facts', 'perspective_novelty_audit') and model.startswith(('gpt-5', 'gpt-6'))
                                       else summary_reasoning_effort(model)),
                     response_schema=schema, response_schema_name=name,
                     retry_limit=1,
@@ -3269,6 +3269,11 @@ def call_openai(
 ) -> dict[str, Any]:
     from openai import OpenAI
 
+    # Names, titles and categories previously used a non-reasoning model.
+    # Keep those calls light; synthesis/extraction pass medium/low explicitly.
+    if reasoning_effort is None and model.startswith('gpt-6-luna'):
+        reasoning_effort = 'none'
+
     schema_stats = None
     if response_schema is not None:
         try:
@@ -3659,7 +3664,9 @@ def choose_merge_canonical_topic_id(
 
 
 def merge_reasoning_effort(model: str) -> str | None:
-    """Keep GPT-5's matching step cheap without changing synthesis reasoning."""
+    """Keep matching cheap without changing synthesis reasoning."""
+    if model.startswith('gpt-6-luna'):
+        return 'low'
     if model == "gpt-5" or model.startswith(("gpt-5-nano", "gpt-5-mini", "gpt-5-2025-")):
         return "minimal"
     if model.startswith(("gpt-5.1", "gpt-5.2", "o3-mini", "o4-mini")) and "pro" not in model:

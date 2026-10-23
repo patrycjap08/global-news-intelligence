@@ -82,10 +82,12 @@ pisanie, zwykle raz. To najlepszy pierwszy test stylu, kompletności i powtórze
 w syntezie: różnicy nie powoduje inny zestaw wyciągniętych faktów. Perspektywy
 i oceny zostają takie same, bo ten test ich ponownie nie ekstrahuje.
 
-Przykładowa konfiguracja zawiera obecny pełny wariant nano i dwa warianty
-samego pisania. Pełny test innego modelu jest w komentarzu do odkomentowania.
-W bazowym wariancie ustawienia odpowiadają workflow: nano `low` dla ekstrakcji
-i audytu, nano `medium` dla pisania.
+Przykładowa konfiguracja zawiera jeden pełny wariant `gpt-6-luna`, zgodny
+z obecnym workflow: `low` dla ekstrakcji i audytu, `medium` dla pisania.
+Wariant samego pisania jest w komentarzu do odkomentowania i wybrania modelu.
+Zmieniając jego `mode` na `full` i podając wszystkie trzy etapy, możesz też
+porównać cały proces. Jeden wariant domyślny unika płacenia za kilka identycznych
+prób Luną po zmianie modelu produkcyjnego.
 
 ## Wyniki i koszty eksperymentu
 
@@ -121,7 +123,9 @@ zapisy cache ani podatków; nie zastępuje rozliczenia w panelu OpenAI.
 
 Stan sprawdzenia: **23 października 2026**, USD za **milion tokenów**, zwykły
 synchroniczny API Standard, wejście bez cache i krótki kontekst.
-Punktem odniesienia jest obecny `gpt-5-nano`.
+Punktem odniesienia tej tabeli pozostaje poprzedni `gpt-5-nano`.
+Obecnie wszystkie tekstowe etapy produkcyjne i domyślne ustawienia laboratorium
+używają `gpt-6-luna`.
 
 | Model | Wejście | Wyjście łącznie z rozumowaniem | × nano: wejście / wyjście |
 | --- | ---: | ---: | ---: |
@@ -151,8 +155,8 @@ Nie ma jednego stałego mnożnika ceny całego wątku: modele mogą zużyć inn�
 liczbę tokenów rozumowania, mieć inny udział cache i wygenerować więcej/mniej
 ustaleń. Tabela porównuje **stawki**, raport mierzy rzeczywiste użycie prób.
 
-Najpierw porównałabym samo pisanie przez `gpt-6-luna`, `gpt-5.4-mini`
-i obecne nano na trzech różniących się tematach. `gpt-4.1-mini` pozwoli też
+Możesz porównać samo pisanie przez obecne `gpt-6-luna`, `gpt-5.4-mini`
+i poprzednie nano na trzech różniących się tematach. `gpt-4.1-mini` pozwoli też
 sprawdzić model bez osobnego rozumowania. Dopiero potem warto testować droższą
 ekstrakcję i audyt. To hipotezy do sprawdzenia, nie wynik benchmarku na Twoich
 artykułach.

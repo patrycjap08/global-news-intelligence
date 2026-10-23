@@ -48,7 +48,9 @@ Wartość `SUPABASE_URL` ma postać `https://<project-ref>.supabase.co`.
 Opcjonalnie w `Settings -> Secrets and variables -> Actions -> Variables` można
 dodać:
 
-- `OPENAI_MODEL`, domyślnie `gpt-4o-mini`;
+- wszystkie etapy tekstowe workflow są przypięte do `gpt-6-luna`;
+  stare wartości `OPENAI_MODEL` i modeli nazw/tytułów w Variables nie nadpiszą
+  tej decyzji. Lokalnie wartości domyślne również wskazują Lunę;
 - dzienny limit prób pobrania jest wyłączony; każde uruchomienie sprawdza
   własne okno najnowszych artykułów, a znane adresy pomija przez deduplikację;
 - `AI_MAX_ARTICLES_PER_RUN`, domyślnie `100`. Pozostałe nieprzypisane artykuły

@@ -28,9 +28,9 @@ TIMEOUT_SECONDS = 300
 # Nazwy i kategorie nie są generowane. Nie ma scalania ani zapisów do bazy.
 
 # Przykładowe MODELE OpenAI obsługujące tekst i Structured Outputs:
-# gpt-5-nano (obecny), gpt-5-mini, gpt-4o-mini, gpt-4.1-mini,
+# gpt-5-nano (poprzedni), gpt-5-mini, gpt-4o-mini, gpt-4.1-mini,
 # gpt-5.4-nano, gpt-5.4-mini, gpt-5.4, gpt-5.5,
-# gpt-6-luna, gpt-6.1-sol, gpt-6-astra. Działa też dostępny snapshot modelu.
+# gpt-6-luna (obecny), gpt-6.1-sol, gpt-6-astra. Działa też dostępny snapshot modelu.
 # Dostępność dla klucza: python synthesis_lab.py --list-models
 # Starsze 4.x, 5-nano/mini i 5.4-nano mają w dokumentacji oznaczenie deprecated.
 # Pełne ceny i mnożniki względem nano: SYNTHESIS_LAB.md (stan 23.10.2026).
@@ -46,38 +46,22 @@ TIMEOUT_SECONDS = 300
 
 VARIANTS = [
     {
-        "name": "nano-obecny",
+        "name": "luna-obecny",
         "mode": "full",  # artykuły -> fakty -> audyt -> synteza, od zera
         "stages": {
-            "extraction": {"model": "gpt-5-nano", "reasoning_effort": "low"},
-            "audit": {"model": "gpt-5-nano", "reasoning_effort": "low"},
-            "writing": {"model": "gpt-5-nano", "reasoning_effort": "medium"},
-        },
-    },
-    {
-        "name": "luna-samo-pisanie",
-        "mode": "writing",  # tańszy test: te same fakty, nowa synteza
-        "facts_from": "nano-obecny",  # musi być wcześniejszy wariant z listy
-        "stages": {
+            "extraction": {"model": "gpt-6-luna", "reasoning_effort": "low"},
+            "audit": {"model": "gpt-6-luna", "reasoning_effort": "low"},
             "writing": {"model": "gpt-6-luna", "reasoning_effort": "medium"},
         },
     },
-    {
-        "name": "mini-5.4-samo-pisanie",
-        "mode": "writing",
-        "facts_from": "nano-obecny",
-        "stages": {
-            "writing": {"model": "gpt-5.4-mini", "reasoning_effort": "medium"},
-        },
-    },
-    # Odkomentuj, jeśli chcesz porównać także jakość ekstrakcji i deduplikacji:
+    # Na start jeden wariant, aby nie płacić za identyczne próby tą samą Luną.
+    # Odkomentuj dodatkowy wariant i wybierz inny model dopiero do porównania:
     # {
-    #     "name": "mini-5.4-caly-proces",
-    #     "mode": "full",
+    #     "name": "inny-model-samo-pisanie",
+    #     "mode": "writing",  # te same fakty, bez kolejnej ekstrakcji
+    #     "facts_from": "luna-obecny",  # wcześniejszy wariant z listy
     #     "stages": {
-    #         "extraction": {"model": "gpt-5.4-mini", "reasoning_effort": "low"},
-    #         "audit": {"model": "gpt-5.4-mini", "reasoning_effort": "low"},
-    #         "writing": {"model": "gpt-5.4-mini", "reasoning_effort": "medium"},
+    #         "writing": {"model": "WYBRANY_MODEL", "reasoning_effort": "medium"},
     #     },
     # },
 ]

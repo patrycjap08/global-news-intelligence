@@ -102,7 +102,7 @@ Domyślne ustawienia:
 | --- | --- | --- |
 | `AI_TOPIC_MAX_CALLS` | 16 (minimum 3) | Wszystkie zapytania perspektyw na temat; z rezerwą na audyt i tekst |
 | `AI_STAGE_MAX_OUTPUT_TOKENS` | 16000 | Limit odpowiedzi jednego zapytania, razem z rozumowaniem |
-| `OPENAI_EXTRACTION_REASONING_EFFORT` | low | Ekstrakcja i kontrola nowości, modele gpt-5 |
+| `OPENAI_EXTRACTION_REASONING_EFFORT` | low | Ekstrakcja i kontrola nowości, modele gpt-5/gpt-6 |
 | `AI_SUMMARY_REASONING_EFFORT` | medium | Pisanie krótkiej syntezy |
 | `AI_SUMMARY_CONCURRENCY` | 10 | Równoległe tematy, zapisy bazy na koordynatorze |
 
