@@ -34,6 +34,7 @@ let liveLoadPromise = null;
 let refreshPromise = null;
 let liveLoadController = null;
 let liveLoadStartedAt = 0;
+let appInForeground = document.visibilityState === 'visible';
 let dataRevision = 0;
 let fullSummaryTopics = new Set();
 let topicDetailPromises = new Map();
@@ -785,6 +786,7 @@ async function fetchStaticJson(path, signal) {
 
 async function loadStaticData(options) {
   const data = await fetchStaticJson('index.json', options.signal);
+  if (options.signal?.aborted) throw new Error('Pobieranie danych zostało przerwane.');
   if (data.schema !== 1 || !['topics', 'articles', 'links', 'summaries'].every((key) => Array.isArray(data[key]))
       || !data.generation || !data.exported_at) throw new Error('Niepoprawny eksport strony.');
   const sameGeneration = state.staticGeneration === data.generation;
@@ -922,8 +924,10 @@ function refreshData({ notify = false } = {}) {
       setStatus(); render();
       if ($('#story-dialog').open && openDialogTopicId) {
         const id = openDialogTopicId;
-        renderTopicDialog(id, fullSummaryTopics.has(id) ? 'ready' : 'loading');
-        if (!fullSummaryTopics.has(id)) void fillTopicDialog(id);
+        if (!modelForTopic(id) || fullSummaryTopics.has(id)) renderTopicDialog(id, 'ready');
+        // Keep the full story on screen while fetching its new version.
+        // Replacing it with a short preview would clamp the dialog's scroll.
+        else void fillTopicDialog(id);
       }
       if (notify) showToast('Dane zostały odświeżone.');
       return true;
@@ -1372,6 +1376,39 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => toast.classList.remove('is-visible'), 4200);
 }
 
+function markAppBackground() {
+  appInForeground = false;
+}
+
+function refreshOnAppForeground() {
+  if (document.visibilityState !== 'visible' || appInForeground) return Promise.resolve(false);
+  appInForeground = true;
+  if (state.demo || (!config.staticDataUrl && (!config.supabaseUrl || !config.supabasePublishableKey))) {
+    return Promise.resolve(false);
+  }
+  const refreshWhenVisible = () => document.visibilityState === 'visible' ? refreshData() : false;
+  const activeLoad = refreshPromise || liveLoadPromise;
+  if (activeLoad) {
+    // A response requested before the app went into the background may be
+    // older than the current publication. Check again after it settles.
+    // Suspended browser timers may not have enforced the original deadline.
+    if (liveLoadPromise && Date.now() - liveLoadStartedAt > LOAD_TIMEOUT_MS) liveLoadController?.abort();
+    return activeLoad.then(refreshWhenVisible, refreshWhenVisible);
+  }
+  return refreshWhenVisible();
+}
+
+function installForegroundRefresh() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void refreshOnAppForeground();
+    else markAppBackground();
+  });
+  window.addEventListener('blur', markAppBackground);
+  window.addEventListener('focus', () => { void refreshOnAppForeground(); });
+  window.addEventListener('pagehide', markAppBackground);
+  window.addEventListener('pageshow', event => { if (event.persisted) void refreshOnAppForeground(); });
+}
+
 async function init() {
   restoreFilterPreferences(); syncFilterControls();
   $('#edition-date').textContent = new Intl.DateTimeFormat('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()).toUpperCase();
@@ -1453,15 +1490,6 @@ $('#hide-read').addEventListener('change', (event) => {
 $('#dialog-close').addEventListener('click', () => $('#story-dialog').close());
 $('#refresh-button').addEventListener('click', () => { void refreshData({ notify: true }); });
 window.addEventListener('online', () => { if (!state.demo) void refreshData(); });
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || state.demo) return;
-  if (liveLoadPromise && Date.now() - liveLoadStartedAt > LOAD_TIMEOUT_MS) {
-    liveLoadController?.abort();
-    const activeRefresh = refreshPromise || liveLoadPromise;
-    activeRefresh.then(() => refreshData(), () => refreshData());
-  } else if (!liveLoadPromise && ['cached', 'error'].includes(state.connection)) {
-    void refreshData();
-  }
-});
+installForegroundRefresh();
 
 init();

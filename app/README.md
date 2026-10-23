@@ -48,8 +48,13 @@ każdym odświeżeniu.
 
 Żądania mają limit czasu i ograniczone ponowienia po błędach przejściowych.
 Jednoczesne odświeżenia współdzielą jedno pobieranie, a dane są podmieniane
-po uzyskaniu kompletnego zestawu. Powrót połączenia lub powrót do aplikacji
-po nieudanym pobraniu uruchamia ponowną próbę. Wszystko korzysta z istniejących
+po uzyskaniu kompletnego zestawu. Każde uruchomienie i każdy powrót do aplikacji
+z tła, innej karty lub pamięci nawigacji przeglądarki odświeża dane, również
+po wcześniejszym udanym pobraniu i krótkiej nieobecności. Zdarzenia widoczności
+i odzyskania fokusu dotyczące tego samego powrotu uruchamiają jedno pobranie.
+Nowy indeks omija cache, a otwarte opracowanie odświeża się z zachowaniem
+zakładki i przewinięcia. Bez sieci pozostaje ostatni poprawny zestaw.
+Powrót połączenia również uruchamia ponowną próbę. Wszystko korzysta z istniejących
 widoków — ta poprawka nie wymaga nowej migracji bazy.
 
 Dane produkcyjne wymagają wykonania widoków oraz użycia klucza publishable;
