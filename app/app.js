@@ -1058,20 +1058,18 @@ function categoryBadges(categories, className = '') {
 }
 
 function cardHtml(model, index) {
-  const profiles = Object.keys(model.profileCounts);
   const badge = model.hasAggregation
     ? `${articleCountLabel(model.articles.length)} · ${sourceCountLabel(model.sources.length)}`
     : 'Materiał oczekujący na drugie źródło';
   const hasUpdate = model.latestAnalysisStatus !== 'NO_NEW_INFORMATION' && Boolean(updateText(model.latestUpdate));
   const bookmarked = isTopicBookmarked(model);
   const read = isTopicRead(model);
-  const dots = profiles.map((profile) => `<i class="perspective-dot ${PROFILE_COLORS[profile] || 'dot-unclassified'}" title="${humanProfile(profile)}"></i>`).join('');
   const category = categoryBadges(model.categories, 'card-category-tag');
   return `<article class="topic-card ${index === 0 ? 'featured' : ''} ${!model.hasAggregation ? 'is-single' : ''} ${read ? 'is-read' : 'is-unread'}" data-topic-id="${escapeHtml(model.topic_id)}" tabindex="0" role="button" aria-label="${read ? 'Przeczytany' : 'Nieprzeczytany'} temat: ${escapeHtml(model.title)}">
     <div class="card-meta"><span class="card-badge-group"><span class="card-badge">${hasUpdate && !read ? escapeHtml(perspectiveUpdateLabel(model.latestUpdate)) : index === 0 ? 'NAJWAŻNIEJSZE' : escapeHtml(badge)}</span>${index === 0 ? `<small>${escapeHtml(badge)}</small>` : ''}<span class="card-category-group">${category}</span></span><span class="card-meta-actions"><button class="bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★' : '☆'}</button><span>${formatDate(model.newestArticleAt)}</span></span></div>
     <h4>${escapeHtml(model.title)}</h4>
     ${articleProfileBar(model)}
-    <div class="card-footer"><div class="perspective-dots">${dots}</div><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
+    <div class="card-footer"><span class="card-sources">${escapeHtml(model.sources.slice(0, 3).join(' · '))}</span></div>
   </article>`;
 }
 
