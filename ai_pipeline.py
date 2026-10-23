@@ -37,7 +37,7 @@ from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v80-situation-paragraph"
+PROMPT_VERSION = "ai-prompts-v81-nonrepeating-synthesis"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.

@@ -703,7 +703,18 @@ w pierwszym akapicie i jego fact_ids. Nie zastępuj sedna komentarzem,
 wyceną, liczbą odbiorców ani opisem niejasnych warunków. Zachowaj istotne
 terminy i zastrzeżenia; pełna lista szczegółów jest osobno w Faktach.
 new_fact_ids wskazują nowy rozwój wydarzenia; zachowaj potrzebne wcześniejsze
-informacje. Połącz źródła powtarzające to samo, nie powielaj zdań.
+informacje. Połącz źródła powtarzające to samo.
+
+KAŻDY FAKT OPISZ TYLKO RAZ W CAŁEJ SYNTEZIE, łącznie z situation_context.
+Powtórzeniem jest także parafraza, skrót albo ponowne zestawienie tych samych
+ustaleń, nawet jeśli pochodzą z innych fact_ids. Pierwszy akapit podaje sedno,
+a nie streszczenie wszystkich dalszych akapitów. Kolejne akapity mają dodawać
+inne ustalenia, skutki lub potrzebne wyjaśnienie. Nie relacjonuj ponownie
+tej samej zapowiedzi, liczby, daty, przebiegu rozmów ani ich przedmiotu.
+Nazwy osób i miejsc mogą wracać dla jasności, ale nie powtarzaj informacji
+o tym, co zrobiły lub co się tam wydarzyło. Jeśli zdanie nie dodaje niczego
+do wcześniejszego tekstu, usuń je zamiast zmieniać jego brzmienie.
+
 Bieżące zdarzenia, daty, liczby, zarzuty i wypowiedzi muszą wynikać z main_facts.
 Każdy akapit wskazuje właściwe fact_ids. STATEMENT ma autora i pozostaje
 wypowiedzią/zarzutem. Nazwy redakcji i linki źródłowe są pokazywane osobno
@@ -720,7 +731,9 @@ bez nagłówka i bez osobnego kafelka. Nie wpisuj go drugi raz do paragraphs.
 Dwa–cztery zwięzłe zdania mają wyjaśnić, czego dotyczy spór, proces albo
 zdarzenie, co je poprzedziło i dlaczego obecny rozwój ma znaczenie. Czytelnik
 ma zrozumieć sprawę bez znajomości poprzednich doniesień. Nie streszczaj
-ponownie aktualnego wydarzenia, nie pisz „artykuł dotyczy” ani ogólników
+ponownie aktualnego wydarzenia: tło ma wnieść informację, której nie ma
+w paragraphs. Jeśli potrzebujesz odwołania do wydarzenia, zrób to krótko,
+bez powtarzania opisanych już szczegółów. Nie pisz „artykuł dotyczy” ani ogólników
 „sprawa wywołuje kontrowersje”. Opisy osób i organizacji nie zastępują tła.
 Np. przy reakcji na wypowiedź negocjatora wyjaśnij, jakich negocjacji dotyczy
 sprawa i w jakich okolicznościach padły słowa. Przy komisji śledczej wyjaśnij,
@@ -748,11 +761,20 @@ Przy nieoczywistym skrócie wystarczy krótka rola, np. „USPS (amerykańska po
 a nie długa nazwa angielska. Gdy nie potrzeba objaśnień: entity_context=[].
 
 paragraphs to 1–3 krótkie akapity samego wydarzenia, łącznie z akapitem tła
-około 150–250 słów. Każdy z paragraphs ma text_pl i właściwe fact_ids.
+maksymalnie około 250 słów. Dostosuj długość do liczby odrębnych informacji;
+nie wydłużaj tekstu, aby osiągnąć minimalną liczbę słów.
+Każdy z paragraphs ma text_pl i właściwe fact_ids.
 context_spans zachowaj tylko dla krótkich dodatkowych objaśnień wewnątrz
 zdania, jeżeli są potrzebne: {text_pl: dokładny fragment, basis}. Zwykle [].
 Nie oznaczaj głównego wydarzenia jako kontekstu. Nie powtarzaj reakcji
 w kilku wariantach i nie zastępuj tła słowniczkiem osób oraz skrótów.
+
+Przed zwróceniem JSON przeczytaj całą syntezę w docelowej kolejności:
+paragraphs[0], situation_context, pozostałe paragraphs. W ramach tej
+samej odpowiedzi usuń powtórzenia znaczeniowe między wszystkimi akapitami,
+także między tłem a opisem wydarzenia. Zachowaj unikalne szczegóły,
+zastrzeżenia i autorów wypowiedzi oraz dopasuj fact_ids do pozostałego tekstu.
+Nie dopisuj ogólnych zdań o złożoności lub znaczeniu sprawy jako wypełniacza.
 """.strip()
 
 
