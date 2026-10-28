@@ -48,7 +48,28 @@ To próbki techniczne, nie gwarancja dostępności całego źródła. Liczba kan
 
 Lokalny Chromium nie mógł zweryfikować certyfikatu proxy. Nie wyłączano weryfikacji TLS. Zamiast zmieniać zaufanie certyfikatów przygotowano osobny workflow `audit-sources.yml`, uruchamiający standardowy Chromium na GitHubie. Sprawdza do dwóch artykułów dla 12 źródeł, bez sekretów OpenAI/Supabase, zapisów do bazy i wywołań AI. Raport ma pokazywać także blokady i błędy; pomyślne zakończenie workflow nie oznacza dostępności wszystkich źródeł.
 
-Wyniki tego testu zostaną dopisane po wykonaniu pierwszego przebiegu.
+Test wykonano: [GitHub Actions 40754563867](https://github.com/patrycjap08/global-news-intelligence/actions/runs/40754563867), job 123049914709, commit `fed5746`. Raport z runnera ma pierwszeństwo przy ocenie problemów widocznych w produkcyjnym SQL.
+
+| Źródło | Poprawne próbki | Pozostały wynik |
+| --- | ---: | --- |
+| Axios | 1/2 | BLOCKED, COMPLETE |
+| Do Rzeczy | 0/0 | brak adresów, HTTP 403 |
+| El País | 1/2 | COMPLETE, BLOCKED |
+| Financial Times | 0/2 | CAPTCHA |
+| Kyiv Independent | 2/2 | COMPLETE |
+| Meduza | 2/2 | COMPLETE |
+| Polsat News | 2/2 | COMPLETE |
+| Reuters | 0/0 | brak adresów, HTTP 401 |
+| Sky News | 0/2 | CAPTCHA |
+| The Daily Signal | 2/2 | COMPLETE |
+| Times | 0/2 | PAYWALL |
+| TVP Info | 2/2 | COMPLETE |
+
+Potwierdzono poprawne pobieranie Polsatu, Meduzy, Daily Signal, Kyiv Independent i TVP Info. Reuters i Do Rzeczy nadal blokują wykrywanie adresów z runnera. Sky News i Financial Times blokują odczyt artykułów. Axios oraz El País są dostępne częściowo. Próbki Times w tym przebiegu były płatnymi wstępami; inne publiczne teksty działały w teście HTTP.
+
+Nie ma w kodzie poprawki, która zapewni dostęp do zasobu blokowanego przez wydawcę lub wymagającego uprawnień. Nie obchodzono CAPTCHA ani płatnego dostępu i nie wyłączono źródeł w celu ukrycia problemu. W razie potrzeby pełnego pokrycia tych źródeł potrzebny jest dozwolony dostęp wydawcy lub jego licencjonowany kanał.
+
+Weryfikacja: 443 testy automatyczne, 78 prób odczytu HTTP w 28 źródłach oraz niezależna kontrola HTTP/przeglądarkowa 12 źródeł na GitHubie. Testy nie uruchamiały AI i nie zapisywały danych w produkcyjnej bazie.
 
 ## Zastosowanie
 
