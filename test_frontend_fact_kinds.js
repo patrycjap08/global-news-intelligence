@@ -17,7 +17,9 @@ const current={perspective_version:1,fact_classification_version:1,coverage_mode
   facts:[detail,statement],perspective_sections:{LEFT:[assessment],RIGHT:[],CENTER:[centerAssessment],STATE:[]}};
 state.summaries.set(topic.topic_id,{summary:{base_summary:frozen,perspective_state:current,updates:[]}});
 let model=topicModel(topic),html=dialogHtml(model);
-assert(html.includes('Numer lotu to OS82.') && html.includes('Minister twierdzi'));
+assert(!html.includes('Numer lotu to OS82.') && !html.includes('Minister twierdzi'));
+assert(html.includes('data-dialog-tab="brief"') && !html.includes('data-dialog-tab="facts"'));
+assert(model.summary.facts.some(f => f.text_pl === detail.text_pl), 'Facts remain available to the pipeline');
 assert(!html.includes('class="claim-kind"'));
 assert(!html.includes('Autor: Minister spraw wewnętrznych'));
 assert(!html.includes('class="claim-attribution"'));

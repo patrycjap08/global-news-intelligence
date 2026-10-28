@@ -70,6 +70,24 @@ class PublicExportTests(unittest.TestCase):
             with self.assertRaises(ValueError): write_site(rows, path)
             self.assertEqual(old, (path/'index.json').read_bytes())
 
+    def test_separate_current_brief_survives_preview_and_full_detail_without_exposing_fact_list_in_index(self):
+        rows = self.rows()
+        stored = rows[0]['summary']['summary']
+        brief = 'Najważniejsza wiadomość.\n\nIstotne szczegóły wydarzenia.'
+        stored['current_summary'] = {'summary_pl': 'Pełny tekst syntezy. ' * 100,
+                                     'brief_pl': brief, 'brief_generation_version': 1, 'publication_version': 2}
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            index = write_site(rows, path)
+            preview = index['summaries'][0]['summary']['base_summary']
+            self.assertEqual(preview['brief_pl'], brief)
+            self.assertEqual(len(preview['summary_pl']), 650)
+            self.assertNotIn('facts', preview)
+            detail = json.loads((path / index['generation'] / 'topics/topic_1.json').read_text())
+            current = detail['summary']['summary']['current_summary']
+            self.assertEqual(current['brief_pl'], brief)
+            self.assertEqual(current['summary_pl'], stored['current_summary']['summary_pl'])
+
     def test_preview_uses_current_text_and_omits_audits_quotes_and_repeated_ledgers(self):
         rows = self.rows()
         stored = rows[0]['summary']['summary']

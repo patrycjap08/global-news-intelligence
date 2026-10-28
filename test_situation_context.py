@@ -123,6 +123,7 @@ class SituationContextTests(unittest.TestCase):
         generate.assert_called_once()
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
         stored['current_summary']['situation_context_version'] = integrity.SITUATION_CONTEXT_VERSION
+        stored['current_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
         stats, generate, _, _ = queue.SummaryQueueTests().run_queue([topic], articles, links, rows)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()

@@ -100,7 +100,7 @@ def write_site(rows, target):
             if isinstance(update.get('perspective_sections'), dict):
                 update_preview['section_counts'] = {lane: len(items) for lane, items in update['perspective_sections'].items()}
             previews.append(dict(topic_id=tid, version=summary['version'], updated_at=summary.get('updated_at'),
-                                 summary={'base_summary': {'topic': base.get('topic', {}), 'summary_pl': (base.get('summary_pl') or '')[:650], **{k: base[k] for k in ('publication_version', 'perspective_version', 'fact_classification_version', 'coverage_mode', 'shared_available', 'synthesis_coverage_mode') if k in base}},
+                                 summary={'base_summary': {'topic': base.get('topic', {}), 'summary_pl': (base.get('summary_pl') or '')[:650], 'brief_pl': base.get('brief_pl') or '', **{k: base[k] for k in ('publication_version', 'perspective_version', 'fact_classification_version', 'coverage_mode', 'shared_available', 'synthesis_coverage_mode') if k in base}},
                                           'latest_update': update_preview, 'last_analysis': {'status': (stored.get('last_analysis') or {}).get('status')}}))
         details[tid] = {'summary': summary, 'history': row.get('history', [])}
     if any(l['article_id'] not in articles or l['topic_id'] not in ids for l in links):

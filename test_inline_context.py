@@ -162,6 +162,7 @@ class InlineContextTests(unittest.TestCase):
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
         summaries[0]['summary']['current_summary']['inline_context_version'] = 1
         summaries[0]['summary']['current_summary']['situation_context_version'] = integrity.SITUATION_CONTEXT_VERSION
+        summaries[0]['summary']['current_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
         stats, generate, persist, _ = h.run_queue([topic], rows, links, summaries, assignments)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()

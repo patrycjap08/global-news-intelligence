@@ -13,6 +13,7 @@ EXTRACTOR_VERSION = 'article-facts-v2'
 FACT_EXTRACTION_VERSION = 2
 INLINE_CONTEXT_VERSION = 2
 SITUATION_CONTEXT_VERSION = 1
+BRIEF_GENERATION_VERSION = 1
 OBVIOUS_ENTITIES = {'usa', 'us', 'ue', 'eu', 'uk', 'rp', 'onz', 'nato',
                     'polska', 'stany zjednoczone', 'stany zjednoczone ameryki',
                     'united states', 'united states of america', 'rosja', 'ukraina',
@@ -51,6 +52,17 @@ def needs_situation_context(current, facts):
     return (current.get('publication_version') == 2 and bool(current.get('inline_context_version'))
             and bool(current.get('summary_pl')) and bool(facts)
             and (current.get('situation_context_version') or 0) < SITUATION_CONTEXT_VERSION)
+
+
+def needs_brief(current, facts):
+    """One brief-only attempt for existing factual publications, not a repair loop."""
+    if (current.get('publication_version') != 2 or not current.get('summary_pl') or not facts
+            or current.get('coverage_mode') == 'STATE_ONLY'
+            or (current.get('brief_generation_version') or 0) >= BRIEF_GENERATION_VERSION):
+        return False
+    text = current.get('brief_pl')
+    paragraphs = re.split(r'\n\s*\n', text.strip()) if isinstance(text, str) and text.strip() else []
+    return len(paragraphs) != 2 or any(not paragraph.strip() for paragraph in paragraphs)
 
 
 def tokens(text):

@@ -5,6 +5,19 @@ Domyślna „Gazeta” zachowuje ciepły papier i szeryfowe nagłówki. „Minim
 ma jasne tło, proste litery i spokojne karty, a „Wieczorny” — granatowe tło
 i kolory dostosowane do czytania po zmroku.
 
+Eksperymentalnie zakładka „Skrót” zastępuje „Fakty”. Pokazuje dwa osobno
+zredagowane akapity z najważniejszymi informacjami, a zakładka „Synteza”
+nadal zawiera pełny tekst. Skrót powstaje z tych samych zweryfikowanych
+ustaleń w istniejącym zapytaniu piszącym syntezę. Nie jest wycinkiem jej
+pierwszych akapitów. Oceny i interpretacje pozostają w osobnej części.
+Rejestr faktów jest zachowany w bazie i nadal służy do aktualizacji.
+
+Starsze kwalifikujące się opracowania otrzymują jedną próbę utworzenia
+samego skrótu przy najbliższym AI-only, na zapisanych faktach, bez odczytu
+artykułów przez model i przepisywania syntezy. Brak skrótu nie uruchamia
+napraw ani zapytań z przeglądarki. Do czasu uzupełnienia zakładka pokazuje
+informację o jego niedostępności. Ta zmiana nie wymaga migracji bazy.
+
 Wygląd zmienia się pod kołem zębatym po prawej od „Odśwież dane”. Wybór działa
 od razu, obejmuje także opracowania i jest zapamiętywany lokalnie na urządzeniu
 (`gni.appearance.v1`). Przy ponownym otwarciu styl jest przywracany przed
@@ -141,7 +154,7 @@ aktualizacja ponownie oznacza wątek jako nieprzeczytany.
 
 Nowe syntezy mają wspólne ustalenia oraz przełączane perspektywy lewicowe,
 prawicowe i mediów kontrolowanych przez państwo. Bez wspólnych faktów znikają
-zakładki Synteza/Fakty. Pasek pokazuje udział artykułów (bez państwowych).
+zakładki Synteza/Skrót. Pasek pokazuje udział artykułów (bez państwowych).
 Zasady aktualizacji, izolacji wersji i cofnięcia jednego commita opisuje
 [EDITORIAL_PERSPECTIVES.md](../EDITORIAL_PERSPECTIVES.md).
 

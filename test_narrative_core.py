@@ -85,6 +85,7 @@ class NarrativeCoreTests(unittest.TestCase):
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
         fixed = record['facts'][0]['text_pl'] + '\n\n' + record['summary_pl']
         summaries[0]['summary'] = stored(record, fixed)
+        summaries[0]['summary']['current_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
         stats, generate, persist, _ = h.run_queue([topic], articles, links, summaries, assignments)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()

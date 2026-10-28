@@ -46,7 +46,7 @@ PRICES = {
     'gpt-6-astra': (10.00, 1.00, 50.00),
 }
 STAGES = {'perspective_facts': 'extraction',
-          'perspective_novelty_audit': 'audit', 'perspective_summary': 'writing'}
+          'perspective_novelty_audit': 'audit', 'perspective_summary': 'writing', 'perspective_brief': 'writing'}
 DEFAULT_STAGES = {name: {'model': 'gpt-6-luna', 'reasoning_effort': effort}
                   for name, effort in [('extraction', 'low'), ('audit', 'low'), ('writing', 'medium')]}
 
@@ -389,6 +389,8 @@ def write_report(rows, path, records=()):
             body = ''.join('<p>' + esc(text) + '</p>' for text in result.get('summary_pl', '').split('\n\n') if text.strip())
             if not body:
                 body = '<p class="notice">' + esc(row.get('error') or 'Brak syntezy po walidacji; sprawdź fakty i diagnostykę.') + '</p>'
+            if result.get('brief_pl'):
+                body += '<h4>Skrót</h4>' + ''.join('<p>' + esc(text) + '</p>' for text in result['brief_pl'].split('\n\n') if text.strip())
             perspectives = result.get('perspective_sections') or {}
             for lane, label in [('LEFT', 'Ustalenia źródeł lewicowych'), ('CENTER', 'Ustalenia źródeł centrowych'),
                                 ('RIGHT', 'Ustalenia źródeł prawicowych'), ('EDITORIAL', 'Oceny i interpretacje'),

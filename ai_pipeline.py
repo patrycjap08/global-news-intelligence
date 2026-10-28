@@ -37,7 +37,7 @@ from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v86-complete-synthesis"
+PROMPT_VERSION = "ai-prompts-v87-two-paragraph-brief"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2622,20 +2622,24 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                     f"znanych ustaleń: {len(data['previous_facts'])}; porównuję treści ustaleń, bez ponownego przesyłania artykułów.")
                 instructions = perspectives.EXPLICIT_NOVELTY_INSTRUCTIONS
                 schema = perspectives.novelty_decision_schema(data['previous_facts'], data['candidate_facts'])
+            elif name == 'perspective_brief':
+                log('AI', f"Skrót [{topic_label}]: dwa akapity na podstawie {len(data['main_facts'])} "
+                    "zapisanych ustaleń; bez odczytu artykułów i ponownego pisania syntezy.")
             try:
                 response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
                     timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                     reasoning_effort=(os.environ.get('OPENAI_EXTRACTION_REASONING_EFFORT', 'low')
-                                      if name in ('perspective_facts', 'perspective_novelty_audit') and model.startswith(('gpt-5', 'gpt-6'))
+                                      if name in ('perspective_facts', 'perspective_novelty_audit', 'perspective_brief') and model.startswith(('gpt-5', 'gpt-6'))
                                       else summary_reasoning_effort(model)),
                     response_schema=schema, response_schema_name=name,
                     retry_limit=1,
-                    max_output_tokens=int(os.environ.get("AI_STAGE_MAX_OUTPUT_TOKENS", "16000")))
+                    max_output_tokens=int(os.environ.get('AI_BRIEF_MAX_OUTPUT_TOKENS', '3000'))
+                                      if name == 'perspective_brief' else int(os.environ.get("AI_STAGE_MAX_OUTPUT_TOKENS", "16000")))
             except AIResponseParseError as exc:
                 details = getattr(exc, 'response_details', {}) or {}
                 for key in token_usage:
                     token_usage[key] += int(details.get(key + '_tokens') or 0)
-                if name not in ('perspective_facts', 'perspective_summary'):
+                if name not in ('perspective_facts', 'perspective_summary', 'perspective_brief'):
                     log('AI', f'Etap {name} [{topic_label}]: odpowiedź niepoprawna; '
                         'pomijam niepewną treść bez ponownego zapytania.', level='WARN')
                     return {}
@@ -2650,7 +2654,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                             response = parsed
                     except (ValueError, TypeError):
                         pass
-                stage = 'Ekstrakcja' if name == 'perspective_facts' else 'Pisanie syntezy'
+                stage = 'Ekstrakcja' if name == 'perspective_facts' else 'Pisanie skrótu' if name == 'perspective_brief' else 'Pisanie syntezy'
                 log('AI', f'{stage} [{topic_label}]: niepoprawna odpowiedź; '
                     'sprawdzam dostępne elementy lokalnie, braki pomijam bez ponawiania zapytania.', level='WARN')
             for key, value in getattr(response, 'token_usage', {}).items():
@@ -2720,7 +2724,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
         raw['quality_report'].update({'api_calls': call_count, 'tokens': token_usage,
                                      'read_articles': len(read_article_ids), 'budget_skipped_stages': skipped_stages})
         writing = raw['quality_report'].get('writing_validation') or {}
-        if writing:
+        if writing and last_schema == 'perspective_summary':
             log('AI', f"Pisanie syntezy [{(payload.get('topic') or {}).get('topic_id', '')}]: "
                 f"zaakceptowane akapity {writing.get('accepted_paragraphs', 0)}/{writing.get('supplied_paragraphs', 0)}, "
                 f"objaśnienia {raw['quality_report'].get('context_additions_accepted', 0)}, "
@@ -2735,6 +2739,11 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                     f"brakujące powiązania: {json.dumps(coverage['missing_fact_ids'], ensure_ascii=False)}. "
                     "Kontrola identyfikatorów nie zastępuje oceny znaczenia tekstu; bez dodatkowego zapytania AI.",
                     level='WARN' if coverage['missing_fact_ids'] else 'INFO')
+        if last_schema in ('perspective_summary', 'perspective_brief'):
+            brief = raw['quality_report'].get('brief_validation') or {}
+            log('AI', f"Skrót [{(payload.get('topic') or {}).get('topic_id', '')}]: "
+                f"{'zapisano dwa akapity' if brief.get('status') == 'VALID' else 'pominięto niepoprawny lub brakujący tekst'}; "
+                "bez dodatkowych zapytań naprawczych.")
         raw['article_content_hashes'] = {a['article_id']: a['content_hash'] for a in payload.get('all_articles', []) if a.get('content_hash')}
         log('AI', f"Koszt tematu {(payload.get('topic') or {}).get('topic_id', '')}: zapytań {call_count}, "
             f"tokenów wejścia {token_usage['input']}, wyjścia {token_usage['output']} (rozumowanie {token_usage['reasoning']}); "
@@ -3043,6 +3052,10 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         "update": update,
         "summary_pl": normalize_generated_text(response.get("summary_pl")),
     }
+    if 'brief_pl' in response:
+        normalized['brief_pl'] = normalize_generated_text(response.get('brief_pl'))
+    if 'brief_generation_version' in response:
+        normalized['brief_generation_version'] = response['brief_generation_version']
     for field in SUMMARY_ARRAY_FIELDS:
         raw_items = response.get(field, [])
         if not isinstance(raw_items, list):
@@ -5088,6 +5101,7 @@ def retry_incomplete_summaries(
             stored = (previous_row or {}).get("summary") or {}
             fact_rebuild = integrity.needs_fact_rebuild(stored)
             refresh = bool(stored.get("needs_narrative_refresh"))
+            brief_needed = False
             if (stored.get('current_summary') or {}).get('publication_version') == 2:
                 current = stored['current_summary']
                 ledger = stored.get('perspective_state') or {}
@@ -5095,6 +5109,7 @@ def retry_incomplete_summaries(
                     topic.get('headline_pl', ''), current.get('summary_pl', ''), ledger.get('facts') or [])
                 refresh = refresh or integrity.needs_inline_context(current, ledger.get('facts') or [])
                 refresh = refresh or integrity.needs_situation_context(current, ledger.get('facts') or [])
+                brief_needed = integrity.needs_brief(current, ledger.get('facts') or [])
             processed = set(stored.get("processed_article_ids") or [])
             if fact_rebuild:
                 forced_new_ids = list(dict.fromkeys([*forced_new_ids, *all_ids]))
@@ -5107,19 +5122,19 @@ def retry_incomplete_summaries(
                 changed_ids = [aid for aid in all_ids if aid in hashes and current_hashes.get(aid) and current_hashes[aid] != hashes[aid]]
                 forced_new_ids = list(dict.fromkeys([*forced_new_ids, *changed_ids]))
                 processed.difference_update(changed_ids)
-            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids and not refresh and (
+            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids and not refresh and not brief_needed and (
                     not perspective_topic or "processed_article_ids" not in stored or set(all_ids) <= processed):
                 skipped(topic, "brak przypisań nowszych od ostatniej analizy")
                 continue
             new_ids = [aid for aid in all_ids if (not perspective_topic or aid not in processed) and (
                 not previous_row or (perspective_topic and "processed_article_ids" in stored) or aid in forced_new_ids
                 or assignment_time_by_article.get((topic_id, aid), "") > previous_updated_at)]
-            if not new_ids and not refresh:
+            if not new_ids and not refresh and not brief_needed:
                 skipped(topic, "brak nowych artykułów do analizy")
                 continue
             new_rows = local_articles(conn, new_ids)
             all_rows = local_articles(conn, all_ids)
-            if (not new_rows and not refresh) or len(all_rows) < 2:
+            if (not new_rows and not refresh and not brief_needed) or len(all_rows) < 2:
                 skipped(topic, f"brak treści w lokalnej bazie (nowych: {len(new_rows)}, wszystkich: {len(all_rows)})")
                 continue
             if len(distinct_source_keys(all_rows)) < 2:
@@ -5140,6 +5155,8 @@ def retry_incomplete_summaries(
                 "previous_aggregation": previous_aggregation,
                 "all_article_ids_in_topic": all_ids,
             }
+            if brief_needed:
+                summary_input_base['generate_brief_if_missing'] = True
             summary_jobs.append({
                 "topic_id": topic_id,
                 "title": str(topic.get("headline_pl") or topic_id),

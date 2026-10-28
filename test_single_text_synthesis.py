@@ -46,11 +46,11 @@ def finished_article():
 
 
 class SingleTextSynthesisTests(unittest.TestCase):
-    def test_schema_has_only_one_field_that_supplies_display_text(self):
+    def test_schema_keeps_full_article_in_one_field_and_brief_separate(self):
         schema = p.article_writing_schema(DATA['facts'])
         check_response_schema(schema)
         jsonschema.validate(finished_article(), schema)
-        self.assertEqual(set(schema['required']), {'summary_pl', 'paragraph_sources', 'context_spans'})
+        self.assertEqual(set(schema['required']), {'summary_pl', 'brief_paragraphs', 'paragraph_sources', 'context_spans'})
         self.assertEqual(set(schema['properties']['paragraph_sources']['items']['properties']), {'fact_ids'})
         self.assertNotIn('entity_context', schema['properties'])
         self.assertNotIn('situation_context', schema['properties'])

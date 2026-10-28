@@ -1,6 +1,6 @@
-# AI-only i publikacja perspektyw — v86
+# AI-only i publikacja perspektyw — v87
 
-Obowiązująca wersja: `ai-prompts-v86-complete-synthesis`.
+Obowiązująca wersja: `ai-prompts-v87-two-paragraph-brief`.
 Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
@@ -254,3 +254,36 @@ Oceny redakcyjne pozostają w odrębnych perspektywach. Brakujące powiązania
 faktów z zaakceptowanymi akapitami są raportowane bez dodatkowych zapytań.
 Szczegóły i przykład 57 ustaleń opisuje
 [przegląd pokrycia syntez](SYNTHESIS_COVERAGE_REVIEW_20261023.md).
+
+## Eksperyment: osobny skrót w dwóch akapitach (v87)
+
+Strona pokazuje „Synteza” i „Skrót”, bez listy faktów. Pełny tekst nadal
+obejmuje wszystkie ustalenia. Rejestr i osobne oceny redakcyjne pozostają.
+Skrót wybiera najważniejsze informacje bezpośrednio z `main_facts`, zamiast
+dziedziczyć ewentualne braki starszej syntezy. Powstaje w tym samym zapytaniu
+co pełny artykuł: dochodzi krótka instrukcja oraz tokeny wyjścia skrótu,
+jego metadanych i ewentualnego rozumowania. Nie wysyłamy ponownie całego
+wejścia ani artykułów i nie otwieramy osobnego zapytania.
+
+Odpowiedź zawiera `brief_paragraphs` o dokładnie dwóch elementach z tekstem
+i ID wykorzystanych faktów. Kod sprawdza ich strukturę, identyfikatory,
+powiązanie z podanymi ustaleniami, liczby, brak powtórzenia całego akapitu
+i niedozwolonych podziałów. To nie jest dowód semantycznej poprawności.
+Niepoprawny skrót jest pomijany, pełna synteza pozostaje. Nie ma zapytań
+naprawczych. Wynik trafia do `current_summary.brief_pl`, a pełna synteza
+zostaje w `summary_pl`. Wspólna definicja ID w schemacie nie dubluje enumów
+przy dużych rejestrach faktów.
+
+Dla już zapisanych publikacji bez skrótu kolejka AI-only kwalifikuje jedną
+próbę `perspective_brief`, w normalnym oknie aktualnych tematów, o ile
+istnieją pełny tekst i zapisane fakty. Gdy nie ma nowej informacji ani
+innej przyczyny ponownego pisania, wysyłane są tylko fakty. Model pozostaje
+ten sam, rozumowanie jest niskie, a wyjście ma limit 3000 tokenów
+(`AI_BRIEF_MAX_OUTPUT_TOKENS`). Znacznik `brief_generation_version=1`
+zapobiega powtarzaniu ukończonej próby także przy odrzuconej odpowiedzi.
+Nowe ustalenia mogą później dać nową syntezę ze skrótem w jednym pisaniu.
+
+Samo uzupełnienie skrótu nie jest nową wiadomością, nie tworzy aktualizacji
+i nie zmienia oznaczenia przeczytania. Przeglądarka niczego nie generuje
+ani nie odpyta modelu przy otwieraniu zakładki. Starsza historia poza oknem
+kolejki nie jest masowo przepisywana. Nie potrzeba migracji JSON w bazie.

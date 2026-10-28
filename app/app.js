@@ -42,7 +42,7 @@ let openDialogTopicId = null;
 let dialogRequestToken = 0;
 const REQUEST_TIMEOUT_MS = 15000;
 const LOAD_TIMEOUT_MS = 90000;
-const SUMMARY_PREVIEW_COLUMNS = 'current_topic:summary->current_summary->topic,current_text:summary->current_summary->summary_pl,publication_version:summary->current_summary->publication_version,current_fact_classification_version:summary->perspective_state->fact_classification_version,fact_classification_version:summary->base_summary->fact_classification_version,current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
+const SUMMARY_PREVIEW_COLUMNS = 'current_brief:summary->current_summary->brief_pl,base_brief:summary->base_summary->brief_pl,legacy_brief:summary->brief_pl,current_topic:summary->current_summary->topic,current_text:summary->current_summary->summary_pl,publication_version:summary->current_summary->publication_version,current_fact_classification_version:summary->perspective_state->fact_classification_version,fact_classification_version:summary->base_summary->fact_classification_version,current_coverage_mode:summary->perspective_state->coverage_mode,current_shared_available:summary->perspective_state->shared_available,synthesis_coverage_mode:summary->base_summary->synthesis_coverage_mode,perspective_version:summary->base_summary->perspective_version,coverage_mode:summary->base_summary->coverage_mode,shared_available:summary->base_summary->shared_available,topic_id,version,updated_at,base_topic:summary->base_summary->topic,base_text:summary->base_summary->summary_pl,legacy_topic:summary->topic,legacy_text:summary->summary_pl,update_status:summary->latest_update->status,update_text:summary->latest_update->new_information_pl,update_when:summary->latest_update->generated_at,analysis_status:summary->last_analysis->status,legacy_update_status:summary->update->status,legacy_update_text:summary->update->new_information_pl,legacy_update_when:summary->update->generated_at';
 const shortDateFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: 'short' });
 const updateDateFormatter = new Intl.DateTimeFormat('pl-PL', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw',
@@ -575,7 +575,7 @@ function topicModel(topic) {
     // Apply to previews and historical stored publications as well. Keep
     // the original database record immutable and show only state reports.
     Object.assign(summary, { coverage_mode: 'STATE_ONLY', shared_available: false,
-      summary_pl: '', facts: [], background_context: [], synthesis_coverage_mode: 'STATE_ONLY' });
+      summary_pl: '', brief_pl: '', facts: [], background_context: [], synthesis_coverage_mode: 'STATE_ONLY' });
   }
   const storedHistory = state.history.get(topic.topic_id) || [];
   const updates = collectTopicUpdates(storedSummary, storedHistory);
@@ -693,6 +693,7 @@ function summaryPreview(row) {
   return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
     summary: { base_summary: { topic: row.current_topic || row.base_topic || row.legacy_topic || {},
       publication_version: row.publication_version,
+      brief_pl: row.current_brief ?? row.base_brief ?? row.legacy_brief ?? '',
       summary_pl: row.current_text ?? row.base_text ?? row.legacy_text ?? '', perspective_version: row.perspective_version, fact_classification_version: row.current_fact_classification_version ?? row.fact_classification_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
       latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
       last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
@@ -1211,6 +1212,13 @@ function perspectiveUpdateHtml(update) {
     + (stateFacts.length ? `<h4>Nowe doniesienia mediów państwowych</h4><ul class="insight-list">${listValue(stateFacts)}</ul>` : '');
 }
 
+function briefText(value) {
+  if (typeof value !== 'string') return '';
+  const text = withoutObviousDefinitions(withoutPublisherPrefixes(readableEvidenceText(value))).trim();
+  const paragraphs = text.split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean);
+  return paragraphs.length === 2 ? paragraphs.join('\n\n') : '';
+}
+
 function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const summary = model.summary || {};
   const stateOnly = model.stateOnly || summary.coverage_mode === 'STATE_ONLY';
@@ -1219,16 +1227,17 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     : [];
   const bookmarked = isTopicBookmarked(model);
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
-  const section = (title, items, className = '', subtitle = '') => Array.isArray(items) && items.length ? `<section class="dialog-section insight-section ${className}"><div class="insight-heading"><div><h3>${title}</h3>${subtitle ? `<p class="insight-subtitle">${subtitle}</p>` : ''}</div><span class="insight-count">${items.length}</span></div><ul class="insight-list">${listValue(items)}</ul></section>` : '';
-  const factsOnly = summary.perspective_version === 1 && !summary.summary_pl;
+  const briefOnly = summary.perspective_version === 1 && !summary.summary_pl;
   const summaryPanel = summary.summary_pl
     ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? (summary.publication_version === 2 ? 'Aktualna synteza' : 'Synteza') : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
     : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
-  const factsPanel = detailsState !== 'ready'
-    ? `<section class="dialog-section"><h3>Fakty</h3><p>${detailsState === 'error' ? 'Fakty będą dostępne po pobraniu pełnego opracowania. Użyj przycisku „Spróbuj ponownie” u góry.' : 'Trwa pobieranie faktów…'}</p></section>`
-    : Array.isArray(summary.facts) && summary.facts.length
-    ? section('Fakty', summary.facts, 'insight-facts', summary.fact_classification_version === 1 ? 'Neutralne ustalenia oraz wypowiedzi i zarzuty z przypisaniem do źródeł.' : 'Szczegółowe ustalenia z przypisaniem do źródeł.')
-    : '<section class="dialog-section insight-section insight-facts"><div class="insight-heading"><div><h3>Fakty</h3></div></div><p>Brak zapisanych faktów.</p></section>';
+  const brief = briefText(summary.brief_pl);
+  const briefPanel = brief
+    ? `<section class="dialog-section summary-section brief-section"><h3>Najważniejsze informacje</h3><div class="summary-copy brief-copy">${richTextHtml(brief)}</div></section>`
+    : `<section class="dialog-section summary-section"><p>${detailsState === 'error'
+      ? 'Nie udało się wczytać skrótu. Spróbuj ponownie.'
+      : detailsState !== 'ready' ? 'Wczytuję skrót…'
+      : briefOnly ? 'Skrót nie jest jeszcze dostępny.' : 'Skrót nie jest jeszcze dostępny. Pełną treść znajdziesz w zakładce Synteza.'}</p></section>`;
   return `<div class="dialog-content"><p class="dialog-kicker">${stateOnly ? 'DONIESIENIA ŹRÓDŁOWE' : model.hasAggregation ? 'OPRACOWANIE WIELOŹRÓDŁOWE' : 'MATERIAŁ'} <span class="coverage-pill">${articleCountLabel(model.articles.length)}</span><span class="dialog-category-pills">${categoryBadges(model.categories, 'category-pill')}</span><button class="dialog-bookmark-button ${bookmarked ? 'is-saved' : ''}" data-bookmark-topic-id="${escapeHtml(model.topic_id)}" type="button" aria-label="${bookmarked ? 'Usuń temat z zapisanych' : 'Zapisz temat'}" aria-pressed="${bookmarked}">${bookmarked ? '★ Zapisane' : '☆ Zapisz'}</button></p>
     ${coverageNotice(summary, model.updates || [], model.latestAnalysisStatus)}
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
@@ -1236,11 +1245,11 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     <div class="dialog-rule"></div>
     ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : missingSynthesisMessage(summary)}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
-      ${factsOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
-      <button class="dialog-tab ${factsOnly ? 'is-active' : ''}" id="dialog-tab-facts" data-dialog-tab="facts" role="tab" type="button" aria-selected="${factsOnly}" aria-controls="dialog-panel-facts">Fakty</button>
+      ${briefOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
+      <button class="dialog-tab ${briefOnly ? 'is-active' : ''}" id="dialog-tab-brief" data-dialog-tab="brief" role="tab" type="button" aria-selected="${briefOnly}" aria-controls="dialog-panel-brief">Skrót</button>
     </div>
-    ${factsOnly ? '' : `<div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>`}
-    <div class="dialog-tab-panel ${factsOnly ? 'is-active' : ''}" id="dialog-panel-facts" data-dialog-panel="facts" role="tabpanel" aria-labelledby="dialog-tab-facts" ${factsOnly ? '' : 'hidden'}>${factsPanel}</div>
+    ${briefOnly ? '' : `<div class="dialog-tab-panel is-active" id="dialog-panel-summary" data-dialog-panel="summary" role="tabpanel" aria-labelledby="dialog-tab-summary">${summaryPanel}</div>`}
+    <div class="dialog-tab-panel ${briefOnly ? 'is-active' : ''}" id="dialog-panel-brief" data-dialog-panel="brief" role="tabpanel" aria-labelledby="dialog-tab-brief" ${briefOnly ? '' : 'hidden'}>${briefPanel}</div>
     `}
     ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
     ${!stateOnly && model.originalSummary?.summary_pl && model.originalSummary.summary_pl !== summary.summary_pl ? `<details class="publication-history"><summary>Pierwsza opublikowana synteza</summary><div class="summary-copy">${richTextHtml(synthesisParagraphs(model.originalSummary.summary_pl))}</div></details>` : ''}

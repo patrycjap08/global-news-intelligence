@@ -189,3 +189,13 @@ lub czterech akapitów. Raport diagnostyczny
 powiązał z zaakceptowanymi akapitami i których ID brakuje. Same powiązania
 nie zastępują przeczytania i oceny treści. Nie ma dodatkowego zapytania
 naprawczego. Dotyczy to także wariantu testu obejmującego samo pisanie.
+
+## Osobny skrót (v87)
+
+Zapytanie piszące generuje teraz pełny `summary_pl` i osobny, dwukapitowy
+skrót z najważniejszych zweryfikowanych faktów. Raport pokazuje oba teksty;
+koszt skrótu jest już w koszcie pisania. Wariant „writing” nadal wykonuje
+jedno zapytanie, bez ponownej ekstrakcji. Nie stosujemy pierwszych dwóch
+akapitów syntezy jako zastępstwa skrótu. Zachowane wyniki ze starszą wersją
+promptu nie są uznawane za wynik nowego wariantu. Produkcyjne jednorazowe
+uzupełnianie dawnych opracowań nie jest uruchamiane przez laboratorium.
