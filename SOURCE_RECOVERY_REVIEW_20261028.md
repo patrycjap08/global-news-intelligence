@@ -71,6 +71,38 @@ Nie ma w kodzie poprawki, która zapewni dostęp do zasobu blokowanego przez wyd
 
 Weryfikacja: 443 testy automatyczne, 78 prób odczytu HTTP w 28 źródłach oraz niezależna kontrola HTTP/przeglądarkowa 12 źródeł na GitHubie. Testy nie uruchamiały AI i nie zapisywały danych w produkcyjnej bazie.
 
+## Kontrola przebiegu harvest_20261028T201938Z
+
+Workflow [40761725739](https://github.com/patrycjap08/global-news-intelligence/actions/runs/40761725739)
+zakończył się pomyślnie: 44 gotowe syntezy, 0 nieudanych. W SQL brak nowych
+artykułów z ABC News i Krytyki Politycznej wynika z deduplikacji: odpowiednio
+10/10 i 15/15 wybranych materiałów było już zapisanych. Meduza i Daily Signal
+zapisały po 10 materiałów, Polsat 12, Kyiv Independent 8.
+
+Wykryto dodatkowe problemy:
+
+- Le Figaro odczytało 132 adresy w 2 min 51 s. Po każdym odrzuceniu krótkiej
+  treści dobierano kolejny adres z puli 500, bez osobnego limitu uzupełnień.
+  Dodano limit jednego dodatkowego okna. Przy oknie 10 obsłużonych zostanie
+  najwyżej 20 kandydatów. Limit obejmuje także zapamiętane krótkie odrzucenia
+  oraz dobieranie w obrębie sekcji PAP. Nie zmieniono minimum 100 słów.
+- Brak linków z TVN24, Times, Do Rzeczy i Reuters był raportowany jako zero
+  błędów. Taki brak ma teraz licznik błędu wykrywania, ostrzeżenie oraz
+  diagnostykę statusów skonfigurowanych RSS i sitemap.
+- Times otrzymał jawny adres oficjalnej news sitemap, aby awaria odczytu
+  robots.txt nie ukrywała tego kanału wykrywania.
+- W jednej lokalnej próbce Times globalne menu i stopka powiększyły pusty
+  artykuł do 383 słów. Wcześniejsza ocena tej próbki jako poprawnej była błędna.
+  Wymagany jest teraz właściwy kontener treści. Po ponownym odczycie tych samych
+  odpowiedzi wszystkie 3 próbki Times są PAYWALL, bez tekstu zastępczego.
+- Le Figaro korzysta z kontenera treści i wstępu zamiast całego elementu
+  artykułu z przyciskami i komunikatami logowania. Trzy zapisane próbki nadal
+  przechodzą minimum długości: 769, 109 i 256 słów.
+
+Weryfikacja: 452 testy Python zakończone pomyślnie. Kolejna kontrola na GitHubie
+obejmuje po czterech kandydatów TVN24, Times, Le Figaro i Suspilne. Wyniki
+dostępności zostaną dopisane po zakończeniu tego osobnego workflow bez AI.
+
 ## Zastosowanie
 
 Uruchomić nowy `full` z `main`, aby pobrać brakujące artykuły i uruchomić ich analizę. `ai-only` nie pobiera źródeł. Nie usuwać istniejących artykułów ani opracowań. Meduza może od razu odzyskać wcześniej zbyt krótkie odczyty, jeśli pełna treść jest w aktualnym RSS. Pozostałe zapamiętane odrzucenia TOO_SHORT można ponowić przez `retry_rejected` w kolejnym full; opcja pozostaje wyłączona domyślnie.

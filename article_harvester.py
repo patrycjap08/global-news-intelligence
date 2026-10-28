@@ -662,6 +662,8 @@ def _feed_candidates(
         seen_feeds.add(endpoint)
         result = client.get(endpoint, accept="application/rss+xml,application/atom+xml,application/xml,text/xml,*/*;q=0.1")
         parsed = st.parse_feed(result.text, endpoint) if result.status and result.status < 400 else []
+        if not parsed:
+            notes.append(f"{kind.lower()}_unavailable={endpoint} (HTTP {result.status or 'no_response'})")
         if parsed:
             notes.append(f"{kind.lower()}={len(parsed)}")
             for item in parsed:
@@ -782,11 +784,17 @@ def _sitemap_candidates(
     sitemap_rows: list[dict[str, str]] = []
     child_rows: list[dict[str, str]] = []
     notes: list[str] = []
+    if robots.status is None or robots.status >= 400:
+        notes.append(f"robots_unavailable=HTTP {robots.status or 'no_response'}")
     for endpoint in endpoints[:max(1, max_probes)]:
         result = client.get(endpoint, accept="application/xml,text/xml,*/*;q=0.1")
         if not result.text or (result.status and result.status >= 400):
+            if endpoint in configured:
+                notes.append(f"sitemap_unavailable={endpoint} (HTTP {result.status or 'no_response'})")
             continue
         rows, is_news, is_index = st.parse_sitemap_entries(result.text, endpoint)
+        if endpoint in configured and not rows:
+            notes.append(f"sitemap_empty={endpoint} (HTTP {result.status or 'no_response'})")
         if is_news:
             news_rows.extend(rows)
             notes.append(f"news_sitemap={len(rows)}")
@@ -1026,25 +1034,39 @@ def harvest_source(
     counts = {
         "discovered": len(candidates), "fetched": 0,
         "skipped_existing": 0, "skipped_rejected": 0,
-        "valid": 0, "failed": 0, "duplicates": 0, "rejected_short": 0,
+        "valid": 0, "failed": int(not candidate_pool), "duplicates": 0, "rejected_short": 0,
     }
+    if not candidate_pool:
+        notes.append("discovery_failed=no_eligible_candidates")
 
     short_followups = 0
+    # A run with mostly short material must not crawl the entire 500-URL pool.
+    # By default, at most one extra window can replace short rejections,
+    # including cached rejections and the per-section selection used by PAP.
+    short_followup_limit = max(0, int(source.get(
+        "max_short_followups", defaults.get("max_short_followups", len(candidates)))))
+    short_followup_limit_reached = False
     resolved_existing_after_fetch = 0
     rejected_other: dict[str, int] = {}
     fetch_duration_ms = 0
 
     def queue_short_followup(candidate: dict[str, str]) -> None:
-        nonlocal next_candidate_index, short_followups
+        nonlocal next_candidate_index, short_followups, short_followup_limit_reached
         if top_articles_per_section > 0:
             section_queue = section_followups.get(candidate.get("section_key", ""), [])
             if not section_queue:
+                return
+            if short_followups >= short_followup_limit:
+                short_followup_limit_reached = True
                 return
             candidates.append(section_queue.pop(0))
             counts["discovered"] += 1
             short_followups += 1
             return
         if top_articles_per_source <= 0 or next_candidate_index >= len(candidate_pool):
+            return
+        if short_followups >= short_followup_limit:
+            short_followup_limit_reached = True
             return
         candidates.append(candidate_pool[next_candidate_index])
         next_candidate_index += 1
@@ -1150,6 +1172,8 @@ def harvest_source(
             counts["failed"] += 1
     if short_followups:
         notes.append(f"short_followups={short_followups}")
+    if short_followup_limit_reached:
+        notes.append(f"short_followup_limit_reached={short_followup_limit}")
     if counts["skipped_rejected"]:
         notes.append(f"previously_rejected_short={counts['skipped_rejected']}")
     if resolved_existing_after_fetch:
@@ -1369,6 +1393,10 @@ def main() -> int:
                 log("HARVEST", f"{source_name} — inne odrzucenia: {reasons}.", level="WARN")
             if counts.get("existing_after_redirect"):
                 log("HARVEST", f"{source_name} — po przekierowaniu znaleziono już zapisany artykuł: {counts['existing_after_redirect']}.")
+            if "discovery_failed=" in counts.get("notes", ""):
+                log("HARVEST", f"{source_name} — nie udało się znaleźć linków do artykułów. Diagnostyka: {counts['notes']}", level="WARN")
+            if "short_followup_limit_reached=" in counts.get("notes", ""):
+                log("HARVEST", f"{source_name} — osiągnięto limit dodatkowych materiałów po odrzuceniu krótkich treści; kończę pobieranie tego źródła.", level="WARN")
             if "daily_limit_stop" in counts.get("notes", ""):
                 log("HARVEST", "Osiągnięto limit pobierania dla tego źródła; reszta kandydatów czeka na kolejny przebieg.", level="WARN")
             if counts.get("notes", "").startswith("source_error:"):

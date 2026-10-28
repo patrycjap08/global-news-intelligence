@@ -405,6 +405,9 @@ sources:
     name: Times
     region: United Kingdom
     homepage: https://www.thetimes.com
+    discovery_method: NEWS_SITEMAP
+    sitemap_urls:
+      - https://www.thetimes.com/sitemaps/news
     content_method: HTTP_HTML
     candidate_include_url_patterns:
       - '^/[^?#]+/article/[^/?#]+/?$'

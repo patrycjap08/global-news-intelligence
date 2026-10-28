@@ -442,6 +442,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         return None
     soup = BeautifulSoup(text, "html.parser")
     json_ld = _json_ld_values(soup)
+    subscription_required = any(value.get('isAccessibleForFree') in (False, 'false', 'False')
+                                for value in json_ld)
     tvn24_main = None
     if source_id == "tvn24":
         candidate_main = soup.select_one("main")
@@ -615,7 +617,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if content_root is None:
             return {"title": title, "description": description, "author": author,
                     "published_at": published, "canonical": canonical, "body": "",
-                    "structured": False, "source_kind": source_kind}
+                    "structured": False, "source_kind": source_kind,
+                    "subscription_required": subscription_required}
     if content_root is None:
         content_root = (soup.select_one("article.article section.main.whitelistPremium")
                         or soup.select_one("article.article")) if source_id == "business_insider_pl" else None
@@ -633,7 +636,29 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         else:
             return {"title": title, "description": description, "author": author,
                     "published_at": published, "canonical": canonical, "body": "",
-                    "structured": False, "source_kind": "meduza"}
+                    "structured": False, "source_kind": "meduza",
+                    "subscription_required": subscription_required}
+    if content_root is None and source_id == "times":
+        # Some Times templates keep the headline outside <article> and expose
+        # an empty subscriber body. Global navigation is never article text.
+        content_root = (soup.select_one("article#article-main .article-content-wrapper")
+                        or soup.select_one("article#article-main"))
+        source_kind = "times"
+        if content_root is None:
+            return {"title": title, "description": description, "author": author,
+                    "published_at": published, "canonical": canonical, "body": "",
+                    "structured": False, "source_kind": source_kind,
+                    "subscription_required": subscription_required}
+    if content_root is None and source_id == "le_figaro":
+        body_root = soup.select_one(".fig-content-body")
+        if body_root is not None:
+            content_root = body_root.find_parent("article") or body_root
+            source_kind = "le_figaro"
+        else:
+            return {"title": title, "description": description, "author": author,
+                    "published_at": published, "canonical": canonical, "body": "",
+                    "structured": False, "source_kind": "le_figaro",
+                    "subscription_required": subscription_required}
     if content_root is None:
         content_root = soup.select_one("article.news.news--target .news__content")
         if content_root is not None:
@@ -726,7 +751,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         if main is not None and main.select_one("h1") and not main.select("article"):
             content_root = main
     if content_root is None:
-        return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": "", "structured": False, "source_kind": source_kind}
+        return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": "", "structured": False, "source_kind": source_kind,
+                "subscription_required": subscription_required}
 
     if not description and source_kind == "krytyka_polityczna":
         lead_node = content_root.select_one("p")
@@ -753,6 +779,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .article-page-read-also, .article-actions, .line-label-slider-wrapper, .product-card, .donate-widget-container, .donate-widget-wrapper, .widget_wc-donation-widget, .article-reactions-container, .comments, .comment-respond"
     elif source_kind == "meduza":
         unwanted += ", article, figure, [class*='RelatedMaterial-module'], [class*='RelatedList-module'], [class*='FooterBlock-module']"
+    elif source_kind == "times":
+        unwanted += ", figure, .ad-header, .ad-header__wrapper, [data-testid*='ad-'], .related-articles, .zephr-share-token-banner-top"
+    elif source_kind == "le_figaro":
+        unwanted += ", figure, .fig-body-cta-link, .fig-content-metas-info, .fig-follow-google, .fig-tooltip, .fig-ranking-profile-container"
     elif source_kind == "reuters":
         unwanted += ", [data-testid='ContextWidget'], [data-testid='promo-box'], [data-testid='AuthorBio'], [class*='article-body-module__primary-asset__']"
     elif source_kind == "ap":
@@ -782,6 +812,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     for node in content_root.select(unwanted):
         node.decompose()
     text_nodes = content_root.select("p, h2, h3, li")
+    if source_kind == "le_figaro":
+        text_nodes = content_root.select(".fig-standfirst, .fig-content-body p, .fig-content-body h2, .fig-content-body h3, .fig-content-body li")
     if source_kind == "kommersant":
         text_nodes = content_root.select(".doc-text-block__paragraph, p, h2, h3")
     if source_kind == "tvn24":
@@ -854,8 +886,6 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     json_ld_body = _json_ld_value(json_ld, "articleBody")
     if len(json_ld_body.split()) > len(body.split()):
         body = json_ld_body
-    subscription_required = any(value.get('isAccessibleForFree') in (False, 'false', 'False')
-                                for value in json_ld)
     return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind,
             "subscription_required": subscription_required}
 
@@ -887,7 +917,7 @@ def extract_article(
         if url_date:
             published = "-".join(url_date.groups())
     canonical = structured.get("canonical") or parser.meta.get("canonical") or result.final_url or result.url
-    if source_id in {"tvn24", "zero_pl", "meduza"} or structured.get("source_kind") == "sky_news_live":
+    if source_id in {"tvn24", "zero_pl", "meduza", "times", "le_figaro"} or structured.get("source_kind") == "sky_news_live":
         # A candidate without the expected semantic article root is usually a
         # shell, listing, or error page; never turn its global text into body.
         body = structured.get("body", "")

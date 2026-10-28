@@ -63,6 +63,19 @@ CAPTCHA i nieudane odpowiedzi HTTP. Przyczyny pozostają w `notes` jako
 jako `PAYWALL`, a nie `TOO_SHORT`; nie uruchamiają przeglądarki ani dobierania
 kolejnych krótkich materiałów. Minimum długości artykułu nadal wynosi 100 słów.
 
+Dobieranie kolejnych adresów po odrzuceniu krótkiej treści ma limit jednego
+dodatkowego okna: przy oknie 10 najwyżej 10 dodatkowych kandydatów, przy 15
+najwyżej 15. Limit obejmuje również zapamiętane odrzucenia i okna sekcji PAP.
+Pole `max_short_followups` w konfiguracji źródła pozwala zmienić ten limit
+(0 wyłącza dobieranie). `notes` wskazuje jego osiągnięcie jako
+`short_followup_limit_reached`.
+
+Brak jakichkolwiek kwalifikujących się adresów jest ostrzeżeniem i zwiększa
+`failed_count` o 1 (`discovery_failed=no_eligible_candidates`). Dla niedostępnych
+skonfigurowanych RSS i sitemap raport podaje adres oraz status HTTP. Status
+`harvest_runs.COMPLETED` oznacza zakończenie przeglądu źródeł; nie gwarantuje,
+że każde z nich udostępniło artykuły.
+
 Pełny test z fallbackiem przeglądarkowym (potrzebny m.in. dla PAP i TVP):
 
 ```bash

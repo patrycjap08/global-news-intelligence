@@ -155,6 +155,117 @@ class SourceRecoveryAuditTests(unittest.TestCase):
         with sqlite3.connect(db) as conn:
             self.assertEqual(conn.execute('SELECT failed_count FROM source_run_results').fetchone()[0], 1)
 
+    def test_empty_discovery_is_counted_and_explained_in_source_statistics(self):
+        source = {'id':'test','name':'Test','homepage':'https://example.test'}
+        for status in (200, 403):
+            with self.subTest(status=status), patch.object(h, 'discover_candidates', return_value=(
+                    response(source['homepage'], status=status), [], ['no_candidates'])):
+                result = h.harvest_source(self.conn, str(status), source, {}, self.args(), None)
+            self.assertEqual(result['failed'], 1)
+            self.assertIn('discovery_failed=no_eligible_candidates', result['notes'])
+            row = self.conn.execute('SELECT failed_count,notes FROM source_run_results WHERE run_id=?',
+                                    (str(status),)).fetchone()
+            self.assertEqual(row['failed_count'], 1)
+
+    def test_unavailable_configured_discovery_endpoints_are_reported(self):
+        source = {'homepage':'https://example.test', 'rss_urls':['https://example.test/rss'],
+                  'sitemap_urls':['https://example.test/news.xml']}
+        class Client:
+            def get(self, url, **kwargs): return response(url, '<h1>Forbidden</h1>', 403)
+        _, feed_notes = h._feed_candidates(Client(), source, [])
+        _, map_notes = h._sitemap_candidates(Client(), source, {}, 1, 1)
+        self.assertIn('rss_unavailable=https://example.test/rss (HTTP 403)', feed_notes)
+        self.assertIn('sitemap_unavailable=https://example.test/news.xml (HTTP 403)', map_notes)
+
+    def test_times_has_a_direct_news_map_when_homepage_and_robots_fail(self):
+        source = self.sources['times']
+        endpoint = 'https://www.thetimes.com/sitemaps/news'
+        story = source['homepage'] + '/uk/politics/article/public-report'
+        class Client:
+            def get(self, url, **kwargs):
+                return response(url, '<urlset><url><loc>' + story + '</loc></url></urlset>') \
+                    if url == endpoint else response(url, '<h1>Unavailable</h1>', 403)
+        _, rows, _ = h.discover_candidates(Client(), source, {}, self.args(), None)
+        self.assertEqual([row['url'] for row in rows], [story])
+
+    def test_times_empty_article_cannot_be_filled_with_navigation_and_footer(self):
+        url = self.sources['times']['homepage'] + '/uk/article/report'
+        html = '<h1>Report</h1><nav><p>' + 'NAVIGATION ' * 200 + '</p></nav>' \
+               '<script type="application/ld+json">{"@type":"NewsArticle","isAccessibleForFree":false}</script>' \
+               '<article id="article-main"><div class="article-content-wrapper"></div></article>' \
+               '<footer><p>' + 'SUBSCRIBE ' * 100 + '</p></footer>'
+        item = st.extract_article(response(url, html), url, include_body=True, source_id='times')
+        self.assertEqual(item['body'], '')
+        self.assertFalse(item['body_success'])
+        self.assertEqual(h.classify_item(item)[1], 'PAYWALL')
+        public_body = 'Public reporting about the new government decision. ' * 20
+        html = html.replace('<div class="article-content-wrapper"></div>',
+                            '<div class="article-content-wrapper"><p>' + public_body + '</p></div>')
+        item = st.extract_article(response(url, html), url, include_body=True, source_id='times')
+        self.assertEqual(item['body'], st.clean_text(public_body))
+        self.assertTrue(item['body_success'])
+
+    def test_figaro_keeps_story_and_lead_without_subscription_and_follow_widgets(self):
+        body = 'Public reporting about the new decision. ' * 20
+        html = '<h1>News</h1><article><p class="fig-standfirst">A short lead.</p>' \
+               '<div class="fig-follow-google"><p>FOLLOW_WIDGET</p></div>' \
+               '<div class="fig-tooltip"><p>SUBSCRIBE_TOOLTIP</p></div>' \
+               '<div class="fig-content-body"><p>' + body + '</p>' \
+               '<p class="fig-body-cta-link">PROMOTIONAL_LINK</p></div></article>'
+        url = self.sources['le_figaro']['homepage'] + '/international/report-20261028'
+        item = st.extract_article(response(url, html), url, include_body=True, source_id='le_figaro')
+        self.assertEqual(item['body'], 'A short lead. ' + st.clean_text(body))
+        self.assertTrue(item['body_success'])
+        missing = html.replace('fig-content-body', 'no-story-body')
+        item = st.extract_article(response(url, missing), url, include_body=True, source_id='le_figaro')
+        self.assertEqual(item['body'], '')
+
+    def test_short_replacement_queue_stops_after_one_extra_window(self):
+        source = {'id':'test','name':'Test','homepage':'https://example.test'}
+        candidates = [{'url':source['homepage'] + '/story-' + str(i)} for i in range(100)]
+        short = {'status':200, 'title':'Short news', 'body':'Too short.', 'word_count':2, 'body_success':False}
+        with patch.object(h, 'discover_candidates', return_value=(response(source['homepage']), candidates, [])), \
+             patch.object(h, 'fetch_one', return_value=(short, 'HTTP_HTML')) as fetch:
+            result = h.harvest_source(self.conn, 'test', source, {}, self.args(2), None)
+        self.assertEqual(fetch.call_count, 4)
+        self.assertEqual(result['discovered'], 4)
+        self.assertEqual(result['rejected_short'], 4)
+        self.assertIn('short_followup_limit_reached=2', result['notes'])
+
+    def test_cached_short_rejections_cannot_expand_the_queue_indefinitely(self):
+        source = {'id':'test','name':'Test','homepage':'https://example.test'}
+        candidates = [{'url':source['homepage'] + '/story-' + str(i)} for i in range(100)]
+        short = {'status':200, 'title':'Short news', 'body':'Too short.', 'word_count':2, 'body_success':False}
+        for candidate in candidates[:8]:
+            h.save_article(self.conn, 'old', source, candidate['url'], short, 'HTTP_HTML', h.utc_now())
+        with patch.object(h, 'discover_candidates', return_value=(response(source['homepage']), candidates, [])), \
+             patch.object(h, 'fetch_one') as fetch:
+            result = h.harvest_source(self.conn, 'test', source, {}, self.args(2), None)
+        fetch.assert_not_called()
+        self.assertEqual(result['skipped_rejected'], 4)
+        self.assertEqual(result['discovered'], 4)
+
+    def test_section_replacements_are_bounded_and_stay_in_the_original_section(self):
+        source = {'id':'test','name':'Test','homepage':'https://example.test', 'top_articles_per_section':1}
+        candidates = [{'url':source['homepage'] + '/story-' + str(i), 'section_key':str(i % 2)} for i in range(100)]
+        short = {'status':200, 'title':'Short news', 'body':'Too short.', 'word_count':2, 'body_success':False}
+        with patch.object(h, 'discover_candidates', return_value=(response(source['homepage']), candidates, [])), \
+             patch.object(h, 'fetch_one', return_value=(short, 'HTTP_HTML')) as fetch:
+            result = h.harvest_source(self.conn, 'test', source, {}, self.args(2), None)
+        self.assertEqual([call.args[3] for call in fetch.call_args_list], [c['url'] for c in candidates[:4]])
+        self.assertEqual(result['fetched'], 4)
+        self.assertIn('short_followup_limit_reached=2', result['notes'])
+
+    def test_short_replacement_can_be_disabled_per_source(self):
+        source = {'id':'test','name':'Test','homepage':'https://example.test', 'max_short_followups':0}
+        candidates = [{'url':source['homepage'] + '/story-' + str(i)} for i in range(10)]
+        short = {'status':200, 'title':'Short news', 'body':'Too short.', 'word_count':2, 'body_success':False}
+        with patch.object(h, 'discover_candidates', return_value=(response(source['homepage']), candidates, [])), \
+             patch.object(h, 'fetch_one', return_value=(short, 'HTTP_HTML')) as fetch:
+            result = h.harvest_source(self.conn, 'test', source, {}, self.args(2), None)
+        self.assertEqual(fetch.call_count, 2)
+        self.assertIn('short_followup_limit_reached=0', result['notes'])
+
     def test_diagnostic_probe_is_bounded_and_never_saves_articles_or_full_bodies(self):
         source = {'id':'test','name':'Test','homepage':'https://example.test'}
         text = 'PUBLIC_FEED_BODY ' * 150
