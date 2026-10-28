@@ -72,6 +72,7 @@ def ai_summary(values: dict[str, int]) -> str:
         ("pending_articles", "oczekujące artykuły"),
         ("labeled_articles", "nazwane artykuły"),
         ("candidate_topics", "kandydackie tematy"),
+        ("label_policy_blocked", "artykuły odłożone po odrzuceniu przez OpenAI"),
         ("local_candidate_groups", "grupy kandydackie"),
         ("largest_candidate_group", "największa grupa kandydacka"),
         ("merge_requests", "zapytania o scalanie"),

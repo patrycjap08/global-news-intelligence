@@ -147,6 +147,18 @@ kandydata wątku i nie wracają do kolejnego AI-only. W logach etapu 1 widać
 liczbę odrzuceń, a w `topic_runs` etapu `LABELING` — decyzje i uzasadnienia.
 Filtr dotyczy nowo analizowanych artykułów; nie usuwa istniejących wątków.
 
+Odrzucenie treści przez zabezpieczenia OpenAI (`400 invalid_prompt` z informacją
+o policy albo jawna odmowa modelu) nie zatrzymuje etapu nadawania nazw.
+Cała odrzucona paczka zostaje odłożona do ręcznej kontroli, bo API nie wskazuje
+konkretnego artykułu. Kod nie ponawia jej, nie dzieli jej na mniejsze zapytania
+i nie zmienia modelu. Artykuły pozostają w bazie z
+`topic_hint = AI_REVIEW:OPENAI_CONTENT_POLICY:<topic_run_id>`, bez nowych wątków
+ani przypisań. Następne AI-only pomija je, również po pobraniu stanu z Supabase.
+Historia `topic_runs` zawiera identyfikatory artykułów, wcześniejsze `topic_hint`
+i kod odrzucenia. Licznik odłożonych artykułów jest osobny od wykluczeń spoza
+zakresu. Pozostałe paczki, scalanie i syntezy są wykonywane normalnie.
+Błędy klucza API, uprawnień i konfiguracji nadal zatrzymują przebieg.
+
 Logi tworzenia embeddingów i automatycznego scalania mają prefiks `[EMBEDDING]`;
 `[AI]` oznacza etapy generowania tekstu. Przy niepoprawnej lub uciętej
 odpowiedzi log pokazuje zwrócony tekst (do 6000 znaków: dla dłuższej

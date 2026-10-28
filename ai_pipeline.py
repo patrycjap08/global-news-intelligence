@@ -2872,6 +2872,13 @@ class AIRequestSchemaError(RuntimeError):
         self.response_details = {"schema": name, "api_error": message, **details}
 
 
+class AIContentPolicyError(RuntimeError):
+    """An explicit provider rejection; never retry, split or salvage it."""
+    def __init__(self, name: str, **details):
+        super().__init__(f"OpenAI odrzuciło treść zapytania {name} ze względów bezpieczeństwa.")
+        self.response_details = {"schema": name, **details}
+
+
 class ParsedAIResponse(dict[str, Any]):
     def __init__(self, value: dict[str, Any], raw_output: str):
         super().__init__(value)
@@ -3165,7 +3172,9 @@ def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
 
 def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
     stored = None
-    if isinstance(exc, AIRequestSchemaError):
+    if isinstance(exc, AIContentPolicyError):
+        stored = {"policy_rejection": True, "response_details": exc.response_details}
+    elif isinstance(exc, AIRequestSchemaError):
         stored = {"request_schema_error": str(exc), "response_details": exc.response_details}
     elif isinstance(exc, AIResponseParseError):
         stored = {"parse_error": str(exc)[:2000], "raw_response": exc.raw_output[:20000],
@@ -3178,6 +3187,10 @@ def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
 
 def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
     """Show returned text, with bounded output and escaped line breaks."""
+    if isinstance(exc, AIContentPolicyError):
+        log("AI", f"{stage}: odrzucenie przez zabezpieczenia OpenAI; bez ponawiania zapytania. "
+            + json.dumps(exc.response_details, ensure_ascii=False), level="WARN")
+        return
     if isinstance(exc, AIRequestSchemaError):
         log("AI", f"{stage}: błąd schematu zapytania: "
             + json.dumps(exc.response_details, ensure_ascii=False), level="ERROR")
@@ -3208,7 +3221,7 @@ def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
 
 
 def log_parse_failure(stage: str, exc: Exception) -> None:
-    if isinstance(exc, AIRequestSchemaError):
+    if isinstance(exc, (AIRequestSchemaError, AIContentPolicyError)):
         log_ai_response_diagnostic(stage, exc)
         return
     if not isinstance(exc, AIResponseParseError):
@@ -3350,6 +3363,13 @@ def call_openai(
             if not isinstance(api_error, dict):
                 api_error = {}
             message = str(api_error.get("message") or str(exc))
+            code = api_error.get("code") or getattr(exc, "code", None)
+            if (getattr(exc, "status_code", None) in {400, 403}
+                    and (code in {"content_policy_violation", "content_filter"}
+                         or (code == "invalid_prompt" and any(
+                             word in message.lower() for word in ("policy", "safety", "flagged"))))):
+                raise AIContentPolicyError(response_schema_name, code=code,
+                    status=exc.status_code, request_id=getattr(exc, "request_id", None)) from exc
             if (getattr(exc, "status_code", None) == 400 and response_schema is not None
                     and "schema" in message.lower()):
                 # Do not crop the reason to the topic progress line's 220
@@ -3381,6 +3401,21 @@ def call_openai(
                 f"wejście z cache: {getattr(input_details, 'cached_tokens', '?')}; "
                 f"status: {getattr(response, 'status', 'unknown')}.",
             )
+        # A refusal is a valid API outcome, not malformed JSON. Do not turn
+        # it into parse retries or batch subdivision in a higher-level caller.
+        def field(value, name, default=None):
+            return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
+        refused = any(
+            field(part, "type") == "refusal"
+            for item in (field(response, "output", []) or [])
+            for part in (field(item, "content", []) or [])
+        )
+        reason = field(field(response, "incomplete_details"), "reason")
+        response_error_code = field(field(response, "error"), "code")
+        if refused or reason == "content_filter" or response_error_code in {"content_policy_violation", "content_filter"}:
+            raise AIContentPolicyError(response_schema_name,
+                code=response_error_code or reason or "refusal", status=field(response, "status"),
+                response_id=field(response, "id"))
         try:
             if getattr(response, "status", None) == "incomplete":
                 incomplete_details = getattr(response, "incomplete_details", None)
@@ -4774,10 +4809,35 @@ def pending_articles(conn: sqlite3.Connection, client: SupabaseRestClient, limit
     articles = [
         row for row in local_articles(conn)
         if row["article_id"] not in assigned
-        and not str(row.get("topic_hint") or "").startswith("AI_EXCLUDED:")
+        and not str(row.get("topic_hint") or "").startswith(
+            ("AI_EXCLUDED:", "AI_REVIEW:OPENAI_CONTENT_POLICY:"))
         and still_fresh(row)
     ]
     return articles[:limit] if limit > 0 else articles
+
+
+def mark_labeling_policy_review(
+    db_path: Path | None,
+    client: SupabaseRestClient,
+    article_ids: list[str],
+    topic_run_id: str,
+) -> str:
+    """Quarantine the rejected batch, retaining articles and its audit link.
+
+    The provider does not identify the triggering article. Do not submit the
+    rejected content again in smaller batches or through another model.
+    Supabase is authoritative; a failed persistence must still stop the run.
+    """
+    marker = f"AI_REVIEW:OPENAI_CONTENT_POLICY:{topic_run_id}"
+    for offset in range(0, len(article_ids), 100):
+        ids = article_ids[offset:offset + 100]
+        client.update("articles", {"topic_hint": marker},
+                      filters=[("article_id", f"in.({','.join(ids)})")])
+    if db_path is not None:
+        with sqlite3.connect(db_path) as conn:
+            conn.executemany("UPDATE articles SET topic_hint = ? WHERE article_id = ?",
+                             [(marker, aid) for aid in article_ids])
+    return marker
 
 
 def mark_excluded_articles(
@@ -5351,6 +5411,7 @@ def _label_pending_batch(
         "labeled_articles": 0,
         "candidate_topics": 0,
         "label_needs_review": 0,
+        "label_policy_blocked": 0,
         "excluded": 0,
     }
     if not articles:
@@ -5394,6 +5455,13 @@ def _label_pending_batch(
         }], on_conflict="topic_run_id")
     except Exception as exc:
         log_parse_failure("LABELING", exc)
+        blocked = isinstance(exc, AIContentPolicyError)
+        failure = parse_failure_for_storage(exc)
+        if blocked:
+            failure = {**(failure or {}),
+                "article_ids": [str(row["article_id"]) for row in articles],
+                "original_topic_hints": {str(row["article_id"]): row.get("topic_hint") for row in articles},
+                "disposition": "NEEDS_REVIEW_NO_AUTOMATIC_RETRY"}
         client.upsert("topic_runs", [{
             "topic_run_id": labeling_topic_run_id,
             "run_id": run_id,
@@ -5402,9 +5470,19 @@ def _label_pending_batch(
             "model": model,
             "input_hash": labeling_hash,
             "status": "FAILED",
-            "raw_output": parse_failure_for_storage(exc),
+            "raw_output": failure,
             "error": str(exc)[:2000],
         }], on_conflict="topic_run_id")
+        if blocked:
+            mark_labeling_policy_review(db_path, client,
+                [str(row["article_id"]) for row in articles], labeling_topic_run_id)
+            stats["label_policy_blocked"] = len(articles)
+            stats["label_needs_review"] = len(articles)
+            log("AI", f"Nazwy {batch_index}: odkładam całą paczkę {len(articles)} artykułów "
+                "do ręcznej kontroli po odrzuceniu przez OpenAI. API nie wskazuje konkretnego materiału. "
+                "Artykuły pozostają w bazie; bez kandydatów, podziału paczki i automatycznych ponowień. "
+                f"Kontynuuję kolejne paczki; szczegóły: {labeling_topic_run_id}.", level="WARN")
+            return stats
         raise
 
     labels_by_article_id: dict[str, dict[str, Any]] = {}
@@ -5929,6 +6007,7 @@ def analyze_run(
     stats = {
         "pending_articles": len(articles), "groups": 0,
         "labeled_articles": 0, "candidate_topics": 0, "label_needs_review": 0,
+        "label_policy_blocked": 0,
         "summaries": 0, "skipped_summaries": 0,
         "skipped_single_source": 0, "failed_summaries": 0, "excluded": 0,
         "merge_candidates": 0, "topics_merged": 0, "merge_failed": 0,
@@ -5951,9 +6030,9 @@ def analyze_run(
 
         def merge_batch_stats(batch_stats: dict[str, int]) -> None:
             for key in (
-                "labeled_articles", "candidate_topics", "label_needs_review", "excluded",
+                "labeled_articles", "candidate_topics", "label_needs_review", "label_policy_blocked", "excluded",
             ):
-                stats[key] += batch_stats[key]
+                stats[key] += batch_stats.get(key, 0)
 
         def process_batch(batch: list[dict[str, Any]], label: str) -> None:
             log(
@@ -6009,7 +6088,8 @@ def analyze_run(
             f"Etap 1/3 zakończony: nazwano {stats['labeled_articles']} artykułów, "
             f"utworzono {stats['candidate_topics']} kandydatów; "
             f"odrzucono spoza zakresu: {stats['excluded']}; "
-            f"do kontroli: {stats['label_needs_review']}.",
+            f"do kontroli: {stats['label_needs_review']}, "
+            f"w tym odłożone po odrzuceniu przez OpenAI: {stats['label_policy_blocked']}.",
         )
     else:
         log("AI", "Etap 1/3 pominięty: brak nowych artykułów do nazwania.")
