@@ -33,7 +33,7 @@ To próbki techniczne, nie gwarancja dostępności całego źródła. Liczba kan
 | Reuters | 2/3 | 2/3 | Jawna news sitemap; krótkie płatne wstępy rozpoznawane jako PAYWALL. |
 | Sky News | 3/3 | 3/3 | Próbki poprawne; nie zmieniano czytnika. |
 | Suspilne | 3/3 | 3/3 | Próbki poprawne; nie zmieniano czytnika. |
-| Times | 1/3 | 1/3 | Publiczne teksty odczytywane HTTP; krótkie płatne wstępy jako PAYWALL, bez ponowienia w przeglądarce. |
+| Times | 0/3 | 0/3 | Płatne wstępy. Pierwotna ocena 1/3 została skorygowana po wykryciu tekstu nawigacji w jednej próbce; szczegóły poniżej. |
 | TVP Info | 0/3 | 0/3 | Próba HTTP daje krótkie strony wymagające przeglądarki; konfiguracja BROWSER pozostaje. Ostatnie zero z raportu użytkowniczki oznaczało 15 już zapisanych materiałów. |
 | Washington Post | 3/3 | 3/3 | Próbki poprawne; nie zmieniano czytnika. |
 
@@ -65,7 +65,7 @@ Test wykonano: [GitHub Actions 40754563867](https://github.com/patrycjap08/globa
 | Times | 0/2 | PAYWALL |
 | TVP Info | 2/2 | COMPLETE |
 
-Potwierdzono poprawne pobieranie Polsatu, Meduzy, Daily Signal, Kyiv Independent i TVP Info. Reuters i Do Rzeczy nadal blokują wykrywanie adresów z runnera. Sky News i Financial Times blokują odczyt artykułów. Axios oraz El País są dostępne częściowo. Próbki Times w tym przebiegu były płatnymi wstępami; inne publiczne teksty działały w teście HTTP.
+Potwierdzono poprawne pobieranie Polsatu, Meduzy, Daily Signal, Kyiv Independent i TVP Info. Reuters i Do Rzeczy nadal blokują wykrywanie adresów z runnera. Sky News i Financial Times blokują odczyt artykułów. Axios oraz El País są dostępne częściowo. Próbki Times w tym przebiegu były płatnymi wstępami.
 
 Nie ma w kodzie poprawki, która zapewni dostęp do zasobu blokowanego przez wydawcę lub wymagającego uprawnień. Nie obchodzono CAPTCHA ani płatnego dostępu i nie wyłączono źródeł w celu ukrycia problemu. W razie potrzeby pełnego pokrycia tych źródeł potrzebny jest dozwolony dostęp wydawcy lub jego licencjonowany kanał.
 
@@ -99,9 +99,23 @@ Wykryto dodatkowe problemy:
   artykułu z przyciskami i komunikatami logowania. Trzy zapisane próbki nadal
   przechodzą minimum długości: 769, 109 i 256 słów.
 
-Weryfikacja: 452 testy Python zakończone pomyślnie. Kolejna kontrola na GitHubie
-obejmuje po czterech kandydatów TVN24, Times, Le Figaro i Suspilne. Wyniki
-dostępności zostaną dopisane po zakończeniu tego osobnego workflow bez AI.
+Weryfikacja: 452 testy Python zakończone pomyślnie. Kontrola na GitHubie
+[40776457726](https://github.com/patrycjap08/global-news-intelligence/actions/runs/40776457726),
+job 123126942783, commit `d9ae630`, zakończyła się pomyślnie. Sprawdzono po
+czterech kandydatów, bez zapisu danych i bez wywołań AI:
+
+| Źródło | Wykryte adresy | Odczytane próbki | Wynik |
+| --- | ---: | ---: | --- |
+| TVN24 | 57 | 4/4 | BROWSER, 401/847/322/297 słów. |
+| Le Figaro | 500 | 4/4 | HTTP_HTML, 348/223/338/421 słów. |
+| Times | 500 | 0/4 | 3 PAYWALL, 1 HTTP 404. Wykrywanie działa ponownie. |
+| Suspilne | 121 | 0/4 | 4 BLOCKED HTTP 403. |
+
+Nie zmieniano dostępu TVN24. Jego wcześniejsze zero z HTTP 403 i aktualne 4/4
+wskazują na zmienną dostępność z runnera, a nie stały błąd selektora adresów.
+Udana próbka nie gwarantuje dostępności w kolejnym pobraniu. Suspilne nadal
+blokuje odczyty, mimo że news sitemap zwraca linki. Nie obniżono progu długości
+i nie próbowano obchodzić tych blokad.
 
 ## Zastosowanie
 
