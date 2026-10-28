@@ -10,7 +10,7 @@ import ai_pipeline as ai
 import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
-from test_writing_fixtures import article_response
+from test_writing_fixtures import article_response, paired_article_response
 from test_topic_titles import FakeMergeClient
 
 
@@ -49,9 +49,9 @@ class SingleTextSynthesisTests(unittest.TestCase):
     def test_schema_keeps_full_article_in_one_field_and_brief_separate(self):
         schema = p.article_writing_schema(DATA['facts'])
         check_response_schema(schema)
-        jsonschema.validate(finished_article(), schema)
-        self.assertEqual(set(schema['required']), {'summary_pl', 'brief_paragraphs', 'paragraph_sources', 'context_spans'})
-        self.assertEqual(set(schema['properties']['paragraph_sources']['items']['properties']), {'fact_ids'})
+        jsonschema.validate(paired_article_response(finished_article()), schema)
+        self.assertEqual(set(schema['required']), {'paragraphs', 'brief_paragraphs', 'context_spans'})
+        self.assertEqual(set(schema['properties']['paragraphs']['items']['properties']), {'text_pl', 'fact_ids'})
         self.assertNotIn('entity_context', schema['properties'])
         self.assertNotIn('situation_context', schema['properties'])
 
@@ -59,7 +59,7 @@ class SingleTextSynthesisTests(unittest.TestCase):
         data = payload()
         before = copy.deepcopy(data)
         raw = finished_article()
-        with patch.object(ai, 'call_openai', return_value=raw) as request, patch.object(ai, 'log'), \
+        with patch.object(ai, 'call_openai', return_value=paired_article_response(raw)) as request, patch.object(ai, 'log'), \
              patch.object(p, 'insert_entity_context', side_effect=AssertionError('No role insertion')), \
              patch.object(p, 'insert_situation_context', side_effect=AssertionError('No background insertion')):
             result = ai.generate_summary_response(data, 'gpt-6-luna')
@@ -151,6 +151,27 @@ class SingleTextSynthesisTests(unittest.TestCase):
         result = p.safe_article_written(raw, DATA['facts'], [])
         self.assertEqual(result['paragraphs'], [])
         self.assertEqual(result['writing_validation']['rejections']['invalid_fields_or_fact_ids'], 1)
+
+    def test_paired_schema_requires_sources_inside_each_paragraph(self):
+        raw = paired_article_response(finished_article())
+        schema = p.article_writing_schema(DATA['facts'])
+        jsonschema.validate(raw, schema)
+        raw['paragraphs'][0].pop('fact_ids')
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(raw, schema)
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(finished_article(), schema)
+
+    def test_malformed_middle_paragraph_cannot_shift_the_next_paragraphs_sources(self):
+        raw = paired_article_response(finished_article())
+        raw['paragraphs'].insert(1, {'text_pl': None, 'fact_ids': ['foreign']})
+        before = copy.deepcopy(raw)
+        result = p.safe_article_written(raw, DATA['facts'], [])
+        self.assertEqual('\n\n'.join(row['text_pl'] for row in result['paragraphs']), finished_article()['summary_pl'])
+        self.assertEqual(result['writing_validation']['accepted_paragraphs'], 2)
+        self.assertEqual(result['writing_validation']['paragraph_evidence_format'], 'PAIRED')
+        self.assertNotIn('paragraph_source_count_mismatch', result['writing_validation']['rejections'])
+        self.assertEqual(raw, before)
 
 
 if __name__ == '__main__':

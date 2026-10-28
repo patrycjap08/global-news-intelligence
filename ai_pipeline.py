@@ -33,11 +33,12 @@ from queue import SimpleQueue
 
 from pipeline_logging import log, quantity, seconds, short_text
 from supabase_client import SupabaseRestClient
+from supabase_sync import ArticleRestoreError, hydrate_articles
 from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v87-two-paragraph-brief"
+PROMPT_VERSION = "ai-prompts-v88-complete-inputs-paired-paragraphs"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -3172,7 +3173,9 @@ def response_for_storage(response: dict[str, Any]) -> dict[str, Any]:
 
 def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
     stored = None
-    if isinstance(exc, AIContentPolicyError):
+    if isinstance(exc, (ArticleRestoreError, perspectives.MissingFactSourcesError)):
+        stored = {"input_data_error": str(exc), "response_details": exc.response_details}
+    elif isinstance(exc, AIContentPolicyError):
         stored = {"policy_rejection": True, "response_details": exc.response_details}
     elif isinstance(exc, AIRequestSchemaError):
         stored = {"request_schema_error": str(exc), "response_details": exc.response_details}
@@ -3187,6 +3190,10 @@ def parse_failure_for_storage(exc: Exception) -> dict[str, Any] | None:
 
 def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
     """Show returned text, with bounded output and escaped line breaks."""
+    if isinstance(exc, (ArticleRestoreError, perspectives.MissingFactSourcesError)):
+        log("AI", f"{stage}: niekompletne dane wejściowe, bez zapytania naprawczego do AI. "
+            + json.dumps(exc.response_details, ensure_ascii=False), level="ERROR")
+        return
     if isinstance(exc, AIContentPolicyError):
         log("AI", f"{stage}: odrzucenie przez zabezpieczenia OpenAI; bez ponawiania zapytania. "
             + json.dumps(exc.response_details, ensure_ascii=False), level="WARN")
@@ -3221,7 +3228,7 @@ def log_ai_response_diagnostic(stage: str, exc: Exception) -> None:
 
 
 def log_parse_failure(stage: str, exc: Exception) -> None:
-    if isinstance(exc, (AIRequestSchemaError, AIContentPolicyError)):
+    if isinstance(exc, (AIRequestSchemaError, AIContentPolicyError, ArticleRestoreError, perspectives.MissingFactSourcesError)):
         log_ai_response_diagnostic(stage, exc)
         return
     if not isinstance(exc, AIResponseParseError):
@@ -3489,6 +3496,18 @@ def local_articles(conn: sqlite3.Connection, article_ids: list[str] | None = Non
         marks = ",".join("?" for _ in article_ids)
         rows = conn.execute(f"SELECT * FROM articles WHERE article_id IN ({marks})", article_ids).fetchall()
     return [dict(row) for row in rows]
+
+
+def complete_topic_articles(conn, client, article_ids):
+    """Keep every linked article available for existing fact provenance."""
+    rows = local_articles(conn, article_ids)
+    missing = sorted(set(article_ids) - {str(row['article_id']) for row in rows})
+    if missing:
+        restored = hydrate_articles(conn, client, missing)
+        log('AI', f'Dane wejściowe: doczytano {restored} brakujących artykułów z Supabase '
+            'do lokalnej bazy; bez pobierania stron i bez zapytań AI.')
+        rows = local_articles(conn, article_ids)
+    return rows
 
 
 def distinct_source_keys(rows: list[dict[str, Any]]) -> set[str]:
@@ -3878,7 +3897,7 @@ def merge_active_topics(
         for topic in topics:
             topic_id = str(topic["topic_id"])
             article_ids = list(dict.fromkeys(ids_by_topic.get(topic_id, [])))
-            article_rows = local_articles(conn, article_ids)
+            article_rows = complete_topic_articles(conn, client, article_ids)
             article_rows.sort(
                 key=lambda row: (
                     str(row.get("published_at") or row.get("fetched_at") or ""),
@@ -4206,7 +4225,7 @@ def merge_active_topics(
                 for topic_id in group_ids
                 for article_id in ids_by_topic.get(topic_id, [])
             ))
-            article_rows = local_articles(conn, article_ids)
+            article_rows = complete_topic_articles(conn, client, article_ids)
             if len(article_rows) < 2:
                 continue
             source_ids = {str(row["source_id"]) for row in article_rows}
@@ -5192,8 +5211,26 @@ def retry_incomplete_summaries(
             if not new_ids and not refresh and not brief_needed:
                 skipped(topic, "brak nowych artykułów do analizy")
                 continue
-            new_rows = local_articles(conn, new_ids)
-            all_rows = local_articles(conn, all_ids)
+            try:
+                all_rows = complete_topic_articles(conn, client, all_ids)
+            except Exception as exc:
+                # A partial local snapshot cannot authorize dropping previous
+                # facts or paying for extraction that routing will reject.
+                stats['failed_summaries'] += 1
+                if failed_topic_ids is not None:
+                    failed_topic_ids.add(topic_id)
+                log_ai_response_diagnostic('SUMMARY_INPUT', exc)
+                log('AI', f"Dane syntezy {topic_id}: {short_text(exc, 240)}; pomijam ten temat przed wywołaniem AI.", level='ERROR')
+                failure_hash = digest({'topic': topic_id, 'article_ids': all_ids})
+                client.upsert('topic_runs', [{
+                    'topic_run_id': 'topicrun_' + digest({'topic': topic_id, 'stage': 'SUMMARY', 'input': failure_hash})[:24],
+                    'run_id': run_id, 'stage': 'SUMMARY', 'prompt_version': PROMPT_VERSION,
+                    'model': model, 'input_hash': failure_hash, 'status': 'FAILED',
+                    'raw_output': parse_failure_for_storage(exc), 'error': str(exc)[:2000],
+                }], on_conflict='topic_run_id')
+                continue
+            new_id_set = set(new_ids)
+            new_rows = [row for row in all_rows if str(row['article_id']) in new_id_set]
             if (not new_rows and not refresh and not brief_needed) or len(all_rows) < 2:
                 skipped(topic, f"brak treści w lokalnej bazie (nowych: {len(new_rows)}, wszystkich: {len(all_rows)})")
                 continue

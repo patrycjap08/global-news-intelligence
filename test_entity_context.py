@@ -12,7 +12,7 @@ import perspective_summaries as p
 from structured_outputs import check_response_schema
 import test_summary_queue as queue_tests
 from test_topic_titles import FakeMergeClient
-from test_writing_fixtures import article_response
+from test_writing_fixtures import article_response, paired_article_response
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath('witkoff_missing_context_20261021.json').read_text())
 
@@ -80,12 +80,12 @@ class EntityContextTests(unittest.TestCase):
             calls.append(name)
             self.assertEqual(name, 'perspective_summary')
             check_response_schema(schema)
-            jsonschema.validate(response(), schema)
+            jsonschema.validate(paired_article_response(response()), schema)
             passages = ' '.join(t for s in data['context_sources'] for t in s['passages'])
             self.assertIn('Senator republikanów Thom Tillis', passages)
             self.assertIn('specjalny wysłannik prezydenta USA', passages)
             self.assertIn('main_facts', data)
-            return response()
+            return paired_article_response(response())
         result = p.generate(self.payload(stored), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
         self.assertIn('Thom Tillis (republikański senator USA)', result['summary_pl'])

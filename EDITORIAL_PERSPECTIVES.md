@@ -1,6 +1,6 @@
-# AI-only i publikacja perspektyw — v87
+# AI-only i publikacja perspektyw — v88
 
-Obowiązująca wersja: `ai-prompts-v87-two-paragraph-brief`.
+Obowiązująca wersja: `ai-prompts-v88-complete-inputs-paired-paragraphs`.
 Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok

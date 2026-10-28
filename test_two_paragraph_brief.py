@@ -13,7 +13,7 @@ import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 from test_publication_flow import PersistingClient
-from test_writing_fixtures import article_response
+from test_writing_fixtures import article_response, paired_article_response
 
 
 FACTS = [
@@ -55,10 +55,10 @@ class TwoParagraphBriefTests(unittest.TestCase):
                                brief_paragraphs=copy.deepcopy(BRIEF))
         schema = p.article_writing_schema(FACTS)
         check_response_schema(schema)
-        jsonschema.validate(raw, schema)
+        jsonschema.validate(paired_article_response(raw), schema)
         for paragraphs in (BRIEF[:1], BRIEF + BRIEF[:1]):
             with self.assertRaises(jsonschema.ValidationError):
-                jsonschema.validate({**raw, 'brief_paragraphs': paragraphs}, schema)
+                jsonschema.validate(paired_article_response({**raw, 'brief_paragraphs': paragraphs}), schema)
         many = [{**FACTS[0], 'fact_id': f'fact_{i:024x}'} for i in range(500)]
         self.assertLess(check_response_schema(p.article_writing_schema(many))['enum_values'], 1000)
 

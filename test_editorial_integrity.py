@@ -7,7 +7,7 @@ import ai_pipeline as ai
 import perspective_summaries as p
 import editorial_integrity as q
 from test_topic_titles import FakeMergeClient
-from test_writing_fixtures import article_response
+from test_writing_fixtures import article_response, paired_article_response
 
 
 def article(aid, body, profile='CENTER'):
@@ -33,8 +33,8 @@ def extraction(data, specs):
 
 
 def writer(data):
-    return article_response([{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']]}
-                             for f in data['main_facts'][:3]])
+    return paired_article_response(article_response([{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']]}
+                             for f in data['main_facts'][:3]]))
 
 
 class EditorialIntegrityTests(unittest.TestCase):

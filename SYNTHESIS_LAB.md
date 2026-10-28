@@ -78,10 +78,11 @@ również wyraźny wydźwięk narracji autora jako ocenę redakcyjną, z krótki
 uzasadnieniem i przypisaniem źródła. Opis negatywnego zdarzenia sam w sobie
 nie jest negatywną oceną redakcji. Oceny pozostają poza syntezą faktów.
 
-Etap `writing` zwraca cały gotowy artykuł w jednym polu `summary_pl`, z akapitami
-i wplecionym tłem. Nie ma osobnego zapytania o kontekst ani późniejszego
-doklejania akapitów lub opisów osób. Pozostałe pola odpowiedzi służą kontroli
-źródeł i oznaczeniu fragmentów tła, nie dodają treści do syntezy.
+Etap `writing` tworzy cały gotowy artykuł z wplecionym tłem w jednym zapytaniu.
+Transport API używa `paragraphs`: każdy gotowy akapit zawiera tekst i własne
+`fact_ids`. Kod zapisuje je w tej samej kolejności w jednym polu `summary_pl`.
+Nie ma osobnego zapytania o kontekst ani późniejszego dopisywania opisów osób.
+Metadane źródeł i fragmentów tła nie dodają treści do syntezy.
 
 Liczba wywołań zależy od rozmiaru wątku i liczby ustaleń. Podział na perspektywy
 i prezentacja ocen nie mają osobnych wywołań AI. Nie prosimy modelu o nowe

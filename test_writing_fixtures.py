@@ -1,6 +1,14 @@
 """Finished writer responses for tests; metadata does not add display text."""
 
 
+def paired_article_response(response):
+    """Convert a legacy response fixture to the current writer transport."""
+    paragraphs = response['summary_pl'].split('\n\n')
+    return {'paragraphs': [{'text_pl': text, 'fact_ids': source['fact_ids']}
+                           for text, source in zip(paragraphs, response['paragraph_sources'])],
+            'brief_paragraphs': response['brief_paragraphs'], 'context_spans': response['context_spans']}
+
+
 def article_response(paragraphs, context_spans=(), *, brief_paragraphs=None):
     if brief_paragraphs is None:
         # Legacy tests exercise the full article. Dedicated brief tests supply

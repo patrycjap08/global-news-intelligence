@@ -159,6 +159,20 @@ i kod odrzucenia. Licznik odłożonych artykułów jest osobny od wykluczeń spo
 zakresu. Pozostałe paczki, scalanie i syntezy są wykonywane normalnie.
 Błędy klucza API, uprawnień i konfiguracji nadal zatrzymują przebieg.
 
+Stan artykułów z Supabase jest pobierany w stałej kolejności `article_id`,
+żeby paginacja nie gubiła rekordów. Przed scalaniem i tworzeniem opracowań
+kod sprawdza obecność wszystkich podpiętych artykułów w lokalnej bazie.
+Brakujące rekordy doczytuje po identyfikatorach z Supabase, bez odpytywania
+wydawców lub modelu AI. Zapisanych faktów nie usuwa, żeby obejść walidację.
+Jeżeli źródeł nadal brakuje, zapisuje ich ID i kończy analizę danego wątku
+przed wydaniem tokenów. Gotowa synteza pozostaje w bazie.
+
+Odpowiedź autora syntezy łączy każdy gotowy akapit z jego `fact_ids` w tym
+samym obiekcie. Eliminuje to przesunięcia powiązań między dwiema listami.
+Cały artykuł i dwukapitowy skrót nadal powstają w jednym zapytaniu. Na stronie
+synteza pozostaje jednym tekstem. Raport pokrycia wskazuje brakujące
+powiązania, ale samo poprawne wskazanie ID nie dowodzi zgodności znaczenia.
+
 Logi tworzenia embeddingów i automatycznego scalania mają prefiks `[EMBEDDING]`;
 `[AI]` oznacza etapy generowania tekstu. Przy niepoprawnej lub uciętej
 odpowiedzi log pokazuje zwrócony tekst (do 6000 znaków: dla dłuższej

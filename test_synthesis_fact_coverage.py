@@ -10,7 +10,7 @@ import ai_pipeline as ai
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 from test_topic_titles import FakeMergeClient
-from test_writing_fixtures import article_response
+from test_writing_fixtures import article_response, paired_article_response
 
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath(
@@ -49,8 +49,8 @@ class SynthesisFactCoverageTests(unittest.TestCase):
         self.assertGreater(len(raw['paragraph_sources']), 4)
         schema = p.article_writing_schema(DATA['facts'])
         check_response_schema(schema)
-        jsonschema.validate(raw, schema)
-        written = p.safe_article_written(raw, DATA['facts'], [])
+        jsonschema.validate(paired_article_response(raw), schema)
+        written = p.safe_article_written(paired_article_response(raw), DATA['facts'], [])
         self.assertEqual('\n\n'.join(row['text_pl'] for row in written['paragraphs']), raw['summary_pl'])
         report = written['writing_validation']
         self.assertEqual(report['accepted_paragraphs'], len(raw['paragraph_sources']))

@@ -13,9 +13,15 @@ import os
 from pathlib import Path
 from typing import Any, Iterable
 
-from article_harvester import open_db
 from pipeline_logging import log
 from supabase_client import SupabaseRestClient
+
+
+def open_db(path):
+    # Read-only synthesis experiments import article restoration helpers but
+    # do not need the harvester and its browser/network dependencies.
+    from article_harvester import open_db as harvester_open_db
+    return harvester_open_db(path)
 
 
 ARTICLE_COLUMNS = (
@@ -25,6 +31,39 @@ ARTICLE_COLUMNS = (
     "opening_fingerprint,sentiment,tone_hint,topic_hint,fetch_method,http_status,error,"
     "first_seen_at,fetched_at,last_seen_on_homepage_at"
 )
+
+
+class ArticleRestoreError(RuntimeError):
+    """Incomplete local inputs must be resolved before buying AI responses."""
+    def __init__(self, message: str, article_ids: list[str]):
+        super().__init__(message)
+        self.response_details = {"missing_article_ids": article_ids, "source": "summary_input"}
+
+
+def hydrate_articles(conn, client, article_ids):
+    """Restore exact missing IDs from Supabase, never from publisher websites.
+
+    Read small ordered batches and require every requested record. This also
+    protects AI-only against an incomplete initial paginated snapshot.
+    """
+    ids = sorted(set(map(str, article_ids)))
+    restored = {}
+    for offset in range(0, len(ids), 50):
+        batch = ids[offset:offset + 50]
+        rows = client.select_all("articles", columns=ARTICLE_COLUMNS,
+            filters=[("article_id", "in.(" + ",".join(batch) + ")"), ("order", "article_id.asc")])
+        restored.update({str(row["article_id"]): row for row in rows if str(row.get("article_id")) in batch})
+    missing = sorted(set(ids) - set(restored))
+    if missing:
+        raise ArticleRestoreError("Nie udało się odczytać z Supabase artykułów wymaganych do analizy: "
+                                  + ", ".join(missing), missing)
+    columns = ARTICLE_COLUMNS.split(",")
+    sql = (f"INSERT INTO articles ({ARTICLE_COLUMNS}) VALUES ({','.join('?' for _ in columns)}) "
+           "ON CONFLICT(article_id) DO UPDATE SET "
+           + ",".join(f"{column}=excluded.{column}" for column in columns if column != "article_id"))
+    with conn:
+        conn.executemany(sql, [tuple(restored[aid].get(column) for column in columns) for aid in ids])
+    return len(restored)
 
 
 def chunks(rows: list[dict[str, Any]], size: int = 25) -> Iterable[list[dict[str, Any]]]:
@@ -98,7 +137,8 @@ def pull_state(db_path: Path, client: SupabaseRestClient) -> dict[str, int]:
             )
         counts["source_run_results"] = len(result_rows)
 
-        article_rows = client.select_all("articles", columns=ARTICLE_COLUMNS)
+        article_rows = client.select_all("articles", columns=ARTICLE_COLUMNS,
+                                         filters=[("order", "article_id.asc")])
         placeholders = ",".join("?" for _ in ARTICLE_COLUMNS.split(","))
         article_sql = f"INSERT OR REPLACE INTO articles ({ARTICLE_COLUMNS}) VALUES ({placeholders})"
         for row in article_rows:

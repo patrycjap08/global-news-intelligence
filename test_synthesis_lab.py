@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import synthesis_lab as lab
 import test_editorial_integrity as fixtures
+from test_writing_fixtures import paired_article_response
 
 
 TEXT = 'Policja zatrzymała 8 osób w Marsylii.'
@@ -64,6 +65,7 @@ class FakeAPI:
                 *[{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']]} for f in facts[:2]],
                 {'text_pl': context, 'fact_ids': []}],
                 [{'text_pl': context, 'basis': 'GENERAL_KNOWLEDGE', 'kind': 'SITUATION'}])
+            raw = paired_article_response(raw)
         return NS(status=self.status, output_text=json.dumps(raw, ensure_ascii=False), id='response-test',
                   model=request['model'], usage=NS(input_tokens=1000, output_tokens=500,
                     input_tokens_details=NS(cached_tokens=200), output_tokens_details=NS(reasoning_tokens=400)))

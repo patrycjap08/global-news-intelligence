@@ -11,7 +11,7 @@ import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 import test_summary_queue as queue_tests
-from test_writing_fixtures import article_response
+from test_writing_fixtures import article_response, paired_article_response
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath('texas_context_20261021.json').read_text())
 
@@ -114,7 +114,7 @@ class InlineContextTests(unittest.TestCase):
             self.assertIn('dobrze ugruntowaną wiedzę ogólną', instructions)
             self.assertIn('Prezydentów państw nie trzeba', instructions)
             self.assertIn('context_sources', data)
-            response = article_written()
+            response = paired_article_response(article_written())
             jsonschema.validate(response, schema)
             return response
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},

@@ -1,0 +1,201 @@
+{
+  "run_id": 40720453072,
+  "job_id": 122929608204,
+  "topic_id": "topic_perspectives_99bb6df208fcb46c3ea8486b",
+  "title": "[Europa] Rozmowy przywódców Finlandii i Norwegii z Putinem o Ukrainie",
+  "note": "Public fact texts and source metadata from the failed run. The partial input IDs used by tests are reconstructed; logs report 9 loaded articles for 11 linked sources, without their exact IDs.",
+  "facts": [
+    {
+      "kind": "FACT",
+      "lane": "COMMON",
+      "fact_id": "fact_4064177a4ce82224f86940a1",
+      "text_pl": "Euronews podał, że prezydent Finlandii Alexander Stubb i premier Norwegii Jonas Gahr Støre rozmawiali telefonicznie z Władimirem Putinem w środę, podczas gdy pozostałe materiały datują rozmowę na wtorek 27 października.",
+      "evidence": {},
+      "article_ids": [
+        "0747015b52268d5f1a807b82",
+        "32cbc20953aaca542fcbc682"
+      ],
+      "attribution": "Euronews"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_930272b3a86e7b6c8b2542b2",
+      "text_pl": "Alexander Stubb i Jonas Gahr Støre wezwali Putina do zakończenia pełnoskalowej inwazji na Ukrainę i podjęcia znaczących negocjacji w celu osiągnięcia trwałego, pokojowego porozumienia.",
+      "evidence": {},
+      "article_ids": [
+        "0747015b52268d5f1a807b82"
+      ],
+      "attribution": "Euronews"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_faa49cd2e1089e252c9e4fe8",
+      "text_pl": "Alexander Stubb powiedział, że rozmowa była szczera i merytoryczna, a wynik wojny bezpośrednio wpłynie na bezpieczeństwo Finlandii i szerzej Europy oraz że zakończenie wojny wymaga bezpośrednich rozmów.",
+      "evidence": {},
+      "article_ids": [
+        "0747015b52268d5f1a807b82",
+        "e0dc5b874a5ff711afe078c4",
+        "b2e19dd9a5d5986805a1664e",
+        "be5b0a5a84aac88f22c1796f",
+        "c25b78b69c33bcdec1c10b04",
+        "d06f3fe0c08786e2e9d90827",
+        "32cbc20953aaca542fcbc682"
+      ],
+      "attribution": "Alexander Stubb"
+    },
+    {
+      "kind": "STATEMENT",
+      "lane": "COMMON",
+      "fact_id": "fact_1e591dc5070f85fca051f622",
+      "text_pl": "Jonas Gahr Støre powiedział, że wojna powoduje ogromne straty ludzkie i materialne, których skutki będą odczuwalne przez pokolenia, oraz że podczas rozmowy podkreślono znaczenie deeskalacji.",
+      "evidence": {},
+      "article_ids": [
+        "0747015b52268d5f1a807b82",
+        "bf2ebfbd11e871444864b6a8",
+        "e0dc5b874a5ff711afe078c4",
+        "b2e19dd9a5d5986805a1664e",
+        "be5b0a5a84aac88f22c1796f",
+        "d06f3fe0c08786e2e9d90827",
+        "c850a37ecf4c36af8e305b1a",
+        "32cbc20953aaca542fcbc682"
+      ],
+      "attribution": "Jonas Gahr Støre"
+    }
+  ],
+  "articles": [
+    {
+      "article_id": "0747015b52268d5f1a807b82",
+      "source_id": "euronews",
+      "source_name": "Euronews",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Finnish and Norwegian leaders call Putin, urge restart of peace talks",
+      "original_url": "https://www.euronews.com/2026/10/27/finnish-and-norwegian-leaders-call-putin-urge-restart-of-peace-talks",
+      "published_at": "2026-10-27T12:14:19+01:00",
+      "fetched_at": "2026-10-27T11:56:55.052174+00:00",
+      "word_count": 507
+    },
+    {
+      "article_id": "32cbc20953aaca542fcbc682",
+      "source_id": "kyiv_independent",
+      "source_name": "Kyiv Independent",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Norway, Finland call Putin ahead of potential Abu Dhabi peace talks",
+      "original_url": "https://kyivindependent.com/norway-finland-call-putin-ahead-of-potential-abu-dhabi-peace-talks-2/",
+      "published_at": "2026-10-27T10:22:35.000Z",
+      "fetched_at": "2026-10-27T16:55:20.055298+00:00",
+      "word_count": 673
+    },
+    {
+      "article_id": "43ee824c565133a1d2317b14",
+      "source_id": "business_insider_pl",
+      "source_name": "Business Insider Polska",
+      "source_profile": "CENTER",
+      "source_type": "UNCLASSIFIED",
+      "title": "Przywódcy europejskich państw zadzwonili do Władimira Putina. \"To wymaga rozmów\"",
+      "original_url": "https://businessinsider.com.pl/wiadomosci/liderzy-norwegii-i-finlandii-rozmawiali-z-putinem-w-porozumieniu-z-ukraina/plem19x",
+      "published_at": "2026-10-27T12:27:26+0100",
+      "fetched_at": "2026-10-27T11:49:05.34416+00:00",
+      "word_count": 295
+    },
+    {
+      "article_id": "a82e6c0bb41eb02bbf4737d9",
+      "source_id": "onet",
+      "source_name": "Onet",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Przywódcy Finlandii i Norwegii po rozmowie z Putinem. Jest komentarz Zełenskiego",
+      "original_url": "https://wiadomosci.onet.pl/swiat/finlandia-i-norwegia-po-rozmowie-z-putinem-jest-reakcja-zelenskiego/7kksjtn",
+      "published_at": "2026-10-27T12:06:55+0100",
+      "fetched_at": "2026-10-27T11:47:33.675593+00:00",
+      "word_count": 305
+    },
+    {
+      "article_id": "b2e19dd9a5d5986805a1664e",
+      "source_id": "politico_europe",
+      "source_name": "Politico Europe",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Leaders of Finland and Norway hold direct talks with Putin",
+      "original_url": "https://www.politico.eu/article/leader-finland-alexander-stubb-and-norway-jonas-gahr-store-talk-to-russia-vladimir-putin/",
+      "published_at": "2026-10-27T09:59:14Z",
+      "fetched_at": "2026-10-27T11:56:46.086388+00:00",
+      "word_count": 677
+    },
+    {
+      "article_id": "be5b0a5a84aac88f22c1796f",
+      "source_id": "wp",
+      "source_name": "WP",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Przywódcy Finlandii i Norwegii rozmawiali z Putinem. Tematem Ukraina",
+      "original_url": "https://wiadomosci.wp.pl/przywodcy-finlandii-i-norwegii-rozmawiali-z-putinem-tematem-ukraina-7344522675796000a",
+      "published_at": "2026-10-27T10:42:26.000Z",
+      "fetched_at": "2026-10-27T11:47:49.789149+00:00",
+      "word_count": 295
+    },
+    {
+      "article_id": "bf2ebfbd11e871444864b6a8",
+      "source_id": "moscow_times",
+      "source_name": "Moscow Times",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Finnish, Norwegian Leaders Call Putin Ahead of Ukraine Peace Talks",
+      "original_url": "https://www.themoscowtimes.com/2026/10/27/finnish-norwegian-leaders-call-putin-ahead-of-ukraine-peace-talks-a94093",
+      "published_at": "2026-10-27T13:36:00+03:00",
+      "fetched_at": "2026-10-27T12:02:33.099756+00:00",
+      "word_count": 573
+    },
+    {
+      "article_id": "c25b78b69c33bcdec1c10b04",
+      "source_id": "huffpost",
+      "source_name": "HuffPost",
+      "source_profile": "LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Leaders Of Norway, Finland Hold Rare Call With Vladimir Putin",
+      "original_url": "https://www.huffpost.com/entry/norway-finland-putin-call_n_6ae07d49e4b065fbf4c22d9f",
+      "published_at": "2026-10-27T10:40:43Z",
+      "fetched_at": "2026-10-27T11:52:54.506299+00:00",
+      "word_count": 308
+    },
+    {
+      "article_id": "c850a37ecf4c36af8e305b1a",
+      "source_id": "niezalezna",
+      "source_name": "Niezależna",
+      "source_profile": "RIGHT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Przywódcy Norwegii i Finlandii rozmawiali dziś z Putinem. \"Wynik wojny będzie miał dla nas znaczenie\"",
+      "original_url": "https://niezalezna.pl/swiat/przywodcy-norwegii-i-finlandii-rozmawiali-dzis-z-putinem-wynik-wojny-bedzie-mial-dla-nas-znaczenie/582634",
+      "published_at": "2026-10-27T11:32:55+00:00",
+      "fetched_at": "2026-10-27T11:49:55.031866+00:00",
+      "word_count": 549
+    },
+    {
+      "article_id": "d06f3fe0c08786e2e9d90827",
+      "source_id": "rzeczpospolita",
+      "source_name": "Rzeczpospolita",
+      "source_profile": "CENTER_RIGHT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Prezydent Finlandii i premier Norwegii odbyli rozmowę telefoniczną z Władimirem Putinem",
+      "original_url": "https://www.rp.pl/dyplomacja/art45402811-prezydent-finlandii-i-premier-norwegii-odbyli-rozmowe-telefoniczna-z-wladimirem-putinem",
+      "published_at": "2026-10-27T10:53:58+01:00",
+      "fetched_at": "2026-10-27T11:48:19.676876+00:00",
+      "word_count": 1099
+    },
+    {
+      "article_id": "e0dc5b874a5ff711afe078c4",
+      "source_id": "le_monde",
+      "source_name": "Le Monde",
+      "source_profile": "CENTER_LEFT",
+      "source_type": "UNCLASSIFIED",
+      "title": "Nordic leaders hold 'frank and substantive' talks with Putin",
+      "original_url": "https://www.lemonde.fr/en/international/article/2026/10/27/nordic-leaders-hold-frank-and-substantive-talks-with-putin_6765348_4.html",
+      "published_at": "2026-10-27T12:43:50+01:00",
+      "fetched_at": "2026-10-27T11:58:46.922758+00:00",
+      "word_count": 386
+    }
+  ]
+}
