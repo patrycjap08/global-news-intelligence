@@ -309,6 +309,11 @@ def classify_item(extracted: dict[str, Any]) -> tuple[str, str]:
         return "CHALLENGE", "CAPTCHA"
     if extracted.get("paywall"):
         return "PAYWALL", "PAYWALL"
+    if not extracted.get('body_success') and extracted.get('status') in st.BLOCK_STATUSES:
+        return "CHALLENGE", "BLOCKED"
+    if (not extracted.get('body_success') and extracted.get('status') is not None
+            and extracted['status'] >= 400):
+        return "UNKNOWN", "FAILED"
     title = st.clean_text(extracted.get("title", ""))
     words = int(extracted.get("word_count", 0) or 0)
     if words and words < MIN_ARTICLE_WORDS:
@@ -518,7 +523,8 @@ def fetch_one(
     )
     method = "HTTP_HTML"
     browser_preferred = str(source.get("content_method", "")).upper() == "BROWSER"
-    if browser_enabled and page_obj is not None and (browser_preferred or not extracted.get("body_success")):
+    if (browser_enabled and page_obj is not None and not extracted.get('paywall')
+            and (browser_preferred or not extracted.get("body_success"))):
         try:
             response = st.browser_navigate(
                 page_obj, url, int(float(source.get("timeout_seconds", 15)) * 1000)
@@ -1128,6 +1134,8 @@ def harvest_source(
             if outcome == "rejected" and not is_short:
                 rejection_status = classify_item(extracted)[1]
                 rejected_other[rejection_status] = rejected_other.get(rejection_status, 0) + 1
+                if rejection_status in {'CAPTCHA', 'BLOCKED', 'FAILED', 'METADATA_ONLY'}:
+                    counts['failed'] += 1
             if is_short:
                 queue_short_followup(candidate)
         except Exception as exc:
@@ -1339,7 +1347,7 @@ def main() -> int:
                     "duplicates": 0, "rejected_short": 0, "notes": f"source_error:{str(exc)[:300]}",
                 }
                 conn.execute(
-                    "INSERT OR REPLACE INTO source_run_results (run_id, source_id, notes) VALUES (?, ?, ?)",
+                    "INSERT OR REPLACE INTO source_run_results (run_id, source_id, notes, failed_count) VALUES (?, ?, ?, 1)",
                     (run_id, source["id"], f"source_error:{str(exc)[:300]}"),
                 )
                 conn.commit()

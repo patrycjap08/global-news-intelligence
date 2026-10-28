@@ -99,6 +99,13 @@ sources:
     name: Polsat News
     region: Poland
     homepage: https://www.polsatnews.pl
+    discovery_method: RSS
+    rss_urls:
+      - https://www.polsatnews.pl/rss/polska.xml
+      - https://www.polsatnews.pl/rss/swiat.xml
+      - https://www.polsatnews.pl/rss/biznes.xml
+    sitemap_urls:
+      - https://www.polsatnews.pl/sitemap-news.xml
     candidate_include_url_patterns:
       - '^/(?:wiadomosc|graffiti)/20[0-9]{2}-[0-9]{2}-[0-9]{2}/[^/?#]+/?$'
   - id: onet
@@ -167,7 +174,17 @@ sources:
     candidate_include_url_patterns:
       - '^/wiadomosc/[^/?#]+-[0-9]+\.html$'
   - {id: parkiet, name: Parkiet, region: Poland, homepage: https://www.parkiet.com}
-  - {id: do_rzeczy, name: Do Rzeczy, region: Poland, homepage: https://dorzeczy.pl}
+  - id: do_rzeczy
+    name: Do Rzeczy
+    region: Poland
+    homepage: https://dorzeczy.pl
+    discovery_method: RSS
+    rss_urls:
+      - https://dorzeczy.pl/feed/kraj
+      - https://dorzeczy.pl/feed/swiat
+      - https://dorzeczy.pl/feed/ekonomia
+    sitemap_urls:
+      - https://dorzeczy.pl/sitemap/news
   - id: wpolityce
     name: wPolityce
     region: Poland
@@ -192,6 +209,9 @@ sources:
     name: Reuters
     region: USA
     homepage: https://www.reuters.com
+    discovery_method: NEWS_SITEMAP
+    sitemap_urls:
+      - https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml
     discover_homepage: true
     candidate_pool_per_section: 30
     candidate_include_host_patterns:
@@ -263,6 +283,11 @@ sources:
     name: NPR
     region: USA
     homepage: https://www.npr.org
+    discovery_method: RSS
+    rss_urls:
+      - https://feeds.npr.org/1001/rss.xml
+      - https://feeds.npr.org/1002/rss.xml
+      - https://feeds.npr.org/3/rss.xml
     candidate_include_host_patterns:
       - '^(?:www\.)?npr\.org$'
     candidate_include_url_patterns:
@@ -326,6 +351,7 @@ sources:
     homepage: https://www.dailysignal.com
     rss_urls:
       - https://www.dailysignal.com/feed/
+    full_text_feed: true
     candidate_pool_per_section: 30
     candidate_include_host_patterns:
       - '^www\.dailysignal\.com$'
@@ -379,6 +405,7 @@ sources:
     name: Times
     region: United Kingdom
     homepage: https://www.thetimes.com
+    content_method: HTTP_HTML
     candidate_include_url_patterns:
       - '^/[^?#]+/article/[^/?#]+/?$'
     browser_accept_selectors:
@@ -451,7 +478,15 @@ sources:
       - '^/[^?#]*/startseite/'
 
   - {id: france_24, name: France 24, region: France, homepage: https://www.france24.com}
-  - {id: le_monde, name: Le Monde, region: France, homepage: https://www.lemonde.fr}
+  - id: le_monde
+    name: Le Monde
+    region: France
+    homepage: https://www.lemonde.fr
+    discovery_method: RSS
+    rss_urls:
+      - https://www.lemonde.fr/rss/une.xml
+    candidate_exclude_url_patterns:
+      - '/live/'
   - {id: le_figaro, name: Le Figaro, region: France, homepage: https://www.lefigaro.fr}
   - {id: liberation, name: Libération, region: France, homepage: https://www.liberation.fr, enabled: false}
 
@@ -504,6 +539,7 @@ sources:
       - '^/(?:internacional|espana|economia|sociedad|tecnologia|clima-y-medio-ambiente)/20[0-9]{2}-[0-9]{2}-[0-9]{2}/[^/?#]+\.html$'
     candidate_exclude_url_patterns:
       - '^/(?:deportes|gente|television|cultura|gastronomia)(?:/|$)'
+      - '(?:/directo/|/en-directo/|-en-directo\.html$)'
   - {id: el_mundo, name: El Mundo, region: Spain, homepage: https://www.elmundo.es}
 
   - {id: xinhua, name: Xinhua, region: China, homepage: https://english.news.cn, enabled: false, state_controlled: true}
@@ -545,6 +581,7 @@ sources:
     discovery_method: RSS
     rss_urls:
       - https://meduza.io/rss/all
+    full_text_feed: true
     candidate_include_host_patterns:
       - '^(?:www\.)?meduza\.io$'
     candidate_include_url_patterns:
@@ -590,7 +627,17 @@ sources:
       - '^/[0-9]+-[^/?#]+/?$'
     candidate_exclude_title_patterns:
       - '(?:спорт|футбол|теніс|баскетбол|погода|серіал|кіно)'
-  - {id: kyiv_independent, name: Kyiv Independent, region: Ukraine, homepage: https://kyivindependent.com}
+  - id: kyiv_independent
+    name: Kyiv Independent
+    region: Ukraine
+    homepage: https://kyivindependent.com
+    discovery_method: RSS
+    rss_urls:
+      - https://kyivindependent.com/news-archive/rss/
+    candidate_include_url_patterns:
+      - '^/[^/?#]+/?$'
+    candidate_exclude_url_patterns:
+      - '^/(?:author|authors|tag|tags|about|about-us|contact|contacts|membership|subscribe|support-us|news-archive|newsletters|advertise|privacy-policy|terms-of-use|careers|sitemap)(?:/|$)'
   - id: kyiv_post
     enabled: false
     name: Kyiv Post

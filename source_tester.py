@@ -47,7 +47,7 @@ METHODS = ["API", "RSS", "ATOM", "NEWS_SITEMAP", "SITEMAP", "SECTION_HTML", "HTT
 BLOCK_STATUSES = {401, 403, 406, 407, 408, 429, 451}
 ARTICLE_HINTS = re.compile(r"/(news|article|story|politic|world|business|econom|politics|aktualnosci|202[0-9]|20[0-9]{2})[/\-_]|/(wiadomosci|polityka|swiat|gospodarka|biznes)/", re.I)
 PAYWALL_HINTS = re.compile(r"paywall|subscribe to read|subscription required|sign in to continue|log in to continue|zaloguj się,? aby przeczytać|dostęp tylko dla abonentów|treść dostępna dla prenumeratorów", re.I)
-CAPTCHA_HINTS = re.compile(r"verify you are human|are you a robot|access denied|security check|human verification|checking your browser|human challenge", re.I)
+CAPTCHA_HINTS = re.compile(r"verify you are human|are you a robot|access denied|security check|security verification|human verification|checking your browser|human challenge", re.I)
 TRACKING_QUERY_KEYS = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gclid", "fbclid"}
 NON_ARTICLE_EXTENSIONS = {
     ".avif", ".css", ".gif", ".ico", ".jpeg", ".jpg", ".js", ".m4v", ".mp3", ".mp4", ".png", ".svg", ".webm", ".webp",
@@ -625,6 +625,15 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         content_root = soup.select_one(".article_text_wrapper")
         if content_root is not None:
             source_kind = "kommersant"
+    if content_root is None and source_id == "meduza":
+        # The first <article> is a related-story card, not this story.
+        content_root = soup.select_one('[class*="GeneralMaterial-module-body"]')
+        if content_root is not None:
+            source_kind = "meduza"
+        else:
+            return {"title": title, "description": description, "author": author,
+                    "published_at": published, "canonical": canonical, "body": "",
+                    "structured": False, "source_kind": "meduza"}
     if content_root is None:
         content_root = soup.select_one("article.news.news--target .news__content")
         if content_root is not None:
@@ -742,6 +751,8 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
         unwanted += ", .breadcrumbs, .article-info_container, .article-share, .article_image, .article-recommendations, .article-related, .article-tags, .article-footer, .article-comments, .continue-prompt"
     elif source_kind == "krytyka_polityczna":
         unwanted += ", .article-page-read-also, .article-actions, .line-label-slider-wrapper, .product-card, .donate-widget-container, .donate-widget-wrapper, .widget_wc-donation-widget, .article-reactions-container, .comments, .comment-respond"
+    elif source_kind == "meduza":
+        unwanted += ", article, figure, [class*='RelatedMaterial-module'], [class*='RelatedList-module'], [class*='FooterBlock-module']"
     elif source_kind == "reuters":
         unwanted += ", [data-testid='ContextWidget'], [data-testid='promo-box'], [data-testid='AuthorBio'], [class*='article-body-module__primary-asset__']"
     elif source_kind == "ap":
@@ -843,7 +854,10 @@ def _structured_html_extract(text: str, source_id: str = "") -> dict[str, Any] |
     json_ld_body = _json_ld_value(json_ld, "articleBody")
     if len(json_ld_body.split()) > len(body.split()):
         body = json_ld_body
-    return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind}
+    subscription_required = any(value.get('isAccessibleForFree') in (False, 'false', 'False')
+                                for value in json_ld)
+    return {"title": title, "description": description, "author": author, "published_at": published, "canonical": canonical, "body": body, "structured": True, "source_kind": source_kind,
+            "subscription_required": subscription_required}
 
 
 def extract_article(
@@ -873,7 +887,7 @@ def extract_article(
         if url_date:
             published = "-".join(url_date.groups())
     canonical = structured.get("canonical") or parser.meta.get("canonical") or result.final_url or result.url
-    if source_id in {"tvn24", "zero_pl"} or structured.get("source_kind") == "sky_news_live":
+    if source_id in {"tvn24", "zero_pl", "meduza"} or structured.get("source_kind") == "sky_news_live":
         # A candidate without the expected semantic article root is usually a
         # shell, listing, or error page; never turn its global text into body.
         body = structured.get("body", "")
@@ -890,9 +904,12 @@ def extract_article(
         minimum_body_words = 40 if structured.get("structured") else 80
     if body_words >= minimum_body_words:
         paywall = False
-    success = bool(title) and body_words >= minimum_body_words and not captcha and not paywall
-    if result.status in BLOCK_STATUSES and not success:
-        captcha = True
+    # A publisher-declared subscriber article exposing only a short preview
+    # is unavailable, rather than a broken extractor or a short news item.
+    if structured.get('subscription_required') and body_words < 100:
+        paywall = True
+    success = (bool(title) and body_words >= minimum_body_words and not captcha and not paywall
+               and 200 <= result.status < 400)
     return {
         "url": canonicalize(canonical, base_url) or canonical,
         "status": result.status,

@@ -1,0 +1,41 @@
+name: Sprawdzenie pobierania źródeł — bez AI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - audit_harvest_sources.py
+      - .github/workflows/audit-sources.yml
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install public source readers
+        run: |
+          python -m pip install beautifulsoup4 PyYAML playwright
+          python -m playwright install --with-deps chromium
+      - name: Check discovery and two articles per source
+        run: |
+          python audit_harvest_sources.py --browser --workers 2 --probes 2 \
+            --source polsat_news --source do_rzeczy --source reuters \
+            --source el_pais --source sky_news --source axios \
+            --source daily_signal --source financial_times --source tvp_info \
+            --source meduza --source kyiv_independent --source times
+      - name: Save availability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-audit-results
+          path: source_audit_results.json
+          retention-days: 7

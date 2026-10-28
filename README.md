@@ -44,6 +44,25 @@ Opcjonalny test pojedynczego źródła:
 python3 source_tester.py --source bbc --max-article-probes 2
 ```
 
+Test rzeczywistej ścieżki harvestera bez AI i zapisów w bazie:
+
+```bash
+python3 audit_harvest_sources.py --source polsat_news --source meduza --probes 2 --browser
+```
+
+Ten sam test jest dostępny jako workflow **Sprawdzenie pobierania źródeł — bez AI**.
+Raport `source-audit-results` pokazuje wykrywanie adresów, wynik odczytu i liczbę
+słów. Nie zapisuje pełnych treści ani nie synchronizuje artykułów z Supabase.
+Zielony status workflow oznacza wykonanie testu; dostępność każdego źródła
+należy ocenić z raportu. Do pobrania nowych artykułów do produkcji wybierz
+nowy przebieg `full`. `ai-only` korzysta wyłącznie z już zapisanych artykułów.
+
+Od audytu z 28 października `failed_count` obejmuje również zablokowane odczyty,
+CAPTCHA i nieudane odpowiedzi HTTP. Przyczyny pozostają w `notes` jako
+`rejected_other`. Krótkie płatne wstępy oznaczone przez wydawcę są raportowane
+jako `PAYWALL`, a nie `TOO_SHORT`; nie uruchamiają przeglądarki ani dobierania
+kolejnych krótkich materiałów. Minimum długości artykułu nadal wynosi 100 słów.
+
 Pełny test z fallbackiem przeglądarkowym (potrzebny m.in. dla PAP i TVP):
 
 ```bash
