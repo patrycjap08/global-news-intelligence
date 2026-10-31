@@ -218,6 +218,16 @@ nazwę, jednozdaniowy opis, jeśli istnieje, i maksymalnie cztery tytuły
 artykułów oraz identyfikator do przypisania odpowiedzi. Nie wysyła fragmentu
 syntezy ani początków artykułów.
 
+Odczyty Supabase do tytułów są ograniczone do okna 36 godzin oraz jawnie
+wskazanych tematów po scaleniu. Powiązania i nagłówki są pobierane po ID,
+w paczkach do 50. Gdy tytuły nie wymagają zmiany, etap nie odczytuje analiz.
+Dla poprawianych tytułów i brakujących kategorii baza zwraca tylko krótkie
+opisy z JSON, bez faktów i historii aktualizacji. Pełne analizy do scalania
+i syntez są pobierane tylko dla bieżących kandydatów, w paczkach do 20,
+w stałej kolejności. Ponowienie przebiegu sprawdza same `processed_article_ids`.
+Nie zwiększono timeoutów ani liczby prób. Szczegóły:
+[audyt odczytów z 31 października](SUPABASE_READ_REVIEW_20261031.md).
+
 Zapis pierwszej syntezy odświeża `last_seen_at` aktywnego wątku: jest widoczny
 w Aktualnych przez kolejne 24 godzin od pierwszej publikacji, także gdy
 AI-only nadrabia starsze artykuły. Ponowna analiza istniejącej syntezy bez

@@ -3108,6 +3108,44 @@ def stored_base_summary(value: Any) -> dict[str, Any]:
     return value
 
 
+def _select_rows_by_ids(client, table, id_column, ids, *, columns="*", batch_size=50,
+                        filters=(), order=None):
+    """Bound read size and keep pagination deterministic inside each ID batch."""
+    requested = sorted({str(value) for value in ids if value})
+    rows = []
+    for offset in range(0, len(requested), batch_size):
+        batch = requested[offset:offset + batch_size]
+        selected = client.select_all(table, columns=columns, filters=[
+            *filters, (id_column, "in.(" + ",".join(batch) + ")"),
+            ("order", order or id_column + ".asc"),
+        ])
+        allowed = set(batch)
+        rows.extend(row for row in selected if str(row.get(id_column) or "") in allowed)
+    return rows
+
+
+def _topic_description_metadata(client, topic_ids):
+    """Titles/categories need a sentence, never facts, update history or bodies."""
+    columns = (
+        "topic_id,"
+        "current_sentence:summary->current_summary->topic->>what_happened_one_sentence_pl,"
+        "base_sentence:summary->base_summary->topic->>what_happened_one_sentence_pl,"
+        "legacy_sentence:summary->topic->>what_happened_one_sentence_pl"
+    )
+    rows = _select_rows_by_ids(client, "topic_summaries", "topic_id", topic_ids, columns=columns)
+    descriptions = {}
+    for row in rows:
+        sentence = row.get("current_sentence") or row.get("base_sentence") or row.get("legacy_sentence") or ""
+        # In-memory adapters may return whole rows. The REST projection never
+        # transfers this complete JSON, including the fact ledger/history.
+        if not sentence and isinstance(row.get("summary"), dict):
+            stored = row["summary"]
+            current = stored.get("current_summary") or stored_base_summary(stored)
+            sentence = (current.get("topic") or {}).get("what_happened_one_sentence_pl") or ""
+        descriptions[str(row["topic_id"])] = {"topic": {"what_happened_one_sentence_pl": sentence}}
+    return descriptions
+
+
 def stored_latest_update(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
@@ -3617,30 +3655,32 @@ def active_topic_payload(
         filters=[("status", "eq.ACTIVE"), ("last_seen_at", f"gte.{cutoff}")],
     )
     topics = [row for row in topics if str(row.get("topic_id") or "") not in excluded]
-    category_rows = client.select_all("topic_categories", columns="topic_id,category")
+    active_ids = {str(row["topic_id"]) for row in topics}
+    category_rows = _select_rows_by_ids(client, "topic_categories", "topic_id", active_ids,
+                                       columns="topic_id,category", order="topic_id.asc,category.asc")
     categories_by_topic: dict[str, list[str]] = {}
     for row in category_rows:
         category = normalize_topic_category(row.get("category"))
         if category:
             categories_by_topic.setdefault(str(row["topic_id"]), []).append(category)
-    summaries = client.select_all("topic_summaries", columns="topic_id,summary")
+    summaries = _select_rows_by_ids(client, "topic_summaries", "topic_id", active_ids,
+                                   columns="topic_id,summary", batch_size=20)
     summary_by_topic = {
         str(row["topic_id"]): stored_base_summary(row.get("summary"))
         for row in summaries
     }
     if new_generation_only:
         topics = [row for row in topics if topic_generation(str(row["topic_id"]), summary_by_topic.get(str(row["topic_id"]))) == "perspectives"]
-    links = [
-        row for row in client.select_all("topic_articles", columns="topic_id,article_id")
-        if str(row.get("topic_id") or "") not in excluded
-    ]
+    links = _select_rows_by_ids(client, "topic_articles", "topic_id", [row["topic_id"] for row in topics],
+                               columns="topic_id,article_id", order="topic_id.asc,article_id.asc")
     link_map: dict[str, list[str]] = {}
     for row in links:
         link_map.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
 
     article_titles = {
         str(row["article_id"]): str(row.get("title") or "").strip()
-        for row in client.select_all("articles", columns="article_id,title")
+        for row in _select_rows_by_ids(client, "articles", "article_id", [row["article_id"] for row in links],
+                                       columns="article_id,title")
     }
     titles_by_topic: dict[str, list[str]] = {}
     for topic_id, article_ids in link_map.items():
@@ -3842,13 +3882,18 @@ def merge_active_topics(
     }
     if len(topics) < 2:
         return stats
+    if focus_topic_ids is not None and not any(str(topic["topic_id"]) in focus_topic_ids for topic in topics):
+        log("EMBEDDING", "Brak nowych wątków w tej puli; pomijam porównania pozostałych wątków.")
+        return stats
 
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
-        links = client.select_all("topic_articles", columns="topic_id,article_id")
-        summaries = client.select_all(
-            "topic_summaries",
+        active_ids = {str(topic["topic_id"]) for topic in topics}
+        links = _select_rows_by_ids(client, "topic_articles", "topic_id", active_ids,
+                                   columns="topic_id,article_id", order="topic_id.asc,article_id.asc")
+        summaries = _select_rows_by_ids(
+            client, "topic_summaries", "topic_id", active_ids, batch_size=20,
             columns="topic_id,summary,input_hash,version,model,generated_at,updated_at",
         )
         summary_metadata_by_topic = {
@@ -3885,7 +3930,9 @@ def merge_active_topics(
         ids_by_topic: dict[str, list[str]] = {}
         for row in links:
             ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
-        category_rows = client.select_all("topic_categories", columns="topic_id,category")
+        category_rows = _select_rows_by_ids(client, "topic_categories", "topic_id",
+                                           [topic["topic_id"] for topic in topics],
+                                           columns="topic_id,category", order="topic_id.asc,category.asc")
         categories_by_topic: dict[str, list[str]] = {}
         for row in category_rows:
             category = normalize_topic_category(row.get("category"))
@@ -4489,20 +4536,25 @@ def normalize_topic_titles(
     model: str = DEFAULT_MODEL,
     forced_topic_ids: set[str] | None = None,
 ) -> int:
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
         columns="topic_id,headline_pl,status",
-        filters=[("status", "neq.MERGED")],
+        filters=[("status", "neq.MERGED"), ("last_seen_at", f"gte.{cutoff}"), ("order", "topic_id.asc")],
     )
-    summaries = {
-        str(row["topic_id"]): stored_base_summary(row.get("summary"))
-        for row in client.select_all("topic_summaries", columns="topic_id,summary")
-    }
+    known_ids = {str(row["topic_id"]) for row in topics}
+    topics.extend(_select_rows_by_ids(client, "topics", "topic_id", (forced_topic_ids or set()) - known_ids,
+                                     columns="topic_id,headline_pl,status", filters=[("status", "neq.MERGED")]))
+    topic_ids = {str(row["topic_id"]) for row in topics}
+    if not topic_ids:
+        log("AI", "Tytuły: brak aktywnych tematów do sprawdzenia.")
+        return 0
     links_by_topic: dict[str, list[str]] = {}
-    for row in client.select_all("topic_articles", columns="topic_id,article_id"):
+    for row in _select_rows_by_ids(client, "topic_articles", "topic_id", topic_ids,
+                                   columns="topic_id,article_id", order="topic_id.asc,article_id.asc"):
         links_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
-    article_rows = client.select_all(
-        "articles",
+    article_rows = _select_rows_by_ids(
+        client, "articles", "article_id", {aid for ids in links_by_topic.values() for aid in ids},
         columns="article_id,title,opening_text",
     )
     article_titles = {
@@ -4539,6 +4591,9 @@ def normalize_topic_titles(
     if not missing:
         log("AI", "Tytuły: wszystkie są już w poprawnym formacie.")
         return 0
+    log("AI", f"Tytuły: sprawdzono {len(topics)} bieżących lub wskazanych tematów; "
+        f"pobieram krótkie opisy tylko dla {len(missing)} wymagających poprawy, bez pełnych analiz.")
+    summaries = _topic_description_metadata(client, [row["topic_id"] for row in missing])
     total_batches = (
         len(missing) + TITLE_NORMALIZATION_BATCH_SIZE - 1
     ) // TITLE_NORMALIZATION_BATCH_SIZE
@@ -4622,8 +4677,8 @@ def normalize_topic_titles(
         log("AI", f"Tytuły {batch_number}/{total_batches} zakończone.")
 
     remaining = [
-        row for row in client.select_all(
-            "topics",
+        row for row in _select_rows_by_ids(
+            client, "topics", "topic_id", [row["topic_id"] for row in missing],
             columns="topic_id,headline_pl,status",
             filters=[("status", "neq.MERGED")],
         )
@@ -4695,10 +4750,7 @@ def classify_topic_categories(
         log("AI", "Kategorie: wszystkie kwalifikujące się tematy mają już kategorię.")
         return 0
 
-    summaries = {
-        str(row["topic_id"]): stored_base_summary(row.get("summary"))
-        for row in client.select_all("topic_summaries", columns="topic_id,summary")
-    }
+    summaries = _topic_description_metadata(client, [row["topic_id"] for row in missing])
     article_ids_by_topic: dict[str, list[str]] = {}
     for row in links:
         article_ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
@@ -5063,6 +5115,14 @@ def load_extraction_checkpoint(client, topic_id, summary_hash, model):
     return None
 
 
+def _topic_activity_at(topic):
+    try:
+        value = datetime.fromisoformat(str(topic.get("last_seen_at") or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
 def retry_incomplete_summaries(
     db_path: Path,
     run_id: str,
@@ -5101,19 +5161,23 @@ def retry_incomplete_summaries(
                 log("AI", f"Kolejka syntez: nie odnaleziono {len(missing_ids)} "
                     "wskazanych aktywnych wątków po scaleniu; wymagają ponowienia.", level="ERROR")
         queue_cutoff = datetime.fromisoformat(now().replace("Z", "+00:00")) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)
-        links = client.select_all("topic_articles", columns="topic_id,article_id",
-                                  filters=[("order", "topic_id.asc,article_id.asc")])
-        summaries = client.select_all(
-            "topic_summaries", columns="topic_id,summary,input_hash,version,updated_at",
-            filters=[("order", "topic_id.asc")],
-        )
-        assignments = client.select_all(
-            "article_topic_assignments", columns="topic_id,article_id,created_at",
-            filters=[("order", "run_id.asc,article_id.asc")],
-        )
+        recent_ids = {str(topic["topic_id"]) for topic in topics
+                      if (activity := _topic_activity_at(topic)) is not None and activity >= queue_cutoff
+                      and str(topic["topic_id"]) not in (skip_topic_ids or set())}
+        links = _select_rows_by_ids(client, "topic_articles", "topic_id", recent_ids,
+                                   columns="topic_id,article_id", order="topic_id.asc,article_id.asc")
         ids_by_topic: dict[str, list[str]] = {}
         for row in links:
             ids_by_topic.setdefault(str(row["topic_id"]), []).append(str(row["article_id"]))
+        candidate_ids = {tid for tid, aids in ids_by_topic.items() if len(set(aids)) >= 2}
+        summaries = _select_rows_by_ids(
+            client, "topic_summaries", "topic_id", candidate_ids, batch_size=20,
+            columns="topic_id,summary,input_hash,version,updated_at",
+        )
+        assignments = _select_rows_by_ids(
+            client, "article_topic_assignments", "topic_id", candidate_ids,
+            columns="topic_id,article_id,created_at", order="topic_id.asc,article_id.asc,run_id.asc",
+        )
         latest_assignment_by_topic: dict[str, str] = {}
         assignment_time_by_article: dict[tuple[str, str], str] = {}
         for row in assignments:
@@ -5149,11 +5213,8 @@ def retry_incomplete_summaries(
             queued_topic_ids.add(topic_id)
             if only_topic_ids is not None and topic_id not in only_topic_ids:
                 continue
-            try:
-                last_seen_at = datetime.fromisoformat(str(topic.get("last_seen_at") or "").replace("Z", "+00:00"))
-                if last_seen_at.tzinfo is None:
-                    last_seen_at = last_seen_at.replace(tzinfo=timezone.utc)
-            except ValueError:
+            last_seen_at = _topic_activity_at(topic)
+            if last_seen_at is None:
                 skipped(topic, "brak poprawnej daty ostatniej aktywności")
                 continue
             if last_seen_at < queue_cutoff:
@@ -5271,7 +5332,7 @@ def retry_incomplete_summaries(
             -job["article_count"], -job["last_seen_at"].timestamp(), job["topic_id"],
         ))
         log("AI", f"Kolejka syntez: aktywnych tematów: {len(topics)}, "
-            f"powiązań z artykułami: {len(links)}, zapisanych analiz: {len(summaries)}, "
+            f"powiązań w oknie kolejki: {len(links)}, odczytanych analiz kandydatów: {len(summaries)}, "
             f"zakwalifikowanych: {len(summary_jobs)}; powody pominięcia: "
             + json.dumps(dict(skip_counts), ensure_ascii=False) + ".")
         if not summary_jobs:
@@ -5977,18 +6038,17 @@ def pending_run_merge_focus(client: SupabaseRestClient, run_id: str) -> set[str]
             by_topic.setdefault(str(row['topic_id']), set()).add(str(row['article_id']))
     if not by_topic:
         return set()
-    summaries = []
-    topic_ids = sorted(by_topic)
-    for offset in range(0, len(topic_ids), 100):
-        summaries.extend(client.select_all('topic_summaries', columns='topic_id,summary',
-            filters=[('topic_id', 'in.(' + ','.join(topic_ids[offset:offset + 100]) + ')')]))
-    by_summary = {str(row['topic_id']): row.get('summary') or {} for row in summaries}
+    summaries = _select_rows_by_ids(client, 'topic_summaries', 'topic_id', by_topic,
+        columns='topic_id,processed_article_ids:summary->processed_article_ids')
+    by_summary = {str(row['topic_id']): row for row in summaries}
     focus = set()
     for tid, aids in by_topic.items():
         if tid not in by_summary:
             focus.add(tid)
-        elif isinstance(by_summary[tid].get('processed_article_ids'), list):
-            if aids - set(by_summary[tid]['processed_article_ids']):
+        else:
+            row = by_summary[tid]
+            processed = row.get('processed_article_ids', (row.get('summary') or {}).get('processed_article_ids'))
+            if isinstance(processed, list) and aids - set(processed):
                 focus.add(tid)
     return focus
 
