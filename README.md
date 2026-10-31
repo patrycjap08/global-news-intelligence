@@ -228,6 +228,14 @@ w stałej kolejności. Ponowienie przebiegu sprawdza same `processed_article_ids
 Nie zwiększono timeoutów ani liczby prób. Szczegóły:
 [audyt odczytów z 31 października](SUPABASE_READ_REVIEW_20261031.md).
 
+HTTP 520–524 z bramki Supabase/Cloudflare ma osobną obsługę: do trzech prób,
+co najmniej 120 sekund przerwy i respektowanie `Retry-After`. W logu widać,
+kiedy nastąpi ponowienie. Trwały błąd nadal kończy workflow niepowodzeniem.
+Jeśli nie uda się pobrać początkowego stanu bazy, AI i eksport strony są
+pomijane; istniejące wyniki nie są usuwane. Gdy nawet `select now(), 1`
+w SQL Editorze kończy się timeoutem, najpierw należy przywrócić dostępność
+projektu Supabase, a dopiero potem ponawiać AI-only.
+
 Zapis pierwszej syntezy odświeża `last_seen_at` aktywnego wątku: jest widoczny
 w Aktualnych przez kolejne 24 godzin od pierwszej publikacji, także gdy
 AI-only nadrabia starsze artykuły. Ponowna analiza istniejącej syntezy bez

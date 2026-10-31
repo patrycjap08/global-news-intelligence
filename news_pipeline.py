@@ -13,7 +13,7 @@ import sys
 from ai_pipeline import analyze_run, normalize_topic_titles
 from pipeline_logging import log
 from source_tester import load_config, source_is_enabled
-from supabase_client import SupabaseRestClient
+from supabase_client import CLOUDFLARE_ORIGIN_STATUSES, SupabaseError, SupabaseRestClient
 from supabase_sync import pull_state, push_run
 
 
@@ -160,7 +160,17 @@ def main() -> int:
     client = SupabaseRestClient()
     args.db.parent.mkdir(parents=True, exist_ok=True)
     log("RUN", "Etap 1/4 — pobieram stan deduplikacji z Supabase.")
-    pull_counts = pull_state(args.db, client)
+    try:
+        pull_counts = pull_state(args.db, client)
+    except SupabaseError as exc:
+        skip_public_export()
+        log("RUN", "Nie udało się pobrać stanu z Supabase. Pobieranie artykułów i AI nie zostały uruchomione; "
+            "zapisane wyniki pozostają w bazie. Pomijam eksport strony.", level="ERROR")
+        if exc.http_status in CLOUDFLARE_ORIGIN_STATUSES:
+            log("RUN", "Bramka Cloudflare nie może połączyć się z serwerem projektu Supabase. "
+                "Sprawdź dostępność projektu w panelu Supabase przed ponowieniem.", level="ERROR")
+        log("RUN", str(exc), level="ERROR")
+        return 1
     log(
         "RUN",
         "Etap 1/4 zakończony: " + count_summary(

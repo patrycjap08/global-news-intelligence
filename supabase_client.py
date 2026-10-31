@@ -4,17 +4,52 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import socket
 import time
+from email.utils import parsedate_to_datetime
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Iterable
 
+from pipeline_logging import log
+
+
+RETRYABLE_HTTP_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524})
+CLOUDFLARE_ORIGIN_STATUSES = frozenset({520, 521, 522, 523, 524})
+MAX_RETRY_WAIT_SECONDS = 300
+
+
+def _retry_delay_seconds(status, headers, detail, attempt):
+    """Honor publisher/gateway backoff instead of immediately retrying an outage."""
+    delays = [120.0 if status in CLOUDFLARE_ORIGIN_STATUSES else min(2 ** attempt, 8)]
+    header = headers.get("Retry-After") if headers else None
+    if header:
+        try:
+            delays.append(float(header))
+        except (ValueError, TypeError):
+            try:
+                delays.append(parsedate_to_datetime(header).timestamp() - time.time())
+            except (ValueError, TypeError, OverflowError):
+                pass
+    try:
+        parsed = json.loads(detail)
+        if isinstance(parsed, dict) and parsed.get("retry_after") is not None:
+            delays.append(float(parsed["retry_after"]))
+    except (ValueError, TypeError):
+        pass
+    return max(delay for delay in delays if math.isfinite(delay) and delay >= 0)
+
 
 class SupabaseError(RuntimeError):
-    pass
+    def __init__(self, message, *, http_status=None, retryable=False, retry_after=None, attempts=1):
+        super().__init__(message)
+        self.http_status = http_status
+        self.retryable = retryable
+        self.retry_after = retry_after
+        self.attempts = attempts
 
 
 class SupabaseRestClient:
@@ -60,17 +95,26 @@ class SupabaseRestClient:
                     return json.loads(raw.decode("utf-8"))
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", errors="replace")[:2000]
-                if exc.code not in {408, 425, 429, 500, 502, 503, 504} or attempt + 1 >= self.request_retries:
-                    raise SupabaseError(f"Supabase {method} {path} HTTP {exc.code}: {detail}") from exc
-                time.sleep(min(2 ** attempt, 8))
+                retryable = exc.code in RETRYABLE_HTTP_STATUSES
+                delay = _retry_delay_seconds(exc.code, exc.headers, detail, attempt) if retryable else None
+                if not retryable or attempt + 1 >= self.request_retries or delay > MAX_RETRY_WAIT_SECONDS:
+                    raise SupabaseError(
+                        f"Supabase {method} {path} HTTP {exc.code} (próby: {attempt + 1}): {detail}",
+                        http_status=exc.code, retryable=retryable, retry_after=delay, attempts=attempt + 1,
+                    ) from exc
+                log("DB", f"Supabase {method} {path}: HTTP {exc.code}, próba {attempt + 1}/{self.request_retries}; "
+                    f"ponawiam za {delay:g} s.", level="WARN")
+                time.sleep(delay)
             except urllib.error.URLError as exc:
                 if not isinstance(exc.reason, transient_errors) or attempt + 1 >= self.request_retries:
-                    raise SupabaseError(f"Supabase connection error: {exc}") from exc
+                    raise SupabaseError(f"Supabase connection error: {exc}",
+                                        retryable=isinstance(exc.reason, transient_errors), attempts=attempt + 1) from exc
                 time.sleep(min(2 ** attempt, 8))
             except transient_errors as exc:
                 if attempt + 1 >= self.request_retries:
                     raise SupabaseError(
-                        f"Supabase {method} {path} timed out after {self.request_retries} attempts: {exc}"
+                        f"Supabase {method} {path} timed out after {self.request_retries} attempts: {exc}",
+                        retryable=True, attempts=attempt + 1,
                     ) from exc
                 time.sleep(min(2 ** attempt, 8))
 
