@@ -10,7 +10,7 @@ for (const record of fixture.topics) {
   state.topics = [record.topic]; state.articles = record.articles; state.links = record.links;
   state.summaries = new Map([[record.topic.topic_id, record.summary]]); state.history = new Map(); invalidateViewCache();
   const model = topicModel(record.topic), html = dialogHtml(model);
-  const currentSections = perspectiveSectionsHtml(model.summary, 'ready', model.updates);
+  const currentSections = perspectiveSectionsHtml(model.summary, 'ready', model.updates) + model.updates.map(perspectiveUpdateHtml).join('');
   const sourceAssessment = 'Analiza opublikowana przez Le Monde sugeruje';
   if (record.topic.topic_id.endsWith('5b5e026fe04d9224a6da8fd9')) {
     assert.equal(currentSections.split(sourceAssessment).length - 1, 1, 'One quoted opinion, carried by both profiles');
@@ -22,7 +22,7 @@ for (const record of fixture.topics) {
   }
   assert(model.summary.background_context.every(c => !c.needs_verification));
   assert(!html.includes('historia aktualizacji'));
-  assert(!html.includes('class="update-section'));
+  assert.equal(html.includes('class="update-section'), model.updates.length > 0);
   assert(!html.includes('class="claim-kind"'));
   assert(!html.includes('class="claim-attribution"'));
   assert(!html.includes('<details open'));
@@ -43,8 +43,9 @@ state.topics = [record.topic]; state.articles = record.articles; state.links = r
 state.summaries = new Map([[record.topic.topic_id, changed]]); invalidateViewCache();
 const current = topicModel(record.topic), html = dialogHtml(current);
 assert.equal(current.lead, 'Najnowsza decyzja w sprawie sankcji.');
-assert.equal(current.summary.summary_pl, 'Aktualna synteza po decyzji rządu.');
-assert(html.includes('Pierwsza opublikowana synteza'));
+assert.equal(current.summary.summary_pl, changed.summary.base_summary.summary_pl);
+assert(!html.includes('Aktualna synteza po decyzji rządu.'));
+assert(!html.includes('Pierwsza opublikowana synteza'));
 assert.equal(listValue([{text_pl: 'Dodał, że nastąpi zmiana.'}, {text_pl: 'Podkreśla, że nastąpi zmiana.'}]), '');
 assert(listValue([{description_pl: 'Rada przyjęła budżet.'}]).includes('Rada przyjęła budżet.'), 'Retain legacy field aliases');
 const stateOnly = {...current, stateOnly: true, mergedPublications: [{base_summary: {summary_pl: 'PRIVATE_ARCHIVE'}}]};

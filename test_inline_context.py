@@ -11,7 +11,7 @@ import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 import test_summary_queue as queue_tests
-from test_writing_fixtures import article_response, paired_article_response
+from test_writing_fixtures import as_initial_draft, article_response, paired_article_response
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath('texas_context_20261021.json').read_text())
 
@@ -119,7 +119,7 @@ class InlineContextTests(unittest.TestCase):
             return response
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
                    'all_articles': articles(), 'new_article_ids': [], 'previous_aggregation': previous}
-        result = p.generate(payload, call, ai.normalize_generated_text, allow_omissions=True)
+        result = p.generate(as_initial_draft(payload), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
         self.assertEqual(result['quality_report']['read_articles'], 0)
         self.assertEqual(result['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
@@ -127,7 +127,7 @@ class InlineContextTests(unittest.TestCase):
         self.assertEqual(len(result['facts']), len(DATA['facts']))
         self.assertFalse(any('2010' in f['text_pl'] for f in result['facts']))
         self.assertIn('2026', result['summary_pl'])
-        self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
+        self.assertEqual(result['update']['status'], 'BASE_SUMMARY')
         previous['current_summary'] = result
         previous['perspective_state'] = result['perspective_state']
         p.generate(payload, lambda *args: self.fail('No repeated context writing'), ai.normalize_generated_text, allow_omissions=True)
@@ -139,13 +139,13 @@ class InlineContextTests(unittest.TestCase):
             return article_response([{'text_pl': primary['text_pl'], 'fact_ids': [primary['fact_id']]}])
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
                    'all_articles': articles(), 'new_article_ids': [], 'previous_aggregation': previous}
-        result = p.generate(payload, call, ai.normalize_generated_text, allow_omissions=True)
+        result = p.generate(as_initial_draft(payload), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(result['narrative_context'], [])
         self.assertEqual(result['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
         previous['current_summary'] = result
         p.generate(payload, lambda *args: self.fail('Do not pay again for missing context'), ai.normalize_generated_text, allow_omissions=True)
 
-    def test_queue_refreshes_unexplained_acronyms_once_even_without_source_passages(self):
+    def test_queue_backfills_the_brief_but_never_rewrites_unexplained_acronyms(self):
         self.assertTrue(integrity.needs_inline_context({**DATA['current_summary'], 'inline_context_version': None}))
         self.assertFalse(integrity.needs_inline_context({**DATA['current_summary'],
             'summary_pl': 'TENT (organizacja wspierająca osoby transpłciowe) zaprzeczyła udziałowi. USPS (amerykańska poczta) nie odpowiedziało.'}))
@@ -162,7 +162,7 @@ class InlineContextTests(unittest.TestCase):
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
         summaries[0]['summary']['current_summary']['inline_context_version'] = 1
         summaries[0]['summary']['current_summary']['situation_context_version'] = integrity.SITUATION_CONTEXT_VERSION
-        summaries[0]['summary']['current_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
+        summaries[0]['summary']['base_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
         stats, generate, persist, _ = h.run_queue([topic], rows, links, summaries, assignments)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()
@@ -173,14 +173,14 @@ class InlineContextTests(unittest.TestCase):
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
                    'all_articles': articles(), 'new_article_ids': [], 'previous_aggregation': previous}
         with patch.object(ai, 'call_openai', return_value=article_written()) as request, patch.object(ai, 'log'):
-            result = ai.generate_summary_response(payload, 'gpt-5-nano')
+            result = ai.generate_summary_response(as_initial_draft(payload), 'gpt-5-nano')
         request.assert_called_once()
         self.assertEqual(request.call_args.kwargs['retry_limit'], 1)
         self.assertEqual(result['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
         self.assertEqual(len(result['narrative_context']), 3)
         client = FakeMergeClient([], [], [])
         ai.persist_summary(client, topic_id=DATA['topic']['topic_id'], run_id='test', model='fake',
-            summary=result, summary_hash='h', previous_row={'version': 1, 'summary': previous}, new_article_ids=[])
+            summary=result, summary_hash='h', previous_row=None, new_article_ids=[])
         saved = next(rows[0]['summary'] for table, rows, _ in client.upserts if table == 'topic_summaries')
         self.assertEqual(saved['current_summary']['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
         self.assertFalse(integrity.needs_inline_context(saved['current_summary']))

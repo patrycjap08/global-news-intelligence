@@ -70,7 +70,7 @@ class FactExtractionWithoutQuotesTests(unittest.TestCase):
         self.assertEqual(report['discarded_fact_count'], 4)
         self.assertEqual(report['ignored_article_ids'], ['alien'])
 
-    def test_existing_italy_record_gets_one_extraction_one_writer_and_no_repair_or_quote_request(self):
+    def test_existing_italy_record_gets_one_extraction_and_publishes_recovered_facts_as_update(self):
         previous = copy.deepcopy(DATA['summary']['summary'])
         payload = {'topic': {'topic_id': DATA['topic']['topic_id'], 'working_title_pl': DATA['topic']['headline_pl']},
                    'all_articles': articles(), 'new_article_ids': [], 'previous_aggregation': previous}
@@ -95,9 +95,10 @@ class FactExtractionWithoutQuotesTests(unittest.TestCase):
             return response
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log'):
             result = ai.generate_summary_response(payload, 'gpt-5-nano', on_article_cache=saved_cache.extend)
-        self.assertEqual(calls, ['perspective_facts', 'perspective_summary'])
+        self.assertEqual(calls, ['perspective_facts'])
         self.assertEqual(result['fact_extraction_version'], 2)
-        self.assertTrue(result['summary_pl'])
+        self.assertEqual(result['summary_pl'], previous['base_summary']['summary_pl'])
+        self.assertTrue(result['update']['new_information_pl'])
         self.assertTrue(result['shared_available'])
         self.assertEqual(len(result['perspective_facts']), 1)
         self.assertEqual(len(result['facts'][0]['article_ids']), 7)
@@ -109,7 +110,8 @@ class FactExtractionWithoutQuotesTests(unittest.TestCase):
         ai.persist_summary(client, topic_id=DATA['topic']['topic_id'], run_id='test', model='fake', summary=result,
             summary_hash='h', previous_row=DATA['summary'], new_article_ids=[a['article_id'] for a in articles()])
         saved = next(rows[0]['summary'] for table, rows, _ in client.upserts if table == 'topic_summaries')
-        self.assertEqual(saved['current_summary']['fact_extraction_version'], 2)
+        self.assertEqual(saved['perspective_state']['quality_report']['read_articles'], 7)
+        self.assertEqual(saved['base_summary'], previous['base_summary'])
         self.assertFalse(integrity.needs_fact_rebuild(saved))
         payload['previous_aggregation'] = saved
         with patch.object(ai, 'call_openai') as request, patch.object(ai, 'log'):

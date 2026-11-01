@@ -117,7 +117,7 @@ class PublicationFlowTests(unittest.TestCase):
         self.assertTrue(result['quality_report']['budget_skipped_stages'])
         self.assertTrue(result['summary_pl'])
 
-    def test_changed_article_retracts_old_unsupported_claim_and_refreshes_current_text(self):
+    def test_changed_article_corrects_the_ledger_in_an_additive_update(self):
         old = article('a', 'Policja zatrzymała 8 osób w Marsylii.')
         new = {**old, 'body_original': 'Policja zatrzymała 10 osób w Marsylii.', 'content_hash': 'changed'}
         other = article('b', 'Rzecznik policji odmówił komentarza.')
@@ -129,8 +129,9 @@ class PublicationFlowTests(unittest.TestCase):
             if name == 'perspective_facts': return extraction(data, [claim(new['body_original'], 'a')])
             return writer(data)
         result = p.generate(payload, call, ai.normalize_generated_text, allow_omissions=True)
-        self.assertIn('10 osób', result['summary_pl'])
-        self.assertNotIn('8 osób', result['summary_pl'])
+        self.assertEqual(result['summary_pl'], old['body_original'])
+        self.assertIn('10 osób', result['update']['new_information_pl'])
+        self.assertNotIn('8 osób', result['update']['new_information_pl'])
         self.assertEqual(len(result['perspective_facts']), 1)
 
     def test_only_opinions_require_no_narrative_request(self):

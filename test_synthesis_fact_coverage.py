@@ -10,7 +10,7 @@ import ai_pipeline as ai
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 from test_topic_titles import FakeMergeClient
-from test_writing_fixtures import article_response, paired_article_response
+from test_writing_fixtures import as_initial_draft, article_response, paired_article_response
 
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath(
@@ -71,7 +71,7 @@ class SynthesisFactCoverageTests(unittest.TestCase):
             self.assertEqual(settings['retry_limit'], 1)
             return complete_response(data['main_facts'])
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log'):
-            result = ai.generate_summary_response(payload, 'gpt-6-luna')
+            result = ai.generate_summary_response(as_initial_draft(payload), 'gpt-6-luna')
         self.assertEqual(requests, ['perspective_summary'])
         self.assertGreater(len(result['summary_pl']), 6000)
         self.assertIn(DATA['facts'][-1]['text_pl'], result['summary_pl'])
@@ -82,7 +82,7 @@ class SynthesisFactCoverageTests(unittest.TestCase):
         client = FakeMergeClient([], [], [])
         ai.persist_summary(client, topic_id=DATA['topic_id'], run_id='test', model='gpt-6-luna',
                            summary=result, summary_hash='coverage-test',
-                           previous_row={'version': 1, 'summary': before['previous_aggregation']},
+                           previous_row=None,
                            new_article_ids=[])
         saved = next(rows[0]['summary'] for table, rows, _ in client.upserts if table == 'topic_summaries')
         self.assertEqual(saved['current_summary']['summary_pl'], result['summary_pl'])
@@ -98,7 +98,7 @@ class SynthesisFactCoverageTests(unittest.TestCase):
             {'text_pl': facts[0]['text_pl'], 'fact_ids': [facts[0]['fact_id']]},
             {'text_pl': facts[19]['text_pl'], 'fact_ids': [facts[19]['fact_id']]}])
         with patch.object(ai, 'call_openai', return_value=raw) as request, patch.object(ai, 'log') as log:
-            result = ai.generate_summary_response(refresh_payload(), 'gpt-6-luna')
+            result = ai.generate_summary_response(as_initial_draft(refresh_payload()), 'gpt-6-luna')
         request.assert_called_once()
         report = result['quality_report']['writing_validation']['fact_coverage']
         self.assertEqual(report['status'], 'MISSING_REFERENCES')
@@ -130,7 +130,7 @@ class SynthesisFactCoverageTests(unittest.TestCase):
     def test_invalid_writer_fallback_keeps_all_accepted_facts_without_paid_repair(self):
         payload = refresh_payload()
         with patch.object(ai, 'call_openai', return_value={}) as request, patch.object(ai, 'log'):
-            result = ai.generate_summary_response(payload, 'gpt-6-luna')
+            result = ai.generate_summary_response(as_initial_draft(payload), 'gpt-6-luna')
         request.assert_called_once()
         self.assertTrue(result['quality_report']['narrative_fallback'])
         self.assertLess(len(result['summary_pl'].split('\n\n')), len(DATA['facts']))

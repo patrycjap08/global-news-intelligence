@@ -24,9 +24,10 @@ końcowego scalania i drugiej rundy syntez.
 
 Od v74 aktualizacje czytają tylko nowe lub zmienione artykuły. Wyniki paczek są
 zapisywane przed następnym zapytaniem, więc ponowienie wykorzystuje cache.
-Brakujące i niepoprawne ustalenia są pomijane bez pętli napraw. Nowe fakty
-odświeżają bieżącą syntezę; kolejne potwierdzenie nie tworzy aktualizacji.
-Pierwotny tekst i aktualizacje pozostają w zwijanej historii. Ta sama ocena
+Brakujące i niepoprawne ustalenia są pomijane bez pętli napraw. Od v89 pierwsza
+synteza i jej skrót pozostają niezmienne. Nowe fakty oraz nowe oceny redakcyjne
+tworzą osobne, datowane aktualizacje widoczne pod tekstem. Kolejne potwierdzenie
+nie tworzy aktualizacji ani nie kupuje ponownego pisania. Ta sama ocena
 przytaczana przez różne profile źródeł jest jedną kartą.
 
 Szczegóły algorytmu, limitów kosztu, walidacji i ograniczeń historycznych danych:
@@ -201,7 +202,8 @@ przed wydaniem tokenów. Gotowa synteza pozostaje w bazie.
 
 Odpowiedź autora syntezy łączy każdy gotowy akapit z jego `fact_ids` w tym
 samym obiekcie. Eliminuje to przesunięcia powiązań między dwiema listami.
-Cały artykuł i dwukapitowy skrót nadal powstają w jednym zapytaniu. Na stronie
+Cały artykuł i skrót powstają w jednym zapytaniu. Skrót ma domyślnie dwa
+akapity, a przy złożonej sprawie może mieć trzy lub cztery. Na stronie
 synteza pozostaje jednym tekstem. Raport pokrycia wskazuje brakujące
 powiązania, ale samo poprawne wskazanie ID nie dowodzi zgodności znaczenia.
 

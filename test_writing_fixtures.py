@@ -1,4 +1,17 @@
 """Finished writer responses for tests; metadata does not add display text."""
+import copy
+
+
+def as_initial_draft(payload):
+    """Reuse extracted fixture claims for an independent, unpublished draft.
+
+    Existing publications deliberately never buy another narrative request.
+    This is also the read-only lab's writer-comparison contract.
+    """
+    result = copy.deepcopy(payload)
+    result['draft_publication'] = result.pop('previous_aggregation')
+    result['new_article_ids'] = []
+    return result
 
 
 def paired_article_response(response):

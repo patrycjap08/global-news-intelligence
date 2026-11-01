@@ -70,7 +70,7 @@ class ExplicitNoveltyAndResumeTests(unittest.TestCase):
         self.assertEqual([a['body_original'] for a in sent], [a['body_original'] for a in rows[23:]])
         self.assertEqual(stages.count('perspective_facts'), 4)
         self.assertEqual(sizes, [24, 2])
-        self.assertEqual(stages.count('perspective_summary'), 1)
+        self.assertEqual(stages.count('perspective_summary'), 0)
         self.assertEqual(len(result['perspective_facts']), 27)
 
     def failed_extraction_checkpoint(self):
@@ -94,7 +94,7 @@ class ExplicitNoveltyAndResumeTests(unittest.TestCase):
             return writer(data)
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log'):
             result = ai.generate_summary_response({**payload, 'resume_extraction': checkpoint}, 'gpt-5-nano')
-        self.assertEqual(calls, ['perspective_novelty_audit', 'perspective_summary'])
+        self.assertEqual(calls, ['perspective_novelty_audit'])
         self.assertEqual(result['update']['status'], 'NEW_INFORMATION')
 
     def test_corrupt_checkpoint_is_not_reused(self):

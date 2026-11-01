@@ -363,9 +363,10 @@ function collectTopicUpdates(storedSummary, historyRows) {
   (historyRows || []).forEach((row) => addFromStored(row.summary || {}, row));
   const unique = new Map();
   candidates.forEach((update) => {
-    const key = update.update_id || update.run_id || JSON.stringify({
+    const key = update.update_id || JSON.stringify({
+      run: update.run_id || null,
       text: updateText(update),
-      articles: update.new_article_ids || [],
+      articles: [...(update.new_article_ids || [])].sort(),
     });
     const previous = unique.get(key);
     if (!previous || String(update.generated_at || '') > String(previous.generated_at || '')) {
@@ -566,10 +567,13 @@ function topicModel(topic) {
   const storedSummary = summaryRow.summary || summaryRow;
   const baseSummary = storedSummary.base_summary || storedSummary;
   const currentSummary = storedSummary.current_summary || baseSummary;
-  const summary = { ...currentSummary, ...(storedSummary.perspective_state || {}) };
+  const summary = { ...currentSummary, ...(storedSummary.perspective_state || {}),
+    summary_pl: baseSummary.summary_pl ?? currentSummary.summary_pl ?? '',
+    brief_pl: baseSummary.brief_pl ?? '',
+    initial_perspective_sections: baseSummary.perspective_sections };
   summary.facts = uniqueFacts(summary.facts || []);
   summary.background_context = (summary.background_context || []).filter(item => !item.needs_verification && usableDisplayFact(item));
-  if (summary.perspective_version === 1) summary.synthesis_coverage_mode = currentSummary.synthesis_coverage_mode ?? currentSummary.coverage_mode;
+  if (summary.perspective_version === 1) summary.synthesis_coverage_mode = baseSummary.synthesis_coverage_mode ?? baseSummary.coverage_mode;
   const stateOnly = articles.length > 0 && articles.every(isStateSource);
   if (stateOnly) {
     // Apply to previews and historical stored publications as well. Keep
@@ -691,10 +695,10 @@ async function fetchRowsForIds(table, column, ids, query, options) {
 function summaryPreview(row) {
   if (row.summary) return row;
   return { topic_id: row.topic_id, version: row.version, updated_at: row.updated_at,
-    summary: { base_summary: { topic: row.current_topic || row.base_topic || row.legacy_topic || {},
+    summary: { base_summary: { topic: row.base_topic || row.legacy_topic || row.current_topic || {},
       publication_version: row.publication_version,
-      brief_pl: row.current_brief ?? row.base_brief ?? row.legacy_brief ?? '',
-      summary_pl: row.current_text ?? row.base_text ?? row.legacy_text ?? '', perspective_version: row.perspective_version, fact_classification_version: row.current_fact_classification_version ?? row.fact_classification_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
+      brief_pl: row.base_brief ?? row.legacy_brief ?? row.current_brief ?? '',
+      summary_pl: row.base_text ?? row.legacy_text ?? row.current_text ?? '', perspective_version: row.perspective_version, fact_classification_version: row.current_fact_classification_version ?? row.fact_classification_version, coverage_mode: row.current_coverage_mode ?? row.coverage_mode, shared_available: row.current_shared_available ?? row.shared_available, synthesis_coverage_mode: row.synthesis_coverage_mode ?? row.coverage_mode },
       latest_update: { status: row.update_status || row.legacy_update_status, new_information_pl: row.update_text || row.legacy_update_text || '', generated_at: row.update_when || row.legacy_update_when },
       last_analysis: { status: row.analysis_status || row.update_status || row.legacy_update_status } } };
 }
@@ -1174,7 +1178,7 @@ function coverageNotice(summary, updates = [], latestAnalysisStatus = null) {
   const original = { SINGLE_LEFT: 'źródeł lewicowych', SINGLE_RIGHT: 'źródeł prawicowych', SINGLE_CENTER: 'źródeł centrowych' };
   const hasPublishedUpdate = latestAnalysisStatus !== 'NO_NEW_INFORMATION'
     && updates.some(update => update.status !== 'BASE_SUMMARY' && updateText(update));
-  if (hasPublishedUpdate && summary.synthesis_coverage_mode && summary.synthesis_coverage_mode !== summary.coverage_mode && original[summary.synthesis_coverage_mode]) return `<p class="coverage-notice">Pierwotna synteza powstała wyłącznie na podstawie ${original[summary.synthesis_coverage_mode]}.</p>`;
+  if (hasPublishedUpdate && summary.synthesis_coverage_mode && summary.synthesis_coverage_mode !== summary.coverage_mode && original[summary.synthesis_coverage_mode]) return `<p class="coverage-notice">Synteza opiera się na materiałach ${original[summary.synthesis_coverage_mode]}. Nowe informacje i perspektywy są w aktualizacjach.</p>`;
   const messages = { SINGLE_LEFT: 'Opracowanie wyłącznie na podstawie źródeł lewicowych.', SINGLE_RIGHT: 'Opracowanie wyłącznie na podstawie źródeł prawicowych.', SINGLE_CENTER: 'Opracowanie wyłącznie na podstawie źródeł centrowych.', STATE_ONLY: 'Dostępne są wyłącznie doniesienia mediów kontrolowanych przez państwo.' };
   return messages[summary.coverage_mode] ? `<p class="coverage-notice">${messages[summary.coverage_mode]}</p>` : '';
 }
@@ -1182,8 +1186,16 @@ function coverageNotice(summary, updates = [], latestAnalysisStatus = null) {
 function perspectiveSectionsHtml(summary, detailsState, updates = []) {
   if (summary.perspective_version !== 1) return '';
   if (detailsState !== 'ready') return '<p class="perspective-pending">Perspektywy będą dostępne po pobraniu pełnego opracowania.</p>';
-  const opinions = editorialCards(summary.perspective_sections);
-  const stateFacts = uniqueFacts(summary.perspective_sections?.STATE || []);
+  // New assessments belong to their dated update, not to two visible blocks.
+  const updated = updates.flatMap(update => Object.values(update.perspective_sections || {}).flat());
+  const key = item => normalizeDisplayText(displayFactText(item)).replace(/\s+/g, ' ').trim().toLocaleLowerCase('pl').replace(/\.$/, '');
+  const updateIds = new Set(updated.map(item => item.fact_id).filter(Boolean));
+  const updateTexts = new Set(updated.map(key));
+  const sections = summary.initial_perspective_sections || Object.fromEntries(
+    Object.entries(summary.perspective_sections || {}).map(([lane, items]) => [lane, items.filter(item =>
+      !(item.fact_id && updateIds.has(item.fact_id)) && !updateTexts.has(key(item)))]));
+  const opinions = editorialCards(sections);
+  const stateFacts = uniqueFacts(sections.STATE || []);
   return (opinions.length ? `<section class="perspectives-section"><h3>${summary.fact_classification_version ? 'Oceny i interpretacje' : 'Informacje uzupełniające'}</h3><p class="insight-subtitle">Jedna treść może być przytaczana przez źródła o różnych profilach. Samo cytowanie nie oznacza poparcia tej oceny przez redakcję.</p>${editorialCardsHtml(opinions)}</section>` : '')
     + (stateFacts.length ? `<section class="perspectives-section"><h3>Media kontrolowane przez państwo</h3><ul class="insight-list">${listValue(stateFacts)}</ul></section>` : '');
 }
@@ -1216,7 +1228,7 @@ function briefText(value) {
   if (typeof value !== 'string') return '';
   const text = withoutObviousDefinitions(withoutPublisherPrefixes(readableEvidenceText(value))).trim();
   const paragraphs = text.split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean);
-  return paragraphs.length === 2 ? paragraphs.join('\n\n') : '';
+  return paragraphs.length >= 2 && paragraphs.length <= 4 ? paragraphs.join('\n\n') : '';
 }
 
 function dialogHtml(model, { detailsState = 'ready' } = {}) {
@@ -1229,7 +1241,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
   const sources = model.articles.map((article) => `<div class="evidence-item"><strong>${escapeHtml(article.source_name)}</strong><span><a href="${escapeHtml(article.original_url || '#')}" target="_blank" rel="noreferrer">${escapeHtml(article.title)}</a><br /><small>${humanProfile(article.source_profile)} · ${article.word_count || '—'} słów${article.published_at ? ` · ${formatDate(article.published_at)}` : ''}</small></span></div>`).join('');
   const briefOnly = summary.perspective_version === 1 && !summary.summary_pl;
   const summaryPanel = summary.summary_pl
-    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? (summary.publication_version === 2 ? 'Aktualna synteza' : 'Synteza') : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
+    ? `<section class="dialog-section summary-section"><h3>${detailsState === 'ready' ? 'Synteza' : 'Skrócony podgląd syntezy'}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(summary.summary_pl))}</div></section>`
     : '<section class="dialog-section summary-section"><p>Brak zapisanej syntezy.</p></section>';
   const brief = briefText(summary.brief_pl);
   const briefPanel = brief
@@ -1243,7 +1255,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     <h2 id="dialog-title">${escapeHtml(model.title)}</h2>
     ${articleProfileBar(model)}
     <div class="dialog-rule"></div>
-    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : missingSynthesisMessage(summary)}</p>` : `
+    ${stateOnly || (summary.perspective_version === 1 && summary.shared_available === false && !summary.summary_pl) ? `<p class="no-common-facts" role="status">${stateOnly ? 'Dla tematu opartego wyłącznie na mediach kontrolowanych przez państwo nie tworzymy syntezy.' : missingSynthesisMessage(summary)}</p>` : `
     <div class="dialog-tabs" role="tablist" aria-label="Widok opracowania">
       ${briefOnly ? '' : '<button class="dialog-tab is-active" id="dialog-tab-summary" data-dialog-tab="summary" role="tab" type="button" aria-selected="true" aria-controls="dialog-panel-summary">Synteza</button>'}
       <button class="dialog-tab ${briefOnly ? 'is-active' : ''}" id="dialog-tab-brief" data-dialog-tab="brief" role="tab" type="button" aria-selected="${briefOnly}" aria-controls="dialog-panel-brief">Skrót</button>
@@ -1252,8 +1264,7 @@ function dialogHtml(model, { detailsState = 'ready' } = {}) {
     <div class="dialog-tab-panel ${briefOnly ? 'is-active' : ''}" id="dialog-panel-brief" data-dialog-panel="brief" role="tabpanel" aria-labelledby="dialog-tab-brief" ${briefOnly ? '' : 'hidden'}>${briefPanel}</div>
     `}
     ${perspectiveSectionsHtml(summary, detailsState, stateOnly ? [] : model.updates || [])}
-    ${!stateOnly && model.originalSummary?.summary_pl && model.originalSummary.summary_pl !== summary.summary_pl ? `<details class="publication-history"><summary>Pierwsza opublikowana synteza</summary><div class="summary-copy">${richTextHtml(synthesisParagraphs(model.originalSummary.summary_pl))}</div></details>` : ''}
-    ${!stateOnly && (model.mergedPublications || []).length ? `<details class="publication-history"><summary>Opracowania dołączone przy scalaniu (${model.mergedPublications.length})</summary>${model.mergedPublications.map(p => `<h3>${escapeHtml(p.base_summary?.topic?.headline_pl || '')}</h3><div class="summary-copy">${richTextHtml(synthesisParagraphs(p.base_summary?.summary_pl || ''))}</div>`).join('')}</details>` : ''}
+    ${!stateOnly && detailsState === 'ready' && model.updates?.length ? `<section class="dialog-section updates-section"><h3>Aktualizacje</h3>${model.updates.map(update => `<article class="update-section"><p class="update-label">Aktualizacja</p><small>${escapeHtml(formatDateTime(update.generated_at))}</small>${perspectiveUpdateHtml(update)}</article>`).join('')}</section>` : ''}
     <section class="dialog-section"><h3>Materiały źródłowe</h3><div class="evidence-list">${sources || '<p>Brak zapisanych linków źródłowych.</p>'}</div></section>
   </div>`;
 }

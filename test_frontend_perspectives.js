@@ -100,7 +100,7 @@ model=topicModel(topic);
 assert.strictEqual(model.summary.summary_pl,'Zachowana synteza.');
 assert.strictEqual(model.summary.facts[0].text_pl,'Aktualny wspólny fakt.');
 assert.strictEqual(coverageNotice(model.summary, model.updates), '');
-assert(coverageNotice(model.summary, [update]).includes('Pierwotna synteza powstała wyłącznie na podstawie źródeł lewicowych.'));
+assert(coverageNotice(model.summary, [update]).includes('Synteza opiera się na materiałach źródeł lewicowych.'));
 assert.strictEqual(coverageNotice(model.summary, [update], 'NO_NEW_INFORMATION'), '');
 assert.strictEqual(frozen.coverage_mode,'SINGLE_LEFT');
 assert.strictEqual(frozen.facts[0].text_pl,'Pierwotny fakt.');

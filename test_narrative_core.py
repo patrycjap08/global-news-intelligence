@@ -8,7 +8,7 @@ import ai_pipeline as ai
 import editorial_integrity as integrity
 import perspective_summaries as p
 import test_summary_queue as queue_tests
-from test_writing_fixtures import article_response
+from test_writing_fixtures import as_initial_draft, article_response
 
 
 FIXTURE = json.loads(Path(__file__).with_name('test_data').joinpath(
@@ -57,19 +57,19 @@ class NarrativeCoreTests(unittest.TestCase):
         payload = {'topic': {'topic_id': record['topic']['topic_id'], 'working_title_pl': record['topic']['headline_pl']},
                    'all_articles': record['articles'], 'new_article_ids': [], 'previous_aggregation': previous}
         original = copy.deepcopy(payload)
-        result = p.generate(payload, call, ai.normalize_generated_text, allow_omissions=True)
+        result = p.generate(as_initial_draft(payload), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
         self.assertIn(primary['text_pl'], result['summary_pl'])
         self.assertIn('146', result['summary_pl'])
         self.assertTrue(result['quality_report']['narrative_core_fallback'])
         self.assertEqual(result['quality_report']['read_articles'], 0)
-        self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
+        self.assertEqual(result['update']['status'], 'BASE_SUMMARY')
         self.assertEqual(len(result['facts']), 5, 'Retain differing valuations and eligibility details')
         self.assertEqual(payload, original, 'No mutation of published evidence')
         self.assertFalse(integrity.narrative_missing_core(
             record['topic']['headline_pl'], result['summary_pl'], result['facts']))
 
-    def test_queue_refreshes_only_missing_core_without_marking_old_articles_new(self):
+    def test_queue_only_backfills_the_missing_brief_without_rewriting_a_missing_core(self):
         record = FIXTURE['spacex']
         topic = {**record['topic'], 'last_seen_at': '2026-10-07T12:00:00Z'}
         tid = topic['topic_id']
@@ -83,9 +83,8 @@ class NarrativeCoreTests(unittest.TestCase):
         self.assertEqual(stats['summaries'], 1)
         generate.assert_called_once()
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
-        fixed = record['facts'][0]['text_pl'] + '\n\n' + record['summary_pl']
-        summaries[0]['summary'] = stored(record, fixed)
-        summaries[0]['summary']['current_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
+        summaries[0]['summary'] = stored(record)
+        summaries[0]['summary']['base_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
         stats, generate, persist, _ = h.run_queue([topic], articles, links, summaries, assignments)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()

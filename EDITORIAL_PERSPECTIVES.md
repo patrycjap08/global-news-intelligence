@@ -1,15 +1,15 @@
-# AI-only i publikacja perspektyw — v88
+# AI-only i publikacja perspektyw — v89
 
-Obowiązująca wersja: `ai-prompts-v88-complete-inputs-paired-paragraphs`.
-Poniższe zasady zastępują wcześniejsze opisy v61–v73; tamte implementacje
+Obowiązująca wersja: `ai-prompts-v89-immutable-publication-updates`.
+Poniższe zasady zastępują wcześniejsze opisy v61–v88; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
 ma dodatkowo `publication_version=2`.
 
 ## Cel publikacji
 
-Czytelnik najpierw dostaje krótki, aktualny opis wydarzenia. Osobno może sprawdzić
-ustalenia ze źródłami, oceny i interpretacje oraz tło. Profil polityczny portalu
+Czytelnik dostaje pierwszą syntezę ze skrótem oraz kolejne aktualizacje.
+Oceny i interpretacje są przypisane do źródeł, a tło wplecione w tekst. Profil polityczny portalu
 nie decyduje o prawdziwości i nie dowodzi przemilczania tematu. Dwa portale mogą
 uzupełniać się albo cytować tę samą depeszę lub cudzą ocenę.
 
@@ -34,7 +34,7 @@ Kolory podpisów odpowiadają paskowi. Zero nadal ma napis `0%` i odcinek 4 px.
 2. Porównaj i scal kandydatów przed syntezami, uporządkuj tytuły.
 3. Uruchom jedną kolejkę opracowań. Każdy temat ma ekstrakcję nowych lub
    zmienionych materiałów, kontrolę nowości krótkich ustaleń i najwyżej jedno
-   napisanie bieżącej syntezy.
+   napisanie pierwszej syntezy ze skrótem. Dalsze informacje są aktualizacjami.
 4. Uzupełnij brakujące kategorie.
 
 Nie ma końcowego scalania uruchamiającego drugą kolejkę. Dotyczy to `full`,
@@ -115,7 +115,7 @@ pominięte ustalenia, pominięte etapy i koszt tokenów; log zawiera ID tematu.
 Limity te nie obejmują etykietowania, kategorii, embeddingów ani ręcznych
 narzędzi starego formatu.
 
-## Nowość i bieżący tekst
+## Nowość i niezmienna pierwsza publikacja (v89)
 
 Audyt porównuje krótkie treści, nigdy pełne artykuły. Ma do 24 kandydatów
 w paczce i maksymalnie osiem najbliższych tekstowo znanych ustaleń na kandydata.
@@ -130,9 +130,11 @@ Nie przenosimy wszystkich cytowań zdania złożonego na wszystkie jego składow
 Dobór podobnych tekstów i walidacje są heurystykami, nie formalnym dowodem
 równoważności. Różne parafrazy mogą pozostać osobno.
 
-`base_summary` pozostaje archiwum pierwszej publikacji. `current_summary`
-jest odświeżane raz, gdy zmieniły się ustalenia lub po scaleniu rejestrów.
-Same nowe potwierdzenia nie kupują kolejnego pisania i nie tworzą aktualizacji.
+`base_summary` zawiera pierwszą syntezę i jej skrót. Oba teksty pozostają
+niezmienne i są główną treścią widoku. `current_summary` jest zgodnym z nimi
+aliasem dla starszych klientów. Nowe fakty i nowe oceny redakcyjne tworzą
+osobne, datowane aktualizacje z przypisaniem źródeł i profili. Same nowe
+potwierdzenia nie kupują kolejnego pisania i nie tworzą aktualizacji.
 Niepoprawne akapity są pomijane. Jeśli model nie zwróci żadnego użytecznego
 akapitu, krótką syntezę tworzą zaakceptowane ustalenia z przypisaniem do źródła,
 bez kolejnego zapytania. Zmieniony artykuł traci stare cytowania przed ponowną
@@ -145,19 +147,18 @@ wycenę, liczbę odbiorców lub warunki. Gdy częściowo poprawna odpowiedź pom
 to ustalenie, kod dodaje jego zaakceptowane brzmienie z przypisaniem źródła,
 bez ponownego zapytania. Raport zapisuje `narrative_core_fallback`.
 
-Kolejka może rozpoznać ewidentne pominięcie kilku kluczowych elementów tytułu
-w publikacji `publication_version=2`. Taki temat może dostać jedno nowe pisanie
-na podstawie zapisanego rejestru, bez nowych artykułów, ekstrakcji ani audytu
-nowości. Nie jest to przebudowa wszystkich syntez ani test pełnej semantycznej
-kompletności. Po uzupełnieniu rdzenia ten sam brak nie wywołuje kolejnego
-pisania. Stare formaty nie są automatycznie regenerowane przez ten warunek.
+Kolejka nie przepisuje już opublikowanego tekstu z powodu dawnych znaczników
+brakującego kontekstu lub rdzenia. Po scaleniu rejestrów nowe zaimportowane
+ustalenia oczekują na kontrolę nowości i aktualizację. Nie trzeba ponownie
+odczytywać pełnych treści przetworzonych artykułów.
 
 ## Widok i kontekst
 
-Najpierw bieżąca synteza z potrzebnym tłem, potem oceny; pełny rejestr jest w zakładce
-Fakty. Historia aktualizacji nie jest wyświetlana; pozostaje w danych do
-audytu i oznaczeń przeczytania. Wcześniejsze syntezy pozostają zwijanym
-archiwum. Karty nie mają powtarzanych nagłówków typu informacji ani „Autor:”.
+Najpierw pierwsza synteza z potrzebnym tłem i osobna zakładka Skrót, potem
+początkowe oceny oraz datowane aktualizacje od najnowszej. Rejestr faktów
+pozostaje w danych. Nie ma rozwijanego archiwum „Pierwsza opublikowana synteza”.
+Oceny z aktualizacji nie powtarzają się nad historią. Karty nie mają
+powtarzanych nagłówków typu informacji ani „Autor:”.
 Przypisanie wypowiedzi w treści i źródła pozostają. Od v77 nie ma rozwijanych
 cytatów. Dawne fragmenty pozostają w zapisanych danych, bez wyświetlania.
 Obecność informacji w archiwum nie usuwa jej z bieżącego stanu.
@@ -197,12 +198,9 @@ Dodatki są zachowane osobno jako `narrative_context` do audytu; nie trafiają
 do rejestru Faktów, potwierdzeń źródeł ani nowych ustaleń w aktualizacji.
 Nie ma dodatkowej ekstrakcji, weryfikacji API ani płatnych prób naprawy.
 
-Bieżący zapis v2 zawierający co najmniej dwa skróty spoza listy powszechnych
-nazw może dostać jedną próbę pisania z objaśnieniami. Reguła jest celowo wąska;
-nie przebudowuje wszystkich syntez. `inline_context_version=1` zapisuje się
-również przy pustych dodatkach, aby ten sam warunek nie kupował kolejnego
-pisania przy każdym AI-only. Nowe dane mogą odświeżyć syntezę według zwykłych
-zasad. `quality_report` zawiera liczbę przekazanych źródeł, znaków fragmentów
+Od v89 dawne znaczniki brakujących objaśnień nie uruchamiają ponownego pisania
+opublikowanej syntezy. Objaśnienia powstają przy pierwszej publikacji.
+`quality_report` zawiera liczbę przekazanych źródeł, znaków fragmentów
 i zaakceptowanych dodatków kontekstowych.
 
 Od v77 istniejąca publikacja v2, która jest całkowicie pusta po odrzuceniu
@@ -255,7 +253,7 @@ faktów z zaakceptowanymi akapitami są raportowane bez dodatkowych zapytań.
 Szczegóły i przykład 57 ustaleń opisuje
 [przegląd pokrycia syntez](SYNTHESIS_COVERAGE_REVIEW_20261023.md).
 
-## Eksperyment: osobny skrót w dwóch akapitach (v87)
+## Osobny skrót (v87, elastyczna długość od v89)
 
 Strona pokazuje „Synteza” i „Skrót”, bez listy faktów. Pełny tekst nadal
 obejmuje wszystkie ustalenia. Rejestr i osobne oceny redakcyjne pozostają.
@@ -265,23 +263,24 @@ co pełny artykuł: dochodzi krótka instrukcja oraz tokeny wyjścia skrótu,
 jego metadanych i ewentualnego rozumowania. Nie wysyłamy ponownie całego
 wejścia ani artykułów i nie otwieramy osobnego zapytania.
 
-Odpowiedź zawiera `brief_paragraphs` o dokładnie dwóch elementach z tekstem
+Odpowiedź zawiera `brief_paragraphs` domyślnie o dwóch elementach, a dla
+złożonych spraw o trzech lub czterech, z tekstem
 i ID wykorzystanych faktów. Kod sprawdza ich strukturę, identyfikatory,
 powiązanie z podanymi ustaleniami, liczby, brak powtórzenia całego akapitu
 i niedozwolonych podziałów. To nie jest dowód semantycznej poprawności.
 Niepoprawny skrót jest pomijany, pełna synteza pozostaje. Nie ma zapytań
-naprawczych. Wynik trafia do `current_summary.brief_pl`, a pełna synteza
-zostaje w `summary_pl`. Wspólna definicja ID w schemacie nie dubluje enumów
+naprawczych. Pierwszy wynik trafia do `base_summary.brief_pl`, a pełna synteza
+do `base_summary.summary_pl`. Wspólna definicja ID w schemacie nie dubluje enumów
 przy dużych rejestrach faktów.
 
 Dla już zapisanych publikacji bez skrótu kolejka AI-only kwalifikuje jedną
 próbę `perspective_brief`, w normalnym oknie aktualnych tematów, o ile
-istnieją pełny tekst i zapisane fakty. Gdy nie ma nowej informacji ani
-innej przyczyny ponownego pisania, wysyłane są tylko fakty. Model pozostaje
+istnieje pełny tekst. Wysyłane są tylko ustalenia z pierwszej publikacji,
+a przy braku dawnego rejestru sam pierwszy tekst. Model pozostaje
 ten sam, rozumowanie jest niskie, a wyjście ma limit 3000 tokenów
 (`AI_BRIEF_MAX_OUTPUT_TOKENS`). Znacznik `brief_generation_version=1`
 zapobiega powtarzaniu ukończonej próby także przy odrzuconej odpowiedzi.
-Nowe ustalenia mogą później dać nową syntezę ze skrótem w jednym pisaniu.
+Nowe ustalenia tworzą później aktualizacje, bez zastępowania pierwszego skrótu.
 
 Samo uzupełnienie skrótu nie jest nową wiadomością, nie tworzy aktualizacji
 i nie zmienia oznaczenia przeczytania. Przeglądarka niczego nie generuje

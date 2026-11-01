@@ -62,7 +62,7 @@ def needs_brief(current, facts):
         return False
     text = current.get('brief_pl')
     paragraphs = re.split(r'\n\s*\n', text.strip()) if isinstance(text, str) and text.strip() else []
-    return len(paragraphs) != 2 or any(not paragraph.strip() for paragraph in paragraphs)
+    return not 2 <= len(paragraphs) <= 4 or any(not paragraph.strip() for paragraph in paragraphs)
 
 
 def tokens(text):
@@ -187,12 +187,15 @@ def merge_publications(canonical, others):
     """Union publication ledgers without turning a technical merge into news.
 
     Keep originals and update IDs. Repeating an interrupted merge is idempotent.
-    The next summary pass refreshes the narrative once from the merged ledger.
+    Newly imported claims wait for a novelty audit and an additive update.
+    The initial publication is never rewritten after a technical merge.
     """
     result = copy.deepcopy(canonical)
     base = result.get('base_summary') or result
     if base.get('perspective_version') != 1:
         return result
+    canonical_state = canonical.get('perspective_state') or base
+    canonical_ids = {fact['fact_id'] for fact in canonical_state.get('perspective_facts') or []}
     facts, updates, processed, archives, hashes = {}, {}, set(), {}, {}
     sources = [('', canonical), *others]
     by_text = {}
@@ -223,5 +226,10 @@ def merge_publications(canonical, others):
     result['processed_article_ids'] = sorted(processed)
     result['article_content_hashes'] = hashes
     result['merged_publications'] = list(archives.values())
-    result['needs_narrative_refresh'] = True
+    already_updated = {fact.get('fact_id') for update in result['updates']
+                       for values in (update.get('perspective_sections') or {}).values()
+                       for fact in values if isinstance(fact, dict)}
+    pending = (set(result.get('pending_publication_fact_ids') or []) | (set(facts) - canonical_ids)) - already_updated
+    result['pending_publication_fact_ids'] = sorted(pending & set(facts))
+    result['needs_narrative_refresh'] = False
     return result

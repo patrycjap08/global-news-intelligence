@@ -13,7 +13,7 @@ import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
 from test_publication_flow import PersistingClient
-from test_writing_fixtures import article_response, paired_article_response
+from test_writing_fixtures import as_initial_draft, article_response, paired_article_response
 
 
 FACTS = [
@@ -37,7 +37,7 @@ FULL = '\n\n'.join(f['text_pl'] for f in FACTS)
 def stored():
     current = {'topic': {'headline_pl': '[Polska] Budowa szkół'}, 'summary_pl': FULL,
                'perspective_version': 1, 'publication_version': 2, 'coverage_mode': 'SINGLE_CENTER',
-               'inline_context_version': 2, 'situation_context_version': 1}
+               'inline_context_version': 2, 'situation_context_version': 1, 'facts': copy.deepcopy(FACTS)}
     return {'base_summary': copy.deepcopy(current), 'current_summary': current,
             'perspective_state': {'facts': copy.deepcopy(FACTS), 'perspective_facts': copy.deepcopy(FACTS)},
             'processed_article_ids': ['a', 'b'], 'updates': [], 'needs_narrative_refresh': False}
@@ -56,7 +56,7 @@ class TwoParagraphBriefTests(unittest.TestCase):
         schema = p.article_writing_schema(FACTS)
         check_response_schema(schema)
         jsonschema.validate(paired_article_response(raw), schema)
-        for paragraphs in (BRIEF[:1], BRIEF + BRIEF[:1]):
+        for paragraphs in (BRIEF[:1], BRIEF * 3):
             with self.assertRaises(jsonschema.ValidationError):
                 jsonschema.validate(paired_article_response({**raw, 'brief_paragraphs': paragraphs}), schema)
         many = [{**FACTS[0], 'fact_id': f'fact_{i:024x}'} for i in range(500)]
@@ -68,7 +68,7 @@ class TwoParagraphBriefTests(unittest.TestCase):
         raw = article_response([{'text_pl': f['text_pl'], 'fact_ids': [f['fact_id']]} for f in FACTS],
                                brief_paragraphs=copy.deepcopy(BRIEF))
         with patch.object(ai, 'call_openai', return_value=raw) as request, patch.object(ai, 'log'):
-            result = ai.generate_summary_response(payload(old), 'gpt-6-luna')
+            result = ai.generate_summary_response(as_initial_draft(payload(old)), 'gpt-6-luna')
         request.assert_called_once()
         self.assertEqual(request.call_args.kwargs['response_schema_name'], 'perspective_summary')
         self.assertEqual(result['summary_pl'], FULL)
@@ -99,7 +99,8 @@ class TwoParagraphBriefTests(unittest.TestCase):
                            previous_row={'version': 1, 'summary': before['previous_aggregation']}, new_article_ids=[])
         saved = client.rows['topic_summaries'][0]['summary']
         self.assertEqual(saved['current_summary']['brief_pl'], result['brief_pl'])
-        self.assertEqual(saved['base_summary'], original['previous_aggregation']['base_summary'])
+        self.assertEqual(saved['base_summary']['summary_pl'], original['previous_aggregation']['base_summary']['summary_pl'])
+        self.assertEqual(saved['base_summary']['brief_pl'], result['brief_pl'])
         self.assertEqual(saved['updates'], [])
         with patch.object(ai, 'call_openai') as request, patch.object(ai, 'log'):
             ai.generate_summary_response(payload(saved), 'gpt-6-luna')
@@ -120,7 +121,7 @@ class TwoParagraphBriefTests(unittest.TestCase):
                 self.assertEqual(result['summary_pl'], FULL)
                 self.assertEqual(result['brief_generation_version'], integrity.BRIEF_GENERATION_VERSION)
                 previous = stored()
-                previous['current_summary'] = result
+                previous['base_summary'] = result
                 with patch.object(ai, 'call_openai') as request, patch.object(ai, 'log'):
                     ai.generate_summary_response(payload(previous), 'gpt-6-luna')
                 request.assert_not_called()

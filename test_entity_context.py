@@ -12,7 +12,7 @@ import perspective_summaries as p
 from structured_outputs import check_response_schema
 import test_summary_queue as queue_tests
 from test_topic_titles import FakeMergeClient
-from test_writing_fixtures import article_response, paired_article_response
+from test_writing_fixtures import as_initial_draft, article_response, paired_article_response
 
 DATA = json.loads(Path(__file__).with_name('test_data').joinpath('witkoff_missing_context_20261021.json').read_text())
 
@@ -86,14 +86,14 @@ class EntityContextTests(unittest.TestCase):
             self.assertIn('specjalny wysłannik prezydenta USA', passages)
             self.assertIn('main_facts', data)
             return paired_article_response(response())
-        result = p.generate(self.payload(stored), call, ai.normalize_generated_text, allow_omissions=True)
+        result = p.generate(as_initial_draft(self.payload(stored)), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
         self.assertIn('Thom Tillis (republikański senator USA)', result['summary_pl'])
         self.assertIn('Witkoffa (specjalny wysłannik prezydenta USA)', result['summary_pl'])
         self.assertIn('Petersburgu', result['summary_pl'])
         self.assertIn('przetrzymywanego od 2022', result['summary_pl'])
         self.assertEqual(len(result['narrative_context']), 3)
-        self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
+        self.assertEqual(result['update']['status'], 'BASE_SUMMARY')
         self.assertEqual(result['quality_report']['read_articles'], 0)
         self.assertFalse(result['quality_report']['narrative_fallback'])
         self.assertFalse(any('republikański senator' in f['text_pl'] for f in result['facts']))
@@ -106,7 +106,7 @@ class EntityContextTests(unittest.TestCase):
             calls.append(args[-1])
             return response(reject=True)
         stored = previous()
-        result = p.generate(self.payload(stored), call, ai.normalize_generated_text, allow_omissions=True)
+        result = p.generate(as_initial_draft(self.payload(stored)), call, ai.normalize_generated_text, allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
         self.assertNotIn('2099', result['summary_pl'])
         self.assertIn('Thom Tillis', result['summary_pl'])
@@ -141,7 +141,7 @@ class EntityContextTests(unittest.TestCase):
                 error = ai.AIResponseParseError('Invalid paragraph reference', json.dumps(raw))
                 error.response_details = {'status': status}
                 with patch.object(ai, 'call_openai', side_effect=error) as request, patch.object(ai, 'log'):
-                    result = ai.generate_summary_response(self.payload(previous()), 'gpt-5-nano')
+                    result = ai.generate_summary_response(as_initial_draft(self.payload(previous())), 'gpt-5-nano')
                 request.assert_called_once()
                 self.assertEqual(result['quality_report']['api_calls'], 1)
                 self.assertTrue(result['quality_report']['narrative_fallback'])
@@ -154,7 +154,7 @@ class EntityContextTests(unittest.TestCase):
             with self.subTest(rejected=rejected):
                 raw = response(reject=rejected)
                 raw['summary_pl'] = 'Według WP: ' + raw['summary_pl']
-                result = p.generate(self.payload(previous()), lambda *args: raw,
+                result = p.generate(as_initial_draft(self.payload(previous())), lambda *args: raw,
                                     ai.normalize_generated_text, allow_omissions=True)
                 self.assertNotIn('Według WP:', result['summary_pl'])
                 self.assertNotIn('Według WP:', result['topic']['what_happened_one_sentence_pl'])
@@ -167,33 +167,23 @@ class EntityContextTests(unittest.TestCase):
             'Według lekarza: Pacjent wymaga leczenia.', ['PAP']),
             'Według lekarza: Pacjent wymaga leczenia.')
 
-    def test_queue_and_persistence_rewrite_old_fallback_but_never_reread_it(self):
+    def test_existing_fallback_is_not_rewritten_to_add_context(self):
+        stored = previous()
+        stored['base_summary']['brief_pl'] = 'Pierwszy akapit.\n\nDrugi akapit.'
         topic = {**DATA['topic'], 'last_seen_at': '2026-10-07T12:00:00Z'}
         tid = topic['topic_id']
         rows = [(a['article_id'], a['source_id'], a['source_profile']) for a in DATA['articles']]
         links = [{'topic_id': tid, 'article_id': a[0]} for a in rows]
-        summaries = [{'topic_id': tid, 'version': 1, 'summary': previous(), 'updated_at': '2026-10-07T11:00:00Z'}]
-        stats, generate, persist, _ = queue_tests.SummaryQueueTests().run_queue([topic], rows, links, summaries)
-        self.assertEqual(stats['summaries'], 1)
-        generate.assert_called_once()
-        self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
-        with patch.object(ai, 'call_openai', return_value=response()) as request, patch.object(ai, 'log'):
-            result = ai.generate_summary_response(self.payload(previous()), 'gpt-5-nano')
-        request.assert_called_once()
-        self.assertEqual(request.call_args.kwargs['retry_limit'], 1)
-        client = FakeMergeClient([], [], [])
-        ai.persist_summary(client, topic_id=tid, run_id='test', model='fake', summary=result,
-                           summary_hash='h', previous_row=summaries[0], new_article_ids=[])
-        saved = next(items[0]['summary'] for table, items, _ in client.upserts if table == 'topic_summaries')
-        self.assertIn('republikański senator', saved['current_summary']['summary_pl'])
-        self.assertEqual(saved['current_summary']['inline_context_version'], integrity.INLINE_CONTEXT_VERSION)
-        self.assertEqual(saved['current_summary']['situation_context_version'], integrity.SITUATION_CONTEXT_VERSION)
-        self.assertIsNone(saved['current_summary']['situation_context'])
-        self.assertTrue(any(s.get('kind') == 'SITUATION' for s in saved['current_summary']['narrative_context']))
-        summaries[0]['summary'] = saved
+        summaries = [{'topic_id': tid, 'version': 1, 'summary': stored, 'updated_at': '2026-10-07T11:00:00Z'}]
         stats, generate, _, _ = queue_tests.SummaryQueueTests().run_queue([topic], rows, links, summaries)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()
+        before = copy.deepcopy(stored['base_summary'])
+        with patch.object(ai, 'call_openai') as request, patch.object(ai, 'log'):
+            result = ai.generate_summary_response(self.payload(stored), 'gpt-6-luna')
+        request.assert_not_called()
+        self.assertEqual(result['summary_pl'], before['summary_pl'])
+        self.assertEqual(result['brief_pl'], before['brief_pl'])
 
 
 if __name__ == '__main__':

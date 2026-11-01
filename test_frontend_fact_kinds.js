@@ -50,7 +50,7 @@ assert(isTopicRead(topicModel(topic)));
 // assessment when another outlet later independently expresses the same view.
 const both={...current,perspective_sections:{LEFT:[assessment],RIGHT:[{...assessment,article_ids:['demo-a2']}]}};
 const leftHistory=[{perspective_sections:{LEFT:[assessment]}}];
-html=perspectiveSectionsHtml(both,'ready',leftHistory);
+html=perspectiveSectionsHtml(both,'ready',leftHistory) + leftHistory.map(perspectiveUpdateHtml).join('');
 assert(!html.includes('data-perspective-tab="LEFT"'));
 assert.strictEqual(html.split(assessment.text_pl).length - 1, 1);
 // New opinion-only topics get the neutral-content message, while historical

@@ -113,7 +113,7 @@ class StructuredOutputTests(unittest.TestCase):
             result = ai.generate_summary_response(payload, 'gpt-5-nano')
         self.assertEqual(calls.count('perspective_facts'), 4)
         self.assertEqual(calls.count('perspective_novelty_audit'), 2)
-        self.assertEqual(calls.count('perspective_summary'), 1)
+        self.assertEqual(calls.count('perspective_summary'), 0)
         self.assertEqual(bodies, [a['body_original'] for a in rows[23:]])
         self.assertEqual(payload, before)
         self.assertEqual(len(result['perspective_facts']), 27)

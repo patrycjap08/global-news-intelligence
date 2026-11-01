@@ -81,7 +81,8 @@ class EditorialIntegrityTests(unittest.TestCase):
         self.assertEqual(len(merged['perspective_state']['perspective_facts']), 2)
         self.assertEqual(len(merged['updates']), 2)
         self.assertEqual(merged['processed_article_ids'], ['a', 'b'])
-        self.assertTrue(merged['needs_narrative_refresh'])
+        self.assertFalse(merged['needs_narrative_refresh'])
+        self.assertEqual(merged['pending_publication_fact_ids'], ['b'])
         self.assertEqual(merged['base_summary'], left['base_summary'])
         self.assertEqual(q.merge_publications(merged, [('right', right)]), merged)
         self.assertEqual((left, right), original)
@@ -156,7 +157,7 @@ class EditorialIntegrityTests(unittest.TestCase):
         self.assertEqual(p.make_update(result, known, True, ['b'], {a['article_id']: a for a in rows})['status'], 'NO_NEW_INFORMATION')
         self.assertFalse(q.compatible_duplicate('Zatrzymano 8 osób w Marsylii.', 'Zatrzymano 10 osób w Marsylii.'))
 
-    def test_current_narrative_updates_once_and_context_can_be_empty(self):
+    def test_new_fact_is_an_update_and_never_rewrites_initial_text(self):
         old = 'Policja zatrzymała 8 osób w Marsylii.'
         new = 'Minister przyjedzie do Marsylii w poniedziałek.'
         rows = [article('a', old), article('b', new)]
@@ -176,15 +177,17 @@ class EditorialIntegrityTests(unittest.TestCase):
             return result
         with patch.object(ai, 'call_openai', side_effect=request), patch.object(ai, 'log'):
             result = ai.generate_summary_response(payload, 'gpt-5-nano')
-        self.assertEqual(calls.count('perspective_summary'), 1)
-        self.assertIn(new, result['summary_pl'])
+        self.assertEqual(calls.count('perspective_summary'), 0)
+        self.assertEqual(result['summary_pl'], old)
+        self.assertIn(new, result['update']['new_information_pl'])
         self.assertEqual(result['background_context'], [])
         client = FakeMergeClient([], [], [])
         ai.persist_summary(client, topic_id='t', run_id='r', model='fake', summary=result,
                            summary_hash='h', previous_row={'version': 1, 'summary': {'base_summary': base}}, new_article_ids=['b'])
         saved = next(rows[0]['summary'] for table, rows, _ in client.upserts if table == 'topic_summaries')
         self.assertEqual(saved['base_summary'], base)
-        self.assertIn(new, saved['current_summary']['summary_pl'])
+        self.assertEqual(saved['current_summary']['summary_pl'], old)
+        self.assertIn(new, saved['updates'][0]['new_information_pl'])
         self.assertEqual(len(saved['updates']), 1)
 
     def test_wrong_paragraph_and_unverified_context_are_omitted_locally(self):

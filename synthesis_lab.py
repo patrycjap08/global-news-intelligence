@@ -313,8 +313,8 @@ def run_topic(record, variant, config, directory, parent=None, client_factory=No
                 raise ValueError('Brak poprawnego wyniku facts_from dla tego wątku.')
             base = copy.deepcopy(parent['result'])
             payload['new_article_ids'] = []
-            payload['previous_aggregation'] = {'base_summary': base, 'current_summary': base,
-                'perspective_state': base['perspective_state'], 'needs_narrative_refresh': True,
+            payload['draft_publication'] = {'base_summary': base,
+                'perspective_state': base['perspective_state'],
                 'processed_article_ids': [a['article_id'] for a in articles]}
         result['result'] = p.generate(payload, runner, ai.normalize_generated_text,
                                       max_payload_chars=config.get('MAX_PAYLOAD_CHARS', 300000),

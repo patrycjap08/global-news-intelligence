@@ -165,7 +165,7 @@ def writing_schema(main, *, inline_context=False):
 def brief_schema(main):
     paragraph = obj({'text_pl': {**copy.deepcopy(NONBLANK_STRING), 'maxLength': 1000},
                      'fact_ids': {**allowed_strings(f['fact_id'] for f in main), 'minItems': 1 if main else 0}})
-    return obj({'brief_paragraphs': {'type': 'array', 'minItems': 2, 'maxItems': 2, 'items': paragraph}})
+    return obj({'brief_paragraphs': {'type': 'array', 'minItems': 2, 'maxItems': 4, 'items': paragraph}})
 
 
 def article_writing_schema(main):
@@ -635,8 +635,11 @@ musi mieć article_ids zgodne z użytymi ustaleniami; needs_verification=false.
 
 
 BRIEF_INSTRUCTIONS = """
-SKRÓT: napisz osobno najważniejsze informacje w DOKŁADNIE DWÓCH krótkich
-akapitach w brief_paragraphs. Korzystaj wyłącznie ze zweryfikowanych main_facts,
+SKRÓT: napisz osobno najważniejsze informacje w brief_paragraphs.
+DOMYŚLNIE użyj dwóch krótkich akapitów. Jeżeli sprawa jest złożona albo zawiera
+wiele istotnych informacji, możesz użyć trzech lub czterech akapitów. Wydłuż
+skrót tylko wtedy, gdy pomaga to czytelnikowi zrozumieć sprawę, bez powtórzeń.
+Korzystaj wyłącznie ze zweryfikowanych main_facts,
 nie z pełnych artykułów. Wybierz sedno wydarzenia, najważniejszy rozwój sprawy,
 konkretne decyzje i skutki lub dalsze kroki, jeśli dane je podają. Nie próbuj
 zmieścić wszystkich faktów w skrócie. primary_fact_id wskazuje sedno.
@@ -650,7 +653,7 @@ prognoz, nieznanej chronologii ani informacji z pamięci. Nie wymyślaj drugiej
 wiadomości tylko po to, żeby wypełnić dwa akapity. Powiązane informacje
 rozłóż logicznie. Każdy akapit to jeden text_pl bez wewnętrznych podziałów
 wiersza i fact_ids wyłącznie tych ustaleń, które rzeczywiście opisuje.
-Skrót to oddzielny tekst, a nie pierwsze dwa akapity syntezy. Jego zwięzłość
+Skrót to oddzielny tekst, a nie początkowe akapity syntezy. Jego zwięzłość
 NIE ogranicza pełnego artykułu, który nadal obejmuje wszystkie ustalenia.
 """.strip()
 
@@ -1449,14 +1452,14 @@ def writing_fact_coverage(paragraphs, main):
 
 
 def safe_brief_written(written, main):
-    """Accept exactly two independently supported paragraphs, with no repair call."""
+    """Accept a short, supported 2–4 paragraph brief, with no repair call."""
     supplied = written.get('brief_paragraphs') if isinstance(written, dict) else None
     result = {'brief_pl': '', 'brief_validation': {'version': integrity.BRIEF_GENERATION_VERSION,
                                                    'status': 'MISSING', 'fact_ids': []}}
     if supplied is None:
         return result
     result['brief_validation']['status'] = 'INVALID'
-    if not isinstance(supplied, list) or len(supplied) != 2:
+    if not isinstance(supplied, list) or not 2 <= len(supplied) <= 4:
         return result
     by_id = {fact['fact_id']: fact for fact in main}
     paragraphs, cited, seen = [], set(), set()
@@ -1480,7 +1483,18 @@ def safe_brief_written(written, main):
         paragraphs.append(text)
     return {'brief_pl': '\n\n'.join(paragraphs),
             'brief_validation': {'version': integrity.BRIEF_GENERATION_VERSION,
-                                 'status': 'VALID', 'fact_ids': sorted(cited)}}
+                                 'status': 'VALID', 'fact_ids': sorted(cited), 'paragraph_count': len(paragraphs)}}
+
+
+def initial_brief_facts(publication):
+    """Backfill a missing brief from the initial publication, never later news."""
+    supplied = publication.get('facts') or publication.get('perspective_facts') or []
+    facts = [fact for fact in supplied if isinstance(fact, dict) and fact.get('fact_id')
+             and fact.get('text_pl') and (fact.get('lane') == 'COMMON' or fact.get('kind') in ('FACT', 'STATEMENT'))]
+    if facts:
+        return facts
+    text = str(publication.get('summary_pl') or '').strip()
+    return [{'fact_id': 'initial_publication_text', 'text_pl': text, 'kind': 'FACT'}] if text else []
 
 
 def safe_article_written(written, main, source_passages):
@@ -1798,14 +1812,20 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
              allow_omissions=False, on_extraction_omission=None, on_article_cache=None):
     articles = payload.get('all_articles') or []
     previous = payload.get('previous_aggregation')
-    previous_base = (previous or {}).get('base_summary') or {}
-    previous_state = (previous or {}).get('perspective_state') or previous_base
+    # The read-only lab can write another independent draft from an extracted
+    # ledger. A draft is never an instruction to rewrite a saved publication.
+    draft = payload.get('draft_publication')
+    if previous is not None and draft is not None:
+        raise ValueError('Nie można jednocześnie aktualizować publikacji i pisać nowego szkicu.')
+    source = previous or draft or {}
+    previous_base = source.get('base_summary') or {}
+    previous_state = source.get('perspective_state') or previous_base
     known = previous_state.get('perspective_facts') or []
     if not articles:
         raise ValueError('Brak materiałów do opracowania perspektyw.')
     # Already processed articles are metadata/evidence, never full-text input.
-    processed = set((previous or {}).get('processed_article_ids') or [])
-    requested = set(payload.get('new_article_ids') or []) if previous is not None else {str(a['article_id']) for a in articles}
+    processed = set(source.get('processed_article_ids') or [])
+    requested = set(payload.get('new_article_ids') or []) if previous is not None or draft is not None else {str(a['article_id']) for a in articles}
     if previous is not None and 'new_article_ids' not in payload:
         requested = {str(a['article_id']) for a in articles} - processed
     hashes = (previous or {}).get('article_content_hashes') or {}
@@ -1949,52 +1969,51 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
         checkpoint['checksum'] = hashlib.sha256(json.dumps(checkpoint, ensure_ascii=False,
                                                           sort_keys=True).encode()).hexdigest()
         on_extraction_complete(checkpoint)
+    # A technical merge can import already-extracted claims that have not
+    # appeared in this topic's initial publication or updates. Audit those
+    # short claims as candidates, without rereading the absorbed articles.
+    unpublished = set((previous or {}).get('pending_publication_fact_ids') or [])
+    published_known = [fact for fact in known if fact['fact_id'] not in unpublished]
     novelty_audits = []
     omitted_novelty = []
     if allow_omissions:
-        facts, novelty_audits, omitted_novelty = audit_claims_once(facts, known, articles, call, normalize, max_payload_chars)
+        facts, novelty_audits, omitted_novelty = audit_claims_once(facts, published_known, articles, call, normalize, max_payload_chars)
     elif previous is not None:
-        facts, novelty_audits = audit_new_facts(facts, known, articles, call, normalize,
+        facts, novelty_audits = audit_new_facts(facts, published_known, articles, call, normalize,
                                                max_payload_chars, on_validation_retry)
     by_id = {str(a['article_id']): a for a in articles}
     main = sorted((f for f in facts if f['lane'] == 'COMMON'),
                   key=lambda f: not shared_support(f, by_id))
-    changed = {(f['fact_id'], f.get('kind')) for f in facts} != {(f['fact_id'], f.get('kind')) for f in known}
     working_title = payload['topic'].get('working_title_pl') or headline or previous_base.get('topic', {}).get('headline_pl', '')
-    previous_current = (previous or {}).get('current_summary') or previous_base
     context_sources = []
-    refresh = bool((previous or {}).get('needs_narrative_refresh') or changed_articles or (
-        allow_omissions and previous is not None and previous_current.get('publication_version') == 2
-        and integrity.narrative_missing_core(
-            working_title, previous_current.get('summary_pl', ''), main)) or (
-            allow_omissions and previous is not None and integrity.needs_inline_context(previous_current, main)) or (
-            allow_omissions and previous is not None and integrity.needs_situation_context(previous_current, main)))
     core_fallback = False
     narrative_fallback = False
     writing_validation = {}
     brief_validation = {}
     situation_context = None
-    if previous is not None and (not allow_omissions or (not changed and not refresh)):
-        # Confirmations alone do not buy another writing request.
-        previous_base = (previous or {}).get('current_summary') or previous_base
-        # No material change: retain the current text without another request.
-        result = dict(previous_base)
+    if previous is not None:
+        # The initial article and its brief are immutable. Newly admitted facts
+        # and assessments are published only through make_update below.
+        result = copy.deepcopy(previous_base)
         writing_validation = copy.deepcopy((previous_base.get('quality_report') or {}).get('writing_validation') or {})
         brief_validation = copy.deepcopy((previous_base.get('quality_report') or {}).get('brief_validation') or {})
         result.pop('perspective_state', None)
         result.setdefault('synthesis_coverage_mode', previous_base.get('coverage_mode', mode))
+        brief_facts = initial_brief_facts(previous_base)
         if (allow_omissions and payload.get('generate_brief_if_missing')
-                and integrity.needs_brief(previous_base, main)):
-            primary = integrity.primary_fact(main, working_title)
+                and not str(previous_base.get('brief_pl') or '').strip()
+                and integrity.needs_brief(previous_base, brief_facts)):
+            primary = integrity.primary_fact(brief_facts, working_title)
             brief_input = {'headline_pl': working_title,
                            'primary_fact_id': primary['fact_id'] if primary else '',
                            'main_facts': [{k: f[k] for k in ('fact_id', 'text_pl', 'kind', 'attribution') if k in f}
-                                          for f in main]}
-            brief = safe_brief_written(call(BRIEF_INSTRUCTIONS, brief_input, brief_schema(main),
-                                            'perspective_brief'), main)
+                                          for f in brief_facts]}
+            brief = safe_brief_written(call(BRIEF_INSTRUCTIONS, brief_input, brief_schema(brief_facts),
+                                            'perspective_brief'), brief_facts)
             result['brief_pl'] = normalize(integrity.without_obvious_definitions(
                 integrity.without_publisher_prefixes(brief['brief_pl'], [a.get('source_name') or a.get('source_id') for a in articles])))
             result['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
+            result['initial_brief_backfill_attempted'] = True
             brief_validation = brief['brief_validation']
     elif mode == 'STATE_ONLY' or (allow_omissions and not main):
         # Preserve state reports, or leave a wholly unusable extraction empty,
@@ -2084,7 +2103,7 @@ def generate(payload, call, normalize, *, max_payload_chars=300000, on_validatio
                                 'situation_context_included': any(s.get('kind') == 'SITUATION' for s in result.get('narrative_context') or []),
                                 'context_additions_accepted': len(result.get('narrative_context') or [])}
     sections = {lane: items for lane, items in fact_sections(facts).items() if lane != 'COMMON'}
-    update = make_update(facts, known, previous is not None, payload.get('new_article_ids') or [], by_id)
+    update = make_update(facts, published_known, previous is not None, payload.get('new_article_ids') or [], by_id)
     if novelty_audits:
         update['novelty_audit'] = {'perspective_batches': novelty_audits}
     update['fact_classification_version'] = FACT_CLASSIFICATION_VERSION

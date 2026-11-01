@@ -10,7 +10,7 @@ import editorial_integrity as integrity
 import perspective_summaries as p
 import test_entity_context as witkoff
 import test_summary_queue as queue
-from test_writing_fixtures import article_response
+from test_writing_fixtures import as_initial_draft, article_response
 
 
 class SituationContextTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class SituationContextTests(unittest.TestCase):
         result = p.generate({'topic': {'topic_id': record['topic']['topic_id'],
                                       'working_title_pl': record['topic']['headline_pl']},
                              'all_articles': record['articles'], 'new_article_ids': [],
-                             'previous_aggregation': previous},
+                             'draft_publication': previous},
                             lambda *args: calls.append(args[-1]) or raw, ai.normalize_generated_text,
                             allow_omissions=True)
         self.assertEqual(calls, ['perspective_summary'])
@@ -52,7 +52,7 @@ class SituationContextTests(unittest.TestCase):
                 previous['current_summary']['inline_context_version'] = 2
                 payload = witkoff.EntityContextTests().payload(previous)
                 with patch.object(ai, 'call_openai', return_value=raw) as request, patch.object(ai, 'log'):
-                    result = ai.generate_summary_response(payload, 'gpt-5-nano')
+                    result = ai.generate_summary_response(as_initial_draft(payload), 'gpt-5-nano')
                 request.assert_called_once()
                 self.assertEqual(request.call_args.kwargs['retry_limit'], 1)
                 paragraphs = result['summary_pl'].split('\n\n')
@@ -61,7 +61,7 @@ class SituationContextTests(unittest.TestCase):
                     self.assertEqual(paragraphs[1], context)
                 self.assertEqual(result['perspective_facts'], witkoff.DATA['facts'])
                 self.assertEqual(result['background_context'], [])
-                self.assertEqual(result['update']['status'], 'NO_NEW_INFORMATION')
+                self.assertEqual(result['update']['status'], 'BASE_SUMMARY')
                 self.assertEqual(result['quality_report']['situation_context_included'], not rejected)
                 self.assertEqual(result['situation_context_version'], integrity.SITUATION_CONTEXT_VERSION)
                 previous['current_summary'] = result
@@ -103,14 +103,14 @@ class SituationContextTests(unittest.TestCase):
                 previous = witkoff.previous()
                 payload = witkoff.EntityContextTests().payload(previous)
                 calls = []
-                result = p.generate(payload, lambda *args: calls.append(args[-1]) or raw,
+                result = p.generate(as_initial_draft(payload), lambda *args: calls.append(args[-1]) or raw,
                                     ai.normalize_generated_text, allow_omissions=True)
                 self.assertEqual(calls, ['perspective_summary'])
                 self.assertIsNone(result['situation_context'])
                 previous['current_summary'] = result
                 p.generate(payload, lambda *args: self.fail('Do not pay for a repair'), ai.normalize_generated_text, allow_omissions=True)
 
-    def test_existing_inline_publication_gets_one_writer_without_reextracting_articles(self):
+    def test_existing_inline_publication_only_qualifies_for_its_missing_brief(self):
         topic = {**witkoff.DATA['topic'], 'last_seen_at': '2026-10-07T12:00:00Z'}
         tid = topic['topic_id']
         articles = [(a['article_id'], a['source_id'], a['source_profile']) for a in witkoff.DATA['articles']]
@@ -123,7 +123,7 @@ class SituationContextTests(unittest.TestCase):
         generate.assert_called_once()
         self.assertEqual(persist.call_args.kwargs['new_article_ids'], [])
         stored['current_summary']['situation_context_version'] = integrity.SITUATION_CONTEXT_VERSION
-        stored['current_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
+        stored['base_summary']['brief_generation_version'] = integrity.BRIEF_GENERATION_VERSION
         stats, generate, _, _ = queue.SummaryQueueTests().run_queue([topic], articles, links, rows)
         self.assertEqual(stats['summaries'], 0)
         generate.assert_not_called()

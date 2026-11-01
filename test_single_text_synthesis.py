@@ -10,7 +10,7 @@ import ai_pipeline as ai
 import editorial_integrity as integrity
 import perspective_summaries as p
 from structured_outputs import check_response_schema
-from test_writing_fixtures import article_response, paired_article_response
+from test_writing_fixtures import as_initial_draft, article_response, paired_article_response
 from test_topic_titles import FakeMergeClient
 
 
@@ -62,7 +62,7 @@ class SingleTextSynthesisTests(unittest.TestCase):
         with patch.object(ai, 'call_openai', return_value=paired_article_response(raw)) as request, patch.object(ai, 'log'), \
              patch.object(p, 'insert_entity_context', side_effect=AssertionError('No role insertion')), \
              patch.object(p, 'insert_situation_context', side_effect=AssertionError('No background insertion')):
-            result = ai.generate_summary_response(data, 'gpt-6-luna')
+            result = ai.generate_summary_response(as_initial_draft(data), 'gpt-6-luna')
         request.assert_called_once()
         self.assertEqual(request.call_args.kwargs['response_schema_name'], 'perspective_summary')
         self.assertEqual(result['summary_pl'], raw['summary_pl'])
@@ -81,7 +81,7 @@ class SingleTextSynthesisTests(unittest.TestCase):
 
         client = FakeMergeClient([], [], [])
         ai.persist_summary(client, topic_id=DATA['topic_id'], run_id='test', model='fake', summary=result,
-                           summary_hash='h', previous_row={'version': 1, 'summary': data['previous_aggregation']}, new_article_ids=[])
+                           summary_hash='h', previous_row=None, new_article_ids=[])
         saved = next(rows[0]['summary'] for table, rows, _ in client.upserts if table == 'topic_summaries')
         self.assertEqual(saved['current_summary']['summary_pl'], raw['summary_pl'])
         self.assertEqual(saved['perspective_state']['perspective_facts'], DATA['facts'])
@@ -122,7 +122,7 @@ class SingleTextSynthesisTests(unittest.TestCase):
         raw['summary_pl'] += '\n\nPolicja zatrzymała go w 2099 roku.'
         raw['paragraph_sources'].append({'fact_ids': ['fact_dc03c23104c32331c8d1fc04']})
         with patch.object(ai, 'call_openai', return_value=raw) as request, patch.object(ai, 'log'):
-            result = ai.generate_summary_response(payload(), 'gpt-6-luna')
+            result = ai.generate_summary_response(as_initial_draft(payload()), 'gpt-6-luna')
         request.assert_called_once()
         self.assertEqual(result['summary_pl'], finished_article()['summary_pl'])
         self.assertEqual(result['quality_report']['writing_validation']['rejections'], {'event_not_supported_by_cited_facts': 1})

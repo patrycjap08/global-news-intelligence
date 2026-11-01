@@ -293,7 +293,7 @@ class PerspectiveTests(unittest.TestCase):
         self.assertEqual(saved['summary']['perspective_state']['facts'],promoted)
         self.assertEqual(ai.previous_aggregation_context(saved['summary'])['perspective_state']['perspective_facts'],promoted)
         self.assertEqual(saved['summary']['updates'],[])
-        self.assertEqual(saved['summary']['current_summary']['summary_pl'], 'Znana decyzja.')
+        self.assertEqual(saved['summary']['current_summary']['summary_pl'], 'Pierwotna synteza.')
         # Retry/confirming analysis records progress without another update.
         summary=copy.deepcopy(summary);summary['update']=p.make_update(promoted,promoted,True,['r'])
         ai.persist_summary(client,topic_id='t',run_id='r2',model='fake',summary=summary,summary_hash='h2',previous_row=saved,new_article_ids=['r'])

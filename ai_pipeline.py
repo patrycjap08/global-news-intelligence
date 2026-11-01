@@ -38,7 +38,7 @@ from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v88-complete-inputs-paired-paragraphs"
+PROMPT_VERSION = "ai-prompts-v89-immutable-publication-updates"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -2624,7 +2624,8 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                 instructions = perspectives.EXPLICIT_NOVELTY_INSTRUCTIONS
                 schema = perspectives.novelty_decision_schema(data['previous_facts'], data['candidate_facts'])
             elif name == 'perspective_brief':
-                log('AI', f"Skrót [{topic_label}]: dwa akapity na podstawie {len(data['main_facts'])} "
+                log('AI', f"Skrót [{topic_label}]: domyślnie dwa akapity, do czterech dla złożonych spraw; "
+                    f"na podstawie {len(data['main_facts'])} "
                     "zapisanych ustaleń; bez odczytu artykułów i ponownego pisania syntezy.")
             try:
                 response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
@@ -2743,7 +2744,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
         if last_schema in ('perspective_summary', 'perspective_brief'):
             brief = raw['quality_report'].get('brief_validation') or {}
             log('AI', f"Skrót [{(payload.get('topic') or {}).get('topic_id', '')}]: "
-                f"{'zapisano dwa akapity' if brief.get('status') == 'VALID' else 'pominięto niepoprawny lub brakujący tekst'}; "
+                f"{('zapisano akapitów: ' + str(brief.get('paragraph_count', '?'))) if brief.get('status') == 'VALID' else 'pominięto niepoprawny lub brakujący tekst'}; "
                 "bez dodatkowych zapytań naprawczych.")
         raw['article_content_hashes'] = {a['article_id']: a['content_hash'] for a in payload.get('all_articles', []) if a.get('content_hash')}
         log('AI', f"Koszt tematu {(payload.get('topic') or {}).get('topic_id', '')}: zapytań {call_count}, "
@@ -3064,6 +3065,8 @@ def normalize_summary_response(response: dict[str, Any]) -> ParsedAIResponse:
         normalized['brief_pl'] = normalize_generated_text(response.get('brief_pl'))
     if 'brief_generation_version' in response:
         normalized['brief_generation_version'] = response['brief_generation_version']
+    if response.get('initial_brief_backfill_attempted'):
+        normalized['initial_brief_backfill_attempted'] = True
     for field in SUMMARY_ARRAY_FIELDS:
         raw_items = response.get(field, [])
         if not isinstance(raw_items, list):
@@ -3186,6 +3189,7 @@ def previous_aggregation_context(value: Any) -> dict[str, Any] | None:
         context.update({"current_summary": value.get("current_summary") or stored_base_summary(value),
                         "processed_article_ids": value.get("processed_article_ids", []),
                         "article_content_hashes": value.get("article_content_hashes", {}),
+                        "pending_publication_fact_ids": value.get("pending_publication_fact_ids", []),
                         "needs_narrative_refresh": value.get("needs_narrative_refresh", False)})
     if isinstance(value.get("perspective_state"), dict):
         context["perspective_state"] = value["perspective_state"]
@@ -5003,7 +5007,14 @@ def persist_summary(
     analysis = dict(normalize_summary_response(summary)["update"] if previous_stored else empty_update())
     analysis.update({"new_article_ids": article_ids, "run_id": run_id, "generated_at": timestamp})
     if previous_stored:
-        base_summary = stored_base_summary(previous_stored)
+        base_summary = copy.deepcopy(stored_base_summary(previous_stored))
+        # Older publications may be missing a brief. Add it once from their
+        # initial material; never replace an already published brief or text.
+        if not str(base_summary.get('brief_pl') or '').strip() and summary.get('initial_brief_backfill_attempted'):
+            base_summary['brief_pl'] = summary.get('brief_pl') or ''
+            base_summary['brief_generation_version'] = summary.get('brief_generation_version')
+            base_summary.setdefault('quality_report', {})['brief_validation'] = copy.deepcopy(
+                (summary.get('quality_report') or {}).get('brief_validation') or {})
         updates = stored_updates(previous_stored)
         if analysis["status"] not in {"NEW_INFORMATION", "NO_NEW_INFORMATION"}:
             raise ValueError("Istniejący temat wymaga decyzji NEW_INFORMATION lub NO_NEW_INFORMATION.")
@@ -5033,7 +5044,9 @@ def persist_summary(
             (previous_row or {}).get("first_published_at") or (previous_row or {}).get("generated_at") or timestamp,
         "merged_publications": (previous_stored or {}).get("merged_publications", []),
         "article_content_hashes": summary.get("article_content_hashes") or (previous_stored or {}).get("article_content_hashes", {}),
-        "current_summary": {k: v for k, v in summary.items() if k not in
+        # Keep this legacy alias for old clients, with the same immutable
+        # publication. Cumulative evidence lives only in perspective_state.
+        "current_summary": {k: v for k, v in base_summary.items() if k not in
                             ("perspective_state", "perspective_facts", "perspective_sections", "facts", "update", "extraction_checkpoint")},
         "needs_narrative_refresh": False,
         "updates": updates,
@@ -5240,16 +5253,12 @@ def retry_incomplete_summaries(
             latest_assignment = latest_assignment_by_topic.get(topic_id, "")
             stored = (previous_row or {}).get("summary") or {}
             fact_rebuild = integrity.needs_fact_rebuild(stored)
-            refresh = bool(stored.get("needs_narrative_refresh"))
+            pending_publication = bool(stored.get('pending_publication_fact_ids'))
             brief_needed = False
-            if (stored.get('current_summary') or {}).get('publication_version') == 2:
-                current = stored['current_summary']
-                ledger = stored.get('perspective_state') or {}
-                refresh = refresh or integrity.narrative_missing_core(
-                    topic.get('headline_pl', ''), current.get('summary_pl', ''), ledger.get('facts') or [])
-                refresh = refresh or integrity.needs_inline_context(current, ledger.get('facts') or [])
-                refresh = refresh or integrity.needs_situation_context(current, ledger.get('facts') or [])
-                brief_needed = integrity.needs_brief(current, ledger.get('facts') or [])
+            initial = stored_base_summary(stored)
+            if initial.get('publication_version') == 2:
+                brief_needed = (not str(initial.get('brief_pl') or '').strip()
+                                and integrity.needs_brief(initial, perspectives.initial_brief_facts(initial)))
             processed = set(stored.get("processed_article_ids") or [])
             if fact_rebuild:
                 forced_new_ids = list(dict.fromkeys([*forced_new_ids, *all_ids]))
@@ -5262,14 +5271,14 @@ def retry_incomplete_summaries(
                 changed_ids = [aid for aid in all_ids if aid in hashes and current_hashes.get(aid) and current_hashes[aid] != hashes[aid]]
                 forced_new_ids = list(dict.fromkeys([*forced_new_ids, *changed_ids]))
                 processed.difference_update(changed_ids)
-            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids and not refresh and not brief_needed and (
+            if previous_row and latest_assignment <= previous_updated_at and not forced_new_ids and not pending_publication and not brief_needed and (
                     not perspective_topic or "processed_article_ids" not in stored or set(all_ids) <= processed):
                 skipped(topic, "brak przypisań nowszych od ostatniej analizy")
                 continue
             new_ids = [aid for aid in all_ids if (not perspective_topic or aid not in processed) and (
                 not previous_row or (perspective_topic and "processed_article_ids" in stored) or aid in forced_new_ids
                 or assignment_time_by_article.get((topic_id, aid), "") > previous_updated_at)]
-            if not new_ids and not refresh and not brief_needed:
+            if not new_ids and not pending_publication and not brief_needed:
                 skipped(topic, "brak nowych artykułów do analizy")
                 continue
             try:
@@ -5292,7 +5301,7 @@ def retry_incomplete_summaries(
                 continue
             new_id_set = set(new_ids)
             new_rows = [row for row in all_rows if str(row['article_id']) in new_id_set]
-            if (not new_rows and not refresh and not brief_needed) or len(all_rows) < 2:
+            if (not new_rows and not pending_publication and not brief_needed) or len(all_rows) < 2:
                 skipped(topic, f"brak treści w lokalnej bazie (nowych: {len(new_rows)}, wszystkich: {len(all_rows)})")
                 continue
             if len(distinct_source_keys(all_rows)) < 2:
@@ -5468,7 +5477,8 @@ def retry_incomplete_summaries(
                         description = (
                             "brak nowych informacji; artykuły zapisane bez nowej aktualizacji"
                             if job["previous_aggregation"] and summary["update"].get("status") == "NO_NEW_INFORMATION"
-                            else "gotowa"
+                            else "zapisano aktualizację; synteza i skrót pozostają bez zmian"
+                            if job["previous_aggregation"] else "zapisano syntezę i skrót"
                         )
                         log("AI", f"Synteza {index}/{total_jobs}: {short_text(job['title'])}: {description}; "
                             f"ukończono: {completed_jobs}/{total_jobs}; "

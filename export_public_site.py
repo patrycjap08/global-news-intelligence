@@ -89,9 +89,12 @@ def write_site(rows, target):
             stored = summary['summary'] or {}
             original_base = stored.get('base_summary') or stored
             current = stored.get('current_summary') or original_base
-            base = {**current, **(stored.get('perspective_state') or {})}
+            base = {**current, **(stored.get('perspective_state') or {}),
+                    'topic': original_base.get('topic') or current.get('topic') or {},
+                    'summary_pl': original_base.get('summary_pl', current.get('summary_pl', '')),
+                    'brief_pl': original_base.get('brief_pl') or ''}
             if base.get('perspective_version') == 1:
-                base['synthesis_coverage_mode'] = current.get('synthesis_coverage_mode') or current.get('coverage_mode')
+                base['synthesis_coverage_mode'] = original_base.get('synthesis_coverage_mode') or original_base.get('coverage_mode')
             update = stored.get('latest_update') or stored.get('update') or {}
             # Cards need the exact update text for stable read marks, not the
             # full ledger, quotes or novelty audit. Details are loaded on open.

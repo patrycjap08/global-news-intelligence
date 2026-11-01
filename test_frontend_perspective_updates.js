@@ -15,9 +15,9 @@ const model = topicModel(fixture.topic), html = dialogHtml(model);
 assert.strictEqual(html.split(fixture.repeated_text).length - 1, 1,
   'Show the current fact once; archived updates must not repeat it');
 assert(model.updates.some(update => perspectiveUpdateHtml(update).includes(fixture.repeated_text)));
-assert(perspectiveSectionsHtml(model.summary, 'ready', model.updates).includes(fixture.repeated_text));
+assert(!perspectiveSectionsHtml(model.summary, 'ready', model.updates).includes(fixture.repeated_text));
 assert(!html.includes('historia aktualizacji'));
-assert(!html.includes('class="update-section'));
+assert(html.includes('class="update-section'));
 assert(!html.includes('class="claim-kind"'));
 assert(model.summary.perspective_sections.LEFT.some(fact => fact.fact_id === fixture.repeated_fact_id),
   'the complete current ledger is preserved');
@@ -41,7 +41,7 @@ const updates = [{ perspective_sections: { LEFT: [newLeft] } },
 const saved = JSON.stringify({ summary, updates });
 const sections = perspectiveSectionsHtml(summary, 'ready', updates);
 for (const item of [originalLeft, originalRight, originalState]) assert(sections.includes(item.text_pl));
-for (const item of [newLeft, newRight, newState]) assert(sections.includes(item.text_pl),
+for (const item of [newLeft, newRight, newState]) assert(!sections.includes(item.text_pl),
   'check all displayed updates, including older ones and state reports');
 assert.strictEqual(JSON.stringify({ summary, updates }), saved);
 // A confirming analysis adds no timeline entry and must not hide original facts.
@@ -54,12 +54,12 @@ const missingIds = { perspective_version: 1, perspective_sections: { LEFT: [
   { text_pl: '  Ten sam   fakt. ' }, { text_pl: 'Zatrzymano 8 osób.' }, { text_pl: 'Zatrzymano 10 osób.' } ] } };
 let output = perspectiveSectionsHtml(missingIds, 'ready', [
   { perspective_sections: { LEFT: [{ text_pl: 'Ten sam fakt.' }, { text_pl: 'Zatrzymano 8 osób.' }] } } ]);
-assert(output.includes('Ten sam') && output.includes('Zatrzymano 8 osób.'));
+assert(!output.includes('Ten sam') && !output.includes('Zatrzymano 8 osób.'));
 assert(output.includes('Zatrzymano 10 osób.'));
 // Stable identity still works when the wording was formatted differently.
 output = perspectiveSectionsHtml({ perspective_version: 1, perspective_sections: { RIGHT: [newRight] } },
   'ready', [{ promoted_facts: [{ ...newRight, text_pl: 'Szersze potwierdzenie tego samego faktu.' }] }]);
-assert(output.includes(newRight.text_pl), 'History must not remove an assessment from current state');
+assert(output.includes(newRight.text_pl), 'A confirmation alone does not publish or hide a new assessment');
 // State-only topics hide updates, so their current state reports stay visible.
 const stateOnly = { ...model, stateOnly: true, updates: [{ perspective_sections: { STATE: [newState] } }],
   summary: { perspective_version: 1, coverage_mode: 'STATE_ONLY', shared_available: false,

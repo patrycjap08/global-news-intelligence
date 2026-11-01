@@ -193,10 +193,16 @@ naprawczego. Dotyczy to także wariantu testu obejmującego samo pisanie.
 
 ## Osobny skrót (v87)
 
-Zapytanie piszące generuje teraz pełny `summary_pl` i osobny, dwukapitowy
+Zapytanie piszące generuje pełny `summary_pl` i osobny
 skrót z najważniejszych zweryfikowanych faktów. Raport pokazuje oba teksty;
 koszt skrótu jest już w koszcie pisania. Wariant „writing” nadal wykonuje
 jedno zapytanie, bez ponownej ekstrakcji. Nie stosujemy pierwszych dwóch
 akapitów syntezy jako zastępstwa skrótu. Zachowane wyniki ze starszą wersją
 promptu nie są uznawane za wynik nowego wariantu. Produkcyjne jednorazowe
 uzupełnianie dawnych opracowań nie jest uruchamiane przez laboratorium.
+
+Od v89 skrót ma domyślnie dwa akapity, a przy złożonej sprawie dopuszcza trzy
+lub cztery. Produkcja zachowuje pierwszą syntezę i skrót oraz publikuje nowe
+informacje w aktualizacjach. Laboratorium tworzy niezależne szkice przez
+`draft_publication`, więc wariant `writing` nadal porównuje modele na tym
+samym rejestrze faktów, jednym zapytaniem i bez zapisywania do bazy.

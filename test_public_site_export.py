@@ -70,10 +70,11 @@ class PublicExportTests(unittest.TestCase):
             with self.assertRaises(ValueError): write_site(rows, path)
             self.assertEqual(old, (path/'index.json').read_bytes())
 
-    def test_separate_current_brief_survives_preview_and_full_detail_without_exposing_fact_list_in_index(self):
+    def test_initial_brief_survives_preview_and_full_detail_without_exposing_fact_list_in_index(self):
         rows = self.rows()
         stored = rows[0]['summary']['summary']
         brief = 'Najważniejsza wiadomość.\n\nIstotne szczegóły wydarzenia.'
+        stored['base_summary'].update(summary_pl='Pełny tekst syntezy. ' * 100, brief_pl=brief)
         stored['current_summary'] = {'summary_pl': 'Pełny tekst syntezy. ' * 100,
                                      'brief_pl': brief, 'brief_generation_version': 1, 'publication_version': 2}
         with tempfile.TemporaryDirectory() as folder:
@@ -88,7 +89,7 @@ class PublicExportTests(unittest.TestCase):
             self.assertEqual(current['brief_pl'], brief)
             self.assertEqual(current['summary_pl'], stored['current_summary']['summary_pl'])
 
-    def test_preview_uses_current_text_and_omits_audits_quotes_and_repeated_ledgers(self):
+    def test_preview_uses_initial_text_and_omits_audits_quotes_and_repeated_ledgers(self):
         rows = self.rows()
         stored = rows[0]['summary']['summary']
         stored['current_summary'] = {'topic': {'headline_pl': 'Aktualny tytuł'},
@@ -100,7 +101,7 @@ class PublicExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             index = write_site(rows, Path(folder))
             preview = index['summaries'][0]['summary']
-            self.assertEqual(preview['base_summary']['summary_pl'], 'Bieżący opis wydarzenia.')
+            self.assertEqual(preview['base_summary']['summary_pl'], 'Synteza')
             self.assertEqual(preview['latest_update']['new_information_pl'], update['new_information_pl'])
             self.assertEqual(preview['latest_update']['section_counts'], {'COMMON': 1})
             self.assertEqual(preview['last_analysis'], {'status': 'NEW_INFORMATION'})
