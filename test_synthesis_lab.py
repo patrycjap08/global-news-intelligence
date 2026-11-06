@@ -151,6 +151,24 @@ class LabTests(unittest.TestCase):
         self.assertTrue(all(r['service_tier'] == 'default' for r in self.fake.requests))
         self.assertNotIn('sk-test-only', ''.join(path.read_text() for path in self.root.glob('*.json')))
 
+    def test_lab_uses_compact_transport_and_omits_only_inapplicable_metadata_instructions(self):
+        original = record()
+        original['articles'][0].update(content_hash='local-only', canonical_url='https://example.test/left')
+        before = copy.deepcopy(original)
+        lab.run_topic(original, config()['VARIANTS'][0], config(), self.root, client_factory=self.fake)
+        request = self.fake.requests[0]
+        data = lab.ai.extract_json(request['input'])
+        self.assertNotIn('content_hash', data['all_articles'][0])
+        self.assertNotIn('canonical_url', data['all_articles'][0])
+        self.assertEqual(data['all_articles'][0]['body_original'], original['articles'][0]['body_original'])
+        for req in self.fake.requests:
+            self.assertNotIn(lab.ai.POLISH_TITLE_INSTRUCTIONS, req['instructions'])
+            self.assertIn(lab.ai.POLISH_OUTPUT_INSTRUCTIONS, req['instructions'])
+        expected = lab.p.ARTICLE_EXTRACTION_INSTRUCTIONS.replace(lab.p.ARTICLE_OUTPUT_METADATA_INSTRUCTIONS, '')
+        self.assertTrue(request['instructions'].startswith(expected + '\n'))
+        self.assertNotIn(lab.p.ARTICLE_OUTPUT_METADATA_INSTRUCTIONS, request['instructions'])
+        self.assertEqual(original, before)
+
     def test_writing_only_has_exactly_one_request_on_unchanged_facts(self):
         original = record()
         before = copy.deepcopy(original)

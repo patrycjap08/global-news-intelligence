@@ -1,7 +1,7 @@
-# AI-only i publikacja perspektyw — v89
+# AI-only i publikacja perspektyw — v90
 
-Obowiązująca wersja: `ai-prompts-v89-immutable-publication-updates`.
-Poniższe zasady zastępują wcześniejsze opisy v61–v88; tamte implementacje
+Obowiązująca wersja: `ai-prompts-v90-compact-stage-inputs`.
+Poniższe zasady zastępują wcześniejsze opisy v61–v89; tamte implementacje
 pozostają w historii Git. Format bazowy `perspective_version=1` i klasyfikacja
 `fact_classification_version=1` pozostają zgodne wstecz. Bieżący widok
 ma dodatkowo `publication_version=2`.
@@ -95,6 +95,17 @@ wersję ekstraktora, model, temat, identyfikator i treść artykułu oraz profil
 pominięte. Zmiana treści/modelu/tematu/wersji ekstraktora unieważnia trafienie.
 Odczyt cache korzysta z klucza głównego tabeli, nie wymaga nowego indeksu.
 Błąd zapisu cache zatrzymuje dany temat przed dalszym wydawaniem tokenów.
+
+Od v90 JSON zapytań ma kompaktowe separatory, bez zmieniania odstępów w treści
+artykułów. `content_hash` i `canonical_url` artykułów pozostają w danych
+wewnętrznych, ale nie są wysyłane modelowi. ID artykułów, pełne teksty, daty,
+nazwy i profile źródeł są zachowane. Pełne reguły tytułów trafiają do etapów
+z tytułem w odpowiedzi. Audyt, pisanie i skrót otrzymują jedynie właściwą dla
+nich regułę polszczyzny i transkrypcji nazw. Ich główne instrukcje pozostają
+identyczne, a klucze cache i checkpointów zgodne z v89. Nazwy kandydatów oraz
+poprawianie tytułów używają `gpt-5-nano`/`minimal` do 10 grudnia 2026, a od
+11 grudnia automatycznie Luny. Modele ekstrakcji, audytu i publikacji pozostają
+bez zmian. Nie zmienia się zasada niezmiennej pierwszej publikacji ani aktualizacji.
 
 Domyślne ustawienia:
 

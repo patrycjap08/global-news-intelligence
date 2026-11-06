@@ -280,10 +280,22 @@ z artykułów mają przypisane źródła; wiedza ogólna i niepewne role są ozn
 syntezę i kontekst. Zmiana promptu dotyczy kolejnych generowanych syntez.
 
 
-Wszystkie tekstowe etapy workflow używają `gpt-6-luna`: nazwy kandydatów,
-tytuły, kategorie, ekstrakcja faktów, deduplikacja, syntezy i aktualizacje.
-Proste zadania nazw/tytułów/kategorii mają reasoning `none`, ekstrakcja
+Od v90 nazwy kandydatów i poprawianie tytułów używają tańszego `gpt-5-nano`
+z reasoning `minimal`. Zgodnie z [harmonogramem OpenAI](https://developers.openai.com/api/docs/deprecations)
+model ma zostać wyłączony 11 grudnia 2026; od tego dnia kod automatycznie
+wybierze `gpt-6-luna` także przy starszych ustawieniach workflow.
+Kategorie, ekstrakcja faktów, kontrola nowości, syntezy, skróty i aktualizacje
+pozostają na `gpt-6-luna`. Kategorie mają reasoning `none`, ekstrakcja
 i kontrola nowości `low`, a pisanie syntez `medium`. Workflow ustawia modele
 jawnie, niezależnie od starszych zmiennych repozytorium. Embeddingi nadal
 powstają przez `text-embedding-3-small`; nie są wywołaniem modelu tekstowego.
 Model syntez jest podawany w logu kolejki i zapisywany przy wynikach w bazie.
+
+Zapytania wysyłają JSON bez zbędnych spacji między polami. Techniczny
+`content_hash` i URL artykułu są pomijane dopiero przy wysłaniu do modelu;
+pozostają w danych wewnętrznych, bazie i mechanizmie wznowienia. Pełne teksty,
+daty, źródła, profile i przypisania ustaleń pozostają na wejściu AI. Etapy bez
+tytułu dostają krótką regułę językową zamiast instrukcji tworzenia tytułów.
+Pozostałe instrukcje oraz walidacje nie zostały skrócone. Zmiana nie unieważnia
+cache ekstrakcji i nie uruchamia ponownego opracowania opublikowanych syntez.
+Szczegóły: [przegląd v90](AI_REQUEST_OPTIMIZATION_20261106.md).

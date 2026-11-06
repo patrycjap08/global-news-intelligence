@@ -38,7 +38,7 @@ from structured_outputs import check_response_schema
 from source_tester import corrected_editorial_profile
 
 
-PROMPT_VERSION = "ai-prompts-v89-immutable-publication-updates"
+PROMPT_VERSION = "ai-prompts-v90-compact-stage-inputs"
 # Keep a longer matching window than the UI's current-topic window. A topic
 # may leave the "Aktualne" tab after 24 hours and still accept a matching
 # article until it has been quiet for 36 hours.
@@ -111,8 +111,23 @@ CATEGORY_MAX_RETRIES = max(
     1, int(os.environ.get("AI_CATEGORY_MAX_RETRIES", "2"))
 )
 DEFAULT_MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-luna")
-LABEL_MODEL = os.environ.get("OPENAI_LABEL_MODEL", "gpt-6-luna")
+LABEL_MODEL = os.environ.get("OPENAI_LABEL_MODEL", "gpt-5-nano")
 TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", LABEL_MODEL)
+
+
+def title_model_for_run(requested: str, at: datetime | None = None) -> str:
+    """Use the cheaper title model only while it is supported by the API.
+
+    OpenAI schedules GPT-5 nano aliases and snapshots for shutdown on
+    2026-12-11. This guard also covers workflows still setting the old alias.
+    Other explicit model choices remain untouched.
+    """
+    shutdown_date = datetime(2026, 12, 11).date()
+    if requested.startswith('gpt-5-nano') and (at or datetime.now(timezone.utc)).date() >= shutdown_date:
+        return 'gpt-6-luna'
+    return requested
+
+
 GROUPING_EXCERPT_WORDS = min(
     100,
     max(20, int(os.environ.get("AI_GROUPING_EXCERPT_WORDS", "100"))),
@@ -1149,6 +1164,49 @@ zachowując sens i wymagany pojedynczy prefiks geograficzny, bez dopisywania
 faktów. Przed zwróceniem JSON skontroluj OSOBNO KAŻDY tytuł: polszczyznę,
 brak znaków cyrylicy, zwięzłość i zgodność z materiałem.
 """.strip()
+
+POLISH_OUTPUT_INSTRUCTIONS = (
+    'Pola tekstowe dla czytelnika pisz po polsku, bez cyrylicy. '
+    'Stosuj ustalone polskie nazwy lub polską transkrypcję nazw własnych. '
+    'Identyfikatory i techniczne wartości pól przepisuj bez zmian.'
+)
+
+
+def instructions_for_response(instructions: str, schema: dict[str, Any] | None) -> str:
+    """Keep title-specific rules only when the response can contain a title.
+
+    The complete extraction, novelty, narrative and brief instructions are
+    retained. Stages without titles keep the applicable Polish output rule.
+    """
+    def has_title(node):
+        if isinstance(node, dict):
+            if {'headline_pl', 'title_pl', 'merged_title_pl', 'working_title_pl'} & set(node.get('properties', {})):
+                return True
+            return any(has_title(value) for value in node.values())
+        return isinstance(node, list) and any(has_title(value) for value in node)
+    extra = POLISH_TITLE_INSTRUCTIONS if schema is None or has_title(schema) else POLISH_OUTPUT_INSTRUCTIONS
+    return instructions if extra in instructions else instructions + '\n\n' + extra
+
+
+def model_request_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Drop transport-only article metadata without mutating internal input.
+
+    The original records, hashes, full bodies and checkpoint/cache identity
+    stay intact. Dates, source identity/profile and evidence IDs reach AI.
+    """
+    result = dict(payload)
+    for field in ('all_articles', 'new_articles'):
+        if isinstance(payload.get(field), list):
+            result[field] = [
+                {key: value for key, value in article.items() if key not in ('content_hash', 'canonical_url')}
+                if isinstance(article, dict) else article for article in payload[field]
+            ]
+    return result
+
+
+def model_request_input(payload: dict[str, Any]) -> str:
+    return json.dumps(model_request_payload(payload), ensure_ascii=False, separators=(',', ':')) + (
+        '\n\nReturn only valid JSON. Do not add any commentary outside the JSON object.')
 
 
 TOPIC_LABELING_INSTRUCTIONS = """
@@ -2628,7 +2686,7 @@ def generate_summary_response(payload: dict[str, Any], model: str, *, on_article
                     f"na podstawie {len(data['main_facts'])} "
                     "zapisanych ustaleń; bez odczytu artykułów i ponownego pisania syntezy.")
             try:
-                response = call_openai(instructions + "\n" + POLISH_TITLE_INSTRUCTIONS, data, model,
+                response = call_openai(instructions_for_response(instructions, schema), data, model,
                     timeout_seconds=SUMMARY_REQUEST_TIMEOUT_SECONDS,
                     reasoning_effort=(os.environ.get('OPENAI_EXTRACTION_REASONING_EFFORT', 'low')
                                       if name in ('perspective_facts', 'perspective_novelty_audit', 'perspective_brief') and model.startswith(('gpt-5', 'gpt-6'))
@@ -3356,6 +3414,8 @@ def call_openai(
     # Keep those calls light; synthesis/extraction pass medium/low explicitly.
     if reasoning_effort is None and model.startswith('gpt-6-luna'):
         reasoning_effort = 'none'
+    elif reasoning_effort is None and model.startswith('gpt-5-nano') and response_schema_name in ('topic_labels', 'topic_titles'):
+        reasoning_effort = 'minimal'
 
     schema_stats = None
     if response_schema is not None:
@@ -3373,10 +3433,7 @@ def call_openai(
     parse_failures = 0
     last_parse_error = ""
     for attempt in range(effective_retry_limit):
-        input_text = (
-            json.dumps(payload, ensure_ascii=False)
-            + "\n\nReturn only valid JSON. Do not add any commentary outside the JSON object."
-        )
+        input_text = model_request_input(payload)
         if parse_failures:
             input_text += (
                 "\nThe previous attempt was empty or invalid. Return the requested "
@@ -4540,6 +4597,7 @@ def normalize_topic_titles(
     model: str = DEFAULT_MODEL,
     forced_topic_ids: set[str] | None = None,
 ) -> int:
+    title_model = title_model_for_run(TITLE_MODEL)
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=TOPIC_MATCH_LOOKBACK_HOURS)).isoformat()
     topics = client.select_all(
         "topics",
@@ -4608,7 +4666,7 @@ def normalize_topic_titles(
         log(
             "AI",
             f"Tytuły {batch_number}/{total_batches}: analizuję {len(batch)} tematów "
-            f"(model: {TITLE_MODEL}, timeout: {TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS:.0f} s).",
+            f"(model: {title_model}, timeout: {TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS:.0f} s).",
         )
         payload = {"topics": [{
             "topic_id": row["topic_id"],
@@ -4623,7 +4681,7 @@ def normalize_topic_titles(
             result = call_openai(
                 TITLE_NORMALIZATION_INSTRUCTIONS,
                 payload,
-                TITLE_MODEL,
+                title_model,
                 max_output_tokens=TITLE_NORMALIZATION_MAX_OUTPUT_TOKENS,
                 timeout_seconds=TITLE_NORMALIZATION_REQUEST_TIMEOUT_SECONDS,
                 retry_limit=TITLE_NORMALIZATION_MAX_RETRIES,
@@ -5513,6 +5571,7 @@ def _label_pending_batch(
     and deterministic at the article level; the cross-article decision belongs
     exclusively to ``merge_active_topics`` in Stage 2.
     """
+    model = title_model_for_run(model)
     openai_api_key()
     stats = {
         "pending_articles": len(articles),
@@ -6124,12 +6183,13 @@ def analyze_run(
         "merge_split_retries": 0,
     }
     if articles:
+        label_model = title_model_for_run(LABEL_MODEL)
         total_batches = (len(articles) + batch_size - 1) // batch_size
         log(
             "AI",
             f"Etap 1/3 — nadaję nazwy kandydatom: artykułów: {len(articles)}, "
             f"paczek: {total_batches}, maks. w paczce: {batch_size}, "
-            f"wyciąg: {LABEL_EXCERPT_WORDS} słów, model: {LABEL_MODEL}, "
+            f"wyciąg: {LABEL_EXCERPT_WORDS} słów, model: {label_model}, "
             f"timeout: {LABEL_REQUEST_TIMEOUT_SECONDS:.0f} s, "
             f"próby: {LABEL_MAX_RETRIES}. "
             "Grupowanie nastąpi w etapie 2.",
@@ -6148,7 +6208,7 @@ def analyze_run(
             )
             try:
                 batch_stats = _label_pending_batch(
-                    run_id, client, batch, model=LABEL_MODEL, batch_index=label, db_path=db_path,
+                    run_id, client, batch, model=label_model, batch_index=label, db_path=db_path,
                     created_topic_ids=focus_topic_ids,
                 )
                 merge_batch_stats(batch_stats)

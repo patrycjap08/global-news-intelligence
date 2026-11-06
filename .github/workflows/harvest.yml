@@ -46,11 +46,11 @@ jobs:
     timeout-minutes: 180
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # Pin every text stage; stale repository variables cannot restore old models.
+      # Pin text stages; Python switches Nano titles to Luna on 2026-12-11.
       OPENAI_MODEL: 'gpt-6-luna'
       OPENAI_SUMMARY_MODEL: 'gpt-6-luna'
-      OPENAI_LABEL_MODEL: 'gpt-6-luna'
-      OPENAI_TITLE_MODEL: 'gpt-6-luna'
+      OPENAI_LABEL_MODEL: 'gpt-5-nano'
+      OPENAI_TITLE_MODEL: 'gpt-5-nano'
       AI_LABEL_REQUEST_TIMEOUT_SECONDS: ${{ vars.AI_LABEL_REQUEST_TIMEOUT_SECONDS || '60' }}
       AI_LABEL_MAX_RETRIES: ${{ vars.AI_LABEL_MAX_RETRIES || '2' }}
       RETRY_REJECTED: ${{ inputs.retry_rejected || 'false' }}

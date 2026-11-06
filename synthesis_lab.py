@@ -245,11 +245,11 @@ class StageRunner:
                 schema['properties'].pop(field, None)
                 if field in schema['required']:
                     schema['required'].remove(field)
+            instructions = instructions.replace(p.ARTICLE_OUTPUT_METADATA_INSTRUCTIONS, '')
             instructions += '\nNie twórz tytułu ani kategorii; zwróć wyłącznie article_results.'
         check_response_schema(schema)
-        request = {'model': settings['model'], 'instructions': instructions + '\n' + ai.POLISH_TITLE_INSTRUCTIONS,
-                   'input': json.dumps(data, ensure_ascii=False)
-                   + '\n\nReturn only valid JSON. Do not add any commentary outside the JSON object.',
+        request = {'model': settings['model'], 'instructions': ai.instructions_for_response(instructions, schema),
+                   'input': ai.model_request_input(data),
                    'text': {'format': {'type': 'json_schema', 'name': name, 'strict': True, 'schema': schema}},
                    'max_output_tokens': settings['max_output_tokens'], 'store': False,
                    'service_tier': 'default'}

@@ -136,9 +136,20 @@ zapisy cache ani podatków; nie zastępuje rozliczenia w panelu OpenAI.
 
 Stan sprawdzenia: **23 października 2026**, USD za **milion tokenów**, zwykły
 synchroniczny API Standard, wejście bez cache i krótki kontekst.
-Punktem odniesienia tej tabeli pozostaje poprzedni `gpt-5-nano`.
-Obecnie wszystkie tekstowe etapy produkcyjne i domyślne ustawienia laboratorium
-używają `gpt-6-luna`.
+Punktem odniesienia tej tabeli pozostaje poprzedni model syntez `gpt-5-nano`.
+Domyślne ustawienia laboratorium oraz produkcyjne etapy faktów, audytu,
+syntez i skrótów używają `gpt-6-luna`. Od v90 tylko produkcyjne nazwy kandydatów
+i poprawianie tytułów przechodzą na `gpt-5-nano`/`minimal`; laboratorium nie
+wywołuje tych etapów. Stawki Nano i Luny sprawdzono ponownie 6 listopada 2026.
+Nano ma zostać [wyłączone 11 grudnia 2026](https://developers.openai.com/api/docs/deprecations).
+Produkcyjne nazwy i tytuły automatycznie wrócą wtedy do Luny. W laboratorium
+nadal wybierasz model jawnie, bez automatycznego zastępowania go w porównaniach.
+
+Od v90 laboratorium korzysta z tego samego kompaktowego zapisu JSON co
+produkcja. Pełne artykuły, daty i profile źródeł pozostają bez zmian. Hash
+treści i URL nie trafiają do modelu. Ponieważ eksperyment nie zwraca tytułu
+ani kategorii, nie dostaje też instrukcji tworzenia tych pól. Instrukcje
+ekstrakcji ustaleń, ich typów, przypisań, ocen redakcyjnych i nowości pozostają.
 
 | Model | Wejście | Wyjście łącznie z rozumowaniem | × nano: wejście / wyjście |
 | --- | ---: | ---: | ---: |

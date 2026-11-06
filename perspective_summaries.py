@@ -479,6 +479,12 @@ wcześniejszych ustaleń. Kategorie: POLSKA, POLITYKA, SWIAT, GOSPODARKA,
 SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE, KULTURA_SPORT.
 '''.strip()
 
+# The local comparison lab omits these two output fields. Keep this fragment
+# separately addressable without changing production extraction semantics.
+ARTICLE_OUTPUT_METADATA_INSTRUCTIONS = '''headline_pl ma być krótkim tytułem [Kraj] wydarzenie. Kategorie:
+POLSKA, POLITYKA, SWIAT, GOSPODARKA, SPOLECZENSTWO, TECHNOLOGIA, ZDROWIE,
+KULTURA_SPORT.'''
+
 ARTICLE_EXTRACTION_INSTRUCTIONS = '''
 Przeczytaj pełne teksty KAŻDEGO materiału z all_articles. Zbuduj kompletny,
 atomowy rejestr istotnych ustaleń o wydarzeniu z topic. To ekstrakcja faktów,
