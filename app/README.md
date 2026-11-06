@@ -26,6 +26,21 @@ i zachowuje filtry oraz pozycję czytania. Gdy pamięć przeglądarki jest
 niedostępna, wybór nadal działa w bieżącej karcie. Ustawienia można obsługiwać
 klawiaturą, a Escape zamyka okno wyboru.
 
+Od 6 listopada filtry są dostępne pod wyraźnym przyciskiem „Filtry” obok
+wyszukiwarki. Na telefonie otwiera on panel od dołu, na większym ekranie
+wyśrodkowane okno. Kategorie, ich łączenie, profil źródeł i ukrywanie
+przeczytanych są ustawiane jako roboczy wybór. Dopiero „Pokaż … tematów”
+zatwierdza go i zapisuje preferencje. X, Escape i kliknięcie poza panelem
+odrzucają zmiany. Przycisk pokazuje liczbę wybranych filtrów, a nad listą
+są podpisane przyciski usuwania pojedynczych wyborów i wyczyszczenia całości.
+Wyszukiwanie, zakładka i sortowanie są osobnymi kontrolkami.
+
+„Skąd wiadomości?” otwiera informacyjne zestawienie wydawców w widocznych
+tematach, bez filtrowania po nazwie wydawcy. Artykuł przypisany do kilku
+tematów jest liczony raz. Liczby nad filtrami odnoszą się do widocznego
+wyniku. Pełne liczniki aktualnych/historycznych tematów, artykułów i źródeł
+pozostają w rozwijanych „Statystykach wczytanego wydania” tego zestawienia.
+
 ## Podłączenie Supabase lokalnie
 
 ```bash

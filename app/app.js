@@ -30,6 +30,7 @@ const state = {
 let dataIndexes = null;
 let modelCache = null;
 let searchRenderTimer = null;
+let filterDraft = null;
 let liveLoadPromise = null;
 let refreshPromise = null;
 let liveLoadController = null;
@@ -80,7 +81,11 @@ function syncFilterControls() {
   $('#hide-read').closest('.read-toggle')?.classList.toggle('is-active', state.hideRead);
   $('#search-input').value = state.search;
   syncSearchClearButton();
-  document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('is-active', button.dataset.view === state.view));
+  document.querySelectorAll('[data-view]').forEach(button => {
+    const selected = button.dataset.view === state.view;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-selected', String(selected));
+  });
   document.querySelectorAll('[data-category-match]').forEach(button => {
     const selected = button.dataset.categoryMatch === state.categoryMatch;
     button.classList.toggle('is-active', selected); button.setAttribute('aria-pressed', String(selected));
@@ -100,13 +105,110 @@ function matchesCategories(topic, categories = state.categories, mode = state.ca
   return !categories.length || (mode === 'ALL' ? categories.every(matches) : categories.some(matches));
 }
 
-function categoryCounts(baseModels) {
+function categoryCounts(baseModels, filters = state) {
   const counts = { ALL: baseModels.length };
   Object.keys(CATEGORY_LABELS).filter(key => key !== 'ALL').forEach(category => {
-    const selection = state.categoryMatch === 'ALL' ? [...new Set([...state.categories, category])] : [category];
+    const selection = filters.categoryMatch === 'ALL' ? [...new Set([...filters.categories, category])] : [category];
     counts[category] = baseModels.filter(topic => matchesCategories(topic, selection, 'ALL')).length;
   });
   return counts;
+}
+
+function filterSelection(value = state) {
+  return { categories: [...value.categories], categoryMatch: value.categoryMatch,
+    profile: value.profile, hideRead: value.hideRead };
+}
+
+function defaultFilterSelection() {
+  return { categories: [], categoryMatch: 'ANY', profile: 'ALL', hideRead: false };
+}
+
+function activeFilterItems(filters = state) {
+  return [
+    ...filters.categories.map(value => ({ type: 'category', value, label: humanCategory(value) })),
+    ...(filters.profile === 'ALL' ? [] : [{ type: 'profile', value: filters.profile, label: humanProfile(filters.profile) }]),
+    ...(filters.hideRead ? [{ type: 'read', value: 'unread', label: 'Nieprzeczytane' }] : []),
+  ];
+}
+
+function renderActiveFilters() {
+  const items = activeFilterItems();
+  const count = $('#filter-count');
+  if (count) { count.textContent = items.length; count.hidden = !items.length; }
+  $('#filters-button')?.setAttribute?.('aria-label', items.length ? `Filtry. Wybrano: ${items.length}` : 'Filtry');
+  const panel = $('#active-filters');
+  if (!panel) return;
+  panel.hidden = !items.length;
+  panel.innerHTML = items.map(item => `<button class="active-filter-chip" type="button" data-remove-filter="${item.type}" data-filter-value="${escapeHtml(item.value)}" aria-label="Usuń filtr: ${escapeHtml(item.label)}"><span>${escapeHtml(item.label)}</span><span aria-hidden="true">×</span></button>`).join('')
+    + (state.categories.length > 1 && state.categoryMatch === 'ALL' ? '<span class="filter-match-summary">Wszystkie wybrane kategorie</span>' : '')
+    + (items.length ? '<button class="clear-filters" type="button" data-clear-filters>Wyczyść filtry</button>' : '');
+}
+
+function renderFilterPanel(prepared = allTopicModels()) {
+  const filters = { ...state, ...(filterDraft || {}) };
+  renderProfiles(filteredModels(prepared, { filters }), filters);
+  renderCategories(filteredModels(prepared, { filters, categorySelection: [] }), filters);
+  $('#category-match-options').hidden = filters.categories.length < 2;
+  (document.querySelectorAll?.('[data-category-match]') || []).forEach(button => {
+    const selected = button.dataset.categoryMatch === filters.categoryMatch;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  $('#category-match-help').textContent = filters.categoryMatch === 'ALL'
+    ? 'Temat musi mieć wszystkie wybrane kategorie.' : 'Temat może mieć dowolną z wybranych kategorii.';
+  $('#filter-hide-read').checked = filters.hideRead;
+  $('#filters-apply').textContent = `Pokaż ${topicCountLabel(filteredModels(prepared, { filters }).length)}`;
+}
+
+function changeDraftFilter(type, value) {
+  if (!filterDraft) return;
+  if (type === 'category') {
+    if (value === 'ALL') filterDraft.categories = [];
+    else if (Object.hasOwn(CATEGORY_LABELS, value)) {
+      filterDraft.categories = filterDraft.categories.includes(value)
+        ? filterDraft.categories.filter(category => category !== value) : [...filterDraft.categories, value];
+    }
+  } else if (type === 'profile' && (value === 'ALL' || Object.hasOwn(PROFILE_LABELS, value))) {
+    filterDraft.profile = value;
+  } else if (type === 'match' && ['ANY', 'ALL'].includes(value)) {
+    filterDraft.categoryMatch = value;
+  } else if (type === 'read') filterDraft.hideRead = Boolean(value);
+  renderFilterPanel();
+}
+
+function openSheet(dialogId, buttonId) {
+  const dialog = $(dialogId);
+  if (!dialog || dialog.open) return;
+  dialog.showModal();
+  $(buttonId).setAttribute('aria-expanded', 'true');
+}
+
+function openFilters() {
+  if ($('#filters-dialog').open) return;
+  filterDraft = filterSelection();
+  renderFilterPanel();
+  openSheet('#filters-dialog', '#filters-button');
+}
+
+function applyFilters() {
+  if (!filterDraft) return;
+  Object.assign(state, filterSelection(filterDraft));
+  filterDraft = null;
+  saveFilterPreferences(); syncFilterControls(); render();
+  $('#filters-dialog').close();
+}
+
+function clearAppliedFilters() {
+  Object.assign(state, defaultFilterSelection());
+  saveFilterPreferences(); syncFilterControls(); render();
+}
+
+function removeAppliedFilter(type, value) {
+  if (type === 'category') state.categories = state.categories.filter(category => category !== value);
+  else if (type === 'profile') state.profile = 'ALL';
+  else if (type === 'read') state.hideRead = false;
+  else return;
+  saveFilterPreferences(); syncFilterControls(); render();
 }
 
 function indexes() {
@@ -989,7 +1091,7 @@ function renderStats(models) {
   $('#stat-sources').textContent = new Set(models.flatMap((topic) => topic.articles.map((article) => article.source_name))).size;
 }
 
-function renderProfiles(models) {
+function renderProfiles(models, filters = state) {
   const counts = {};
   models.forEach((topic) => {
     const profiles = new Set(topic.articles.map((article) => article.source_profile || 'UNCLASSIFIED'));
@@ -998,54 +1100,41 @@ function renderProfiles(models) {
     });
   });
   const rows = [
-    ['ALL', 'Wszystkie tematy', models.length],
+    ['ALL', 'Wszystkie', models.length],
     ...Object.entries(PROFILE_LABELS)
       .map(([key, label]) => [key, label, counts[key] || 0]),
   ];
-  $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${state.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button"><span class="filter-name">${key === 'ALL' ? '' : `<i class="perspective-dot ${PROFILE_COLORS[key] || 'dot-unclassified'}" aria-hidden="true"></i>`}<span>${label}</span></span><span>${count}</span></button>`).join('');
-  $('#profile-filters').querySelectorAll('[data-profile]').forEach((button) => button.addEventListener('click', () => {
-    state.profile = button.dataset.profile;
-    saveFilterPreferences(); render();
-  }));
+  $('#profile-filters').innerHTML = rows.map(([key, label, count]) => `<button class="filter-button ${filters.profile === key ? 'is-active' : ''}" data-profile="${key}" type="button" aria-pressed="${filters.profile === key}"><span class="filter-name">${key === 'ALL' ? '' : `<i class="perspective-dot ${PROFILE_COLORS[key] || 'dot-unclassified'}" aria-hidden="true"></i>`}<span>${label}</span></span><span>${count}</span></button>`).join('');
 }
 
-function renderCategories(models) {
-  const counts = categoryCounts(models);
+function renderCategories(models, filters = state) {
+  const counts = categoryCounts(models, filters);
   const rows = [
-    ['ALL', CATEGORY_LABELS.ALL, models.length],
+    ['ALL', 'Wszystkie', models.length],
     ...Object.keys(CATEGORY_LABELS)
       .filter((key) => !['ALL', 'UNCLASSIFIED'].includes(key))
       .map((key) => [key, CATEGORY_LABELS[key], counts[key] || 0]),
     ['UNCLASSIFIED', CATEGORY_LABELS.UNCLASSIFIED, counts.UNCLASSIFIED || 0],
   ];
-  const allCategoriesSelected = state.categories.length === 0;
+  const allCategoriesSelected = filters.categories.length === 0;
   $('#category-filters').innerHTML = rows.map(([key, label, count]) => {
-    const isActive = key === 'ALL' ? allCategoriesSelected : state.categories.includes(key);
+    const isActive = key === 'ALL' ? allCategoriesSelected : filters.categories.includes(key);
     const pressed = key === 'ALL' ? allCategoriesSelected : isActive;
     return `<button class="filter-button category-filter ${isActive ? 'is-active' : ''}" data-category="${key}" type="button" aria-pressed="${pressed}"><span class="filter-name"><i class="category-swatch ${CATEGORY_COLORS[key] || 'category-all'}" aria-hidden="true"></i><span>${label}</span></span><span>${count}</span></button>`;
   }).join('');
-  $('#category-filters').querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => {
-    const category = button.dataset.category;
-    if (category === 'ALL') {
-      state.categories = [];
-    } else if (state.categories.includes(category)) {
-      state.categories = state.categories.filter((value) => value !== category);
-    } else {
-      state.categories = [...state.categories, category];
-    }
-    saveFilterPreferences(); render();
-  }));
 }
 
 function renderSources(models) {
   const counts = {};
+  const articles = new Map();
   models.forEach((topic) => {
-    topic.articles.forEach((article) => {
-      const source = article.source_name || 'Nieznane źródło';
-      const entry = counts[source] || { articles: 0 };
-      entry.articles += 1;
-      counts[source] = entry;
-    });
+    topic.articles.forEach(article => articles.set(article.article_id, article));
+  });
+  articles.forEach(article => {
+    const source = article.source_name || 'Nieznane źródło';
+    const entry = counts[source] || { articles: 0 };
+    entry.articles += 1;
+    counts[source] = entry;
   });
   const sources = Object.entries(counts)
     .sort(([nameA, a], [nameB, b]) => (b.articles - a.articles) || nameA.localeCompare(nameB, 'pl'));
@@ -1054,7 +1143,10 @@ function renderSources(models) {
     const relativeShare = Math.round(count.articles / maxArticles * 100);
     const articleLabel = count.articles === 1 ? 'artykuł' : (count.articles < 5 ? 'artykuły' : 'artykułów');
     return `<div class="source-row"><span>${escapeHtml(source)}</span><small>${count.articles} ${articleLabel}</small><div class="source-bar"><i style="width:${relativeShare}%"></i></div></div>`;
-  }).join('') : '<span class="muted">Brak danych</span>';
+  }).join('') : '<span class="muted">Brak źródeł dla obecnego widoku.</span>';
+  $('#visible-edition-counts').textContent = `${topicCountLabel(models.length)} · ${articleCountLabel(articles.size)}`;
+  $('#visible-source-count').textContent = sourceCountLabel(sources.length);
+  $('#sources-summary').textContent = `${sourceCountLabel(sources.length)} · ${articleCountLabel(articles.size)}`;
 }
 
 function categoryBadges(categories, className = '') {
@@ -1329,23 +1421,23 @@ function openTopic(topicId) {
   if (loading) void fillTopicDialog(topicId);
 }
 
-function filteredModels(allModels = allTopicModels(), { categorySelection = state.categories } = {}) {
-  const query = state.search.trim().toLowerCase();
+function filteredModels(allModels = allTopicModels(), { filters = state, categorySelection = filters.categories } = {}) {
+  const query = filters.search.trim().toLowerCase();
   return allModels.filter((topic) => {
     if (!topic.hasAggregation || hasCyrillicTitle(topic.title || topic.headline_pl)) return false;
-    if (state.view === 'current' && !topic.isCurrent) return false;
-    if (state.view === 'historical' && topic.isCurrent) return false;
-    if (state.view === 'saved' && !isTopicBookmarked(topic)) return false;
-    if (state.hideRead && isTopicRead(topic)) return false;
-    if (state.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === state.profile)) return false;
-    if (!matchesCategories(topic, categorySelection)) return false;
+    if (filters.view === 'current' && !topic.isCurrent) return false;
+    if (filters.view === 'historical' && topic.isCurrent) return false;
+    if (filters.view === 'saved' && !isTopicBookmarked(topic)) return false;
+    if (filters.hideRead && isTopicRead(topic)) return false;
+    if (filters.profile !== 'ALL' && !topic.articles.some((article) => (article.source_profile || 'UNCLASSIFIED') === filters.profile)) return false;
+    if (!matchesCategories(topic, categorySelection, filters.categoryMatch)) return false;
     if (query && !topic.searchText.includes(query)) return false;
     return true;
   }).sort((a, b) => {
-    if (state.sort === 'articles') {
+    if (filters.sort === 'articles') {
       return (b.articles.length - a.articles.length) || new Date(b.newestArticleAt) - new Date(a.newestArticleAt);
     }
-    if (state.sort === 'sources') {
+    if (filters.sort === 'sources') {
       return (b.sourceCount - a.sourceCount) || new Date(b.newestArticleAt) - new Date(a.newestArticleAt);
     }
     return new Date(b.newestArticleAt) - new Date(a.newestArticleAt);
@@ -1361,8 +1453,8 @@ function render({ searchOnly = false } = {}) {
   }
   // Category facets use the same tab/read/search/profile filters, while
   // category selection is applied by categoryCounts according to ANY/ALL.
-  renderProfiles(models);
-  renderCategories(filteredModels(preparedModels, { categorySelection: [] }));
+  renderFilterPanel(preparedModels);
+  renderActiveFilters();
   renderSources(models);
   $('#result-count').textContent = topicCountLabel(models.length);
   $('#results-heading').textContent = state.view === 'historical'
@@ -1440,6 +1532,26 @@ async function init() {
 }
 
 document.addEventListener('click', (event) => {
+  const categoryButton = event.target.closest('#category-filters [data-category]');
+  const profileButton = event.target.closest('#profile-filters [data-profile]');
+  const matchButton = event.target.closest('[data-category-match]');
+  if (categoryButton || profileButton || matchButton) {
+    const selector = categoryButton ? `[data-category="${categoryButton.dataset.category}"]`
+      : profileButton ? `[data-profile="${profileButton.dataset.profile}"]`
+      : `[data-category-match="${matchButton.dataset.categoryMatch}"]`;
+    changeDraftFilter(categoryButton ? 'category' : profileButton ? 'profile' : 'match',
+      categoryButton?.dataset.category || profileButton?.dataset.profile || matchButton?.dataset.categoryMatch);
+    $('#filters-dialog').querySelector(selector)?.focus({ preventScroll: true });
+    return;
+  }
+  const removedFilter = event.target.closest('[data-remove-filter]');
+  if (removedFilter) {
+    removeAppliedFilter(removedFilter.dataset.removeFilter, removedFilter.dataset.filterValue);
+    $('#filters-button').focus({ preventScroll: true }); return;
+  }
+  if (event.target.closest('[data-clear-filters]')) {
+    clearAppliedFilters(); $('#filters-button').focus({ preventScroll: true }); return;
+  }
   const retryDetails = event.target.closest('[data-retry-topic-details]');
   if (retryDetails) {
     event.preventDefault(); const id = retryDetails.dataset.retryTopicDetails;
@@ -1485,13 +1597,49 @@ document.addEventListener('click', (event) => {
     return;
   }
   const viewButton = event.target.closest('[data-view]');
-  if (viewButton) { state.view = viewButton.dataset.view; saveFilterPreferences(); document.querySelectorAll('[data-view]').forEach((button) => button.classList.toggle('is-active', button === viewButton)); render(); }
+  if (viewButton) {
+    state.view = viewButton.dataset.view; saveFilterPreferences();
+    document.querySelectorAll('[data-view]').forEach((button) => {
+      button.classList.toggle('is-active', button === viewButton);
+      button.setAttribute('aria-selected', String(button === viewButton));
+    }); render();
+  }
   if (event.target === $('#story-dialog')) $('#story-dialog').close();
 });
 
-document.querySelectorAll('[data-category-match]').forEach(button => button.addEventListener('click', () => {
-  state.categoryMatch = button.dataset.categoryMatch; saveFilterPreferences(); syncFilterControls(); render();
-}));
+$('#filters-button').addEventListener('click', openFilters);
+$('#filters-close').addEventListener('click', () => $('#filters-dialog').close());
+$('#filters-apply').addEventListener('click', applyFilters);
+$('#filters-reset').addEventListener('click', () => {
+  filterDraft = defaultFilterSelection(); renderFilterPanel();
+});
+$('#filter-hide-read').addEventListener('change', event => changeDraftFilter('read', event.target.checked));
+$('#sources-button').addEventListener('click', () => {
+  renderSources(filteredModels()); openSheet('#sources-dialog', '#sources-button');
+});
+$('#sources-close').addEventListener('click', () => $('#sources-dialog').close());
+for (const [dialogId, buttonId] of [['#filters-dialog', '#filters-button'], ['#sources-dialog', '#sources-button']]) {
+  const dialog = $(dialogId);
+  dialog.addEventListener('close', () => {
+    if (dialogId === '#filters-dialog') filterDraft = null;
+    $(buttonId).setAttribute('aria-expanded', 'false');
+    $(buttonId).focus({ preventScroll: true });
+  });
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const bounds = dialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+  });
+  dialog.addEventListener('keydown', event => {
+    if (event.key !== 'Tab') return;
+    const controls = [...dialog.querySelectorAll('button, input, select, summary, a[href], [tabindex]')]
+      .filter(control => !control.disabled && control.tabIndex >= 0 && control.getClientRects().length);
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
+}
 
 $('#search-input').addEventListener('input', (event) => { state.search = event.target.value; syncSearchClearButton(); saveFilterPreferences(); scheduleSearchRender(); });
 $('#search-clear')?.addEventListener('click', () => {
