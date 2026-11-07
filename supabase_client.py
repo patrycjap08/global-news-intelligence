@@ -44,12 +44,13 @@ def _retry_delay_seconds(status, headers, detail, attempt):
 
 
 class SupabaseError(RuntimeError):
-    def __init__(self, message, *, http_status=None, retryable=False, retry_after=None, attempts=1):
+    def __init__(self, message, *, http_status=None, retryable=False, retry_after=None, attempts=1, api_code=None):
         super().__init__(message)
         self.http_status = http_status
         self.retryable = retryable
         self.retry_after = retry_after
         self.attempts = attempts
+        self.api_code = api_code
 
 
 class SupabaseRestClient:
@@ -70,6 +71,7 @@ class SupabaseRestClient:
         params: Iterable[tuple[str, str]] | None = None,
         payload: Any = None,
         prefer: str = "return=minimal",
+        retry_statement_timeouts: bool = True,
     ) -> Any:
         url = f"{self.rest_url}/{path.lstrip('/')}"
         if params:
@@ -95,12 +97,19 @@ class SupabaseRestClient:
                     return json.loads(raw.decode("utf-8"))
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", errors="replace")[:2000]
+                try:
+                    parsed = json.loads(detail)
+                    api_code = parsed.get("code") if isinstance(parsed, dict) else None
+                except ValueError:
+                    api_code = None
                 retryable = exc.code in RETRYABLE_HTTP_STATUSES
                 delay = _retry_delay_seconds(exc.code, exc.headers, detail, attempt) if retryable else None
-                if not retryable or attempt + 1 >= self.request_retries or delay > MAX_RETRY_WAIT_SECONDS:
+                resize_page = api_code == "57014" and not retry_statement_timeouts
+                if not retryable or resize_page or attempt + 1 >= self.request_retries or delay > MAX_RETRY_WAIT_SECONDS:
                     raise SupabaseError(
                         f"Supabase {method} {path} HTTP {exc.code} (próby: {attempt + 1}): {detail}",
                         http_status=exc.code, retryable=retryable, retry_after=delay, attempts=attempt + 1,
+                        api_code=api_code,
                     ) from exc
                 log("DB", f"Supabase {method} {path}: HTTP {exc.code}, próba {attempt + 1}/{self.request_retries}; "
                     f"ponawiam za {delay:g} s.", level="WARN")
@@ -138,6 +147,13 @@ class SupabaseRestClient:
         return result if isinstance(result, list) else []
 
     def select_all(self, table: str, *, columns: str = "*", filters: Iterable[tuple[str, str]] = ()) -> list[dict[str, Any]]:
+        filters = tuple(filters)
+        # The startup snapshot needs the entire article archive, including
+        # bodies. Avoid repeatedly scanning/skipping preceding rows with OFFSET.
+        # Scoped queries and other orderings retain their established behavior.
+        if (table == "articles" and filters == (("order", "article_id.asc"),)
+                and (columns == "*" or "article_id" in columns.split(","))):
+            return self._select_article_archive(columns)
         rows: list[dict[str, Any]] = []
         offset = 0
         while True:
@@ -146,6 +162,48 @@ class SupabaseRestClient:
             if len(page) < 1000:
                 return rows
             offset += len(page)
+
+    def _select_article_archive(self, columns: str) -> list[dict[str, Any]]:
+        """Read complete full-text pages using the existing article primary key.
+
+        A 57014 response retries the same cursor with a smaller page, never
+        skips records or returns a partial archive. Other failures retain the
+        normal request retry policy. Do not infer EOF from a short page: the
+        project's configured API row cap may be below our requested page size.
+        """
+        page_size = max(1, min(1000, int(os.environ.get("SUPABASE_ARTICLE_READ_PAGE_SIZE", "250"))))
+        rows: list[dict[str, Any]] = []
+        after = None
+        pages = 0
+        log("DB", f"Artykuły: pobieram pełne dane w paczkach do {page_size}, według article_id, bez OFFSET.")
+        while True:
+            params = [("select", columns), ("order", "article_id.asc"), ("limit", str(page_size))]
+            if after is not None:
+                params.append(("article_id", "gt." + after))
+            try:
+                page = self.request("GET", "articles", params=params, retry_statement_timeouts=False)
+            except SupabaseError as exc:
+                if exc.api_code != "57014" or page_size == 1:
+                    raise
+                previous_size = page_size
+                page_size = max(1, page_size // 2)
+                log("DB", f"Artykuły: timeout SQL 57014; zmniejszam paczkę z {previous_size} do {page_size}. "
+                    f"Kontynuuję po {len(rows)} odczytanych rekordach, bez pomijania danych.", level="WARN")
+                continue
+            if not isinstance(page, list):
+                raise SupabaseError("Supabase GET articles: niepoprawna odpowiedź; oczekiwano listy rekordów.")
+            if not page:
+                return rows
+            ids = [row.get("article_id") if isinstance(row, dict) else None for row in page]
+            if (any(not isinstance(key, str) or not key for key in ids)
+                    or ids != sorted(set(ids)) or (after is not None and ids[0] <= after)):
+                raise SupabaseError("Supabase GET articles: niepoprawna kolejność lub identyfikatory rekordów; "
+                                    "nie można potwierdzić kompletności archiwum.")
+            rows.extend(page)
+            after = ids[-1]
+            pages += 1
+            if pages % 20 == 0:
+                log("DB", f"Artykuły: odczytano {len(rows)} pełnych rekordów, paczek: {pages}.")
 
     def upsert(self, table: str, rows: list[dict[str, Any]], *, on_conflict: str) -> None:
         if not rows:

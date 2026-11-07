@@ -299,3 +299,10 @@ tytułu dostają krótką regułę językową zamiast instrukcji tworzenia tytu�
 Pozostałe instrukcje oraz walidacje nie zostały skrócone. Zmiana nie unieważnia
 cache ekstrakcji i nie uruchamia ponownego opracowania opublikowanych syntez.
 Szczegóły: [przegląd v90](AI_REQUEST_OPTIMIZATION_20261106.md).
+
+Początkowy odczyt pełnego archiwum artykułów z Supabase korzysta z istniejącego
+klucza `article_id` i paczek do 250 rekordów, bez rosnącego `OFFSET`. Timeout SQL
+`57014` zmniejsza paczkę i ponawia odczyt od tego samego miejsca. Pełne treści
+i kompletność danych do deduplikacji oraz AI są zachowane. Trwały błąd nadal
+zatrzymuje przebieg przed pobieraniem i AI. Szczegóły:
+[odczyt artykułów z Supabase](SUPABASE_ARTICLE_READ_REVIEW_20261107.md).

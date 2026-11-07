@@ -79,12 +79,17 @@ class SummaryInputCompletenessTests(unittest.TestCase):
     def test_initial_pull_uses_stable_pagination_for_more_than_one_page(self):
         rows = [source_row(f'a{i:04}') for i in range(1001)]
         class PagedClient(SupabaseRestClient):
-            def select(self, table, *, columns='*', filters=(), limit=1000, offset=0, order=None):
+            def request(self, method, table, *, params=(), **kwargs):
                 if table != 'articles':
                     return []
+                query = dict(params)
+                limit = int(query.get('limit', 1000))
+                offset = int(query.get('offset', 0))
                 # Unordered LIMIT/OFFSET is allowed to return a different
                 # ordering on the next page, repeating a row and losing one.
-                current = rows if dict(filters).get('order') == 'article_id.asc' or offset == 0 else rows[::-1]
+                current = rows if query.get('order') == 'article_id.asc' or offset == 0 else rows[::-1]
+                if query.get('article_id', '').startswith('gt.'):
+                    current = [row for row in current if row['article_id'] > query['article_id'][3:]]
                 return copy.deepcopy(current[offset:offset + limit])
         client = PagedClient('https://example.invalid', 'test-only')
         pull_state(self.db, client)

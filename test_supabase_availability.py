@@ -107,10 +107,11 @@ class SupabaseAvailabilityTests(unittest.TestCase):
         self.assertTrue(failed.exception.retryable)
 
     def test_failed_initial_pull_stops_before_harvesting_ai_writes_and_export(self):
-        for status in (401, 522):
+        for status in (401, 500, 522):
             with self.subTest(status=status), TemporaryDirectory() as folder:
                 output = Path(folder) / "output"
-                error = db.SupabaseError("Supabase GET sources HTTP " + str(status), http_status=status, retryable=status == 522)
+                error = db.SupabaseError("Supabase GET articles HTTP " + str(status), http_status=status,
+                                        retryable=status != 401, api_code="57014" if status == 500 else None)
                 with patch("sys.argv", ["news_pipeline.py", "--ai-only", "--db", str(Path(folder) / "db")]), \
                      patch.dict(os.environ, {"GITHUB_OUTPUT": str(output)}), \
                      patch.object(pipeline, "SupabaseRestClient"), \
